@@ -1,0 +1,172 @@
+<!doctype html>
+<!-- The Time Machine GitHub pages theme was designed and developed by Jon Rohan, on Feb 7, 2012. -->
+<!-- Follow him for fun. http://twitter.com/jonrohan. Tail his code on https://github.com/jonrohan -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+  <link rel="stylesheet" href="stylesheets/stylesheet.css" media="screen">
+  <link rel="stylesheet" href="stylesheets/github-dark.css">
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+  <script type="text/javascript" src="javascripts/script.js"></script>
+
+  <title>Mmvt</title>
+  <meta name="description" content="The Multi-Modality Visualization Tool (MMVT) is built for researchers who wish to have a better understanding of their neuroimaging anatomical and spatio-temporal data">
+
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+</head>
+
+<body>
+
+  <div class="wrapper">
+    <header>
+      <h1 class="title">Mmvt</h1>
+    </header>
+    <div id="container">
+      <p class="tagline">The Multi-Modality Visualization Tool (MMVT) is built for researchers who wish to have a better understanding of their neuroimaging anatomical and spatio-temporal data</p>
+      <div id="main" role="main">
+        <div class="download-bar">
+        <div class="inner">
+          <a href="https://github.com/pelednoam/mmvt/tarball/master" class="download-button tar"><span>Download</span></a>
+          <a href="https://github.com/pelednoam/mmvt/zipball/master" class="download-button zip"><span>Download</span></a>
+          <a href="https://github.com/pelednoam/mmvt" class="code">View Mmvt on GitHub</a>
+        </div>
+        <span class="blc"></span><span class="trc"></span>
+        </div>
+        <article class="markdown-body">
+          <p><img src="misc/mmvt_logo.jpg" align="right"></p>
+
+<h2>
+<a id="multi-modality-visualization-tool" class="anchor" href="#multi-modality-visualization-tool" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Multi-Modality Visualization Tool</h2>
+
+<p>The visualization and exploration of neuroimaging data is
+important for the analysis of anatomical and functional images and
+statistical parametric maps. While two-dimensional orthogonal views of
+neuroimaging data are used to display activity and statistical analysis,
+real three-dimensional (3d) depictions are helpful for showing the spatial
+distribution of a functional network, as well as its temporal evolution.
+For our best knowledge, currently there is no neuroimaging 3d tool which
+can visualize both MEG, fMRI and invasive electrodes (ECOG, depth
+electrodes, DBS,  etc.). Here we present the multi-modality
+visualization tool (MMVT). The tool was built for researchers who wish to
+have a better understanding of their neuroimaging anatomical and functional
+data. The true power of the tool is by visualizing and analyzing data from
+multi-modalities. MMVT is built as two separated modules: The first is
+implemented as an add-on in 'Blender”, an open-source 3d visualization
+software. The add-on is an interactive graphic interface which enable to
+visualize functional and statistical data (MEG and/or fMRI) on the cortex
+and subcortical surfaces, invasive electrodes activity and so on. The tool
+can also be used for a better 3d visualization of the anatomical data and
+the invasive electrodes locations. The other module is a standalone
+software, for importing and preprocessing. The users can select the data
+they want to import to Blender and how they want to process it. The module
+support many types of analyzed data, like FsFast (FreeSurfer Functional
+Analysis Stream) and SPM (Statistical Parametric Mapping) for fMRI, MNE (a
+software package for processing MEG and EEG) raw data for MEG and
+FieldTrip (MATLAB software toolbox for neuroimaging analysis) data
+structures for the invasive electrodes. The users can also reprocess raw
+data using a wrappers for FaFast and mne-python (a python package for
+sensor and source-space analysis of MEG and EEG data).</p>
+
+<h2>
+<a id="videos" class="anchor" href="#videos" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Videos</h2>
+
+<p><img src="resources/MEG-ttest.gif" alt="Example" title="spatial and temporal ttest result of MEG activation">
+<img src="resources/meg-electrodes-coherence.gif" alt="Example" title="MEG &amp; Electrodes &amp; Coherence"></p>
+
+<h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Installation</h2>
+
+<ul>
+<li><a href="https://docs.google.com/document/d/1a3fo0sGuff7CadYNbh06Xrx4whcebrPo7K2xxXGpqA4/edit?usp=sharing">Linux installtion</a></li>
+<li><a href="https://docs.google.com/document/d/1uUCgElXcY884qb-vZ4EZGqLPbRWZH7ni6qVPQbkwXn8/edit?usp=sharing">Windows installtion</a></li>
+</ul>
+
+<p>After the installation, you'll enter the yet-not-documented territory. please contact me: <a href="mailto:npeled@mgh.harvard.edu">npeled@mgh.harvard.edu</a></p>
+
+<p>The tool itself, can run on windows, mac and linux. If you want to connect it to freeview, you'll need to run it only on freesurfer compatible os, meaning linux and mac.
+Also in the preprocessing tool there are few call to freesurfer, so mainly to create the anatomy files you'll need a os with freesurfer.
+Beside of that, you can use the tool also on windows.</p>
+
+<h2>
+<a id="contributors" class="anchor" href="#contributors" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Contributors</h2>
+
+<ul>
+<li>Ohad Felsenstein (<a href="mailto:ohadfel@gmail.com">ohadfel@gmail.com</a>)</li>
+<li>Noam Peled (<a href="mailto:npeled@mgh.harvard.edu">npeled@mgh.harvard.edu</a>)</li>
+</ul>
+
+<h2>
+<a id="acknowledgments" class="anchor" href="#acknowledgments" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Acknowledgments</h2>
+
+<p>This tool is being developed as part of the <a href="https://transformdbs.partners.org/">Transform DBS project</a>.
+It's sponsored by:</p>
+
+<ul>
+<li>The U.S. Army Research Office and Defense Advanced Research Projects Agency under Cooperative Agreement Number W911NF-14-2-0045. </li>
+<li>The NCRR (S10RR014978) and NIH (S10RR031599,R01-NS069696, 5R01-NS060918, U01MH093765)</li>
+</ul>
+
+<h2>
+<a id="licensing" class="anchor" href="#licensing" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Licensing</h2>
+
+<p>MMVT is <strong>BSD-licenced</strong> (3 clause):</p>
+
+<pre><code>This software is OSI Certified Open Source Software.
+OSI Certified is a certification mark of the Open Source Initiative.
+
+Copyright (c) 2016, authors of MMVT
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the names of MMVT authors nor the names of any
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+**This software is provided by the copyright holders and contributors
+"as is" and any express or implied warranties, including, but not
+limited to, the implied warranties of merchantability and fitness for
+a particular purpose are disclaimed. In no event shall the copyright
+owner or contributors be liable for any direct, indirect, incidental,
+special, exemplary, or consequential damages (including, but not
+limited to, procurement of substitute goods or services; loss of use,
+data, or profits; or business interruption) however caused and on any
+theory of liability, whether in contract, strict liability, or tort
+(including negligence or otherwise) arising in any way out of the use
+of this software, even if advised of the possibility of such
+damage.**
+</code></pre>
+        </article>
+      </div>
+    </div>
+    <footer>
+      <div class="owner">
+      <p><a href="https://github.com/pelednoam" class="avatar"><img src="https://avatars3.githubusercontent.com/u/1643819?v=3&amp;s=60" width="48" height="48"></a> <a href="https://github.com/pelednoam">pelednoam</a> maintains <a href="https://github.com/pelednoam/mmvt">Mmvt</a></p>
+
+
+      </div>
+      <div class="creds">
+        <small>This page generated using <a href="https://pages.github.com/">GitHub Pages</a><br>theme by <a href="https://twitter.com/jonrohan/">Jon Rohan</a></small>
+      </div>
+    </footer>
+  </div>
+  <div class="current-section">
+    <a href="#top">Scroll to top</a>
+    <a href="https://github.com/pelednoam/mmvt/tarball/master" class="tar">tar</a><a href="https://github.com/pelednoam/mmvt/zipball/master" class="zip">zip</a><a href="" class="code">source code</a>
+    <p class="name"></p>
+  </div>
+
+  
+</body>
+</html>
