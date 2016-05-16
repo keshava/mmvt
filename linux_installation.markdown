@@ -2,18 +2,7 @@
 title: This will be used as the title-tag of the page head
 layout: default
 ---
-  <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="MMVT : The Multi-Modality Visualization Tool (MMVT) is built for researchers who wish to have a better understanding of their neuroimaging anatomical and spatio-temporal data">
-
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-
-    <title>MMVT</title>
-  </head>
-  <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-
+ 
 ## MMVT Linux Installation
 
 1. Install [Blender](https://www.blender.org/download/)
@@ -42,6 +31,3 @@ layout: default
 5. Create a script to run blender. An example can be found [here](https://github.com/pelednoam/mmvt/blob/master/misc/launch_blender). 
 Run this launcher from the terminal (you can add a shortcut to the desktop / panel). 
 This way you’ll be able to see all the warnings / error messages.
-
-      </section>
-  </div>
