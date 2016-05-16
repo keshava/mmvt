@@ -11,6 +11,8 @@ layout: default
 
     <title>MMVT</title>
   </head>
+  <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
 
 ## MMVT Linux Installation
 
