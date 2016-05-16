@@ -6,8 +6,8 @@ layout: default
 1. Install [Blender](https://www.blender.org/download/)
 2. If you’re planning to use the preprocessing step:
     1. You should have a python 3.4+ installation. My recommendation is to install [Anaconda](https://www.continuum.io/downloads) with python 3.5. After the installation, make sure pip is anaconda pip (which pip), and install the following packages:
-       * pip install mne –upgrade
-       * pip install pip install nibabel
+       * ``pip install mne –upgrade``
+       * ``pip install pip install nibabel``
     2. Install the dev version of freesurfer from [here](ftp://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/dev). If you have access to the Martinos center cluster, you should just source the dev version:
        source /usr/local/freesurfer/nmr-dev-env
 3. Clone the mmvt (first install git if you don’t have it):
