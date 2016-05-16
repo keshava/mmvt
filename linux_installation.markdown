@@ -2,7 +2,7 @@
 title: This will be used as the title-tag of the page head
 layout: default
 ---
- 
+<div class="blurb"> 
 ## MMVT Linux Installation
 
 1. Install [Blender](https://www.blender.org/download/)
@@ -31,3 +31,5 @@ layout: default
 5. Create a script to run blender. An example can be found [here](https://github.com/pelednoam/mmvt/blob/master/misc/launch_blender). 
 Run this launcher from the terminal (you can add a shortcut to the desktop / panel). 
 This way you’ll be able to see all the warnings / error messages.
+
+</div><!-- /.blurb -->
