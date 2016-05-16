@@ -42,3 +42,6 @@ layout: default
 5. Create a script to run blender. An example can be found [here](https://github.com/pelednoam/mmvt/blob/master/misc/launch_blender). 
 Run this launcher from the terminal (you can add a shortcut to the desktop / panel). 
 This way you’ll be able to see all the warnings / error messages.
+
+      </section>
+  </div>
