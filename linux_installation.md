@@ -1,8 +1,7 @@
 ---
-title: This will be used as the title-tag of the page head
 layout: default
+title: MMVT Linux Installation
 ---
-
 ## MMVT Linux Installation
 
 1. Install [Blender](https://www.blender.org/download/)
