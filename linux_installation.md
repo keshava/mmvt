@@ -1,8 +1,6 @@
 ---
 layout: installation
 title: MMVT Linux Installation
-installation-attribution: Linux
-installation-attribution-link: http://www.opensourcefood.com/people/HungryJenny/recipes/soft-christmas-gingerbread-cookies
 ---
 1. Install [Blender](https://www.blender.org/download/)
 2. If you’re planning to use the preprocessing step:
