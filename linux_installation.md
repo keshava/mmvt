@@ -4,8 +4,6 @@ title: MMVT Linux Installation
 installation-attribution: Linux
 installation-attribution-link: http://www.opensourcefood.com/people/HungryJenny/recipes/soft-christmas-gingerbread-cookies
 ---
-## MMVT Linux Installation
-
 1. Install [Blender](https://www.blender.org/download/)
 2. If you’re planning to use the preprocessing step:
     1. You should have a python 3.4+ installation. My recommendation is to install [Anaconda](https://www.continuum.io/downloads) with python 3.5. After the installation, 
