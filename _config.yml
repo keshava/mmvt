@@ -1,3 +1,4 @@
-name: Hank Quinlan, Horrible Cop
+name: MMVT
 markdown: kramdown
-permalink: /blog/:year/:month/:day/:title
+pygments: true
+baseurl: /index.html
