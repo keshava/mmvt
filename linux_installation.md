@@ -1,6 +1,7 @@
 ---
 layout: installation
 title: MMVT Linux Installation
+image: http://farm4.staticflickr.com/3121/3117777526_6399dc0e08_q.jpg
 ---
 1. Install [Blender](https://www.blender.org/download/)
 2. If you’re planning to use the preprocessing step:
