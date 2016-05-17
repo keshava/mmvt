@@ -1,6 +1,8 @@
 ---
-layout: default
+layout: installation
 title: MMVT Linux Installation
+installation-attribution: Linux
+installation-attribution-link: http://www.opensourcefood.com/people/HungryJenny/recipes/soft-christmas-gingerbread-cookies
 ---
 ## MMVT Linux Installation
 
