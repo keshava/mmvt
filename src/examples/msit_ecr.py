@@ -596,10 +596,13 @@ def post_analysis(args):
                 power_fname = op.join(
                     res_fol, subject, '{}_labels_{}_{}_{}_power.npz'.format(task.lower(), inv_method, em, band))
                 if op.isfile(power_fname):
-                    d = utils.Bag(np.load(power_fname))
-                    mean_power_power_task[task][band].append(d.data.mean())
-                    for label_id, label in enumerate(d.names):
-                        power_task[task][band][label].append(d.data[label_id].mean())
+                    try:
+                        d = utils.Bag(np.load(power_fname))
+                        mean_power_power_task[task][band].append(d.data.mean())
+                        for label_id, label in enumerate(d.names):
+                            power_task[task][band][label].append(d.data[label_id].mean())
+                    except:
+                        print('Can\'t open {}!'.format(power_fname))
 
     # for group_id in range(2):
     #     for task in args.tasks:
