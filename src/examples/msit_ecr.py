@@ -628,13 +628,16 @@ def post_analysis(args):
     do_plot = False
     percentile = 90
     alpha = 0.05
+    print(args.tasks)
     for band in bands.keys():
 
         x = [np.array(mean_power_power_task[task][band]) for task in args.tasks]
+        x[0][np.where(np.isnan(x[0]))] = 0
+        x[1][np.where(np.isnan(x[1]))] = 0
         x[0] = x[0][x[0] < np.percentile(x[0], percentile)]
         x[1] = x[1][x[1] < np.percentile(x[1], percentile)]
-        sig = ttest(x[0], x[1], title='MSIT vs ECR band {}'.format(band), alpha=alpha, always_print=False)
-        if do_plot or sig:
+        sig = ttest(x[0], x[1], title='MSIT vs ECR band {}'.format(band), alpha=alpha, always_print=True)
+        if do_plot: # or sig:
             f, (ax1, ax2) = plt.subplots(2, 1)
             ax1.hist(x[0], bins=80)
             ax1.set_title('{} {}'.format(band, args.tasks[0]))
@@ -644,18 +647,18 @@ def post_analysis(args):
             plt.show()
             # plt.savefig(op.join(plot_fol, '{}_group_{}.jpg'.format(band, group_id)))
 
-        for label_id, label in enumerate(d.names):
-            x = [np.array(power_task[task][band][label]) for task in args.tasks]
-            x[0] = x[0][x[0] < np.percentile(x[0], percentile)]
-            x[1] = x[1][x[1] < np.percentile(x[1], percentile)]
-            sig = ttest(x[0], x[1], alpha=alpha, title='band {} label {}'.format(band, label))
-            if do_plot or sig:
-                f, (ax1, ax2) = plt.subplots(2, 1)
-                ax1.hist(x[0], bins=80)
-                ax2.hist(x[1], bins=80)
-                plt.title('{} mean power'.format(band))
-                plt.show()
-                # plt.savefig(op.join(plot_fol, '{}_group_{}.jpg'.format(band, group_id)))
+        # for label_id, label in enumerate(d.names):
+        #     x = [np.array(power_task[task][band][label]) for task in args.tasks]
+        #     x[0] = x[0][x[0] < np.percentile(x[0], percentile)]
+        #     x[1] = x[1][x[1] < np.percentile(x[1], percentile)]
+        #     sig = ttest(x[0], x[1], alpha=alpha, title='band {} label {}'.format(band, label))
+        #     if do_plot: # or sig:
+        #         f, (ax1, ax2) = plt.subplots(2, 1)
+        #         ax1.hist(x[0], bins=80)
+        #         ax2.hist(x[1], bins=80)
+        #         plt.title('{} mean power'.format(band))
+        #         plt.show()
+        #         # plt.savefig(op.join(plot_fol, '{}_group_{}.jpg'.format(band, group_id)))
 
 
         continue
@@ -831,10 +834,17 @@ if __name__ == '__main__':
     args = utils.Bag(au.parse_parser(parser))
 
     if args.subject[0] == 'all':
-        args.subject = utils.shuffle(
-            [utils.namebase(d) for d in glob.glob(op.join(args.meg_dir, '*')) if op.isdir(d) and
-             op.isfile(op.join(d, args.epo_template.format(subject=utils.namebase(d), task='ECR'))) and
-             op.isfile(op.join(d, args.epo_template.format(subject=utils.namebase(d), task='MSIT')))])
+        if args.function == 'post_analysis':
+            res_fol = op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr')
+            args.subject = utils.shuffle(
+                [utils.namebase(d) for d in glob.glob(op.join(res_fol, '*')) if op.isdir(d) and
+                 op.isfile(op.join(d, 'ecr_labels_dSPM_mean_flip_alpha_power.npz')) and
+                 op.isfile(op.join(d, 'msit_labels_dSPM_mean_flip_alpha_power.npz'))])
+        else:
+            args.subject = utils.shuffle(
+                [utils.namebase(d) for d in glob.glob(op.join(args.meg_dir, '*')) if op.isdir(d) and
+                 op.isfile(op.join(d, args.epo_template.format(subject=utils.namebase(d), task='ECR'))) and
+                 op.isfile(op.join(d, args.epo_template.format(subject=utils.namebase(d), task='MSIT')))])
         print('{} subjects were found with both tasks!'.format(len(args.subject)))
         print(sorted(args.subject))
     elif '*' in args.subject[0]:

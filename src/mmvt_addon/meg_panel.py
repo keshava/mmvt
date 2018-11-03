@@ -156,6 +156,11 @@ def init_meg_sensors():
                 [meg_obj.location * 10 if meg_obj.name.endswith(str(sensor_key)) else (np.inf,np.inf, np.inf)
                  for meg_obj in bpy.data.objects['MEG_sensors'].children])
             MEGPanel.meg_helmet_indices[sensor_type] = np.argmin(cdist(meg_helmet_vets_loc, meg_sensors_loc), axis=1)
+    else:
+        for sensor_type, sensor_key in MEGPanel.meg_sensors_types.items():
+            MEGPanel.meg_helmet_indices[sensor_type] = np.array(
+                [ind for ind, meg_obj in enumerate(bpy.data.objects['MEG_sensors'].children)
+                 if meg_obj.name.endswith(str(sensor_key))])
     return True
 
 
@@ -374,6 +379,9 @@ def color_meg_sensors(threshold=None):
             np.mean(data, axis=2).squeeze()
         _addon().set_colorbar_title('MEG sensors conditions difference')
     names = np.array([obj.name for obj in bpy.data.objects['MEG_sensors'].children])[inds]
+    if threshold > data_max:
+        print('threshold is bigger than data_max ({})! Setting to 0.'.format(data_max))
+        threshold = 0
     _addon().coloring.color_objects_homogeneously(data, names, meta['conditions'], data_min, colors_ratio, threshold)
 
 
@@ -398,6 +406,9 @@ def color_eeg_sensors(threshold=None):
     else:
         if not _addon().colorbar_values_are_locked():
             _addon().set_colorbar_title('EEG sensors conditions difference')
+    if threshold >= data_max:
+        print('Threshold is bigger than data_max ({}), setting to 0.'.format(data_max))
+        threshold = 0
     _addon().coloring.color_objects_homogeneously(
         data, meta['names'], meta['conditions'], data_min, colors_ratio, threshold)
 
@@ -1048,7 +1059,7 @@ class MEGPanel(bpy.types.Panel):
     meg_sensors_types = {'grad1': 1, 'grad2': 2, 'mag': 3} # default for Electa
     eeg_sensors_data_minmax, eeg_sensors_colors_ratio = None, None
     meg_sensors_data_minmax, meg_sensors_colors_ratio = None, None
-    eeg_sensors_data, eeg_sensors_meta, eeg_sensors_data_minmax = {}, {}, None
+    eeg_sensors_data, eeg_sensors_meta_data, eeg_sensors_data_minmax = {}, {}, None
     meg_sensors_data, meg_sensors_meta_data, meg_sensors_data_minmax = {}, {}, None
 
     def draw(self, context):

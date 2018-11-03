@@ -131,10 +131,11 @@ def minimize_graph():
 
 def calc_best_curves_sep(norm_percs=[3, 97]):
     fcurves, data = get_selected_fcurves_and_data()
-    # if data.shape[0] == 1:
-    #     return
-    bpy.context.scene.curves_sep = _calc_best_curves_sep(data, norm_percs)
-    bpy.context.scene.curves_sep += 0.001
+    if data.shape[0] == 1:
+        bpy.context.scene.curves_sep = 0
+    else:
+        bpy.context.scene.curves_sep = _calc_best_curves_sep(data, norm_percs)
+        bpy.context.scene.curves_sep += 0.001
 
 
 def _calc_best_curves_sep(data, norm_percs=[3, 97]):
@@ -266,6 +267,7 @@ def clear_selection():
     if bpy.data.objects.get('Deep_electrodes'):
         for obj in bpy.data.objects['Deep_electrodes'].children:
             obj.active_material.node_tree.nodes["Layer Weight"].inputs[0].default_value = 1
+            _addon().object_coloring(obj, (1, 1, 1, 1))
 
 
 def de_select_object(obj):
@@ -497,7 +499,11 @@ class ClearSelection(bpy.types.Operator):
             bpy.context.scene.objects.active = bpy.data.objects[' ']
         SelectionMakerPanel.selection = []
         try:
-            _addon().clear_electrodes_selection()
+            if bpy.data.objects.get('Deep_electrodes'):
+                for obj in bpy.data.objects['Deep_electrodes'].children:
+                    obj.active_material.node_tree.nodes["Layer Weight"].inputs[0].default_value = 1
+                    _addon().object_coloring(obj, (1, 1, 1, 1))
+            # _addon().clear_electrodes_selection()
         except:
             pass
         try:
