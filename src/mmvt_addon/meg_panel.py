@@ -156,7 +156,7 @@ def init_meg_sensors():
                 [meg_obj.location * 10 if meg_obj.name.endswith(str(sensor_key)) else (np.inf,np.inf, np.inf)
                  for meg_obj in bpy.data.objects['MEG_sensors'].children])
             MEGPanel.meg_helmet_indices[sensor_type] = np.argmin(cdist(meg_helmet_vets_loc, meg_sensors_loc), axis=1)
-    else:
+    elif bpy.data.objects.get('MEG_sensors'):
         for sensor_type, sensor_key in MEGPanel.meg_sensors_types.items():
             MEGPanel.meg_helmet_indices[sensor_type] = np.array(
                 [ind for ind, meg_obj in enumerate(bpy.data.objects['MEG_sensors'].children)

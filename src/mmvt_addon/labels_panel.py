@@ -88,11 +88,11 @@ def plot_labels_data():
 
 
 def labels_data_files_update(self, context):
-    if LabelsPanel.init:
-        labels_data_fname = glob.glob(op.join(mu.get_user_fol(), 'labels', 'labels_data', '{}.*'.format(
-            bpy.context.scene.labels_data_files.replace(' ', '_'))))[0]
-        d, labels, data, atlas, cb_title, labels_max, labels_min, cmap = _load_labels_data(labels_data_fname)
-        _addon().init_labels_colorbar(data, cb_title, labels_max, labels_min, cmap)
+    # if LabelsPanel.init:
+    labels_data_fname = glob.glob(op.join(mu.get_user_fol(), 'labels', 'labels_data', '{}.*'.format(
+        bpy.context.scene.labels_data_files.replace(' ', '_'))))[0]
+    d, labels, data, atlas, cb_title, labels_max, labels_min, cmap = _load_labels_data(labels_data_fname)
+    _addon().init_labels_colorbar(data, cb_title, labels_max, labels_min, cmap)
 
 
 def new_label_r_update(self, context):
@@ -193,7 +193,7 @@ def load_labels_data(labels_data_fname):
         if new_fname != labels_data_fname:
             shutil.copy(labels_data_fname, new_fname)
         # init_labels_data_files()
-    if bpy.context.scene.subject_annot_files != atlas:
+    if atlas in _addon().where_am_i.get_annot_files() and bpy.context.scene.subject_annot_files != atlas:
         bpy.context.scene.subject_annot_files = atlas
     bpy.context.scene.find_closest_label_on_click = True
     _addon().find_closest_label(atlas=atlas, plot_contour=bpy.context.scene.plot_closest_label_contour)
@@ -220,6 +220,7 @@ def _load_labels_data(labels_data_fname):
             return False
     else:
         atlas = str(d.atlas)
+    LabelsPanel.atlas_in_annot_files = atlas in _addon().where_am_i.get_annot_files()
     LabelsPanel.labels_data_atlas = atlas
     labels = [l.replace('.label', '') for l in labels]
     cb_title = str(d.get('title', ''))
@@ -346,11 +347,13 @@ def labels_draw(self, context):
     col.label(text='Cortical labels data:')
     if len(LabelsPanel.labels_data_files) > 0:
         col.prop(context.scene, 'labels_data_files', text='')
-        col.prop(context.scene, 'color_rois_homogeneously', text="Color labels homogeneously")
-        row = col.row(align=True)
-        row.prop(context.scene, 'find_closest_label_on_click', text='Find label on click')
-        if _addon().get_labels_contours() is not None:
-            row.prop(context.scene, 'plot_closest_label_contour', text="Plot label's contour")
+        if LabelsPanel.labels_data_atlas == bpy.context.scene.atlas:
+            col.prop(context.scene, 'color_rois_homogeneously', text="Color labels homogeneously")
+        if LabelsPanel.atlas_in_annot_files:
+            row = col.row(align=True)
+            row.prop(context.scene, 'find_closest_label_on_click', text='Find label on click')
+            if _addon().get_labels_contours() is not None:
+                row.prop(context.scene, 'plot_closest_label_contour', text="Plot label's contour")
         vertex_data = _addon().get_vertex_data()
         if bpy.context.scene.closest_label_output != '' and vertex_data != '' and vertex_data is not None:
             col.label(text='{} ({})'.format(bpy.context.scene.closest_label_output, vertex_data))
@@ -581,6 +584,7 @@ class LabelsPanel(bpy.types.Panel):
     labels_contours = {}
     labels = dict(rh=[], lh=[])
     labels_data_atlas = ''
+    atlas_in_annot_files = False
 
     def draw(self, context):
         if LabelsPanel.init:

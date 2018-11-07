@@ -304,6 +304,8 @@ def meg_preproc_power(args):
                 read_events_from_file=False, stim_channels='STI001',
                 use_empty_room_for_noise_cov=True,
                 read_only_from_annot=False,
+                average_over_label_indices=args.average_over_label_indices,
+                ignore_missing=args.ignore_missing,
                 # pick_ori='normal',
                 overwrite_labels_induced_power=args.overwrite_output_files,
                 overwrite_evoked=args.overwrite,
@@ -517,8 +519,8 @@ def calc_meg_connectivity(args):
                 MMVT_DIR, subject, 'connectivity', '{}_{}_coh_cwt_morlet.npz'.format(task.lower(), em))
             if op.isfile(output_fname):
                 file_mod_time = utils.file_modification_time_struct(output_fname)
-                if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 10 and file_mod_time.tm_mday >= 10) or \
-                        (file_mod_time.tm_mon > 10):
+                if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 11 and file_mod_time.tm_mday >= 6) or \
+                        (file_mod_time.tm_mon > 11):
                     print('{} already exist!'.format(output_fname))
                     continue
 
@@ -629,17 +631,16 @@ def post_analysis(args):
     #                         power_emotion_reactivit[group_id][task][band][label].append(d.data[label_id].mean())
 
     do_plot = False
-    percentile = 90
+    percentile = 95
     alpha = 0.05
+    high_limit_power = 10000
     print(args.tasks)
     for band in bands.keys():
-
+        ttest_stats, ttest_labels, welch_stats, welch_labels = [], [], [], []
         x = [np.array(mean_power_power_task[task][band]) for task in args.tasks]
-        x[0][np.where(np.isnan(x[0]))] = 0
-        x[1][np.where(np.isnan(x[1]))] = 0
-        x[0] = x[0][x[0] < np.percentile(x[0], percentile)]
-        x[1] = x[1][x[1] < np.percentile(x[1], percentile)]
-        sig = ttest(x[0], x[1], title='MSIT vs ECR band {}'.format(band), alpha=alpha, always_print=True)
+        x = clean_power(x, band, percentile, high_limit_power)
+        sig, welch_sig, pval, welch_pval = ttest(
+            x[0], x[1], title='MSIT vs ECR band {}'.format(band), alpha=alpha, always_print=True)
         if do_plot: # or sig:
             f, (ax1, ax2) = plt.subplots(2, 1)
             ax1.hist(x[0], bins=80)
@@ -647,22 +648,29 @@ def post_analysis(args):
             ax2.hist(x[1], bins=80)
             ax2.set_title('{} {}'.format(band, args.tasks[1]))
             # plt.title('{} mean power'.format(band))
-            plt.show()
-            # plt.savefig(op.join(plot_fol, '{}_group_{}.jpg'.format(band, group_id)))
+            # plt.show()
+            plt.savefig(op.join(plot_fol, '{}.jpg'.format(band)))
 
-        # for label_id, label in enumerate(d.names):
-        #     x = [np.array(power_task[task][band][label]) for task in args.tasks]
-        #     x[0] = x[0][x[0] < np.percentile(x[0], percentile)]
-        #     x[1] = x[1][x[1] < np.percentile(x[1], percentile)]
-        #     sig = ttest(x[0], x[1], alpha=alpha, title='band {} label {}'.format(band, label))
-        #     if do_plot: # or sig:
-        #         f, (ax1, ax2) = plt.subplots(2, 1)
-        #         ax1.hist(x[0], bins=80)
-        #         ax2.hist(x[1], bins=80)
-        #         plt.title('{} mean power'.format(band))
-        #         plt.show()
-        #         # plt.savefig(op.join(plot_fol, '{}_group_{}.jpg'.format(band, group_id)))
+        for label_id, label in enumerate(d.names):
+            x = [np.array(power_task[task][band][label]) for task in args.tasks]
+            x = clean_power(x, band, percentile, high_limit_power)
+            sig, welch_sig, pval, welch_pval = ttest(
+                x[0], x[1], alpha=alpha, title='band {} label {}'.format(band, label))
+            if welch_sig:
+                welch_stats.append(pval)
+                welch_labels.append(label)
+            if do_plot:
+                f, (ax1, ax2) = plt.subplots(2, 1)
+                ax1.hist(x[0], bins=80)
+                ax2.hist(x[1], bins=80)
+                plt.title('{} mean power'.format(band))
+                # plt.show()
+                plt.savefig(op.join(plot_fol, '{}_{}.jpg'.format(band, label)))
 
+        labels_data_fol = utils.make_dir(op.join(MMVT_DIR, 'colin27', 'labels', 'labels_data'))
+        np.savez(op.join(labels_data_fol, 'MSIT_ECR_{}.npz'.format(band)), names=np.array(welch_labels),
+                 atlas=args.atlas, data=np.array(welch_stats), title='MSIT vs ECR',
+                 data_min=0, data_max=0.05, cmap='YlOrRd')
 
         continue
         for group_id in range(2): #, ax in zip(range(2), [ax1, ax2]):
@@ -701,16 +709,30 @@ def post_analysis(args):
         # plt.show()
 
 
+def clean_power(x, band, percentile, high_limit_power, do_print=False):
+    for ind in range(2):
+        x[ind] = x[ind][np.where(~np.isnan(x[ind]))]
+        x[ind] = x[ind][np.where(~np.isinf(x[ind]))]
+        x[ind] = x[ind][np.where((x[ind] >= 0))[0]]
+        x[ind] = x[ind][np.where((x[ind] < high_limit_power))[0]]
+        x[ind] = x[ind][x[ind] < np.percentile(x[ind], percentile)]
+    if do_print:
+        print('{} {} ({}): {}-{}, {} ({}): {}-{}'.format(
+            band, args.tasks[0], len(x[0]), np.min(x[0]), np.max(x[0]),
+            args.tasks[1], len(x[1]), np.min(x[1]), np.max(x[1])))
+    return x
+
+
 def ttest(x1, x2, two_tailed_test=True, alpha=0.1, is_greater=True, title='', always_print=False):
     import scipy.stats
     t, pval = scipy.stats.ttest_ind(x1, x2, equal_var=True)
     sig = is_significant(pval, t, two_tailed_test, alpha, is_greater)
     welch_t, welch_pval = scipy.stats.ttest_ind(x1, x2, equal_var=False)
-    welch_sig = is_significant(pval, t, two_tailed_test, alpha, is_greater)
+    welch_sig = is_significant(welch_pval, welch_t, two_tailed_test, alpha, is_greater)
     if sig or welch_sig or always_print:
         print('{}: {:.2f}+-{:.2f}, {:.2f}+-{:.2f}'.format(title, np.mean(x1), np.std(x1), np.mean(x2), np.std(x2)))
         print('test: pval: {:.4f} sig: {}. welch: pval: {:.4f} sig: {}'.format(pval, sig, welch_pval, welch_sig))
-    return sig or welch_sig
+    return sig, welch_sig, pval, welch_pval
 
 
 def is_significant(pval, t, two_tailed_test, alpha=0.05, is_greater=True):
@@ -817,6 +839,8 @@ if __name__ == '__main__':
     parser.add_argument('--check_for_both_files', required=False, default=True, type=au.is_true)
     parser.add_argument('--check_for_channels_inconsistency', required=False, default=1, type=au.is_true)
     parser.add_argument('--max_epochs_num', required=False, default=0, type=int)
+    parser.add_argument('--average_over_label_indices', help='', required=False, default=1, type=au.is_true)
+    parser.add_argument('--ignore_missing', help='ignore missing files', required=False, default=0, type=au.is_true)
 
     parser.add_argument('--remote_root_dir', required=False,
                         default='/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/')

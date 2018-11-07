@@ -626,9 +626,9 @@ def plot_label_psd(psd, freqs, label, cond_name, plots_fol):
 
 
 def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', extract_modes=['mean_flip'],
-        bands=None, max_epochs_num=0, n_cycles=7.0, mri_subject='', epo_fname='', inv_fname='',
-        snr=3.0, pick_ori='normal', apply_SSP_projection_vectors=True,
-        add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True,  epochs=None, overwrite=False, n_jobs=6):
+        bands=None, max_epochs_num=0, average_over_label_indices=True, n_cycles=7.0, mri_subject='', epo_fname='',
+        inv_fname='', snr=3.0, pick_ori='normal', apply_SSP_projection_vectors=True, add_eeg_ref=True,
+        fwd_usingMEG=True, fwd_usingEEG=True,  epochs=None, overwrite=False, n_jobs=6):
 
     if mri_subject == '':
         mri_subject = subject
@@ -654,11 +654,12 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
     # fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg', 'labels'))
     fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
     for (cond_ind, cond_name), em in product(enumerate(events_keys), extract_modes):
+        output_template = op.join(fol, '{}_{}_{}_{}_{}_{}induced_power.npz'.format(
+                cond_name, '{label}', atlas, inverse_method, em, '' if average_over_label_indices else 'vertices_'))
         if not overwrite:
             all_done = True
             for label_ind, label in enumerate(labels):
-                output_fname = op.join(fol, '{}_{}_{}_{}_{}_induced_power.npz'.format(
-                    cond_name, label.name, atlas, inverse_method, em))
+                output_fname = output_template.format(label=label)
                 if not op.isfile(output_fname) or overwrite:
                     all_done = False
                     break
@@ -677,8 +678,7 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
                 epochs.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)) for freqs in bands.values()]
         label_now = time.time()
         for label_ind, label in enumerate(labels):
-            output_fname = op.join(fol, '{}_{}_{}_{}_{}_induced_power.npz'.format(
-                cond_name, label.name, atlas, inverse_method, em))
+            output_fname = output_template.format(label=label)
             if op.isfile(output_fname) and not overwrite:
                 print('calc_labels_induced_power: {} is already calculated'.format(label.name))
                 continue
@@ -692,17 +692,17 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
                 if stc_ind >= epochs_num:
                     break
                 if powers is None:
-                    powers = np.empty((len(bands), epochs_num, stc.shape[1]))
+                    if average_over_label_indices:
+                        powers = np.empty((len(bands), epochs_num, stc.shape[1]))
+                    else:
+                        powers = np.empty((len(bands), epochs_num, stc.shape[0], stc.shape[1]))
                     times = stc.times
 
-                params = [(stc.data, ws[band_ind], band_ind) for band_ind in range(len(bands.keys()))]
+                params = [(stc.data, ws[band_ind], band_ind, average_over_label_indices)
+                          for band_ind in range(len(bands.keys()))]
                 powers_bands = utils.run_parallel(_calc_tfr_cwt_parallel, params, len(bands.keys()))
                 for power_band, band_ind in powers_bands:
                     powers[band_ind, stc_ind] = power_band
-                # for band_ind in range(len(bands.keys())):
-                #     tfr = mne.time_frequency.tfr.cwt(
-                #         stc.data, ws[band_ind], use_fft=False)
-                #     powers[band_ind, stc_ind] = (tfr * tfr.conj()).real.mean((0, 1))  # avg over label vertices and band's freqs
             print('calc_labels_induced_power: Saving results in {}'.format(output_fname))
             np.savez(output_fname, label_name=label.name, atlas=atlas, data=powers, times=times)
             ret = ret and op.isfile(output_fname)
@@ -711,9 +711,13 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
 
 
 def _calc_tfr_cwt_parallel(p):
-    stc_data, ws_band, band_ind = p
+    stc_data, ws_band, band_ind, average_over_label_indices = p
     tfr = mne.time_frequency.tfr.cwt(stc_data, ws_band, use_fft=False)
-    power = (tfr * tfr.conj()).real.mean((0, 1))  # avg over label vertices and band's freqs
+    power = (tfr * tfr.conj()).real
+    if average_over_label_indices:
+        power = power.mean((0, 1))  # avg over label vertices and band's freqs
+    else:
+        power = power.mean(1)
     return power, band_ind
 
 
@@ -4515,8 +4519,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'calc_labels_induced_power' in args.function:
         flags['calc_labels_induced_power'] = calc_labels_induced_power(
             subject, args.atlas, conditions, inverse_method, args.extract_mode, args.bands,
-            args.max_epochs_num, args.cwt_n_cycles, MRI_SUBJECT, args.epo_fname, args.inv_fname,
-            args.snr, args.pick_ori, args.apply_SSP_projection_vectors, args.add_eeg_ref,
+            args.max_epochs_num, args.average_over_label_indices, args.cwt_n_cycles, MRI_SUBJECT, args.epo_fname,
+            args.inv_fname, args.snr, args.pick_ori, args.apply_SSP_projection_vectors, args.add_eeg_ref,
             args.fwd_usingMEG, args.fwd_usingEEG, overwrite=args.overwrite_labels_induced_power, n_jobs=args.n_jobs)
 
     if 'load_fieldtrip_volumetric_data' in args.function:
@@ -4642,6 +4646,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--evoked_flip_positive', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--evoked_moving_average_win_size', help='', required=False, default=0, type=int)
     parser.add_argument('--normalize_evoked', help='', required=False, default=1, type=au.is_true)
+    parser.add_argument('--average_over_label_indices', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--calc_max_min_diff', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--raw_template', help='', required=False, default='*raw.fif')
     parser.add_argument('--eve_template', help='', required=False, default='*eve.fif')
