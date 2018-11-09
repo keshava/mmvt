@@ -52,7 +52,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
     for output_fname in output_files:
         utils.remove_file(output_fname)
 
-    for epochs_fol in epochs_folders:
+    for ind, epochs_fol in enumerate(epochs_folders):
         epo_fnames = glob.glob(op.join(epochs_fol, '*.fif'))
         if len(epo_fnames) != 1:
             print('********* No fif files in {}!!!'.format(epochs_fol))
@@ -65,14 +65,15 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
         # if len(output_files) >= 1:
         #     print('Already calculated for {}'.format(epochs_fol))
         #     continue
+        overwrite_source_bem = args.overwrite_source_bem if ind == 0 else False
 
         meg_args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
             task='rest', inverse_method=inv_method, extract_mode=em, atlas=atlas,
             single_trial_stc=True,
             recreate_src_spacing='ico5',
-            fwd_recreate_source_space=args.overwrite_source_bem,
-            recreate_bem_solution=args.overwrite_source_bem,
+            fwd_recreate_source_space=overwrite_source_bem,
+            recreate_bem_solution=overwrite_source_bem,
             remote_subject_meg_dir=meg_remote_dir,
             remote_subject_dir=remote_subject_dir,
             epo_fname=epo_fname,
