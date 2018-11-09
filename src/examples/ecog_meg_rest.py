@@ -311,10 +311,15 @@ def check_mmvt_file(subject):
 
 
 def main(args):
-    remote_subject_dir = [d for d in [
-        '/autofs/space/megraid_clinical/MEG-MRI/seder/freesurfer/{}'.format(args.subject),
-        '/home/npeled/subjects/{}'.format(args.subject),
-        op.join(SUBJECTS_DIR, args.subject)] if op.isdir(d)][0]
+    import os
+    seder_root = os.environ.get('SEDER_SUBJECT_META', '')
+    if seder_root != '':
+        remote_subject_dir = glob.glob(op.join(seder_root, args.subject, 'freesurfer', '*'))[0]
+    else:
+        remote_subject_dir = [d for d in [
+            '/autofs/space/megraid_clinical/MEG-MRI/seder/freesurfer/{}'.format(args.subject),
+            '/home/npeled/subjects/{}'.format(args.subject),
+            op.join(SUBJECTS_DIR, args.subject)] if op.isdir(d)][0]
     meg_epochs_dir = [d for d in [
         '/autofs/space/karima_002/users/Machine_Learning_Clinical_MEG_EEG_Resting/epochs',
         '/home/npeled/meg/{}'.format(args.subject),
