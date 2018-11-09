@@ -70,8 +70,8 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
             task='rest', inverse_method=inv_method, extract_mode=em, atlas=atlas,
             single_trial_stc=True,
             recreate_src_spacing='ico5',
-            # fwd_recreate_source_space=True,
-            # recreate_bem_solution=True,
+            fwd_recreate_source_space=args.overwrite_source_bem,
+            recreate_bem_solution=args.overwrite_source_bem,
             remote_subject_meg_dir=meg_remote_dir,
             remote_subject_dir=remote_subject_dir,
             epo_fname=epo_fname,
@@ -310,7 +310,6 @@ def check_mmvt_file(subject):
     plt.show()
 
 
-
 def main(args):
     remote_subject_dir = [d for d in [
         '/autofs/space/megraid_clinical/MEG-MRI/seder/freesurfer/{}'.format(args.subject),
@@ -386,6 +385,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--subject', help='subject name', required=False, default='nmr00479')
     parser.add_argument('-nmr', '--nmr', help='subject name', required=False, default='4994627')
     parser.add_argument('-f', '--function', help='function name', required=False, default='')
+    parser.add_argument('--overwrite_source_bem', required=False, default=0, type=au.is_int)
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
 
     args = utils.Bag(au.parse_parser(parser))
