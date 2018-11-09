@@ -43,7 +43,8 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
                        meg_remote_dir='', meg_epochs_dir='', empty_fname='', cor_fname='', use_demi_events=True, n_jobs=-1):
     functions = 'make_forward_solution,calc_inverse_operator,calc_stc,calc_labels_avg_per_condition'
 
-    epochs_folders = glob.glob(op.join(meg_epochs_dir, '{}_{}_*'.format(args.subject, args.nmr)))
+    epochs_folders = glob.glob(op.join(meg_epochs_dir, '{}_*_*'.format(args.subject, args.nmr)))
+    print('epochs_folders: {}'.format(epochs_folders))
     # remote_epo_fname = op.join(meg_epochs_dir, '{}_{}_{}'.format(args.subject, args.nmr, session),
     #                            '{}_{}_{}_Resting_eeg_meg_Demi_ar-epo.fif'.format(args.subject, args.nmr, session))
     output_files = glob.glob(op.join(
