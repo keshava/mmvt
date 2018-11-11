@@ -415,6 +415,7 @@ def post_meg_preproc(args):
 
     now = time.time()
     bands_power_mmvt_all = []
+    labels_bands_avg = np.zeros((len(labels), len(bands)))
     for subject_ind, subject in enumerate(subjects):
         utils.time_to_go(now, subject_ind, len(subjects), runs_num_to_print=1)
         subjects_with_results[subject] = {}
@@ -452,6 +453,7 @@ def post_meg_preproc(args):
                     break
                 for band_ind, band in enumerate(bands.keys()):
                     label_power_norm = label_power[band_ind][:, norm_times[0]:norm_times[1]].mean(axis=1)[:epochs_max_num]
+                    labels_bands_avg[label_ind, band_ind] += np.mean(label_power[band_ind])
                     if len(label_power_norm) != epochs_max_num:
                         print('{} does have {} epochs!'.format(input_fname, len(label_power_norm)))
                         break
@@ -469,7 +471,8 @@ def post_meg_preproc(args):
             for band_ind, band in enumerate(bands.keys()):
                 power_fname = op.join(
                     res_fol, subject, '{}_labels_{}_{}_{}_power.npz'.format(task.lower(), inv_method, em, band))
-                np.savez(power_fname, data=np.array(bands_power[band_ind]), names=labels_names)
+                np.savez(power_fname, data=np.array(bands_power[band_ind]), names=labels_names,
+                         labels_bands_avg=labels_bands_avg)
             subjects_with_results[subject][task] = True
 
         if all(subjects_with_results[subject].values()):
@@ -639,8 +642,8 @@ def post_analysis(args):
         ttest_stats, ttest_labels, welch_stats, welch_labels = [], [], [], []
         x = [np.array(mean_power_power_task[task][band]) for task in args.tasks]
         x = clean_power(x, band, percentile, high_limit_power)
-        sig, welch_sig, pval, welch_pval = ttest(
-            x[0], x[1], title='MSIT vs ECR band {}'.format(band), alpha=alpha, always_print=True)
+        title='{} vs {} band {}'.format(args.tasks[0], args.tasks[1], band)
+        sig, pval, = ttest(x[0], x[1], args.tasks[0], args.tasks[1], title, alpha=alpha, always_print=True)
         if do_plot: # or sig:
             f, (ax1, ax2) = plt.subplots(2, 1)
             ax1.hist(x[0], bins=80)
@@ -654,9 +657,9 @@ def post_analysis(args):
         for label_id, label in enumerate(d.names):
             x = [np.array(power_task[task][band][label]) for task in args.tasks]
             x = clean_power(x, band, percentile, high_limit_power)
-            sig, welch_sig, pval, welch_pval = ttest(
-                x[0], x[1], alpha=alpha, title='band {} label {}'.format(band, label))
-            if welch_sig:
+            title = '{} {}'.format(band, label)
+            sig, pval = ttest(x[0], x[1], args.tasks[0], args.tasks[1], alpha=alpha, title=title)
+            if sig:
                 welch_stats.append(pval)
                 welch_labels.append(label)
             if do_plot:
@@ -723,16 +726,19 @@ def clean_power(x, band, percentile, high_limit_power, do_print=False):
     return x
 
 
-def ttest(x1, x2, two_tailed_test=True, alpha=0.1, is_greater=True, title='', always_print=False):
+def ttest(x1, x2, x1_name, x2_name, two_tailed_test=True, alpha=0.05, is_greater=True, title='', always_print=False,
+          calc_welch=True):
     import scipy.stats
-    t, pval = scipy.stats.ttest_ind(x1, x2, equal_var=True)
+    t, pval = scipy.stats.ttest_ind(x1, x2, equal_var=not calc_welch)
     sig = is_significant(pval, t, two_tailed_test, alpha, is_greater)
-    welch_t, welch_pval = scipy.stats.ttest_ind(x1, x2, equal_var=False)
-    welch_sig = is_significant(welch_pval, welch_t, two_tailed_test, alpha, is_greater)
-    if sig or welch_sig or always_print:
-        print('{}: {:.2f}+-{:.2f}, {:.2f}+-{:.2f}'.format(title, np.mean(x1), np.std(x1), np.mean(x2), np.std(x2)))
-        print('test: pval: {:.4f} sig: {}. welch: pval: {:.4f} sig: {}'.format(pval, sig, welch_pval, welch_sig))
-    return sig, welch_sig, pval, welch_pval
+    # if sig or welch_sig or always_print:
+    #     print('{}: {:.2f}+-{:.2f}, {:.2f}+-{:.2f}'.format(title, np.mean(x1), np.std(x1), np.mean(x2), np.std(x2)))
+    #     print('test: pval: {:.4f} t: {:.4f} sig: {}. welch: pval: {:.4f} t: {:.4f} sig: {}'.format(
+    #         pval, t, sig, welch_pval, welch_t, welch_sig))
+    if sig:
+        print('{}: {} {} {} ({:.4f})'.format(title, x1_name, '>' if t > 0 else '<', x2_name, pval))
+
+    return sig, pval
 
 
 def is_significant(pval, t, two_tailed_test, alpha=0.05, is_greater=True):
@@ -860,6 +866,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
 
+    inv_method, em = 'dSPM', 'mean_flip'
     if args.subject[0] == 'all':
         if args.function == 'post_analysis':
             res_fol = op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr')
@@ -867,6 +874,13 @@ if __name__ == '__main__':
                 [utils.namebase(d) for d in glob.glob(op.join(res_fol, '*')) if op.isdir(d) and
                  op.isfile(op.join(d, 'ecr_labels_dSPM_mean_flip_alpha_power.npz')) and
                  op.isfile(op.join(d, 'msit_labels_dSPM_mean_flip_alpha_power.npz'))])
+        elif args.function == 'post_meg_preproc':
+            args.subject = utils.shuffle(
+                [utils.namebase(d) for d in glob.glob(op.join(MEG_DIR, '*')) if op.isdir(d) and
+                 len(glob.glob(op.join(d, 'labels_induced_power',
+                                       'ecr_*_{}_{}_{}_induced_power.npz'.format(args.atlas, inv_method, em)))) > 0 and
+                 len(glob.glob(op.join(d, 'labels_induced_power',
+                                       'msit_*_{}_{}_{}_induced_power.npz'.format(args.atlas, inv_method, em)))) > 0])
         else:
             args.subject = utils.shuffle(
                 [utils.namebase(d) for d in glob.glob(op.join(args.meg_dir, '*')) if op.isdir(d) and
