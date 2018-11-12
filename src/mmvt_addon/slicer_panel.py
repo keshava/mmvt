@@ -231,13 +231,19 @@ def slice_brain(cut_pos=None, save_image=False, render_image=False):
     bpy.data.objects['masking_cube'].location = tuple(cube_location)
     bpy.data.objects['masking_cube'].hide = True
     bpy.data.objects['masking_cube'].hide_render = True
+
     for hemi in ['lh', 'rh']:
         inflated_object = mu.get_hemi_obj(hemi)
-        if inflated_object.modifiers.get('mask_for_slice') is None:
-            inflated_object.modifiers.new('mask_for_slice', type='BOOLEAN')
-        inflated_object.modifiers['mask_for_slice'].object = bpy.data.objects['masking_cube']
-        inflated_object.modifiers['mask_for_slice'].operation = 'DIFFERENCE'
-        inflated_object.modifiers['mask_for_slice'].double_threshold = 0
+        # if inflated_object.modifiers.get('mask_for_slice') is None:
+        #     inflated_object.modifiers.new('mask_for_slice', type='BOOLEAN')
+        # inflated_object.modifiers['mask_for_slice'].object = bpy.data.objects['masking_cube']
+        # inflated_object.modifiers['mask_for_slice'].operation = 'DIFFERENCE'
+        # inflated_object.modifiers['mask_for_slice'].double_threshold = 0
+        mask_object_with_cube(inflated_object)
+    try:
+        mask_object_with_cube(bpy.data.objects['seghead'])
+    except:
+        print('outer skin object does not exist.')
     bpy.context.scene.objects.active = cur_plane_obj
     if cur_plane_obj.modifiers.get('Boolean') is None:
         cur_plane_obj.modifiers.new('Boolean', type='BOOLEAN')
@@ -250,6 +256,13 @@ def slice_brain(cut_pos=None, save_image=False, render_image=False):
     if render_image:
         _addon().render_image(set_to_camera_mode=True)
 
+
+def mask_object_with_cube(inflated_object):
+    if inflated_object.modifiers.get('mask_for_slice') is None:
+        inflated_object.modifiers.new('mask_for_slice', type='BOOLEAN')
+    inflated_object.modifiers['mask_for_slice'].object = bpy.data.objects['masking_cube']
+    inflated_object.modifiers['mask_for_slice'].operation = 'DIFFERENCE'
+    inflated_object.modifiers['mask_for_slice'].double_threshold = 0
 
 def flip_slice_plane_if_needed(is_coordinate_positive):
     if bpy.context.active_object.get('is_flipped') is None:
