@@ -595,7 +595,7 @@ def post_analysis(args):
             # if op.isfile(mean_fname):
             #     d = utils.Bag(np.load(mean_fname))
             #     mean_evo[group_id][task].append(d.data.mean())
-            for band in bands.keys():
+            for band_id, band in enumerate(bands.keys()):
                 if power_task[task][band] is None:
                     power_task[task][band] = defaultdict(list)
                 power_fname = op.join(
@@ -604,8 +604,10 @@ def post_analysis(args):
                     try:
                         d = utils.Bag(np.load(power_fname))
                         mean_power_power_task[task][band].append(d.data.mean())
-                        for label_id, label in enumerate(d.names):
-                            power_task[task][band][label].append(d.data[label_id].mean())
+                        if 'labels_bands_avg' in d:
+                            for label_id, label in enumerate(d.names):
+                                norm = d.labels_bands_avg[label_id, band_id] / len(args.tasks)
+                                power_task[task][band][label].append(d.data[label_id].mean() / norm)
                     except:
                         print('Can\'t open {}!'.format(power_fname))
 
@@ -718,7 +720,10 @@ def clean_power(x, band, percentile, high_limit_power, do_print=False):
         x[ind] = x[ind][np.where(~np.isinf(x[ind]))]
         x[ind] = x[ind][np.where((x[ind] >= 0))[0]]
         x[ind] = x[ind][np.where((x[ind] < high_limit_power))[0]]
-        x[ind] = x[ind][x[ind] < np.percentile(x[ind], percentile)]
+        try:
+            x[ind] = x[ind][x[ind] < np.percentile(x[ind], percentile)]
+        except:
+            print('asdf')
     if do_print:
         print('{} {} ({}): {}-{}, {} ({}): {}-{}'.format(
             band, args.tasks[0], len(x[0]), np.min(x[0]), np.max(x[0]),
