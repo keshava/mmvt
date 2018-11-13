@@ -118,6 +118,10 @@ bpy.types.Scene.python_cmd = bpy.props.StringProperty(name='python cmd', default
 bpy.types.Scene.mmvt_initialized = bpy.props.BoolProperty(default=False)
 settings = None
 
+bpy.types.Scene.view_rotations_x = bpy.props.FloatProperty()
+bpy.types.Scene.view_rotations_y = bpy.props.FloatProperty()
+bpy.types.Scene.view_rotations_z = bpy.props.FloatProperty()
+
 electrodes_panel_parent = electrodes_panel.PARENT_OBJ_NAME
 electrodes_panel_parent_obj = bpy.data.objects.get(electrodes_panel_parent, None)
 meg_panel_parent = meg_panel.PARENT_OBJ_NAME
@@ -130,6 +134,15 @@ ANGLES_NAMES_DICT = show_hide_panel.ANGLES_NAMES_DICT
 utils = mmvt_utils
 colors = colors_utils
 scene = bpy.context.scene
+tmp = mmvt_utils.get_3d_spaces(only_neuro=True)
+view_region = tmp.__next__().region_3d
+q=view_region.view_rotation.to_euler()
+bpy.context.scene.view_rotations_x = view_region.view_rotation.to_euler()[0]
+bpy.context.scene.view_rotations_y = view_region.view_rotation.to_euler()[1]
+bpy.context.scene.view_rotations_z = view_region.view_rotation.to_euler()[2]
+
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Data links ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 data = data_panel
 import_brain = data_panel.import_brain
