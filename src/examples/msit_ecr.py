@@ -583,6 +583,7 @@ def post_analysis(args):
 
     mean_power_power_task = {}
     power_task = {}
+    no_norm_subjects = 0
     for task in args.tasks:
         mean_power_power_task[task] = defaultdict(list)
         power_task[task] = {band: None for band in bands.keys()}
@@ -608,6 +609,9 @@ def post_analysis(args):
                             for label_id, label in enumerate(d.names):
                                 norm = d.labels_bands_avg[label_id, band_id] / len(args.tasks)
                                 power_task[task][band][label].append(d.data[label_id].mean() / norm)
+                        else:
+                            print('{} does not have a norm!'.format(subject))
+                            no_norm_subjects += 1
                     except:
                         print('Can\'t open {}!'.format(power_fname))
 
