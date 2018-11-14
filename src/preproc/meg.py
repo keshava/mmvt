@@ -1066,8 +1066,13 @@ def check_src(mri_subject, recreate_the_source_space=False, recreate_src_spacing
             #     {'bem': '{}-{}-{}-src.fif'.format(mri_subject, oct_name, oct_num)}, args)
             # https://martinos.org/mne/dev/manual/cookbook.html#source-localization
             utils.make_dir(op.join(SUBJECTS_MRI_DIR, MRI_SUBJECT, 'bem'))
-            src = mne.setup_source_space(MRI_SUBJECT, spacing=recreate_src_spacing, surface=recreate_src_surface,
-                                         overwrite=True, subjects_dir=SUBJECTS_MRI_DIR, n_jobs=n_jobs)
+            try:
+                src = mne.setup_source_space(MRI_SUBJECT, spacing=recreate_src_spacing, surface=recreate_src_surface,
+                                             overwrite=True, subjects_dir=SUBJECTS_MRI_DIR, n_jobs=n_jobs)
+            except:
+                # No overwrite keyword (not sure why... versions?)
+                src = mne.setup_source_space(MRI_SUBJECT, spacing=recreate_src_spacing, surface=recreate_src_surface,
+                                             subjects_dir=SUBJECTS_MRI_DIR, n_jobs=n_jobs)
         else:
             raise Exception("Can't calculate the fwd solution without the source")
     return src

@@ -35,4 +35,5 @@ def run(mmvt):
 
     for point, kind, ident in zip(dig['pos'], dig['kind'], dig['ident']):
         x, y, z = apply_trans(trans['trans'], point) * 1e2
-        mmvt.data.create_electrode(x, y, z, '{}_{}'.format(ident, kind), 0.15, layers_array, parnet_name)
+        pos = np.array([x, y, z])
+        mmvt.data.create_electrode(pos, '{}_{}'.format(ident, kind), 0.15, layers_array, parnet_name)
