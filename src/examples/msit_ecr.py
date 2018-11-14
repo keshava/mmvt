@@ -406,10 +406,6 @@ def post_meg_preproc(args):
     subjects = args.subject
     res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
     subjects_with_results = {}
-    labels = lu.read_labels(subjects[0], SUBJECTS_DIR, atlas)
-    labels_names = [l.name for l in labels]
-    hemi_labels_names = {hemi: [l.name for l in labels if l.hemi == hemi] for hemi in utils.HEMIS}
-    labels_num = len(labels_names)
     epochs_max_num = 50
     template_brain = 'colin27'
 
@@ -418,6 +414,10 @@ def post_meg_preproc(args):
     for subject_ind, subject in enumerate(subjects):
         utils.time_to_go(now, subject_ind, len(subjects), runs_num_to_print=1)
         subjects_with_results[subject] = {}
+        labels = lu.read_labels(subjects[0], SUBJECTS_DIR, atlas)
+        labels_names = [l.name for l in labels]
+        hemi_labels_names = {hemi: [l.name for l in labels if l.hemi == hemi] for hemi in utils.HEMIS}
+        labels_num = len(labels_names)
         labels_bands_avg = np.zeros((len(labels), len(bands)))
         input_fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
         plots_fol = utils.make_dir(op.join(input_fol, 'plots'))
