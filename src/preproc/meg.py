@@ -4359,6 +4359,19 @@ def load_fieldtrip_volumetric_data(subject, data_name, data_field_name,
     return stcs_exist
 
 
+def get_digitization_points(subject, raw_fname):
+    raw = mne.io.read_raw_fif(raw_fname)
+    info = raw.info
+    pos = np.array([p['r'] for p in info['dig']])
+    kind = np.array([p['kind'] for p in info['dig']])
+    ident = np.array([p['ident'] for p in info['dig']])
+    coord_frame = np.array([p['coord_frame'] for p in info['dig']])
+    utils.make_dir(op.join(MMVT_DIR, subject, 'meg'))
+    output_fname = op.join(MMVT_DIR, subject, 'meg', 'digitization_points.npz')
+    np.savez(output_fname, pos=pos, kind=kind, ident=ident, coord_frame=coord_frame)
+    return op.isfile(output_fname)
+
+
 def init_main(subject, mri_subject, remote_subject_dir, args):
     if args.events_file_name != '':
         args.events_file_name = op.join(MEG_DIR, args.task, subject, args.events_file_name)
@@ -4543,6 +4556,10 @@ def main(tup, remote_subject_dir, org_args, flags=None):
 
     if 'sensors_time_average' in args.function:
         flags['sensors_time_average'] = sensors_time_average(subject, args.stc_time_average_dt, args.overwrite)
+
+
+    if 'get_digitization_points' in args.function:
+        flags['get_digitization_points'] = get_digitization_points(subject, args.raw_fname)
 
     return flags
 

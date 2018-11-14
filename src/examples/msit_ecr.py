@@ -587,6 +587,7 @@ def post_analysis(args):
     for task in args.tasks:
         mean_power_power_task[task] = defaultdict(list)
         power_task[task] = {band: None for band in bands.keys()}
+    norm_dict = defaultdict(dict)
     for subject in args.subject:
         if not op.isdir(op.join(res_fol, subject)):
             print('No folder data for {}'.format(subject))
@@ -599,6 +600,8 @@ def post_analysis(args):
             for band_id, band in enumerate(bands.keys()):
                 if power_task[task][band] is None:
                     power_task[task][band] = defaultdict(list)
+                if band not in norm_dict[task]:
+                    norm_dict[task][band] = []
                 power_fname = op.join(
                     res_fol, subject, '{}_labels_{}_{}_{}_power.npz'.format(task.lower(), inv_method, em, band))
                 if op.isfile(power_fname):
@@ -608,13 +611,20 @@ def post_analysis(args):
                         if 'labels_bands_avg' in d.keys():
                             for label_id, label in enumerate(d.names):
                                 norm = d.labels_bands_avg[label_id, band_id] / len(args.tasks)
-                                power_task[task][band][label].append(d.data[label_id].mean() / norm)
+                                if norm > 0.0 and not np.isnan(norm) and norm < 1e6:
+                                    norm_dict[task][band].append(norm)
+                                    power_task[task][band][label].append(d.data[label_id].mean() / norm)
                         else:
                             print('{} does not have a norm!'.format(subject))
                             no_norm_subjects += 1
                             break
                     except:
                         print('Can\'t open {}!'.format(power_fname))
+    for task in args.tasks:
+        for band_id, band in enumerate(bands.keys()):
+            num = np.mean([len(power_task[task][band][label]) for label in d.names])
+            print('power_task: {} {} {} items, norm: {}'.format(task, band, num, np.mean(norm_dict[task][band])))
+
 
     # for group_id in range(2):
     #     for task in args.tasks:
@@ -668,7 +678,7 @@ def post_analysis(args):
             x = [np.array(power_task[task][band][label]) for task in args.tasks]
             x = clean_power(x, band, percentile, high_limit_power)
             if x is None:
-                print('band: {} label: {} is None!'.format(band, label))
+                # print('band: {} label: {} is None!'.format(band, label))
                 continue
             title = '{} {}'.format(band, label)
             sig, pval = ttest(x[0], x[1], args.tasks[0], args.tasks[1], alpha=alpha, title=title)
@@ -725,7 +735,7 @@ def post_analysis(args):
         # plt.show()
 
 
-def clean_power(x, band, percentile, high_limit_power, do_print=False):
+def clean_power(x, band, percentile, high_limit_power, do_print=True):
     for ind in range(2):
         x[ind] = x[ind][np.where(~np.isnan(x[ind]))]
         x[ind] = x[ind][np.where(~np.isinf(x[ind]))]
@@ -736,24 +746,22 @@ def clean_power(x, band, percentile, high_limit_power, do_print=False):
         else:
             x = None
             break
-    if x is not None and do_print:
-        print('{} {} ({}): {}-{}, {} ({}): {}-{}'.format(
-            band, args.tasks[0], len(x[0]), np.min(x[0]), np.max(x[0]),
-            args.tasks[1], len(x[1]), np.min(x[1]), np.max(x[1])))
+    # if x is not None and do_print:
+    #     print('{} {} ({}): {}-{}, {} ({}): {}-{}'.format(
+    #         band, args.tasks[0], len(x[0]), np.min(x[0]), np.max(x[0]),
+    #         args.tasks[1], len(x[1]), np.min(x[1]), np.max(x[1])))
     return x
 
 
-def ttest(x1, x2, x1_name, x2_name, two_tailed_test=True, alpha=0.05, is_greater=True, title='', always_print=False,
-          calc_welch=True):
+def ttest(x1, x2, x1_name, x2_name, two_tailed_test=True, alpha=0.05, is_greater=True, title='',
+          calc_welch=True, long_print=True, always_print=False):
     import scipy.stats
     t, pval = scipy.stats.ttest_ind(x1, x2, equal_var=not calc_welch)
     sig = is_significant(pval, t, two_tailed_test, alpha, is_greater)
-    # if sig or welch_sig or always_print:
-    #     print('{}: {:.2f}+-{:.2f}, {:.2f}+-{:.2f}'.format(title, np.mean(x1), np.std(x1), np.mean(x2), np.std(x2)))
-    #     print('test: pval: {:.4f} t: {:.4f} sig: {}. welch: pval: {:.4f} t: {:.4f} sig: {}'.format(
-    #         pval, t, sig, welch_pval, welch_t, welch_sig))
-    if sig:
-        print('{}: {} {} {} ({:.4f})'.format(title, x1_name, '>' if t > 0 else '<', x2_name, pval))
+    if sig or always_print:
+        long_str = '#{} {:.4f}+-{:.4f}, #{} {:.4f}+-{:.4f}'.format(
+            len(x1), np.mean(x1), np.std(x1), len(x2), np.mean(x2), np.std(x2)) if long_print else ''
+        print('{}: {} {} {} ({:.6f}) {}'.format(title, x1_name, '>' if t > 0 else '<', x2_name, pval, long_str))
 
     return sig, pval
 
