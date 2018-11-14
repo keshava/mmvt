@@ -415,10 +415,10 @@ def post_meg_preproc(args):
 
     now = time.time()
     bands_power_mmvt_all = []
-    labels_bands_avg = np.zeros((len(labels), len(bands)))
     for subject_ind, subject in enumerate(subjects):
         utils.time_to_go(now, subject_ind, len(subjects), runs_num_to_print=1)
         subjects_with_results[subject] = {}
+        labels_bands_avg = np.zeros((len(labels), len(bands)))
         input_fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
         plots_fol = utils.make_dir(op.join(input_fol, 'plots'))
         args.subject = subject
@@ -605,13 +605,14 @@ def post_analysis(args):
                     try:
                         d = utils.Bag(np.load(power_fname))
                         mean_power_power_task[task][band].append(d.data.mean())
-                        if 'labels_bands_avg' in d:
+                        if 'labels_bands_avg' in d.keys():
                             for label_id, label in enumerate(d.names):
                                 norm = d.labels_bands_avg[label_id, band_id] / len(args.tasks)
                                 power_task[task][band][label].append(d.data[label_id].mean() / norm)
                         else:
                             print('{} does not have a norm!'.format(subject))
                             no_norm_subjects += 1
+                            break
                     except:
                         print('Can\'t open {}!'.format(power_fname))
 
@@ -648,6 +649,9 @@ def post_analysis(args):
         ttest_stats, ttest_labels, welch_stats, welch_labels = [], [], [], []
         x = [np.array(mean_power_power_task[task][band]) for task in args.tasks]
         x = clean_power(x, band, percentile, high_limit_power)
+        if x is None:
+            print('band {} is None!'.format(band))
+            continue
         title='{} vs {} band {}'.format(args.tasks[0], args.tasks[1], band)
         sig, pval, = ttest(x[0], x[1], args.tasks[0], args.tasks[1], title, alpha=alpha, always_print=True)
         if do_plot: # or sig:
@@ -663,6 +667,9 @@ def post_analysis(args):
         for label_id, label in enumerate(d.names):
             x = [np.array(power_task[task][band][label]) for task in args.tasks]
             x = clean_power(x, band, percentile, high_limit_power)
+            if x is None:
+                print('band: {} label: {} is None!'.format(band, label))
+                continue
             title = '{} {}'.format(band, label)
             sig, pval = ttest(x[0], x[1], args.tasks[0], args.tasks[1], alpha=alpha, title=title)
             if sig:
@@ -724,11 +731,12 @@ def clean_power(x, band, percentile, high_limit_power, do_print=False):
         x[ind] = x[ind][np.where(~np.isinf(x[ind]))]
         x[ind] = x[ind][np.where((x[ind] >= 0))[0]]
         x[ind] = x[ind][np.where((x[ind] < high_limit_power))[0]]
-        try:
+        if len(x[ind]) > 0:
             x[ind] = x[ind][x[ind] < np.percentile(x[ind], percentile)]
-        except:
-            print('asdf')
-    if do_print:
+        else:
+            x = None
+            break
+    if x is not None and do_print:
         print('{} {} ({}): {}-{}, {} ({}): {}-{}'.format(
             band, args.tasks[0], len(x[0]), np.min(x[0]), np.max(x[0]),
             args.tasks[1], len(x[1]), np.min(x[1]), np.max(x[1])))
