@@ -94,17 +94,22 @@ def get_fMRI_rest_fol(subject, remote_root):
 
 
 def convert_rest_dicoms_to_mgz(subject, rest_fol):
-    root = utils.make_dir(op.join(FMRI_DIR, subject))
-    output_fname = op.join(root, '{}_rest.mgz'.format(subject))
-    if op.isfile(output_fname):
-        return output_fname
-    dicom_files = glob.glob(op.join(rest_fol, 'MR*'))
-    dicom_files.sort(key=op.getmtime)
-    fu.mri_convert(dicom_files[0], output_fname)
-    if op.isfile(output_fname):
-        return output_fname
-    else:
-        raise Exception('Can\'t find {}!'.format(output_fname))
+    try:
+        root = utils.make_dir(op.join(FMRI_DIR, subject))
+        output_fname = op.join(root, '{}_rest.mgz'.format(subject))
+        if op.isfile(output_fname):
+            return output_fname
+        dicom_files = glob.glob(op.join(rest_fol, 'MR*'))
+        dicom_files.sort(key=op.getmtime)
+        fu.mri_convert(dicom_files[0], output_fname)
+        if op.isfile(output_fname):
+            return output_fname
+        else:
+            print('Can\'t find {}!'.format(output_fname))
+            return ''
+    except:
+        utils.print_last_error_line()
+        return ''
 
 
 def analyze_meg(args):
@@ -163,6 +168,8 @@ def analyze_rest_fmri(gargs):
     for subject in gargs.mri_subject:
         remote_rest_fol = get_fMRI_rest_fol(subject, gargs.remote_fmri_dir)
         local_rest_fname = convert_rest_dicoms_to_mgz(subject, remote_rest_fol)
+        if local_rest_fname == '':
+            continue
         if not op.isfile(local_rest_fname):
             print('{}: Can\'t find {}!'.format(subject, local_rest_fname))
             continue
