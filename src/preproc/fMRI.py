@@ -1355,7 +1355,6 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
             return ''
             # raise Exception("Can't find any file in {}!".format(fmri_file_template))
 
-
     def create_folders_tree(fmri_fname):
         # Fisrt it's needed to create the freesurfer folders tree for the preproc-sess
         fol = utils.make_dir(op.join(FMRI_DIR, subject, fsd, '001'))

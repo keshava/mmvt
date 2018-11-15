@@ -100,13 +100,21 @@ def run_script(script_name=''):
         #              threshold=bpy.context.scene.scripts_threshold)
         # elif ScriptsPanel.threshold_exist:
         #     run_func(_addon(), threshold=bpy.context.scene.scripts_threshold)
-        if len(params) == 2:
-            run_func(_addon(), bpy.context.scene.scripts_overwrite)
-        elif len(params) == 1:
-            run_func(_addon())
+        run_func(_addon())
+        # if len(params) == 2:
+        #     run_func(_addon(), bpy.context.scene.scripts_overwrite)
+        # elif len(params) == 1:
+        #     run_func(_addon())
+        # else:
+        #     print('run_script: The script {} has {} params!'.format(len(params)))
+        #     print(params)
     except:
         print("run_script: Can't run {}!".format(script_name))
         print(traceback.format_exc())
+
+
+def get_overwrite():
+    return bpy.context.scene.scripts_overwrite
 
 
 def get_scripts_names():

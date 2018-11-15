@@ -1,6 +1,7 @@
 import os.path as op
 import os
 import time
+import bpy
 
 MAX_TIME_TO_WAIT_FOR_FILES = 60  # minute
 TIME_TO_WAIT_FOR_FINALIZED = 1
@@ -8,13 +9,12 @@ PIAL_VIEW_DISTANCE = 18 #15
 INFLATED_VIEW_DISTANCE = 25 #21
 
 
-def run(mmvt, cb_min=None, cb_max=None, threshold=None, overwrite=True):
-    if cb_min is None:
-        cb_min = 2
-    if cb_max is None:
-        cb_max = 6
-    if threshold is None:
-        threshold = 2
+def run(mmvt):
+    cb_min = bpy.context.scene.fmri_report_colorbar_min
+    cb_max = bpy.context.scene.fmri_report_colorbar_max
+    threshold = bpy.context.scene.fmri_report_coloring_lower_threshold
+
+    overwrite = mmvt.scripts.get_overwrite()
     inflating_ratio = mmvt.appearance.get_inflated_ratio()
     view_distance = mmvt.render.get_view_distance()
     subcorticals_are_hiding = mmvt.show_hide.subcorticals_are_hiding()
@@ -88,7 +88,7 @@ def run(mmvt, cb_min=None, cb_max=None, threshold=None, overwrite=True):
     #  Create the pdf report
     mmvt.reports.create_report()
     # Remove temp colorbar figure
-    os.remove(mmvt.colorbar.get_colorbar_figure_fname())
+    # os.remove(mmvt.colorbar.get_colorbar_figure_fname())
 
     # Return to prev vis
     mmvt.appearance.set_inflated_ratio(inflating_ratio)
@@ -99,3 +99,22 @@ def run(mmvt, cb_min=None, cb_max=None, threshold=None, overwrite=True):
         mmvt.show_hide.show_subcorticals()
     mmvt.render.set_figure_format(org_file_format)
     mmvt.utils.center_view()
+
+
+bpy.types.Scene.fmri_report_colorbar_max = bpy.props.FloatProperty(description='Sets the maximum value of the colorbar')
+bpy.types.Scene.fmri_report_colorbar_min = bpy.props.FloatProperty(description='Sets the minimum value of the colorbar')
+bpy.types.Scene.fmri_report_coloring_lower_threshold = bpy.props.FloatProperty(default=2, min=0)
+
+
+def draw(self, context):
+    layout = self.layout
+    layout.prop(context.scene, 'fmri_report_coloring_lower_threshold', text="Threshold")
+    row = layout.row(align=0)
+    row.prop(context.scene, "fmri_report_colorbar_min", text="colorbar min:")
+    row.prop(context.scene, "fmri_report_colorbar_max", text="colorbar max:")
+
+
+def init(mmvt):
+    bpy.context.scene.fmri_report_colorbar_max = 6
+    bpy.context.scene.fmri_report_colorbar_min = 2
+    bpy.context.scene.fmri_report_coloring_lower_threshold = 2

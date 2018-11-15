@@ -26,7 +26,10 @@ def decode_subjects(subjects, remote_subject_dir=''):
             if remote_subject_dir != '':
                 for fol in glob.glob(op.join(remote_subject_dir.format(subject=sub))):
                     start_ind = utils.namebase(remote_subject_dir).index('{subject}')
-                    end_ind = re.search('[-_,\.!?]', utils.namebase(fol)[start_ind:]).start() + start_ind
+                    end_ind = re.search('[-_,\.!?]', utils.namebase(fol)[start_ind:])
+                    end_ind = end_ind.start() + start_ind if end_ind is not None else \
+                        len(utils.namebase(fol)[start_ind:])
+                    # end_ind = re.search('[-_,\.!?]', utils.namebase(fol)[start_ind:]).start() + start_ind
                     subjects.append(utils.namebase(fol)[start_ind:end_ind])
                 subjects = list(set(subjects))
         elif 'file:' in sub:

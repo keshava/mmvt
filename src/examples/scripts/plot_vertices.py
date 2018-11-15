@@ -86,7 +86,6 @@ def set_colorbar(mmvt, data_min, data_max, cb_title='Vertices values', colormap_
     return colors_ratio
 
 
-
 bpy.types.Scene.plot_vertices_colormap_name = bpy.props.EnumProperty(items=[])
 bpy.types.Scene.plot_vertices_vertices_data_fname = bpy.props.StringProperty(subtype='FILE_PATH')
 

@@ -94,7 +94,8 @@ def get_fMRI_rest_fol(subject, remote_root):
 
 
 def convert_rest_dicoms_to_mgz(subject, rest_fol):
-    output_fname = op.join(FMRI_DIR, subject, '{}_rest.mgz'.format(subject))
+    root = utils.make_dir(op.join(FMRI_DIR, subject))
+    output_fname = op.join(root, '{}_rest.mgz'.format(subject))
     if op.isfile(output_fname):
         return output_fname
     dicom_files = glob.glob(op.join(rest_fol, 'MR*'))
@@ -158,25 +159,25 @@ def calc_meg_connectivity(args):
     connectivity.call_main(args)
 
 
-def analyze_rest_fmri(args):
-    for subject in args.mri_subject:
-        remote_rest_fol = get_fMRI_rest_fol(subject, args.remote_fmri_dir)
+def analyze_rest_fmri(gargs):
+    for subject in gargs.mri_subject:
+        remote_rest_fol = get_fMRI_rest_fol(subject, gargs.remote_fmri_dir)
         local_rest_fname = convert_rest_dicoms_to_mgz(subject, remote_rest_fol)
         if not op.isfile(local_rest_fname):
             print('{}: Can\'t find {}!'.format(subject, local_rest_fname))
             continue
         args = fmri.read_cmd_args(dict(
             subject=subject,
-            atlas=args.atlas,
-            remote_subject_dir=args.remote_subject_dir,
+            atlas=gargs.atlas,
+            remote_subject_dir=gargs.remote_subject_dir,
             function='clean_4d_data',
             fmri_file_template=local_rest_fname,
         ))
         fmri.call_main(args)
 
         args = fmri.read_cmd_args(dict(
-            subject=args.subject,
-            atlas=args.atlas,
+            subject=gargs.subject,
+            atlas=gargs.atlas,
             function='analyze_4d_data',
             fmri_file_template='rest.sm6.{subject}.{hemi}.mgz',
             labels_extract_mode='mean',
@@ -185,8 +186,8 @@ def analyze_rest_fmri(args):
         fmri.call_main(args)
 
         args = connectivity.read_cmd_args(dict(
-            subject=args.subject,
-            atlas=args.atlas,
+            subject=gargs.subject,
+            atlas=gargs.atlas,
             function='calc_lables_connectivity',
             connectivity_modality='fmri',
             connectivity_method='corr',
@@ -195,7 +196,7 @@ def analyze_rest_fmri(args):
             save_mmvt_connectivity=True,
             calc_subs_connectivity=False,
             recalc_connectivity=True,
-            n_jobs=args.n_jobs
+            n_jobs=gargs.n_jobs
         ))
         connectivity.call_main(args)
 
@@ -287,6 +288,7 @@ def create_con_with_only_hubs(con_meg, con_fmri, meg_hub, fmri_hub, meg_threshol
 if __name__ == '__main__':
     import argparse
     from src.utils import args_utils as au
+    from src.utils import preproc_utils as pu
     parser = argparse.ArgumentParser(description='MMVT')
     parser.add_argument('-s', '--subject', help='subject name', required=True, type=au.str_arr_type)
     parser.add_argument('-m', '--mri_subject', help='subject name', required=False, default='')
@@ -301,6 +303,7 @@ if __name__ == '__main__':
                         default='/autofs/space/lilli_001/users/DARPA-Recons/{subject}')
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
+    args.subject = pu.decode_subjects(args.subject, remote_subject_dir=args.remote_subject_dir)
     if args.mri_subject == '':
         args.mri_subject = args.subject
     locals()[args.function](args)
