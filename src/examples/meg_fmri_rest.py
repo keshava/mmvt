@@ -176,7 +176,7 @@ def analyze_rest_fmri(gargs):
         fmri.call_main(args)
 
         args = fmri.read_cmd_args(dict(
-            subject=gargs.subject,
+            subject=subject,
             atlas=gargs.atlas,
             function='analyze_4d_data',
             fmri_file_template='rest.sm6.{subject}.{hemi}.mgz',
@@ -186,13 +186,14 @@ def analyze_rest_fmri(gargs):
         fmri.call_main(args)
 
         args = connectivity.read_cmd_args(dict(
-            subject=gargs.subject,
+            subject=subject,
             atlas=gargs.atlas,
             function='calc_lables_connectivity',
             connectivity_modality='fmri',
             connectivity_method='corr',
             labels_extract_mode='mean',
-            identifier='',
+            windows_length=34,  # tr = 3 -> 100s
+            windows_shift=4,  # 12s
             save_mmvt_connectivity=True,
             calc_subs_connectivity=False,
             recalc_connectivity=True,
