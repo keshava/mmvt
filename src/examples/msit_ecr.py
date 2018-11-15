@@ -488,8 +488,8 @@ def _post_meg_preproc_parallel(p):
                 baseline[label_ind, band_ind] += np.mean(label_power[band_ind][:, baseline_times[0]:baseline_times[1]])
                 baseline_ind[label_ind, band_ind] += 1
                 if len(label_power_evoked) != epochs_max_num:
-                    print('{} does have {} epochs!'.format(input_fname, len(label_power_evoked)))
-                    break
+                    # print('{} does have {} epochs!'.format(input_fname, len(label_power_evoked)))
+                    continue
                 bands_power[band_ind, label_ind] = label_power_evoked
             # fig_fname = op.join(plots_fol, 'power_{}_{}.jpg'.format(label_name, task))
             # if do_plot: # not op.isfile(fig_fname) and
@@ -566,6 +566,7 @@ def calc_meg_connectivity(args):
                 # empty_fname=empty_fnames[task],
                 function='calc_labels_connectivity',
                 conditions=task.lower(),
+                max_epochs_num=args.max_epochs_num,
                 overwrite_connectivity=True,#args.overwrite_connectivity,
                 # cor_fname=cors[task].format(subject=subject),
                 # ica_overwrite_raw=False,

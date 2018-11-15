@@ -761,7 +761,7 @@ def calc_labels_connectivity(
         subject, atlas, events, mri_subject='', subjects_dir='', mmvt_dir='', inverse_method='dSPM',
         epo_fname='', inv_fname='', raw_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'], surf_name='pial',
-        con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, overwrite_connectivity=False,
+        con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, overwrite_connectivity=False,
         raw=None, epochs=None, src=None, bands=None, cwt_frequencies=None, n_jobs=6):
     if mri_subject == '':
         mri_subject = subject
@@ -796,13 +796,6 @@ def calc_labels_connectivity(
             inverse_operator, src = get_inv_src(inv_fname, src)
             if inverse_operator is None or src is None:
                 print('Can\'t find the inverse_operator!')
-            # if raw is None:
-            #     raw_fname = get_raw_fname(raw_fname)
-            #     if not op.isfile(raw_fname):
-            #         print('Can\'t find the raw data! ({})'.format(raw_fname))
-            #         return False
-            #     raw = mne.io.read_raw_fif(raw_fname)
-            #     sfreq = raw.info['sfreq']
 
         if epochs is None:
             epo_cond_fname = get_cond_fname(epo_fname, cond_name)
@@ -818,6 +811,8 @@ def calc_labels_connectivity(
             print('annot create EEG average reference projector (no EEG data found)')
         if inverse_operator is None:
             inverse_operator, src = get_inv_src(inv_fname, src, cond_name)
+        if max_epochs_num > 0:
+            epochs = epochs[:50]
         stcs = mne.minimum_norm.apply_inverse_epochs(
             epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
         label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, return_generator=True)
@@ -4520,7 +4515,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             SUBJECT, args.atlas, conditions, MRI_SUBJECT, SUBJECTS_MRI_DIR, MMVT_DIR, inverse_method,
             args.epo_fname, args.inv_fname, args.raw_fname, args.snr, args.pick_ori, args.apply_SSP_projection_vectors,
             args.add_eeg_ref, args.fwd_usingMEG, args.fwd_usingEEG, args.extract_mode, args.surf_name,
-            args.con_method, args.con_mode, args.cwt_n_cycles, args.overwrite_connectivity, n_jobs=args.n_jobs)
+            args.con_method, args.con_mode, args.cwt_n_cycles, args.max_epochs_num, args.overwrite_connectivity,
+            n_jobs=args.n_jobs)
 
     if 'calc_labels_power_spectrum' in args.function:
         flags['calc_labels_power_spectrum'] = calc_labels_power_spectrum(
