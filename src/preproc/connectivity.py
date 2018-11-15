@@ -1041,7 +1041,6 @@ def main(subject, remote_subject_dir, args, flags):
         flags['calc_fmri_corr_degree'] = calc_fmri_corr_degree(
             subject, args.identifier, args.connectivity_threshold, args.connectivity_method)
 
-
     return flags
 
 

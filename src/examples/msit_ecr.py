@@ -396,11 +396,12 @@ def meg_preproc_power(args):
 #     print(subjects_with_error)
 
 
-@utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
+# @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def post_meg_preproc(args):
     inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
     norm_times = (500, 2500)
+    baseline_times = (0, 500)
     do_plot = False
 
     subjects = args.subject
@@ -408,79 +409,19 @@ def post_meg_preproc(args):
     subjects_with_results = {}
     epochs_max_num = 50
     template_brain = 'colin27'
+    labels_template = 'fsaverage5'
 
-    now = time.time()
     bands_power_mmvt_all = []
-    for subject_ind, subject in enumerate(subjects):
-        utils.time_to_go(now, subject_ind, len(subjects), runs_num_to_print=1)
-        subjects_with_results[subject] = {}
-        labels = lu.read_labels(subjects[0], SUBJECTS_DIR, atlas)
-        labels_names = [l.name for l in labels]
-        hemi_labels_names = {hemi: [l.name for l in labels if l.hemi == hemi] for hemi in utils.HEMIS}
-        labels_num = len(labels_names)
-        labels_bands_avg = np.zeros((len(labels), len(bands)))
-        input_fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
-        plots_fol = utils.make_dir(op.join(input_fol, 'plots'))
-        args.subject = subject
-        bands_power_mmvt = {'rh':{}, 'lh':{}}
-        for task_ind, task in enumerate(args.tasks):
-            task = task.lower()
-            input_fnames = glob.glob(op.join(input_fol, '{}_*_{}_{}_{}_induced_power.npz'.format(task, atlas, inv_method, em)))
-            print('{}, {}, {}'.format(subject, task, len(input_fnames)))
-            if len(input_fnames) < labels_num:
-                # print('No enough files for {} {}!'.format(subject, task))
-                subjects_with_results[subject][task] = False
-                continue
-            # input_dname = ecr_caudalanteriorcingulate-lh_dSPM_mean_flip_induced_power
-            # if not do_plot:
-            #     continue
-            bands_power = np.empty((len(bands), labels_num, epochs_max_num))
-            for input_fname in tqdm(input_fnames):
-                if not subjects_with_results[subject].get(task, True):
-                    break
-                d = utils.Bag(np.load(input_fname)) # label_name, atlas, data
-                # label_power = np.empty((len(bands), epochs_num, T)) (5, 50, 3501)
-                label_power, label_name = d.data, d.label_name
-                # label_power = label_power[:, :, 100: -100]
-                # for band_ind in range(len(bands)):
-                #     label_power[band_ind] /= label_power[band_ind][:, norm_times[0]:norm_times[1]].mean()
-                hemi = lu.get_hemi_from_name(label_name)
-                if label_name in hemi_labels_names[hemi]:
-                    label_ind = hemi_labels_names[hemi].index(label_name)
-                else:
-                    print('label {} not in atlas!'.format(label_name))
-                    subjects_with_results[subject][task] = False
-                    break
-                for band_ind, band in enumerate(bands.keys()):
-                    label_power_norm = label_power[band_ind][:, norm_times[0]:norm_times[1]].mean(axis=1)[:epochs_max_num]
-                    labels_bands_avg[label_ind, band_ind] += np.mean(label_power[band_ind])
-                    if len(label_power_norm) != epochs_max_num:
-                        print('{} does have {} epochs!'.format(input_fname, len(label_power_norm)))
-                        break
-                    bands_power[band_ind, label_ind] = label_power_norm
-                    if band not in bands_power_mmvt[hemi]:
-                        bands_power_mmvt[hemi][band] = np.empty(
-                            (len(hemi_labels_names[hemi]), label_power[band_ind].shape[1], len(args.tasks)))
-                    bands_power_mmvt[hemi][band][label_ind, :, task_ind] = label_power[band_ind].mean(axis=0)
-                # fig_fname = op.join(plots_fol, 'power_{}_{}.jpg'.format(label_name, task))
-                # if do_plot: # not op.isfile(fig_fname) and
-                #     times = np.arange(0, label_power.shape[2]) if 'times' not in d else d.times
-                #     plot_label_power(label_power, times, label_name, bands, task, fig_fname)
-            if not subjects_with_results[subject].get(task, True):
-                break
-            for band_ind, band in enumerate(bands.keys()):
-                power_fname = op.join(
-                    res_fol, subject, '{}_labels_{}_{}_{}_power.npz'.format(task.lower(), inv_method, em, band))
-                np.savez(power_fname, data=np.array(bands_power[band_ind]), names=labels_names,
-                         labels_bands_avg=labels_bands_avg)
-            subjects_with_results[subject][task] = True
-
-        if all(subjects_with_results[subject].values()):
+    params = [(subject, atlas, bands, epochs_max_num, norm_times, baseline_times, inv_method, em, args.tasks,
+               labels_template, res_fol, args.n_jobs) for subject in args.subject]
+    subjects_results = utils.run_parallel(_post_meg_preproc_parallel, params, args.n_jobs, print_time_to_go=True)
+    for results, bands_power_mmvt in subjects_results:
+        if all(results.values()):
             bands_power_mmvt_all.append(bands_power_mmvt)
-        else:
-            print('{} does not have both tasks data!'.format(subject))
 
     labels_data_template = op.join(MMVT_DIR, template_brain, 'meg', 'labels_data_power_{}_{}_{}_{}_{}.npz')  # task, atlas, extract_method, hemi
+    labels = lu.read_labels(labels_template, SUBJECTS_DIR, atlas)
+    hemi_labels_names = {hemi: [l.name for l in labels if l.hemi == hemi] for hemi in utils.HEMIS}
     for hemi in utils.HEMIS:
         for band_ind, band in enumerate(bands.keys()):
             power = np.array([x[hemi][band] for x in bands_power_mmvt_all]).mean(axis=0)
@@ -492,6 +433,75 @@ def post_meg_preproc(args):
     have_all = len([subject for subject, results in subjects_with_results.items() if all(results.values())])
     print('{}/{} with all files'.format(have_all, len(subjects)))
     print(subjects_with_results)
+
+
+def _post_meg_preproc_parallel(p):
+    (subject, atlas, bands, epochs_max_num, norm_times, baseline_times, inv_method, em, tasks, labels_template,
+        res_fol, n_jobs) = p
+    results = {}
+    labels = lu.read_labels(labels_template, SUBJECTS_DIR, atlas)
+    labels_names = [l.name for l in labels]
+    hemi_labels_names = {hemi: [l.name for l in labels if l.hemi == hemi] for hemi in utils.HEMIS}
+    labels_num = len(labels_names)
+    labels_bands_avg = np.zeros((len(labels), len(bands)))
+    baseline = np.zeros((len(labels), len(bands)))
+    baseline_ind = np.zeros((len(labels), len(bands)))
+    input_fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
+    plots_fol = utils.make_dir(op.join(input_fol, 'plots'))
+    bands_power_mmvt = {'rh': {}, 'lh': {}}
+    for task_ind, task in enumerate(tasks):
+        task = task.lower()
+        input_fnames = glob.glob(
+            op.join(input_fol, '{}_*_{}_{}_{}_induced_power.npz'.format(task, atlas, inv_method, em)))
+        print('{}, {}, {}'.format(subject, task, len(input_fnames)))
+        if len(input_fnames) < labels_num:
+            results[task] = False
+            continue
+        bands_power = np.empty((len(bands), labels_num, epochs_max_num))
+        for input_fname in input_fnames if n_jobs > 1 else tqdm(input_fnames):
+            if not results.get(task, True):
+                break
+            d = utils.Bag(np.load(input_fname))  # label_name, atlas, data
+            label_power, label_name = d.data, d.label_name
+            hemi = lu.get_hemi_from_name(label_name)
+            if label_name in hemi_labels_names[hemi]:
+                label_ind = hemi_labels_names[hemi].index(label_name)
+            else:
+                print('label {} not in atlas!'.format(label_name))
+                results[task] = False
+                break
+            for band_ind, band in enumerate(bands.keys()):
+                label_power_norm = label_power[band_ind][:, norm_times[0]:norm_times[1]].mean(axis=1)[:epochs_max_num]
+                labels_bands_avg[label_ind, band_ind] += np.mean(label_power[band_ind])
+                baseline[label_ind, band_ind] += np.mean(label_power[band_ind][:, baseline_times[0]:baseline_times[1]])
+                baseline_ind[label_ind, band_ind] += 1
+                if len(label_power_norm) != epochs_max_num:
+                    print('{} does have {} epochs!'.format(input_fname, len(label_power_norm)))
+                    break
+                bands_power[band_ind, label_ind] = label_power_norm
+                if band not in bands_power_mmvt[hemi]:
+                    bands_power_mmvt[hemi][band] = np.empty(
+                        (len(hemi_labels_names[hemi]), label_power[band_ind].shape[1], len(tasks)))
+                bands_power_mmvt[hemi][band][label_ind, :, task_ind] = label_power[band_ind].mean(axis=0)
+            # fig_fname = op.join(plots_fol, 'power_{}_{}.jpg'.format(label_name, task))
+            # if do_plot: # not op.isfile(fig_fname) and
+            #     times = np.arange(0, label_power.shape[2]) if 'times' not in d else d.times
+            #     plot_label_power(label_power, times, label_name, bands, task, fig_fname)
+        if not results.get(task, True):
+            break
+        for band_ind, band in enumerate(bands.keys()):
+            power_fname = op.join(
+                res_fol, subject, '{}_labels_{}_{}_{}_power.npz'.format(task.lower(), inv_method, em, band))
+            np.savez(power_fname, data=np.array(bands_power[band_ind]), names=labels_names)
+            results[task] = True
+
+    if all(results.values()):
+        power_meta_fname = op.join(res_fol, subject, 'labels_{}_{}_meta_power.npz'.format(inv_method, em))
+        np.savez(power_meta_fname, labels_bands_avg=labels_bands_avg, baseline=baseline, baseline_ind=baseline_ind)
+    else:
+        print('{} does not have both tasks data!'.format(subject))
+
+    return results, bands_power_mmvt
 
 
 def plot_label_power(power, times, label, bands, task, fig_fname):
@@ -888,8 +898,9 @@ if __name__ == '__main__':
                         default='/autofs/space/lilli_003/users/DARPA-TRANSFER/meg')
     parser.add_argument('--epo_template', required=False, default='{subject}_{task}_meg_Onset_ar-epo.fif')
     parser.add_argument('--raw_template', required=False, default='{subject}_{task}_meg_ica-raw.fif')
-    parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
+    parser.add_argument('--n_jobs', help='cpu num', required=False, default=1)
     args = utils.Bag(au.parse_parser(parser))
+    args.n_jobs = utils.get_n_jobs(args.n_jobs)
 
     inv_method, em = 'dSPM', 'mean_flip'
     if args.subject[0] == 'all':

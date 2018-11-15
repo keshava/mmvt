@@ -1055,9 +1055,14 @@ def check_for_necessary_files(necessary_files, root_fol):
                 raise Exception('{} does not exist!'.format(full_path))
 
 
-def run_parallel(func, params, njobs=1):
+def run_parallel(func, params, njobs=1, print_time_to_go=True, runs_num_to_print=1):
     if njobs == 1:
-        results = [func(p) for p in params]
+        now = time.time()
+        for run, p in enumerate(params):
+            if print_time_to_go:
+                time_to_go(now, run, len(params), runs_num_to_print=runs_num_to_print)
+            func(p)
+        # results = [func(p) for p in params]
     else:
         pool = multiprocessing.Pool(processes=njobs)
         results = pool.map(func, params)

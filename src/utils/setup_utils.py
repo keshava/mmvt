@@ -167,12 +167,6 @@ def message_box(text, title='', style=1):
     buttons = {0: ['Ok'], 1: ['Ok', 'Cancel'], 2: ['Abort', 'No', 'Cancel'], 3: ['Yes', 'No', 'Cancel'],
                4: ['Yes', 'No'], 5: ['Retry', 'No'], 6: ['Cancel', 'Try Again', 'Continue']}
     return pymsgbox.confirm(text=text, title=title, buttons=buttons[style])
-        # from tkinter import Tk, Label
-        # root = Tk()
-        # w = Label(root, text=text)
-        # w.pack()
-        # root.mainloop()
-        # return 1
 
 
 def choose_folder_gui(initialdir='', title=''):
