@@ -126,7 +126,7 @@ def run_on_subjects(args, main_func, subjects_itr=None, subject_func=None):
     logging.info('Good subjects:\n {}'.format(good_subjects))
     utils.write_list_to_file(good_subjects, op.join(utils.get_logs_fol(), 'good_subjects.txt'))
     utils.write_list_to_file(bad_subjects, op.join(utils.get_logs_fol(), 'bad_subjects.txt'))
-    return ret
+    return subjects_flags
 
 
 def set_default_args(args, ini_name='default_args.ini'):
