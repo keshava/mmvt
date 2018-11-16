@@ -447,11 +447,11 @@ def _post_meg_preproc_parallel(p):
     labels_num = len(labels_names)
     labels_bands_avg = np.zeros((len(labels), len(bands)))
     labels_bands_avg_ind = np.zeros((len(labels), len(bands)))
-    baseline = np.zeros((len(labels), len(bands)))
-    baseline_ind = np.zeros((len(labels), len(bands)))
+    baseline = np.zeros((len(bands), len(tasks)))
+    baseline_ind = np.zeros((len(bands), len(tasks)))
     input_fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
     plots_fol = utils.make_dir(op.join(input_fol, 'plots'))
-    bands_power_mmvt = {'rh': {}, 'lh': {}}
+    bands_power_time = {'rh': {}, 'lh': {}}
     for task_ind, task in enumerate(tasks):
         task = task.lower()
         input_fnames = glob.glob(
@@ -475,18 +475,20 @@ def _post_meg_preproc_parallel(p):
                 results[task] = False
                 break
             for band_ind, band in enumerate(bands.keys()):
+                baseline[band_ind, task_ind] += np.mean(label_power[band_ind][:, baseline_times[0]:baseline_times[1]])
+                baseline_ind[band_ind, task_ind] += 1
+
                 # Save for mmvt to plot the power over time
-                if band not in bands_power_mmvt[hemi]:
-                    bands_power_mmvt[hemi][band] = np.empty(
+                if band not in bands_power_time[hemi]:
+                    bands_power_time[hemi][band] = np.empty(
                         (len(hemi_labels_names[hemi]), label_power[band_ind].shape[1], len(tasks)))
-                bands_power_mmvt[hemi][band][hemi_label_ind, :, task_ind] = label_power[band_ind].mean(axis=0)
+                bands_power_time[hemi][band][hemi_label_ind, :, task_ind] = label_power[band_ind].mean(axis=0)
 
                 # Save for statistics
                 label_power_evoked = label_power[band_ind][:, evoked_times[0]:evoked_times[1]].mean(axis=1)[:epochs_max_num]
                 labels_bands_avg[label_ind, band_ind] += np.mean(label_power[band_ind])
                 labels_bands_avg_ind[label_ind, band_ind] += 1
-                baseline[label_ind, band_ind] += np.mean(label_power[band_ind][:, baseline_times[0]:baseline_times[1]])
-                baseline_ind[label_ind, band_ind] += 1
+
                 if len(label_power_evoked) != epochs_max_num:
                     # print('{} does have {} epochs!'.format(input_fname, len(label_power_evoked)))
                     continue
@@ -498,10 +500,15 @@ def _post_meg_preproc_parallel(p):
         if not results.get(task, True):
             break
         for band_ind, band in enumerate(bands.keys()):
+            avg_baseline = baseline[band_ind, task_ind] / baseline_ind[band_ind, task_ind]
+            band_power = np.array(bands_power[band_ind]) - avg_baseline
             power_fname = op.join(
                 res_fol, subject, '{}_labels_{}_{}_{}_power.npz'.format(task.lower(), inv_method, em, band))
-            np.savez(power_fname, data=np.array(bands_power[band_ind]), names=labels_names)
+            np.savez(power_fname, data=band_power, names=labels_names)
             results[task] = True
+
+            for hemi in utils.HEMIS:
+                bands_power_time[hemi][band][:, :, task_ind] -= avg_baseline
 
     if all(results.values()):
         power_meta_fname = op.join(res_fol, subject, 'labels_{}_{}_meta_power.npz'.format(inv_method, em))
@@ -512,7 +519,7 @@ def _post_meg_preproc_parallel(p):
 
     print('unique(baseline_ind):', np.unique(baseline_ind))
     print('unique(labels_bands_avg_ind):', np.unique(labels_bands_avg_ind))
-    return subject, results, bands_power_mmvt
+    return subject, results, bands_power_time
 
 
 def plot_label_power(power, times, label, bands, task, fig_fname):
@@ -589,6 +596,21 @@ def post_analysis(args):
     import matplotlib.pyplot as plt
     from collections import defaultdict
 
+    def check_meta(meta, band_id, label_id):
+        if meta.baseline_ind[label_id, band_id] == 0:
+            print('{}: label {} band {} has zero baseline!'.format(subject, label, band))
+            return False
+        if meta.labels_bands_avg_ind[label_id, band_id] == 0:
+            print('{}: label {} band {} has zero labels_bands_avg!'.format(subject, label, band))
+            return False
+        if meta.baseline_ind[label_id, band_id] != 0:
+            print('{}: label {} band {} has wonrg baseline!'.format(subject, label, band))
+            return False
+        if meta.labels_bands_avg_ind[label_id, band_id] != 0:
+            print('{}: label {} band {} has wonrg labels_bands_avg!'.format(subject, label, band))
+            return False
+        return True
+
     inv_method, em = 'dSPM', 'mean_flip'
     res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
     plot_fol = utils.make_dir(op.join(res_fol, 'plots'))
@@ -616,7 +638,7 @@ def post_analysis(args):
             continue
         power_meta_fname = op.join(res_fol, subject, 'labels_{}_{}_meta_power.npz'.format(inv_method, em))
         if op.isfile(power_meta_fname):
-            meta = utils.Bag(np.load(power_meta_fname)) #labels_bands_avg, baseline, baseline_ind
+            meta = utils.Bag(np.load(power_meta_fname)) #labels_bands_avg, baseline, baseline_ind, labels_bands_avg_ind
         else:
             print('No meta data for {}!'.format(subject))
             continue
@@ -638,8 +660,7 @@ def post_analysis(args):
                         mean_power_power_task[task][band].append(d.data.mean())
                         # if 'labels_bands_avg' in d.keys():
                         for label_id, label in enumerate(d.names):
-                            if meta.baseline_ind[label_id, band_id] == 0:
-                                print('{}: label {} band {} has zero baseline!'.format(subject, label, band))
+                            if not check_meta(meta, band_id, label_id):
                                 continue
                             norm = meta.labels_bands_avg[label_id, band_id] / len(args.tasks)
                             if norm > 0.0 and not np.isnan(norm) and norm < 1e6:
