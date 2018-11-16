@@ -406,7 +406,6 @@ def post_meg_preproc(args):
 
     subjects = args.subject
     res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
-    subjects_with_results = {}
     epochs_max_num = 50
     template_brain = 'colin27'
     subjects_results = {}
@@ -431,9 +430,9 @@ def post_meg_preproc(args):
             utils.make_dir(utils.get_parent_fol(labels_output_fname))
             np.savez(labels_output_fname, data=power, names=hemi_labels_names[hemi], conditions=args.tasks)
 
-    have_all = len([subject for subject, results in subjects_with_results.items() if all(results.values())])
+    have_all = len([subject for subject, results in subjects_results.items() if all(results.values())])
     print('{}/{} with all files'.format(have_all, len(subjects)))
-    print(subjects_with_results)
+    print(subjects_results)
 
 
 def _post_meg_preproc_parallel(p):
@@ -595,20 +594,20 @@ def post_analysis(args):
     import matplotlib.pyplot as plt
     from collections import defaultdict
 
-    def check_meta(meta, band_id, label_id):
-        if meta.baseline_ind[label_id, band_id] == 0:
-            print('{}: label {} band {} has zero baseline!'.format(subject, label, band))
+    def check_labels_bands_avg_ind(meta, label_ind, band_ind):
+        if meta.labels_bands_avg_ind[label_ind, band_ind] != 2:
+            print('{}: label {} band {} has wonrg labels_bands_avg! ({})'.format(
+                subject, label, band, meta.labels_bands_avg_ind[label_ind, band_ind]))
             return False
-        if meta.labels_bands_avg_ind[label_id, band_id] == 0:
-            print('{}: label {} band {} has zero labels_bands_avg!'.format(subject, label, band))
+        else:
+            return True
+
+    def check_baseline_ind(meta, band_ind, task_ind):
+        if meta.baseline_ind[band_ind, task_ind] != 223:
+            print('{}: band {} has wrong baseline! ({})'.format(subject, band, meta.baseline_ind[band_ind, task_ind]))
             return False
-        if meta.baseline_ind[label_id, band_id] != 223:
-            print('{}: label {} band {} has wonrg baseline!'.format(subject, label, band))
-            return False
-        if meta.labels_bands_avg_ind[label_id, band_id] != 2:
-            print('{}: label {} band {} has wonrg labels_bands_avg!'.format(subject, label, band))
-            return False
-        return True
+        else:
+            return True
 
     inv_method, em = 'dSPM', 'mean_flip'
     res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
@@ -627,7 +626,7 @@ def post_analysis(args):
     mean_power_power_task = {}
     power_task = {}
     no_norm_subjects = 0
-    for task in args.tasks:
+    for task_ind, task in enumerate(args.tasks):
         mean_power_power_task[task] = defaultdict(list)
         power_task[task] = {band: None for band in bands.keys()}
     norm_dict = defaultdict(dict)
@@ -646,7 +645,9 @@ def post_analysis(args):
             # if op.isfile(mean_fname):
             #     d = utils.Bag(np.load(mean_fname))
             #     mean_evo[group_id][task].append(d.data.mean())
-            for band_id, band in enumerate(bands.keys()):
+            for band_ind, band in enumerate(bands.keys()):
+                if not check_baseline_ind(meta, band_ind, task_ind):
+                    continue
                 if power_task[task][band] is None:
                     power_task[task][band] = defaultdict(list)
                 if band not in norm_dict[task]:
@@ -658,10 +659,10 @@ def post_analysis(args):
                         d = utils.Bag(np.load(power_fname))
                         mean_power_power_task[task][band].append(d.data.mean())
                         # if 'labels_bands_avg' in d.keys():
-                        for label_id, label in enumerate(d.names):
-                            if not check_meta(meta, band_id, label_id):
+                        for label_ind, label in enumerate(d.names):
+                            if not check_labels_bands_avg_ind(meta, label_ind, band_ind):
                                 continue
-                            power_task[task][band][label].append(d.data[label_id].mean())
+                            power_task[task][band][label].append(d.data[label_ind].mean())
                             # norm = meta.labels_bands_avg[label_id, band_id] / len(args.tasks)
                             # if norm > 0.0 and not np.isnan(norm) and norm < 1e6:
                             #     norm_dict[task][band].append(norm)
