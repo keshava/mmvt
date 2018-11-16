@@ -409,12 +409,11 @@ def post_meg_preproc(args):
     subjects_with_results = {}
     epochs_max_num = 50
     template_brain = 'colin27'
-    labels_template = 'fsaverage5'
     subjects_results = {}
     bands_power_mmvt_all = []
 
     params = [(subject, atlas, bands, epochs_max_num, evoked_times, baseline_times, inv_method, em, args.tasks,
-               labels_template, res_fol, args.n_jobs) for subject in args.subject]
+               template_brain, res_fol, args.n_jobs) for subject in args.subject]
     parallel_results = utils.run_parallel(_post_meg_preproc_parallel, params, args.n_jobs, print_time_to_go=True)
     for subject, results, bands_power_mmvt in parallel_results:
         subjects_results[subject] = results
@@ -422,7 +421,7 @@ def post_meg_preproc(args):
             bands_power_mmvt_all.append(bands_power_mmvt)
 
     labels_data_template = op.join(MMVT_DIR, template_brain, 'meg', 'labels_data_power_{}_{}_{}_{}_{}.npz')  # task, atlas, extract_method, hemi
-    labels = lu.read_labels(labels_template, SUBJECTS_DIR, atlas)
+    labels = lu.read_labels(template_brain, SUBJECTS_DIR, atlas)
     hemi_labels_names = {hemi: [l.name for l in labels if l.hemi == hemi] for hemi in utils.HEMIS}
     for hemi in utils.HEMIS:
         for band_ind, band in enumerate(bands.keys()):
@@ -603,10 +602,10 @@ def post_analysis(args):
         if meta.labels_bands_avg_ind[label_id, band_id] == 0:
             print('{}: label {} band {} has zero labels_bands_avg!'.format(subject, label, band))
             return False
-        if meta.baseline_ind[label_id, band_id] != 0:
+        if meta.baseline_ind[label_id, band_id] != 223:
             print('{}: label {} band {} has wonrg baseline!'.format(subject, label, band))
             return False
-        if meta.labels_bands_avg_ind[label_id, band_id] != 0:
+        if meta.labels_bands_avg_ind[label_id, band_id] != 2:
             print('{}: label {} band {} has wonrg labels_bands_avg!'.format(subject, label, band))
             return False
         return True
@@ -662,10 +661,11 @@ def post_analysis(args):
                         for label_id, label in enumerate(d.names):
                             if not check_meta(meta, band_id, label_id):
                                 continue
-                            norm = meta.labels_bands_avg[label_id, band_id] / len(args.tasks)
-                            if norm > 0.0 and not np.isnan(norm) and norm < 1e6:
-                                norm_dict[task][band].append(norm)
-                                power_task[task][band][label].append(d.data[label_id].mean() / norm)
+                            power_task[task][band][label].append(d.data[label_id].mean())
+                            # norm = meta.labels_bands_avg[label_id, band_id] / len(args.tasks)
+                            # if norm > 0.0 and not np.isnan(norm) and norm < 1e6:
+                            #     norm_dict[task][band].append(norm)
+                            #     power_task[task][band][label].append(d.data[label_id].mean() / norm)
                         # else:
                         #     print('{} does not have a norm!'.format(subject))
                         #     no_norm_subjects += 1

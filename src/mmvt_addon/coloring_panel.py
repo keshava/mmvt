@@ -11,7 +11,6 @@ import traceback
 from functools import partial
 import re
 import shutil
-import matplotlib.pyplot as plt
 import math
 
 try:
