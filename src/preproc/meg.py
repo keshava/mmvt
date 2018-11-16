@@ -511,7 +511,7 @@ def calc_labels_power_spectrum(
         fmin=0, fmax=200, bandwidth=2., bands=None, max_epochs_num=0,
         mri_subject='', epo_fname='', inv_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, surf_name='pial', precentiles=(1, 99),
-        epochs=None, src=None, overwrite=False, do_plot=True, save_tmp_files=True, n_jobs=6):
+        epochs=None, src=None, overwrite=False, do_plot=False, save_tmp_files=False, n_jobs=6):
     if mri_subject == '':
         mri_subject = subject
     if inv_fname == '':
@@ -566,7 +566,7 @@ def calc_labels_power_spectrum(
             utils.time_to_go(now, label_ind, len(labels), 1)
             stcs = mne.minimum_norm.compute_source_psd_epochs(
                 epochs, inverse_operator, lambda2=lambda2, method=inverse_method, fmin=fmin, fmax=fmax,
-                bandwidth=bandwidth, label=label, return_generator=True)
+                bandwidth=bandwidth, label=label, return_generator=True, n_jobs=n_jobs)
             for epoch_ind, stc in enumerate(stcs):
                 if epoch_ind >= epochs_num:
                     break
@@ -1483,8 +1483,8 @@ def calc_inverse_operator(
         empty_fname='', inv_loose=0.2, inv_depth=0.8, noise_t_min=None, noise_t_max=0, overwrite_inverse_operator=False,
         use_empty_room_for_noise_cov=False, use_raw_for_noise_cov=False, overwrite_noise_cov=False,
         calc_for_cortical_fwd=True, calc_for_sub_cortical_fwd=True, fwd_usingMEG=True, fwd_usingEEG=True,
-        calc_for_spec_sub_cortical=False, cortical_fwd=None, subcortical_fwd=None, spec_subcortical_fwd=None,
-        region=None, args=None):
+        check_for_channels_inconsistency=True, calc_for_spec_sub_cortical=False,
+        cortical_fwd=None, subcortical_fwd=None, spec_subcortical_fwd=None, region=None, args=None):
     raw_fname = get_raw_fname(raw_fname)
     fwd_fname = get_fwd_fname(fwd_fname, fwd_usingMEG, fwd_usingEEG)
     inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
@@ -1528,19 +1528,20 @@ def calc_inverse_operator(
                     cortical_fwd = get_cond_fname(fwd_fname, cond)
                 _calc_inverse_operator(
                     cortical_fwd, get_cond_fname(inv_fname, cond), raw_fname, get_cond_fname(evo_fname, cond),
-                    noise_cov, inv_loose, inv_depth, noise_cov_fname)
+                    noise_cov, inv_loose, inv_depth, noise_cov_fname, check_for_channels_inconsistency)
             if calc_for_sub_cortical_fwd and (not op.isfile(get_cond_fname(INV_SUB, cond))
                                               or overwrite_inverse_operator):
                 if subcortical_fwd is None:
                     subcortical_fwd = get_cond_fname(FWD_SUB, cond)
                 _calc_inverse_operator(subcortical_fwd, get_cond_fname(INV_SUB, cond), raw_fname, evo_fname, noise_cov,
-                                       None, None)
+                                       check_for_channels_inconsistency=check_for_channels_inconsistency)
             if calc_for_spec_sub_cortical and (not op.isfile(get_cond_fname(INV_X, cond, region=region))
                                                or overwrite_inverse_operator):
                 if spec_subcortical_fwd is None:
                     spec_subcortical_fwd = get_cond_fname(FWD_X, cond, region=region)
-                _calc_inverse_operator(spec_subcortical_fwd, get_cond_fname(INV_X, cond, region=region), raw_fname,
-                                       evo_fname, noise_cov, None, None)
+                _calc_inverse_operator(
+                    spec_subcortical_fwd, get_cond_fname(INV_X, cond, region=region), raw_fname,
+                    evo_fname, noise_cov, check_for_channels_inconsistency=check_for_channels_inconsistency)
             flag = True
         except:
             print(traceback.format_exc())
@@ -1550,7 +1551,7 @@ def calc_inverse_operator(
 
 
 def _calc_inverse_operator(fwd_name, inv_name, raw_fname, evoked_fname, noise_cov, inv_loose=0.2, inv_depth=0.8,
-                           noise_cov_fname=''):
+                           noise_cov_fname='', check_for_channels_inconsistency=True):
     fwd = mne.read_forward_solution(fwd_name)
     # info = fwd['info']
     if op.isfile(evoked_fname):
@@ -1564,13 +1565,13 @@ def _calc_inverse_operator(fwd_name, inv_name, raw_fname, evoked_fname, noise_co
         else:
             raise Exception("Can't find info for calculating the inverse operator!")
 
-    noise_cov = check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname)
+    noise_cov = check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname, check_for_channels_inconsistency)
     inverse_operator = make_inverse_operator(info, fwd, noise_cov,
         loose=inv_loose, depth=inv_depth)
     write_inverse_operator(inv_name, inverse_operator)
 
 
-def check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname=''):
+def check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname='', check_for_channels_inconsistency=True):
     fwd_sol_ch_names = fwd['sol']['row_names']
     if set([c['ch_name'] for c in info['chs']]) == set(noise_cov.ch_names) == set(fwd_sol_ch_names):
         return noise_cov
@@ -1598,7 +1599,7 @@ def check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname=''):
         cov_dict.bads.append('{}{}{}'.format(group, sep, num.zfill(num_len_dict[group])))
     noise_cov = get_cov_from_dict(cov_dict)
 
-    if args.check_for_channels_inconsistency:
+    if check_for_channels_inconsistency:
         C = [c['ch_name'] for c in info['chs'] if c['ch_name'][:3] in ['MEG', 'EEG']]
         N = [c for c in noise_cov.ch_names if c[:3] in ['MEG', 'EEG']]
         F = [c for c in fwd_sol_ch_names if c[:3] in ['MEG', 'EEG']]
@@ -3370,7 +3371,7 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
                 args.inv_loose, args.inv_depth, args.noise_t_min, args.noise_t_max, args.overwrite_inv,
                 args.use_empty_room_for_noise_cov, args.use_raw_for_noise_cov,
                 args.overwrite_noise_cov, args.inv_calc_cortical, args.inv_calc_subcorticals,
-                args.fwd_usingMEG, args.fwd_usingEEG, args=args)
+                args.fwd_usingMEG, args.fwd_usingEEG, args.check_for_channels_inconsistency, args=args)
     return flags
 
 
