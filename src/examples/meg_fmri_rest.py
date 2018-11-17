@@ -35,7 +35,7 @@ def init_meg(subject):
 def get_meg_empty_fnames(subject, remote_fol, args):
     csv_fname = op.join(remote_fol, 'cfg.txt')
     if not op.isfile(csv_fname):
-        print('No cfg file!')
+        print('No cfg file ({})!'.format(csv_fname))
         return '', '', ''
     day, empty_fname, cor_fname, local_rest_raw_fname = '', '', '', ''
     for line in utils.csv_file_reader(csv_fname, ' '):
@@ -172,7 +172,7 @@ def calc_meg_connectivity(args):
     for subject, mri_subject in zip(subjects, args.mri_subject):
         init_meg(subject)
         local_rest_raw_fname, empty_fname, cor_fname = get_meg_empty_fnames(
-            subject, op.join(args.remote_meg_dir, subject.upper()), args)
+            subject, op.join(args.remote_meg_dir, subject), args) # subject.upper()
         if not op.isfile(empty_fname) or not op.isfile(cor_fname):
             print('{}: Can\'t find empty, raw, or cor files!'.format(subject))
             continue
