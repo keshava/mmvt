@@ -371,6 +371,7 @@ if __name__ == '__main__':
     parser.add_argument('--remote_subject_dir', required=False,
                         default='/autofs/space/lilli_001/users/DARPA-Recons/{subject}')
     parser.add_argument('--epo_template', required=False, default='{subject}_Resting_meg_Demi_ar-epo.fif')
+    parser.add_argument('--max_epochs_num', help='', required=False, default=10, type=int)
 
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
