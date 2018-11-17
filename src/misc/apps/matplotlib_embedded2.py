@@ -12,6 +12,7 @@ else:
         FigureCanvas, NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
 
+# https://matplotlib.org/gallery/user_interfaces/embedding_in_qt_sgskip.html
 
 class ApplicationWindow(QtWidgets.QMainWindow):
     def __init__(self):
