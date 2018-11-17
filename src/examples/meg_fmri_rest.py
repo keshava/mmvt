@@ -150,20 +150,64 @@ def analyze_meg(args):
         meg.call_main(args)
 
 
+# def calc_meg_connectivity(args):
+#     args = connectivity.read_cmd_args(utils.Bag(
+#         subject=args.subject,
+#         atlas='laus125',
+#         function='calc_lables_connectivity',
+#         connectivity_modality='meg',
+#         connectivity_method='pli',
+#         windows_num=1,
+#         # windows_length=500,
+#         # windows_shift=100,
+#         recalc_connectivity=True,
+#         n_jobs=args.n_jobs
+#     ))
+#     connectivity.call_main(args)
+
+
 def calc_meg_connectivity(args):
-    args = connectivity.read_cmd_args(utils.Bag(
-        subject=args.subject,
-        atlas='laus125',
-        function='calc_lables_connectivity',
-        connectivity_modality='meg',
-        connectivity_method='pli',
-        windows_num=1,
-        # windows_length=500,
-        # windows_shift=100,
-        recalc_connectivity=True,
-        n_jobs=args.n_jobs
-    ))
-    connectivity.call_main(args)
+    inv_method, em = 'dSPM', 'mean_flip'
+    subjects = args.subject
+    for subject, mri_subject in zip(subjects, args.mri_subject):
+        init_meg(subject)
+        local_rest_raw_fname, empty_fname, cor_fname = get_meg_empty_fnames(
+            subject, op.join(args.remote_meg_dir, subject.upper()), args)
+        if not op.isfile(empty_fname) or not op.isfile(cor_fname):
+            print('{}: Can\'t find empty, raw, or cor files!'.format(subject))
+            continue
+
+        # output_fname = op.join(
+        #     MMVT_DIR, subject, 'connectivity', '{}_{}_coh_cwt_morlet.npz'.format(task.lower(), em))
+        # if op.isfile(output_fname):
+        #     file_mod_time = utils.file_modification_time_struct(output_fname)
+        #     if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 11 and file_mod_time.tm_mday >= 6) or \
+        #             (file_mod_time.tm_mon > 11):
+        #         print('{} already exist!'.format(output_fname))
+        #         continue
+
+        remote_epo_fname = op.join(args.remote_epochs_dir, subject, args.epo_template.format(subject=subject))
+        con_args = meg.read_cmd_args(utils.Bag(
+            subject=args.subject, mri_subject=args.subject,
+            task='rest', inverse_method=inv_method, extract_mode=em, atlas=args.atlas,
+            # meg_dir=args.meg_dir,
+            remote_subject_dir=args.remote_subject_dir,  # Needed for finding COR
+            get_task_defaults=False,
+            data_per_task=True,
+            fname_format=args.epo_template.format(subject=subject)[:-len('-epo.fif')],
+            epo_fname=remote_epo_fname,
+            empty_fname=empty_fname,
+            function='calc_labels_connectivity',
+            con_method='pli2_unbiased',
+            con_mode='multitaper',
+            conditions='rest',
+            max_epochs_num=args.max_epochs_num,
+            overwrite_connectivity=True,#args.overwrite_connectivity,
+            cor_fname=cor_fname,
+            use_empty_room_for_noise_cov=True,
+            n_jobs=args.n_jobs
+        ))
+        meg.call_main(con_args)
 
 
 def analyze_rest_fmri(gargs):
@@ -319,11 +363,15 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--function', help='function name', required=False, default='analyze_meg')
     parser.add_argument('--top_k', required=False, default=0, type=int)
     parser.add_argument('--remote_meg_dir', required=False,
-                        default='/autofs/space/lilli_003/users/DARPA-TRANSFER/meg/{subject}')
+                        default='/autofs/space/lilli_003/users/DARPA-TRANSFER/meg')
+    parser.add_argument('--remote_epochs_dir', required=False,
+                        default='/autofs/space/karima_002/users/Resting/epochs')
     parser.add_argument('--remote_fmri_dir', required=False,
                         default='/autofs/space/lilli_003/users/DARPA-TRANSFER/mri')
     parser.add_argument('--remote_subject_dir', required=False,
                         default='/autofs/space/lilli_001/users/DARPA-Recons/{subject}')
+    parser.add_argument('--epo_template', required=False, default='{subject}_Resting_meg_Demi_ar-epo.fif')
+
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
     args.subject = pu.decode_subjects(args.subject, remote_subject_dir=args.remote_subject_dir)
