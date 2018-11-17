@@ -193,7 +193,7 @@ def calc_meg_connectivity(args):
             # meg_dir=args.meg_dir,
             remote_subject_dir=args.remote_subject_dir,  # Needed for finding COR
             get_task_defaults=False,
-            data_per_task=True,
+            data_per_task=False,
             fname_format=args.epo_template.format(subject=subject)[:-len('-epo.fif')],
             epo_fname=remote_epo_fname,
             raw_fname=local_rest_raw_fname,
@@ -203,7 +203,6 @@ def calc_meg_connectivity(args):
             con_mode='multitaper',
             conditions='rest',
             max_epochs_num=args.max_epochs_num,
-            data_per_task=False,
             recreate_src_spacing='oct6p',
             overwrite_connectivity=True,#args.overwrite_connectivity,
             cor_fname=cor_fname,
