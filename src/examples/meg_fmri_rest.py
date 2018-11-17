@@ -202,6 +202,7 @@ def calc_meg_connectivity(args):
             con_mode='multitaper',
             conditions='rest',
             max_epochs_num=args.max_epochs_num,
+            recreate_src_spacing='oct6p',
             overwrite_connectivity=True,#args.overwrite_connectivity,
             cor_fname=cor_fname,
             use_empty_room_for_noise_cov=True,
