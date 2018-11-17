@@ -197,7 +197,7 @@ def calc_meg_connectivity(args):
             fname_format=args.epo_template.format(subject=subject)[:-len('-epo.fif')],
             epo_fname=remote_epo_fname,
             empty_fname=empty_fname,
-            function='calc_labels_connectivity',
+            function='make_forward_solution,calc_inverse_operator,calc_labels_connectivity',
             con_method='pli2_unbiased',
             con_mode='multitaper',
             conditions='rest',
