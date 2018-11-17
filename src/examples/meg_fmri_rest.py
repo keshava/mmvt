@@ -220,6 +220,8 @@ def analyze_rest_fmri(gargs):
             good_subjects.append(subject)
 
     print('{}/{} good subjects'.format(len(good_subjects), len(gargs.mri_subject)))
+    print('Good subject: ', good_subjects)
+    print('Bad subjects: ', set(gargs.mri_subject) - set(good_subjects))
 
 
 def merge_connectivity(args):
