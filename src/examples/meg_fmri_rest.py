@@ -81,7 +81,8 @@ def get_fMRI_rest_fol(subject, remote_root):
             num = line[0]
             break
     if num is None:
-        raise Exception('Can\'t find rest in the cfg file for {}!'.format(subject))
+        print ('Can\'t find rest in the cfg file for {}!'.format(subject))
+        return ''
     subject_folders = glob.glob(op.join(remote_root, '{}_*'.format(subject.upper())))
     rest_fols = []
     for subject_fol in subject_folders:
@@ -89,7 +90,8 @@ def get_fMRI_rest_fol(subject, remote_root):
         if len(rest_fols) == 1:
             break
     if len(rest_fols) == 0:
-        raise Exception('Can\'t find rest in the cfg file for {}!'.format(subject))
+        print('Can\'t find rest in the cfg file for {}!'.format(subject))
+        return ''
     return rest_fols[0]
 
 
@@ -165,8 +167,11 @@ def calc_meg_connectivity(args):
 
 
 def analyze_rest_fmri(gargs):
+    good_subjects = []
     for subject in gargs.mri_subject:
         remote_rest_fol = get_fMRI_rest_fol(subject, gargs.remote_fmri_dir)
+        if remote_rest_fol == '':
+            continue
         local_rest_fname = convert_rest_dicoms_to_mgz(subject, remote_rest_fol)
         if local_rest_fname == '':
             continue
@@ -180,7 +185,9 @@ def analyze_rest_fmri(gargs):
             function='clean_4d_data',
             fmri_file_template=local_rest_fname,
         ))
-        fmri.call_main(args)
+        flags = fmri.call_main(args)
+        if subject not in flags or not flags[subject]['clean_4d_data']:
+            continue
 
         args = fmri.read_cmd_args(dict(
             subject=subject,
@@ -190,7 +197,9 @@ def analyze_rest_fmri(gargs):
             labels_extract_mode='mean',
             overwrite_labels_data=False
         ))
-        fmri.call_main(args)
+        flags = fmri.call_main(args)
+        if subject not in flags or not flags[subject]['analyze_4d_data']:
+            continue
 
         args = connectivity.read_cmd_args(dict(
             subject=subject,
@@ -206,7 +215,11 @@ def analyze_rest_fmri(gargs):
             recalc_connectivity=True,
             n_jobs=gargs.n_jobs
         ))
-        connectivity.call_main(args)
+        flags = connectivity.call_main(args)
+        if subject in flags and flags[subject]['calc_lables_connectivity']:
+            good_subjects.append(subject)
+
+    print('{}/{} good subjects'.format(len(good_subjects), len(gargs.mri_subject)))
 
 
 def merge_connectivity(args):

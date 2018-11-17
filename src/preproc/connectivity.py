@@ -230,16 +230,17 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
     if args.labels_data_name != '':
         labels_data_fname = op.join(conn_fol, args.labels_data_name.format(subject=subject, hemi='{hemi}'))
     else:
-        labels_data_fname = utils.select_one_file(glob.glob(op.join(
+        labels_data_fnames = utils.select_one_file(glob.glob(op.join(
             conn_fol, '{}*labels_data*_{}_*{}_rh.npz'.format(args.identifier, args.atlas, labels_extract_mode))))
-    if len(labels_data_fname) == 0:
-        modalities_fols_dic = dict(meg=MEG_DIR, fmri=FMRI_DIR, electrodes=ELECTRODES_DIR)
-        conn_fol = op.join(modalities_fols_dic[args.connectivity_modality], subject)
-        labels_data_fname = [f for f in glob.glob(op.join(conn_fol, '*labels_data*.npz')) if 'norm' not in utils.namebase(f)]
-    if len(labels_data_fname) == 0:
-        print("You don't have any connectivity data ({}) in {}, create it using the {} preproc".format(
-            '*labels_data_{}_{}_?h.npz'.format(args.atlas, labels_extract_mode), conn_fol, args.connectivity_modality))
-        return False
+        if len(labels_data_fnames) == 0:
+            modalities_fols_dic = dict(meg=MEG_DIR, fmri=FMRI_DIR, electrodes=ELECTRODES_DIR)
+            conn_fol = op.join(modalities_fols_dic[args.connectivity_modality], subject)
+            labels_data_fnames = [f for f in glob.glob(op.join(conn_fol, '*labels_data*.npz')) if 'norm' not in utils.namebase(f)]
+        if len(labels_data_fnames) == 0:
+            print("You don't have any connectivity data ({}) in {}, create it using the {} preproc".format(
+                '*labels_data_{}_{}_?h.npz'.format(args.atlas, labels_extract_mode), conn_fol, args.connectivity_modality))
+            return False
+        labels_data_fname = labels_data_fnames[0]
     # if len(labels_data_fname) != 2:
     #     print("You have more than one type of {} connectivity data in {}, please pick one".format(
     #         args.connectivity_modality, conn_fol))
@@ -1014,7 +1015,7 @@ def calc_fmri_corr_degree(subject, identifier='', threshold=0.7, connectivity_me
 
 
 def call_main(args):
-    pu.run_on_subjects(args, main)
+    return pu.run_on_subjects(args, main)
 
 
 def main(subject, remote_subject_dir, args, flags):

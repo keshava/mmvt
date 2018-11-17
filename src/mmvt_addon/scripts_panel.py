@@ -90,7 +90,7 @@ def get_func(lib, func_name):
 
 
 def run_script(script_name=''):
-    if script_name != '':
+    if script_name != '' and bpy.context.scene.scripts_files != script_name:
         bpy.context.scene.scripts_files = script_name
     try:
         script_name = bpy.context.scene.scripts_files.replace(' ', '_')

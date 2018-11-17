@@ -1817,7 +1817,7 @@ def calc_also_minmax(ret_flag, fmri_contrast_file_template, args):
 
 
 def call_main(args):
-    pu.run_on_subjects(args, main)
+    return pu.run_on_subjects(args, main)
 
 
 def main(subject, remote_subject_dir, args, flags):

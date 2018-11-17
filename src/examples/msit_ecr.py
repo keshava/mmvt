@@ -200,8 +200,8 @@ def meg_preproc_evoked(args):
                 use_empty_room_for_noise_cov=True,
                 read_only_from_annot=False,
                 # pick_ori='normal',
-                check_for_channels_inconsistency = args.check_for_channels_inconsistency,
-                overwrite_labels_power_spectrum = args.overwrite_labels_power_spectrum,
+                check_for_channels_inconsistency=args.check_for_channels_inconsistency,
+                overwrite_labels_power_spectrum=args.overwrite_labels_power_spectrum,
                 overwrite_evoked=True,#args.overwrite,
                 overwrite_fwd=args.overwrite,
                 overwrite_inv=args.overwrite,
@@ -241,6 +241,13 @@ def meg_preproc_power(args):
     good_subjects = get_good_subjects(args)
     args.subject = good_subjects
     prepare_files(args)
+    calc_power_spectrum = True
+
+    function = 'make_forward_solution,calc_inverse_operator'
+    if calc_power_spectrum:
+        function += ',calc_labels_power_spectrum'
+    else:
+        function += ',calc_labels_induced_power'
 
     for subject in good_subjects:
         args.subject = subject
@@ -289,7 +296,7 @@ def meg_preproc_power(args):
                 raw_fname=op.join(MEG_DIR, task, subject, args.raw_template.format(subject=subject, task=task)),
                 epo_fname=local_epo_fname,
                 empty_fname=empty_fnames[task] if empty_fnames != '' else '',
-                function='make_forward_solution,calc_inverse_operator,calc_labels_induced_power',#,
+                function=function,
                 conditions=task.lower(),
                 cor_fname=cors[task].format(subject=subject) if cors != '' else '',
                 average_per_event=False,
@@ -306,8 +313,10 @@ def meg_preproc_power(args):
                 read_only_from_annot=False,
                 average_over_label_indices=args.average_over_label_indices,
                 ignore_missing=args.ignore_missing,
+                check_for_channels_inconsistency=args.check_for_channels_inconsistency,
                 # pick_ori='normal',
                 overwrite_labels_induced_power=args.overwrite_output_files,
+                overwrite_labels_power_spectrum=args.overwrite_output_files,
                 overwrite_evoked=args.overwrite,
                 overwrite_fwd=args.overwrite,
                 overwrite_inv=args.overwrite,
@@ -399,19 +408,18 @@ def meg_preproc_power(args):
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def post_meg_preproc(args):
     inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
-    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     evoked_times = (500, 2500)
     baseline_times = (0, 500)
     do_plot = False
 
     subjects = args.subject
     res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
-    epochs_max_num = 50
     template_brain = 'colin27'
     subjects_results = {}
     bands_power_mmvt_all = []
 
-    params = [(subject, atlas, bands, epochs_max_num, evoked_times, baseline_times, inv_method, em, args.tasks,
+    params = [(subject, atlas, bands, args.max_epochs_num, evoked_times, baseline_times, inv_method, em, args.tasks,
                template_brain, res_fol, args.n_jobs) for subject in args.subject]
     parallel_results = utils.run_parallel(_post_meg_preproc_parallel, params, args.n_jobs, print_time_to_go=True)
     for subject, results, bands_power_mmvt in parallel_results:
@@ -612,7 +620,7 @@ def post_analysis(args):
     inv_method, em = 'dSPM', 'mean_flip'
     res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
     plot_fol = utils.make_dir(op.join(res_fol, 'plots'))
-    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     data_dic = np.load(op.join(res_fol, 'data_dictionary.npz'))
     meta_data = data_dic['noam_dict'].tolist()
     # brain_overall_res_fname = op.join(res_fol, 'brain_overall_res.npz')
@@ -921,10 +929,10 @@ if __name__ == '__main__':
     parser.add_argument('--check_file_modification_time', required=False, default=False, type=au.is_true)
     parser.add_argument('--check_cor', required=False, default=True, type=au.is_true)
     parser.add_argument('--check_for_both_files', required=False, default=True, type=au.is_true)
-    parser.add_argument('--check_for_channels_inconsistency', required=False, default=1, type=au.is_true)
-    parser.add_argument('--max_epochs_num', required=False, default=0, type=int)
+    parser.add_argument('--check_for_channels_inconsistency', required=False, default=0, type=au.is_true)
     parser.add_argument('--average_over_label_indices', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--ignore_missing', help='ignore missing files', required=False, default=0, type=au.is_true)
+    parser.add_argument('--max_epochs_num', help='', required=False, default=50, type=int)
 
     parser.add_argument('--remote_root_dir', required=False,
                         default='/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/')
