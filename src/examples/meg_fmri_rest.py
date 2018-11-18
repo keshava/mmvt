@@ -173,9 +173,9 @@ def calc_meg_connectivity(args):
         init_meg(subject)
         local_rest_raw_fname, empty_fname, cor_fname = get_meg_empty_fnames(
             subject, op.join(args.remote_meg_dir, subject), args) # subject.upper()
-        if not op.isfile(empty_fname) or not op.isfile(cor_fname):
-            print('{}: Can\'t find empty, raw, or cor files!'.format(subject))
-            continue
+        # if not op.isfile(empty_fname) or not op.isfile(cor_fname):
+        #     print('{}: Can\'t find empty, raw, or cor files!'.format(subject))
+        #     continue
 
         # output_fname = op.join(
         #     MMVT_DIR, subject, 'connectivity', '{}_{}_coh_cwt_morlet.npz'.format(task.lower(), em))
@@ -188,7 +188,7 @@ def calc_meg_connectivity(args):
 
         remote_epo_fname = op.join(args.remote_epochs_dir, subject, args.epo_template.format(subject=subject))
         con_args = meg.read_cmd_args(utils.Bag(
-            subject=args.subject, mri_subject=args.subject,
+            subject=subject, mri_subject=subject,
             task='rest', inverse_method=inv_method, extract_mode=em, atlas=args.atlas,
             # meg_dir=args.meg_dir,
             remote_subject_dir=args.remote_subject_dir,  # Needed for finding COR
