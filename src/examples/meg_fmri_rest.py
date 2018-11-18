@@ -204,6 +204,7 @@ def calc_meg_connectivity(args):
             conditions='rest',
             max_epochs_num=args.max_epochs_num,
             recreate_src_spacing='oct6p',
+            check_for_channels_inconsistency=False,
             overwrite_connectivity=True,#args.overwrite_connectivity,
             cor_fname=cor_fname,
             use_empty_room_for_noise_cov=True,
@@ -358,6 +359,12 @@ if __name__ == '__main__':
     import argparse
     from src.utils import args_utils as au
     from src.utils import preproc_utils as pu
+
+    remote_epochs_dir = [d for d in [
+        '/autofs/space/karima_002/users/Resting/epochs', op.join(MMVT_DIR, 'meg')] if op.isdir(d)][0]
+    remote_subject_dir = [op.join(d, '{subject}') for d in [
+        '/autofs/space/lilli_001/users/DARPA-Recons', SUBJECTS_DIR] if op.isdir(d)][0]
+
     parser = argparse.ArgumentParser(description='MMVT')
     parser.add_argument('-s', '--subject', help='subject name', required=True, type=au.str_arr_type)
     parser.add_argument('-m', '--mri_subject', help='subject name', required=False, default='')
@@ -366,8 +373,7 @@ if __name__ == '__main__':
     parser.add_argument('--top_k', required=False, default=0, type=int)
     parser.add_argument('--remote_meg_dir', required=False,
                         default='/autofs/space/lilli_003/users/DARPA-TRANSFER/meg')
-    parser.add_argument('--remote_epochs_dir', required=False,
-                        default='/autofs/space/karima_002/users/Resting/epochs')
+    parser.add_argument('--remote_epochs_dir', required=False,default=remote_epochs_dir)
     parser.add_argument('--remote_fmri_dir', required=False,
                         default='/autofs/space/lilli_003/users/DARPA-TRANSFER/mri')
     parser.add_argument('--remote_subject_dir', required=False,
