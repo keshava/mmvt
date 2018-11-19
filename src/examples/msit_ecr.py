@@ -255,14 +255,14 @@ def meg_preproc_power(args):
         input_fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
         for task in args.tasks:
 
-            # output_fname = op.join(
-            #     MMVT_DIR, subject, 'meg', '{}_{}_{}_power_spectrum.npz'.format(task.lower(), inv_method, em))
-            # if op.isfile(output_fname) and args.check_file_modification_time:
-            #     file_mod_time = utils.file_modification_time_struct(output_fname)
-            #     if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 9 and file_mod_time.tm_mday >= 21) or \
-            #             (file_mod_time.tm_mon > 9):
-            #         print('{} already exist!'.format(output_fname))
-            #         continue
+            output_fname = op.join(
+                MMVT_DIR, subject, 'labels', 'labels_data', '{}_labels_{}_{}_{}_power.npz'.format(cond_name, inverse_method, em, band))
+            if op.isfile(output_fname) and args.check_file_modification_time:
+                file_mod_time = utils.file_modification_time_struct(output_fname)
+                if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 9 and file_mod_time.tm_mday >= 21) or \
+                        (file_mod_time.tm_mon > 9):
+                    print('{} already exist!'.format(output_fname))
+                    continue
 
             # if not args.overwrite_output_files:
             #     output_fnames = glob.glob(
