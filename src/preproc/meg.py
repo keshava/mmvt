@@ -812,7 +812,7 @@ def calc_labels_connectivity(
         if inverse_operator is None:
             inverse_operator, src = get_inv_src(inv_fname, src, cond_name)
         if max_epochs_num > 0:
-            epochs = epochs[:50]
+            epochs = epochs[:max_epochs_num]
         stcs = mne.minimum_norm.apply_inverse_epochs(
             epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
         label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, return_generator=True)
