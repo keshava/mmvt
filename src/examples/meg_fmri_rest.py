@@ -204,7 +204,7 @@ def calc_meg_connectivity(args):
             conditions='rest',
             max_epochs_num=args.max_epochs_num,
             recreate_src_spacing='oct6p',
-            check_for_channels_inconsistency=True,
+            check_for_channels_inconsistency=False,
             overwrite_inv=True,
             overwrite_connectivity=True,#args.overwrite_connectivity,
             cor_fname=cor_fname,
