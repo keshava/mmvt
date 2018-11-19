@@ -32,7 +32,7 @@ def init_meg(subject):
     utils.make_link(op.join(MEG_DIR, subject, 'bem'), op.join(SUBJECTS_DIR, subject, 'bem'))
 
 
-def get_meg_empty_fnames(subject, remote_fol, args):
+def get_meg_empty_fnames(subject, remote_fol, args, ask_for_different_day_empty=False):
     csv_fname = op.join(remote_fol, 'cfg.txt')
     if not op.isfile(csv_fname):
         print('No cfg file ({})!'.format(csv_fname))
@@ -61,6 +61,16 @@ def get_meg_empty_fnames(subject, remote_fol, args):
                 if not op.isfile(remote_empty_fname):
                     raise Exception('empty file does not exist! {}'.format(remote_empty_fname))
                 utils.make_link(remote_empty_fname, empty_fname)
+    if not op.isfile(empty_fname):
+        for line in utils.csv_file_reader(csv_fname, ' '):
+            if line[4] == 'empty':
+                ret = input('empty recordings from a different day were found, continue (y/n)? ') \
+                        if ask_for_different_day_empty else True
+                if au.is_true(ret):
+                    remote_empty_fname = op.join(remote_fol, line[0].zfill(3), line[-1])
+                    if not op.isfile(remote_empty_fname):
+                        raise Exception('empty file does not exist! {}'.format(remote_empty_fname))
+                    utils.make_link(remote_empty_fname, empty_fname)
     cor_dir = op.join(args.remote_subject_dir.format(subject=subject), 'mri', 'T1-neuromag', 'sets')
     if op.isfile(op.join(cor_dir, 'COR-{}-resting.fif'.format(subject))):
         cor_fname = op.join(cor_dir, 'COR-{}-resting.fif'.format(subject))
@@ -168,25 +178,36 @@ def analyze_meg(args):
 
 def calc_meg_connectivity(args):
     inv_method, em = 'dSPM', 'mean_flip'
+    con_method, con_mode = 'pli2_unbiased', 'multitaper'
     subjects = args.subject
+    good_subjects = []
     for subject, mri_subject in zip(subjects, args.mri_subject):
         init_meg(subject)
         local_rest_raw_fname, empty_fname, cor_fname = get_meg_empty_fnames(
             subject, op.join(args.remote_meg_dir, subject), args) # subject.upper()
-        if not op.isfile(empty_fname) or not op.isfile(cor_fname):
-            print('{}: Can\'t find empty, raw, or cor files!'.format(subject))
+        if not op.isfile(empty_fname):
+            print('{}: Can\'t find empty! ({})'.format(subject, empty_fname))
+            continue
+        if not op.isfile(cor_fname):
+            print('{}: Can\'t find cor! ({})'.format(subject, cor_fname))
+            continue
+        if not op.isfile(local_rest_raw_fname):
+            print('{}: Can\'t find raw! ({})'.format(subject, local_rest_raw_fname))
             continue
 
-        # output_fname = op.join(
-        #     MMVT_DIR, subject, 'connectivity', '{}_{}_coh_cwt_morlet.npz'.format(task.lower(), em))
-        # if op.isfile(output_fname):
-        #     file_mod_time = utils.file_modification_time_struct(output_fname)
-        #     if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 11 and file_mod_time.tm_mday >= 6) or \
-        #             (file_mod_time.tm_mon > 11):
-        #         print('{} already exist!'.format(output_fname))
-        #         continue
+        output_fname = op.join(MMVT_DIR, subject, 'connectivity', 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
+        if op.isfile(output_fname):
+            file_mod_time = utils.file_modification_time_struct(output_fname)
+            if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 11 and file_mod_time.tm_mday >= 15) or \
+                    (file_mod_time.tm_mon > 11):
+                print('{} already exist!'.format(output_fname))
+                good_subjects.append(subject)
+                continue
 
         remote_epo_fname = op.join(args.remote_epochs_dir, subject, args.epo_template.format(subject=subject))
+        if not op.isfile(remote_epo_fname):
+            print('No epochs file! {}'.format(remote_epo_fname))
+            continue
         con_args = meg.read_cmd_args(utils.Bag(
             subject=subject, mri_subject=subject,
             task='rest', inverse_method=inv_method, extract_mode=em, atlas=args.atlas,
@@ -199,8 +220,8 @@ def calc_meg_connectivity(args):
             raw_fname=local_rest_raw_fname,
             empty_fname=empty_fname,
             function='make_forward_solution,calc_inverse_operator,calc_labels_connectivity',
-            con_method='pli2_unbiased',
-            con_mode='multitaper',
+            con_method=con_method,
+            con_mode=con_mode,
             conditions='rest',
             max_epochs_num=args.max_epochs_num,
             recreate_src_spacing='oct6p',
@@ -211,7 +232,14 @@ def calc_meg_connectivity(args):
             use_empty_room_for_noise_cov=True,
             n_jobs=args.n_jobs
         ))
-        meg.call_main(con_args)
+        ret = meg.call_main(con_args)
+        if ret[subject]['calc_labels_connectivity']:
+            good_subjects.append(subject)
+        else:
+            print('Problem with {}!'.format(subject))
+
+    print('{}/{} subjects with results:'.format(len(good_subjects), len(subjects)))
+    print(good_subjects)
 
 
 def analyze_rest_fmri(gargs):

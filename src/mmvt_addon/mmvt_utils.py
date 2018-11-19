@@ -1071,11 +1071,19 @@ def tryit(except_retval=False, throw_exception=False):
                 print('Error in {}!'.format(func.__name__))
                 if (throw_exception):
                     raise Exception(traceback.format_exc())
-                print(traceback.format_exc())
+                # print(traceback.format_exc())
+                print_last_error_line()
                 retval = except_retval
             return retval
         return wrapper
     return real_tryit
+
+
+def print_last_error_line():
+    try:
+        print([l for l in traceback.format_exc().split('\n') if len(l) > 0][-1])
+    except:
+        pass
 
 
 def get_all_children(parents):

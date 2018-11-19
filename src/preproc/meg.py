@@ -814,11 +814,8 @@ def calc_labels_connectivity(
         if max_epochs_num > 0:
             epochs = epochs[:max_epochs_num]
         stcs = mne.minimum_norm.apply_inverse_epochs(
-            [epochs[0]], inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=False)
-
-        stcs = mne.minimum_norm.apply_inverse_epochs(
             epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
-        label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, return_generator=True)
+        label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=True)
         fmin, fmax = [t[0] for t in bands], [t[1] for t in bands]
         # The data is too big for running it in parallel
         # todo: Parallel over bands
