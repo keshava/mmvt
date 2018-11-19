@@ -311,6 +311,7 @@ class FreeviewPanel(bpy.types.Panel):
     freeview_out_queue = None
     freeview_is_open = False
     dura_srf_exist = False
+    dura_srf_fname = ''
 
     def draw(self, context):
         layout = self.layout
