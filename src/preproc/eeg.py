@@ -127,6 +127,12 @@ def main(tup, remote_subject_dir, args, flags):
 
     flags, evoked, epochs = meg.calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)
 
+    flags, stcs_conds, stcs_num = meg.calc_stc_per_condition_wrapper(
+        subject, conditions, inverse_method, args, flags)
+
+    flags = meg.calc_labels_avg_per_condition_wrapper(
+        subject, conditions, args.atlas, inverse_method, stcs_conds, args, flags, stcs_num, raw, epochs)
+
     if utils.should_run(args, 'create_eeg_mesh'):
         flags['create_eeg_mesh'] = create_eeg_mesh(mri_subject, args.eeg_electrodes_excluded_from_mesh)
 

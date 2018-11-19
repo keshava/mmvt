@@ -814,6 +814,9 @@ def calc_labels_connectivity(
         if max_epochs_num > 0:
             epochs = epochs[:max_epochs_num]
         stcs = mne.minimum_norm.apply_inverse_epochs(
+            [epochs[0]], inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=False)
+
+        stcs = mne.minimum_norm.apply_inverse_epochs(
             epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
         label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, return_generator=True)
         fmin, fmax = [t[0] for t in bands], [t[1] for t in bands]
@@ -1491,6 +1494,7 @@ def calc_inverse_operator(
     evo_fname = get_evo_fname(evo_fname)
     epo_fname = get_epo_fname(epo_fname)
     empty_fname = get_empty_fname(empty_fname)
+    noise_cov = None
     if noise_cov_fname == '':
         noise_cov_fname = NOISE_COV
     if events is None:
@@ -1505,7 +1509,9 @@ def calc_inverse_operator(
             (not calc_for_spec_sub_cortical or op.isfile(get_cond_fname(INV_X, cond, region=region)))):
                 continue
         try:
-            if overwrite_noise_cov or not op.isfile(noise_cov_fname):
+            if op.isfile(noise_cov_fname) and not overwrite_noise_cov:
+                noise_cov = read_noise_cov(noise_cov_fname)
+            if noise_cov is None:
                 if use_empty_room_for_noise_cov:
                     raw_empty_room = mne.io.read_raw_fif(empty_fname, add_eeg_ref=False)
                     noise_cov = mne.compute_raw_covariance(raw_empty_room, tmin=0, tmax=None)
@@ -1518,8 +1524,6 @@ def calc_inverse_operator(
                     epo = get_cond_fname(epo_fname, cond)
                     epochs = mne.read_epochs(epo)
                     noise_cov = calc_noise_cov(epochs, noise_t_min, noise_t_max, noise_cov_fname, args)
-            else:
-                noise_cov = mne.read_cov(noise_cov_fname)
 
             # todo: should use noise_cov = calc_cov(...
             if calc_for_cortical_fwd and (not op.isfile(get_cond_fname(inv_fname, cond))
@@ -1548,6 +1552,11 @@ def calc_inverse_operator(
             print('Error in calculating inv for {}'.format(cond))
             flag = False
     return flag
+
+
+@utils.tryit(None)
+def read_noise_cov(noise_cov_fname):
+    return mne.read_cov(noise_cov_fname)
 
 
 def _calc_inverse_operator(fwd_name, inv_name, raw_fname, evoked_fname, epochs_fname, noise_cov,

@@ -61,6 +61,7 @@ calc_min_max = mu.calc_min_max
 csv_file_reader = mu.csv_file_reader
 time_to_go = mu.time_to_go
 tryit = mu.tryit
+print_last_error_line = mu.print_last_error_line
 to_str = mu.to_str
 read_config_ini = mu.read_config_ini
 make_link = mu.make_link
@@ -2060,13 +2061,6 @@ def find_common_start(str_list):
             str_list.append(common)
         prev = common
     return get_common_letters(str_list)
-
-
-def print_last_error_line():
-    try:
-        print([l for l in traceback.format_exc().split('\n') if len(l) > 0][-1])
-    except:
-        pass
 
 
 def wrapped_partial(func, *args, **kwargs):
