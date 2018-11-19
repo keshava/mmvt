@@ -1528,20 +1528,20 @@ def calc_inverse_operator(
                     cortical_fwd = get_cond_fname(fwd_fname, cond)
                 _calc_inverse_operator(
                     cortical_fwd, get_cond_fname(inv_fname, cond), raw_fname, get_cond_fname(evo_fname, cond),
-                    noise_cov, inv_loose, inv_depth, noise_cov_fname, check_for_channels_inconsistency)
+                    epo_fname, noise_cov, inv_loose, inv_depth, noise_cov_fname, check_for_channels_inconsistency)
             if calc_for_sub_cortical_fwd and (not op.isfile(get_cond_fname(INV_SUB, cond))
                                               or overwrite_inverse_operator):
                 if subcortical_fwd is None:
                     subcortical_fwd = get_cond_fname(FWD_SUB, cond)
-                _calc_inverse_operator(subcortical_fwd, get_cond_fname(INV_SUB, cond), raw_fname, evo_fname, noise_cov,
-                                       check_for_channels_inconsistency=check_for_channels_inconsistency)
+                _calc_inverse_operator(subcortical_fwd, get_cond_fname(INV_SUB, cond), raw_fname, evo_fname, epo_fname,
+                                       noise_cov, check_for_channels_inconsistency=check_for_channels_inconsistency)
             if calc_for_spec_sub_cortical and (not op.isfile(get_cond_fname(INV_X, cond, region=region))
                                                or overwrite_inverse_operator):
                 if spec_subcortical_fwd is None:
                     spec_subcortical_fwd = get_cond_fname(FWD_X, cond, region=region)
                 _calc_inverse_operator(
                     spec_subcortical_fwd, get_cond_fname(INV_X, cond, region=region), raw_fname,
-                    evo_fname, noise_cov, check_for_channels_inconsistency=check_for_channels_inconsistency)
+                    evo_fname, epo_fname, noise_cov, check_for_channels_inconsistency=check_for_channels_inconsistency)
             flag = True
         except:
             print(traceback.format_exc())
@@ -1550,13 +1550,16 @@ def calc_inverse_operator(
     return flag
 
 
-def _calc_inverse_operator(fwd_name, inv_name, raw_fname, evoked_fname, noise_cov, inv_loose=0.2, inv_depth=0.8,
-                           noise_cov_fname='', check_for_channels_inconsistency=True):
+def _calc_inverse_operator(fwd_name, inv_name, raw_fname, evoked_fname, epochs_fname, noise_cov,
+                           inv_loose=0.2, inv_depth=0.8, noise_cov_fname='', check_for_channels_inconsistency=True):
     fwd = mne.read_forward_solution(fwd_name)
     # info = fwd['info']
     if op.isfile(evoked_fname):
         evoked = mne.read_evokeds(evoked_fname)[0]
         info = evoked.info
+    elif op.isfile(epochs_fname):
+        epochs = mne.read_epochs(epochs_fname)
+        info = epochs.info
     else:
         raw_fname = get_raw_fname(raw_fname)
         if op.isfile(raw_fname):
@@ -1591,26 +1594,30 @@ def check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname='', check_for
                 num_len_dict[group_type] = len(num)
                 break
     cov_dict.names, cov_dict.bads = [], []
+    C = [c['ch_name'] for c in info['chs'] if c['ch_name'][:3] in ['MEG', 'EEG']]
+    F = [c for c in fwd_sol_ch_names if c[:3] in ['MEG', 'EEG']]
+    setC, setF = set(C), set(F)
     for c in noise_cov.ch_names:
         group, num = get_sensor_group_num(c)
-        cov_dict.names.append('{}{}{}'.format(group, sep, num.zfill(num_len_dict[group])))
+        new_ch_name = '{}{}{}'.format(group, sep, num.zfill(num_len_dict[group]))
+        if new_ch_name in setC and new_ch_name in setF:
+            cov_dict.names.append(new_ch_name)
     for c in noise_cov['bads']:
         group, num = get_sensor_group_num(c)
         cov_dict.bads.append('{}{}{}'.format(group, sep, num.zfill(num_len_dict[group])))
     noise_cov = get_cov_from_dict(cov_dict)
 
     if check_for_channels_inconsistency:
-        C = [c['ch_name'] for c in info['chs'] if c['ch_name'][:3] in ['MEG', 'EEG']]
         N = [c for c in noise_cov.ch_names if c[:3] in ['MEG', 'EEG']]
-        F = [c for c in fwd_sol_ch_names if c[:3] in ['MEG', 'EEG']]
         if not len(C) == len(N) == len(F):
             print('Inconsistency in channels num: info:{}, noise:{}, fwd:{}'.format(len(C), len(N), len(F)))
             ret = input('Do you want to continue? ')
             if not au.is_true(ret):
                 raise Exception('Inconsistency in channels names')
         elif not set([c['ch_name'] for c in info['chs']]) == set(noise_cov.ch_names) == set(fwd_sol_ch_names):
-            for k in range(len(info['chs'])):
-                if not fwd_sol_ch_names[k] == noise_cov.ch_names[k] == info['chs'][k]['ch_name']:
+            for k in range(len(C)):
+                # if not fwd_sol_ch_names[k] == noise_cov.ch_names[k] == info['chs'][k]['ch_name']:
+                if not C[k] == N[k] == F[k]:
                     print(fwd_sol_ch_names[k], noise_cov.ch_names[k], info['chs'][k]['ch_name'])
             ret = input('Inconsistency in channels names! Do you want to continue? ')
             if not au.is_true(ret):
