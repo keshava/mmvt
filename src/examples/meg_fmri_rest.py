@@ -98,7 +98,7 @@ def get_fMRI_rest_fol(subject, remote_root):
     for subject_fol in subject_folders:
         # rest_fols = glob.glob(op.join(subject_fol, '**', num.zfill(3)), recursive=True)
         rest_fol = op.join(subject_fol, 'resting', num.zfill(3))
-        # print(rest_fols)
+        print(rest_fols)
         # if len(rest_fols) == 1:
         #     break
         if op.isdir(rest_fol):
