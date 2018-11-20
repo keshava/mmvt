@@ -198,7 +198,7 @@ def install_reqs(do_upgrade=False, only_verbose=False):
     try:
         return install_reqs_loop(do_upgrade, only_verbose)
     except:
-        return utils.run_script('pip install -r requirements.txt')
+        return utils.run_script('pip install --user -r requirements.txt')
 
 
 def install_reqs_loop(do_upgrade=False, only_verbose=False):
