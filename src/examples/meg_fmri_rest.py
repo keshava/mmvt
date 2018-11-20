@@ -250,8 +250,7 @@ def analyze_rest_fmri(gargs):
     good_subjects = []
     for subject in gargs.mri_subject:
         remote_rest_fol = get_fMRI_rest_fol(subject, gargs.remote_fmri_dir)
-        print(remote_rest_fol)
-        continue
+        # print(remote_rest_fol)
         if remote_rest_fol == '':
             continue
         local_rest_fname = convert_rest_dicoms_to_mgz(subject, remote_rest_fol)
@@ -266,6 +265,7 @@ def analyze_rest_fmri(gargs):
             remote_subject_dir=gargs.remote_subject_dir,
             function='clean_4d_data',
             fmri_file_template=local_rest_fname,
+            overwrite_4d_preproc=True
         ))
         flags = fmri.call_main(args)
         if subject not in flags or not flags[subject]['clean_4d_data']:
@@ -277,7 +277,7 @@ def analyze_rest_fmri(gargs):
             function='analyze_4d_data',
             fmri_file_template='rest.sm6.{subject}.{hemi}.mgz',
             labels_extract_mode='mean',
-            overwrite_labels_data=False
+            overwrite_labels_data=True
         ))
         flags = fmri.call_main(args)
         if subject not in flags or not flags[subject]['analyze_4d_data']:
