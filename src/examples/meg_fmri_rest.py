@@ -255,7 +255,6 @@ def analyze_rest_fmri(gargs):
     for subject in gargs.mri_subject:
         remote_rest_fol = get_fMRI_rest_fol(subject, gargs.remote_fmri_dir)
         print('{}: {}'.format(subject, remote_rest_fol))
-        continue
         if remote_rest_fol == '':
             continue
         local_rest_fname = convert_rest_dicoms_to_mgz(subject, remote_rest_fol, overwrite=True)
