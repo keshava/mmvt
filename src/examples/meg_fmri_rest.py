@@ -96,10 +96,13 @@ def get_fMRI_rest_fol(subject, remote_root):
     subject_folders = glob.glob(op.join(remote_root, '{}_*'.format(subject.upper())))
     rest_fols = []
     for subject_fol in subject_folders:
-        rest_fols = glob.glob(op.join(subject_fol, '**', num.zfill(3)), recursive=True)
-        print(rest_fols)
+        # rest_fols = glob.glob(op.join(subject_fol, '**', num.zfill(3)), recursive=True)
+        rest_fol = op.join(subject_fol, 'resting', num.zfill(3))
+        # print(rest_fols)
         # if len(rest_fols) == 1:
         #     break
+        if op.isdir(rest_fol):
+            break
     if len(rest_fols) == 0:
         print('Can\'t find rest in the cfg file for {}!'.format(subject))
         return ''
