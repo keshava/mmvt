@@ -154,7 +154,7 @@ def bootstrap(tmpdir=None):
         args += ["wheel"]
 
     # Add our default arguments
-    args = ["install", "--upgrade", "--force-reinstall"] + args
+    args = ["install", "--upgrade", "--force-reinstall", "--user"] + args
 
     delete_tmpdir = False
     try:
