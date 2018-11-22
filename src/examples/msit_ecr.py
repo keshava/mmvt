@@ -544,6 +544,7 @@ def plot_label_power(power, times, label, bands, task, fig_fname):
 
 def calc_meg_connectivity(args):
     inv_method, em = 'dSPM', 'mean_flip'
+    con_method, con_mode = 'coh', 'multitaper'# 'cwt_morlet'
     prepare_files(args)
     good_subjects = get_good_subjects(args)
     args.subject = good_subjects
@@ -553,7 +554,7 @@ def calc_meg_connectivity(args):
         for task in args.tasks:
 
             output_fname = op.join(
-                MMVT_DIR, subject, 'connectivity', '{}_{}_coh_cwt_morlet.npz'.format(task.lower(), em))
+                MMVT_DIR, subject, 'connectivity', '{}_{}_{}_{}.npz'.format(task.lower(), em, con_method, con_mode))
             if op.isfile(output_fname):
                 file_mod_time = utils.file_modification_time_struct(output_fname)
                 if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 11 and file_mod_time.tm_mday >= 6) or \
