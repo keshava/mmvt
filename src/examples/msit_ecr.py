@@ -544,7 +544,7 @@ def plot_label_power(power, times, label, bands, task, fig_fname):
 
 def calc_meg_connectivity(args):
     inv_method, em = 'dSPM', 'mean_flip'
-    con_method, con_mode = 'coh', 'multitaper'# 'cwt_morlet'
+    con_method, con_mode = 'coh', 'cwt_morlet'
     prepare_files(args)
     good_subjects = get_good_subjects(args)
     args.subject = good_subjects
