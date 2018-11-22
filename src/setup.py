@@ -273,6 +273,10 @@ def find_blender():
     return blender_fol
 
 
+def read_blender_link():
+    print('Blender link: {}'.format(utils.get_link_dir(utils.get_links_dir(), 'blender')))
+
+
 def create_fsaverage_link(links_fol_name='links'):
     freesurfer_home = os.environ.get('FREESURFER_HOME', '')
     if freesurfer_home != '':
@@ -424,6 +428,9 @@ def main(args):
 
     if 'get_pip_update_cmd' in args.function:
         get_pip_update_cmd()
+
+    if 'read_blender_link' in args.function:
+        read_blender_link()
 
     # print('Finish!')
 
