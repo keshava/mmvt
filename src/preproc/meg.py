@@ -4537,7 +4537,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             subject, args.atlas, conditions, inverse_method, args.extract_mode, args.fmin, args.fmax, args.bandwidth,
             args.bands, args.max_epochs_num, MRI_SUBJECT, args.epo_fname, args.inv_fname, args.snr, args.pick_ori,
             args.apply_SSP_projection_vectors, args.add_eeg_ref, args.fwd_usingMEG, args.fwd_usingEEG, args.surf_name,
-            args.precentiles, overwrite=args.overwrite_labels_power_spectrum, n_jobs=args.n_jobs)
+            args.precentiles, overwrite=args.overwrite_labels_power_spectrum, save_tmp_files=args.save_tmp_files,
+            n_jobs=args.n_jobs)
 
     if 'calc_labels_power_bands' in args.function:
         flags['calc_labels_power_bands'] = calc_labels_power_bands(
@@ -4571,7 +4572,6 @@ def main(tup, remote_subject_dir, org_args, flags=None):
 
     if 'sensors_time_average' in args.function:
         flags['sensors_time_average'] = sensors_time_average(subject, args.stc_time_average_dt, args.overwrite)
-
 
     if 'get_digitization_points' in args.function:
         flags['get_digitization_points'] = get_digitization_points(subject, args.raw_fname)
@@ -4708,6 +4708,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--bandwidth', required=False, default=2., type=float)
     parser.add_argument('--precentiles', required=False, default='1,99', type=au.str_arr_type)
     parser.add_argument('--check_for_channels_inconsistency', required=False, default=1, type=au.is_true)
+    parser.add_argument('--save_tmp_files', required=False, default=0, type=au.is_true)
 
     # parser.add_argument('--sftp_sso', help='ask for sftp pass only once', required=False, default=0, type=au.is_true)
     parser.add_argument('--eeg_electrodes_excluded_from_mesh', help='', required=False, default='', type=au.str_arr_type)
