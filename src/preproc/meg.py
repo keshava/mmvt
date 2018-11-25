@@ -564,6 +564,16 @@ def calc_labels_power_spectrum(
 
         for label_ind, label in enumerate(labels):
             utils.time_to_go(now, label_ind, len(labels), 1)
+            output_tmp_fname = op.join(tmp_fol, '{}_{}_{}_{}_power_spectrum.npz'.format(
+                cond_name, inverse_method, em, label.name))
+            if op.isfile(output_tmp_fname) and not overwrite:
+                print('Loading {} power spectrum from tmp file'.format(label.name))
+                d = utils.Bag(np.load(output_tmp_fname))
+                label_ps = np.load(d.power_spectrum)
+                if power_spectrum is None:
+                    power_spectrum = np.empty((label_ps.shape[0], len(labels), len(d.frequencies), len(events)))
+                power_spectrum[:, label_ind, :, cond_ind] = label_ps
+                continue
             stcs = mne.minimum_norm.compute_source_psd_epochs(
                 epochs, inverse_operator, lambda2=lambda2, method=inverse_method, fmin=fmin, fmax=fmax,
                 bandwidth=bandwidth, label=label, return_generator=True, n_jobs=n_jobs)
@@ -572,12 +582,9 @@ def calc_labels_power_spectrum(
                     break
                 freqs = stc.times
                 if power_spectrum is None:
-                    # print('Freqs: {}'.format(freqs))
                     power_spectrum = np.empty((epochs_num, len(labels), len(freqs), len(events)))
                 power_spectrum[epoch_ind, label_ind, :, cond_ind] = np.mean(stc.data, axis=0)
             if save_tmp_files:
-                output_fname = op.join(tmp_fol, '{}_{}_{}_{}_power_spectrum.npz'.format(
-                    cond_name, inverse_method, em, label.name))
                 np.savez(output_fname, power_spectrum=power_spectrum[:, label_ind, :, cond_ind], frequencies=freqs,
                          label=label.name, cond=cond_name)
             if do_plot:
