@@ -312,7 +312,7 @@ def meg_preproc_power(args):
                 read_only_from_annot=False,
                 average_over_label_indices=args.average_over_label_indices,
                 ignore_missing=args.ignore_missing,
-                save_tmp_files=True,
+                save_tmp_files=False,
                 check_for_channels_inconsistency=args.check_for_channels_inconsistency,
                 # pick_ori='normal',
                 overwrite_labels_induced_power=args.overwrite_output_files,
