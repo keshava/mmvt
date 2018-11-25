@@ -3132,7 +3132,7 @@ def find_trans_file(trans_file='', remote_subject_dir='', subject='', subjects_d
             trans_files = utils.find_recursive(op.join(utils.get_parent_fol(trans_file)), '*COR*.fif')
         # bem_trans_files = glob.glob(op.join(subjects_dir, subject, 'bem', '*-head.fif'))
         bem_trans_files = utils.find_recursive(op.join(subjects_dir, subject, 'bem'), '*-head.fif')
-        if len(bem_trans_files):
+        if len(bem_trans_files) > 0:
             trans_files += bem_trans_files
         else:
             # trans_files += glob.glob(op.join(remote_subject_dir, 'bem', '*-head.fif'), recursive=True)
