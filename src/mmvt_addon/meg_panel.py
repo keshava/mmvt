@@ -6,12 +6,16 @@ from collections import defaultdict
 import importlib
 
 import mmvt_utils as mu
+import coloring_panel
 
 try:
     import mne
     MNE_EXIST = True
 except:
     MNE_EXIST = False
+
+
+plot_stc = coloring_panel.plot_stc
 
 
 PARENT_OBJ_NAME = 'meg_clusters'

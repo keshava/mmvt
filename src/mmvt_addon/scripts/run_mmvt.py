@@ -77,7 +77,7 @@ def read_args(argv=None, raise_exp=True):
     return args
 
 
-def init_mmvt_addon(subject_fname):
+def init_mmvt_addon(): # subject_fname
     args = read_args(su.get_python_argv())
     if args.debug:
         su.debug()
@@ -90,4 +90,4 @@ if __name__ == '__main__':
         run()
     else:
         # su.debug()
-        init_mmvt_addon(sys.argv[1])
+        init_mmvt_addon() # sys.argv[1]

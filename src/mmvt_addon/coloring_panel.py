@@ -110,7 +110,7 @@ def plot_meg():
 @mu.timeit
 def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
              view_selected=False, subject='', save_prev_colors=False, cm=None,
-             n_jobs=-1):
+             save_with_color_bar=True, n_jobs=-1):
     import mne
     subject = mu.get_user() if subject == '' else subject
     n_jobs = mu.get_n_jobs(n_jobs)
@@ -131,6 +131,9 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
         return stc_t
 
     fol = mu.make_dir(op.join(mu.get_user_fol(), 'meg', 'cache'))
+    if isinstance(stc, str):
+        meg_file_name = mu.namebase(stc)[:-len('-rh')]
+        bpy.context.scene.meg_files = meg_file_name
     stc_t_fname = op.join(fol, '{}_t{}'.format(bpy.context.scene.meg_files, t))
     if op.isfile('{}-rh.stc'.format(stc_t_fname)) and op.isfile('{}-lh.stc'.format(stc_t_fname)):
         print('Reading stc_t_smooth from {}'.format(stc_t_fname))
@@ -204,7 +207,7 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
     colors_ratio = 256 / (data_max - data_min)
     # set_default_colormap(data_min, data_max)
     fname = plot_stc_t(stc_t_smooth.rh_data, stc_t_smooth.lh_data, t, data_min, colors_ratio,
-                       threshold, save_image, view_selected, save_prev_colors=save_prev_colors)
+                       threshold, save_image, save_with_color_bar, view_selected, save_prev_colors=save_prev_colors)
     return fname, stc_t_smooth
 
 
@@ -218,7 +221,7 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
 
 
 def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=0, save_image=False,
-               view_selected=False, save_prev_colors=False):
+               save_with_color_bar=True, view_selected=False, save_prev_colors=False):
     if data_min is None or colors_ratio is None:
         data_min = min([np.min(rh_data), np.min(lh_data)])
         data_max = max([np.max(rh_data), np.max(lh_data)])
@@ -229,8 +232,9 @@ def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=
     for hemi in mu.HEMIS:
         data = rh_data if hemi == 'rh' else lh_data
         color_hemi_data(hemi, data, data_min, colors_ratio, threshold, save_prev_colors=save_prev_colors)
+    _addon().render.save_views_with_cb(save_with_color_bar)
     if save_image:
-        return _addon().save_image('stc', view_selected, t)
+        return _addon().render.save_image('stc', view_selected, t)
     # elif render_image:
     #     return _addon().render_image('stc', view_selected, t)
     else:

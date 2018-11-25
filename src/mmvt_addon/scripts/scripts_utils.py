@@ -317,16 +317,24 @@ def init_mmvt_addon(mmvt_addon_fol=''):
     print('mmvt_addon_fol: {}'.format(mmvt_addon_fol))
     sys.path.append(mmvt_addon_fol)
     import mmvt_addon
-    # if bpy.context.scene.mmvt_initialized:
-    #     print('mmvt was already initialized')
-    #     return mmvt_addon
-    # imp.reload(mmvt_addon)
-    addon_prefs = Bag({'python_cmd':sys.executable, 'freeview_cmd':'freeview', 'freeview_cmd_verbose':True,
-                       'freeview_cmd_stdin':True})
+    addon_prefs = get_add_prefs()
+    if addon_prefs is None:
+        addon_prefs = Bag({'python_cmd':sys.executable, 'freeview_cmd':'freeview', 'freeview_cmd_verbose':True,
+                           'freeview_cmd_stdin':True})
     mmvt_addon.main(addon_prefs)
     bpy.context.window.screen = bpy.data.screens['Neuro']
     return mmvt_addon
 
+
+def get_add_prefs():
+    try:
+        import bpy
+        bpy.ops.wm.addon_enable(module="mmvt_loader")
+        user_preferences = bpy.context.user_preferences
+        addon_prefs = user_preferences.addons["mmvt_loader"].preferences
+        return addon_prefs
+    except:
+        return None
 
 def save_blend_file(blend_fname):
     bpy.ops.wm.save_as_mainfile(filepath=blend_fname)

@@ -273,7 +273,7 @@ def show_hide_sub_corticals(do_hide=True, hemi='both'):
 #         int(bpy.types.Scene.in_camera_view)]
 
 
-def show_sagital():
+def show_sagital(direction=None):
     if bpy.types.Scene.in_camera_view and bpy.data.objects.get("Camera_empty") is not None:
         if mu.get_time_from_event(mu.get_time_obj()) > 2 or bpy.context.scene.current_view != 'sagittal':
             bpy.data.objects["Camera_empty"].rotation_euler = [0.0, 0.0, np.pi / 2]
@@ -289,7 +289,13 @@ def show_sagital():
             # ShowHideObjectsPanel.time_of_view_selection = mu.get_time_obj()
     else:
         mu.get_view3d_region().view_perspective = 'ORTHO'
-        if mu.get_time_from_event(mu.get_time_obj()) > 2 or bpy.context.scene.current_view != 'sagittal':
+        if direction in ['left', 'right']:
+            bpy.context.scene.current_view = 'sagittal'
+            if direction == 'left':
+                mu.rotate_view3d(SAGITTAL_LEFT)
+            else:
+                mu.rotate_view3d(SAGITTAL_RIGHT)
+        elif mu.get_time_from_event(mu.get_time_obj()) > 2 or bpy.context.scene.current_view != 'sagittal':
             mu.rotate_view3d(SAGITTAL_LEFT)
             bpy.context.scene.current_view = 'sagittal'
             bpy.context.scene.current_view_flip = False
