@@ -523,8 +523,7 @@ def calc_labels_power_spectrum(
     lambda2 = 1.0 / snr ** 2
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
     plots_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'plots'))
-    if save_tmp_files:
-        tmp_fol = utils.make_dir(op.join(fol, 'labels_power'))
+    tmp_fol = utils.make_dir(op.join(fol, 'labels_power'))
     power_spectrum = None
     first_time = True
     labels = None
