@@ -276,7 +276,12 @@ def meg_preproc_power(args):
             #     if len(output_fnames) == 28:
             #         print('{} has already all the results for {}'.format(subject, task))
             #         continue
-
+            if task not in empty_fnames:
+                print('{} not in empty_fnames!'.format(task))
+                continue
+            if task not in cors:
+                print('{} not in cors!'.format(task))
+                continue
             remote_epo_fname = op.join(args.meg_dir, subject, args.epo_template.format(subject=subject, task=task))
             local_epo_fname = op.join(MEG_DIR, task, subject, args.epo_template.format(subject=subject, task=task))
             if not op.isfile(local_epo_fname) and not op.isfile(remote_epo_fname):
@@ -294,10 +299,10 @@ def meg_preproc_power(args):
                 fname_format=args.epo_template.format(subject=subject, task=task)[:-len('-epo.fif')],
                 raw_fname=op.join(MEG_DIR, task, subject, args.raw_template.format(subject=subject, task=task)),
                 epo_fname=local_epo_fname,
-                empty_fname=empty_fnames[task] if empty_fnames != '' else '',
+                empty_fname=empty_fnames.get(task, '') if empty_fnames != '' else '',
                 function=function,
                 conditions=task.lower(),
-                cor_fname=cors[task].format(subject=subject) if cors != '' else '',
+                cor_fname=cors.get(task, '').format(subject=subject) if cors != '' else '',
                 average_per_event=False,
                 data_per_task=True,
                 pick_ori='normal', # very important for calculation of the power spectrum

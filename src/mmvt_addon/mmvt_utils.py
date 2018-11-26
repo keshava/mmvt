@@ -1062,7 +1062,7 @@ def dump_args(func):
 
 
 # def tryit(throw_exception=True):
-def tryit(except_retval=False, throw_exception=False):
+def tryit(except_retval=False, throw_exception=False, print_only_last_error_line=True):
     def real_tryit(func):
         def wrapper(*args, **kwargs):
             try:
@@ -1071,8 +1071,10 @@ def tryit(except_retval=False, throw_exception=False):
                 print('Error in {}!'.format(func.__name__))
                 if (throw_exception):
                     raise Exception(traceback.format_exc())
-                # print(traceback.format_exc())
-                print_last_error_line()
+                if print_only_last_error_line:
+                    print_last_error_line()
+                else:
+                    print(traceback.format_exc())
                 retval = except_retval
             return retval
         return wrapper

@@ -505,7 +505,7 @@ def calc_epochs_wrapper(
     return flag, epochs
 
 
-@utils.tryit()
+@utils.tryit(print_only_last_error_line=False)
 def calc_labels_power_spectrum(
         subject, atlas, events, inverse_method='dSPM', extract_modes=['mean_flip'],
         fmin=0, fmax=200, bandwidth=2., bands=None, max_epochs_num=0,
