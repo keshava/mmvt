@@ -1066,12 +1066,14 @@ def activity_map_obj_coloring(cur_obj, vert_values, lookup=None, threshold=0, ov
     #check if our mesh already has Vertex Colors, and if not add some... (first we need to make sure it's the active object)
     scn.objects.active = cur_obj
     cur_obj.select = True
-    if len(mesh.vertices) < 1e3:
+    # if len(mesh.vertices) < 1e3:
+    if bpy.context.scene.plot_mesh_using_uv_map and len(mesh.vertices) < 1e3:
         uv_map_obj_coloring(cur_obj, mesh, valid_verts, vert_values, uv_size, data_min, colors_ratio)
     else:
         vertex_object_coloring(cur_obj, mesh, coloring_layer, valid_verts, vert_values, lookup,
                                override_current_mat, save_prev_colors, colors_picked_from_cm,
                                data_min, colors_ratio)
+
 
 def uv_map_obj_coloring(cur_obj, mesh, valid_verts, vert_values, uv_size, data_min, colors_ratio):
     if not 'activity_map' in mesh.uv_textures:

@@ -2797,6 +2797,10 @@ def move_electrodes_to_line(pt1, pt2, points, N=100):
     return new_points
 
 
+def argmax2d(data):
+    return np.unravel_index(np.argmax(data), data.shape)
+
+
 def is_float(x):
     try:
         float(x)

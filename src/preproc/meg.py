@@ -267,8 +267,26 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
     if op.isfile(epo_fname) and not overwrite_epochs:
         epochs = mne.read_epochs(epo_fname)
         return epochs
+
+    events, tmaxs = read_events(
+        task, events, raw, tmax, read_events_from_file, stim_channels, windows_length, windows_shift, windows_num,
+        eve_template, use_demi_events)
+    if tmax - tmin <= 0:
+        raise Exception('tmax-tmin must be greater than zero!')
+    unique_events = np.unique(events[:, 2])
+    if len(unique_events) == 1:
+        events_conditions = {k: unique_events[0] for k, v in conditions.items()}
+    else:
+        events_conditions = {k: v for k,v in conditions.items() if v in np.unique(events[:, 2])}
+
+    # if using_auto_reject and is_autoreject_installed:
+    #     clean_epochs = calc_epochs_using_auto_reject(
+    #         raw, events, events_conditions, tmin, tmax, picks, baseline, ar_compute_thresholds_method,
+    #         ar_consensus_percs, ar_n_interpolates, bad_ar_threshold, epo_fname, overwrite_epochs, n_jobs)
+    #     return clean_epochs
+
+    # meg=['mag', 'planar1' or 'planar2']
     picks = mne.pick_types(raw.info, meg=pick_meg, eeg=pick_eeg, eog=pick_eog, exclude='bads')
-    # events[:, 2] = [str(ev)[event_digit] for ev in events[:, 2]]
     if reject:
         reject_dict = {}
         if reject_mag > 0:
@@ -279,11 +297,22 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
             reject_dict['eog'] = reject_eog
     else:
         reject_dict = None
-    # epochs = find_epoches(raw, picks, events, events, tmin=tmin, tmax=tmax)
     if remove_power_line_noise:
         raw.notch_filter(np.arange(power_line_freq, power_line_freq * 4 + 1, power_line_freq),
                          notch_widths=notch_widths, picks=picks)
-        # raw.notch_filter(np.arange(60, 241, 60), picks=picks)
+
+    epochs = mne.Epochs(raw, events, events_conditions, tmin, tmax, proj=True, picks=picks,
+                        baseline=baseline, preload=True, reject=reject_dict)
+    epochs = auto_remove_bad_channels(
+        raw, epochs, baseline, events, events_conditions, tmin, tmax, raw_fname, pick_meg, pick_eeg, pick_eog,
+        reject_dict)
+    print('{} good epochs'.format(len(epochs)))
+    save_epochs(epochs, epo_fname)
+    return epochs
+
+
+def read_events(task='', events=None, raw=None, tmax=0, read_events_from_file=False, stim_channels=None,
+                windows_length=1000, windows_shift=500, windows_num=0, eve_template='*eve.fif', use_demi_events=False):
     if read_events_from_file:
         events_fname, event_fname_exist = locating_meg_file(EVE, glob_pattern=eve_template)
         if events is None and event_fname_exist:
@@ -314,22 +343,11 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
     if events is None:
         raise Exception('Can\'t find events!')
 
-    if tmax - tmin <= 0:
-        raise Exception('tmax-tmin must be greater than zero!')
-    unique_events = np.unique(events[:, 2])
-    if len(unique_events) == 1:
-        events_conditions = {k: unique_events[0] for k, v in conditions.items()}
-    else:
-        events_conditions = {k: v for k,v in conditions.items() if v in np.unique(events[:, 2])}
+    return events, tmax
 
-    if using_auto_reject and is_autoreject_installed:
-        clean_epochs = calc_epochs_using_auto_reject(
-            raw, events, events_conditions, tmin, tmax, picks, baseline, ar_compute_thresholds_method,
-            ar_consensus_percs, ar_n_interpolates, bad_ar_threshold, epo_fname, overwrite_epochs, n_jobs)
-        return clean_epochs
 
-    epochs = mne.Epochs(raw, events, events_conditions, tmin, tmax, proj=True, picks=picks,
-                        baseline=baseline, preload=True, reject=reject_dict)
+def auto_remove_bad_channels(raw, epochs, baseline, events, events_conditions, tmin, tmax, raw_fname='',
+                             pick_meg=True, pick_eeg=False, pick_eog=False, reject_dict=None):
     min_bad_num = len(events) * 0.5
     bad_channels_max_num = 20
     min_good_epochs_num = len(events) * 0.5
@@ -350,8 +368,7 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
                             baseline=baseline, preload=True, reject=reject_dict)
     if len(epochs) < min_good_epochs_num:
         raise Exception('Not enough good epochs!')
-    print('{} good epochs'.format(len(epochs)))
-    save_epochs(epochs, epo_fname)
+
     return epochs
 
 

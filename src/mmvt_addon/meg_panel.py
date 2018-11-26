@@ -159,6 +159,8 @@ def init_meg_sensors():
             meg_sensors_loc = np.array(
                 [meg_obj.location * 10 if meg_obj.name.endswith(str(sensor_key)) else (np.inf,np.inf, np.inf)
                  for meg_obj in bpy.data.objects['MEG_sensors'].children])
+            if np.all(meg_sensors_loc == np.inf):
+                print('Couldn\'t find {} sensors!'.format(sensor_type))
             MEGPanel.meg_helmet_indices[sensor_type] = np.argmin(cdist(meg_helmet_vets_loc, meg_sensors_loc), axis=1)
     elif bpy.data.objects.get('MEG_sensors'):
         for sensor_type, sensor_key in MEGPanel.meg_sensors_types.items():
@@ -327,7 +329,8 @@ def color_meg_helmet(use_abs=None, threshold=None):
         use_abs = bpy.context.scene.coloring_use_abs
     fol = mu.get_user_fol()
     data, meta = get_meg_sensors_data()
-    data = data[MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types], :, :]
+    inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
+    data = data[inds, :, :]
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
@@ -350,6 +353,8 @@ def color_meg_helmet(use_abs=None, threshold=None):
         _addon().set_colorbar_max_min(data_max, data_min, True)
     colors_ratio = 256 / (data_max - data_min)
 
+    if bpy.context.scene.find_max_meg_sensors:
+        _, bpy.context.scene.frame_current = mu.argmax2d(data)
     cur_obj = bpy.data.objects['meg_helmet']
     data_t = data[:, bpy.context.scene.frame_current]
     _addon().coloring.activity_map_obj_coloring(
@@ -366,13 +371,7 @@ def color_meg_sensors(threshold=None):
     data, meta = get_meg_sensors_data()
     inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
     data = data[inds, :, :]
-    if _addon().colorbar_values_are_locked():
-        data_max, data_min = _addon().get_colorbar_max_min()
-    else:
-        # data_min_org, data_max_org = ColoringMakerPanel.meg_sensors_data_minmax
-        data_max, data_min = mu.get_data_max_min(data, True, (1, 99))
-        _addon().set_colorbar_max_min(data_max, data_min)
-    colors_ratio = 256 / (data_max - data_min)
+
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
@@ -382,6 +381,18 @@ def color_meg_sensors(threshold=None):
         data = data.squeeze() if C == 1 else np.diff(data, axis=2).squeeze() if C == 2 else \
             np.mean(data, axis=2).squeeze()
         _addon().set_colorbar_title('MEG sensors conditions difference')
+
+    if _addon().colorbar_values_are_locked():
+        data_max, data_min = _addon().get_colorbar_max_min()
+    else:
+        # data_min_org, data_max_org = ColoringMakerPanel.meg_sensors_data_minmax
+        data_max, data_min = mu.get_data_max_min(data, True, (1, 99))
+        _addon().set_colorbar_max_min(data_max, data_min)
+    colors_ratio = 256 / (data_max - data_min)
+
+    if bpy.context.scene.find_max_meg_sensors:
+        _, bpy.context.scene.frame_current = mu.argmax2d(data)
+
     names = np.array([obj.name for obj in bpy.data.objects['MEG_sensors'].children])[inds]
     if threshold > data_max:
         print('threshold is bigger than data_max ({})! Setting to 0.'.format(data_max))
@@ -413,6 +424,9 @@ def color_eeg_sensors(threshold=None):
     if threshold >= data_max:
         print('Threshold is bigger than data_max ({}), setting to 0.'.format(data_max))
         threshold = 0
+
+    if bpy.context.scene.find_max_meg_sensors:
+        _, bpy.context.scene.frame_current = mu.argmax2d(data)
     _addon().coloring.color_objects_homogeneously(
         data, meta['names'], meta['conditions'], data_min, colors_ratio, threshold)
 
@@ -856,6 +870,8 @@ def meg_draw(self, context):
         col.operator(ColorMEGSensors.bl_idname, text="Plot MEG sensors", icon='POTATO')
         if not bpy.data.objects.get('meg_helmet', None) is None:
             col.operator(ColorMEGHelmet.bl_idname, text="Plot MEG Helmet", icon='POTATO')
+            col.prop(context.scene, 'find_max_meg_sensors', text='Find peak activity')
+            col.prop(context.scene, 'plot_mesh_using_uv_map', text='Use UV map')
 
     if MEGPanel.eeg_sensors_exist:
         col = layout.box().column()
@@ -864,6 +880,8 @@ def meg_draw(self, context):
         col.operator(ColorEEGSensors.bl_idname, text="Plot EEG sensors", icon='POTATO')
         if not bpy.data.objects.get('eeg_helmet', None) is None:
             col.operator(ColorEEGHelmet.bl_idname, text="Plot EEG Helmet", icon='POTATO')
+            col.prop(context.scene, 'find_max_meg_sensors', text='Find peak activity')
+            col.prop(context.scene, 'plot_mesh_using_uv_map', text='Use UV map')
 
     if MEGPanel.meg_clusters_files_exist:
         layout.prop(context.scene, 'meg_clusters_labels_files', text='')
@@ -947,6 +965,8 @@ bpy.types.Scene.meg_dipole_fit_tmin = bpy.props.FloatProperty()
 bpy.types.Scene.meg_dipole_fit_tmax = bpy.props.FloatProperty()
 bpy.types.Scene.meg_dipole_fit_use_meg = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.meg_dipole_fit_use_eeg = bpy.props.BoolProperty(default=False)
+bpy.types.Scene.plot_mesh_using_uv_map = bpy.props.BoolProperty(default=False)
+bpy.types.Scene.find_max_meg_sensors = bpy.props.BoolProperty(default=False)
 
 
 class NextMEGCluster(bpy.types.Operator):

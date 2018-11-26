@@ -39,6 +39,7 @@ def calc_mne_python_sample_data(args):
     args = meg.read_cmd_args(dict(
         subject=args.subject,
         mri_subject=args.mri_subject,
+        function='calc_epochs,calc_evokes',
         # atlas='laus250',
         contrast='audvis',
         fname_format='{subject}_audvis-{ana_type}.{file_type}',
