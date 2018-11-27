@@ -147,10 +147,10 @@ def init_meg_sensors():
                  MEGPanel.meg_sensors_types.items()]
         bpy.types.Scene.meg_sensors_types = bpy.props.EnumProperty(
             items=items, description='Selects the MEG sensors type.', update=meg_sensors_types_update)
-        bpy.context.scene.meg_sensors_types = 'mag'
+        bpy.context.scene.meg_sensors_types = [t for t,t,_,k in items if k==0][0]
 
     meg_helmet = bpy.data.objects.get('meg_helmet')
-    if meg_helmet is not None:
+    if meg_helmet is not None and bpy.data.objects.get('MEG_sensors'):
         from scipy.spatial.distance import cdist
         # meg_sensors_loc = np.array(
         #     [meg_obj.matrix_world.to_translation() * 10 for meg_obj in bpy.data.objects['MEG_sensors'].children])
@@ -1080,7 +1080,6 @@ class MEGPanel(bpy.types.Panel):
     meg_sensors_groups = defaultdict(list)
     eeg_sensors_exist = False
     meg_sensors_exist = False
-    meg_sensors_types = {'grad1': 1, 'grad2': 2, 'mag': 3} # default for Electa
     eeg_sensors_data_minmax, eeg_sensors_colors_ratio = None, None
     meg_sensors_data_minmax, meg_sensors_colors_ratio = None, None
     eeg_sensors_data, eeg_sensors_meta_data, eeg_sensors_data_minmax = {}, {}, None
@@ -1094,6 +1093,10 @@ class MEGPanel(bpy.types.Panel):
 def init(addon):
     MEGPanel.addon = addon
     user_fol = mu.get_user_fol()
+
+    input_files = glob.glob(op.join(mu.get_user_fol(), 'meg', 'meg_*_sensors_positions.npz'))
+    sensors_types = sorted([mu.namebase(input_file).split('_')[1] for input_file in input_files])
+    MEGPanel.meg_sensors_types = {sensors_types:num for num, sensors_types in enumerate(sensors_types)}
 
     MEGPanel.eeg_sensors_exist = init_eeg_sensors()
     MEGPanel.meg_sensors_exist = init_meg_sensors()

@@ -465,9 +465,17 @@ class ImportRois(bpy.types.Operator):
 
 
 def import_meg_sensors(overwrite_sensors=False):
-    input_file = op.join(mu.get_user_fol(), 'meg', 'meg_sensors_positions.npz')
-    import_electrodes(input_file, _addon().MEG_LAYER, bipolar=False, parnet_name='MEG_sensors',
-                      overwrite=overwrite_sensors)
+    layers_array = [False] * 20
+    create_empty_if_doesnt_exists('MEG_sensors', _addon().BRAIN_EMPTY_LAYER, layers_array, 'MEG_sensors')
+
+    input_files = glob.glob(op.join(mu.get_user_fol(), 'meg', 'meg_*_sensors_positions.npz'))
+    for input_file in input_files:
+        sensors_type = mu.namebase(input_file).split('_')[1]
+        create_empty_if_doesnt_exists(
+            'MEG_{}_sensors'.format(sensors_type), _addon().BRAIN_EMPTY_LAYER, layers_array, 'MEG_sensors')
+        import_electrodes(
+            input_file, _addon().MEG_LAYER, bipolar=False, parnet_name='MEG_{}_sensors'.format(sensors_type),
+            overwrite=overwrite_sensors)
     bpy.types.Scene.meg_sensors_imported = True
     print('MEG sensors importing is Finished ')
 
@@ -1297,28 +1305,12 @@ def data_draw(self, context):
                 col.prop(context.scene, 'subcortical_fmri_files', text='')
         col.operator(AddfMRIDynamicsToBrain.bl_idname, text="Add fMRI data", icon='FCURVE')
 
-    # if bpy.types.Scene.electrodes_imported and (not bpy.types.Scene.electrodes_data_exist):
-    # if len(DataMakerPanel.evoked_files) > 0:
-    #     layout.label(text='External MEG evoked files:')
-    #     layout.prop(context.scene, 'meg_evoked_files', text="")
-    #     layout.operator(AddOtherSubjectMEGEvokedResponse.bl_idname, text="Add MEG evoked response", icon='FCURVE')
-    #     if len(DataMakerPanel.externals) > 0:
-    #         layout.prop(context.scene, 'evoked_objects', text="")
-    #         select_text = 'Deselect' if get_external_meg_evoked_selected() else 'Select'
-    #         select_icon = 'BORDER_RECT' if select_text == 'Select' else 'PANEL_CLOSE'
-    #         layout.operator(SelectExternalMEGEvoked.bl_idname, text=select_text, icon=select_icon)
-
-    meg_sensors_positions_file = op.join(mu.get_user_fol(), 'meg', 'meg_sensors_positions.npz')
-    # meg_data_exist = len(glob.glob(op.join(mu.get_user_fol(), 'meg', '*sensors_evoked_data.npy'))) > 0
-    # meg_meta_data_exist = len(glob.glob(op.join(mu.get_user_fol(), 'meg', '*sensors_evoked_data_meta.npz'))) > 0
-    # meg_data_minmax_exist = len(glob.glob(op.join(mu.get_user_fol(), 'eeg', '*sensors_evoked_minmax.npy'))) > 0
+    meg_sensors_positions_files = glob.glob(op.join(mu.get_user_fol(), 'meg', 'meg_*_sensors_positions.npz'))
     eeg_sensors_positions_file = op.join(mu.get_user_fol(), 'eeg', 'eeg_sensors_positions.npz')
-    # eeg_data_exist = len(glob.glob(op.join(mu.get_user_fol(), 'eeg', '*sensors_evoked_data.npy'))) > 0
-    # eeg_meta_data_exist = len(glob.glob(op.join(mu.get_user_fol(), 'eeg', '*sensors_evoked_data_meta.npz'))) > 0
     # todo: do something with eeg_data_minmax
     eeg_data_minmax_exist = len(glob.glob(op.join(mu.get_user_fol(), 'eeg', '*sensors_evoked_minmax.npy'))) > 0
 
-    if op.isfile(meg_sensors_positions_file):
+    if len(meg_sensors_positions_files) > 0:
         col = layout.box().column()
         if bpy.data.objects.get('MEG_sensors', None) is None:
             col.operator(ImportMEGSensors.bl_idname, text="Import MEG sensors", icon='COLOR_GREEN')

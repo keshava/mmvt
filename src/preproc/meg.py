@@ -3061,6 +3061,17 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
                         trans_file='', info_fname='', info=None):
     if pick_eeg and pick_meg or (not pick_meg and not pick_eeg):
         raise Exception('read_sensors_layout: You should pick only meg or eeg!')
+    trans_file = find_trans_file(trans_file, args.remote_subject_dir, mri_subject, SUBJECTS_MRI_DIR)
+    if not op.isfile(trans_file):
+        print('read_sensors_layout: No trans files!')
+        return False
+    if pick_meg:
+        utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
+        output_fname_template = op.join(MMVT_DIR, mri_subject, 'meg', 'meg_{sensors_type}_sensors_positions.npz')
+    else:
+        utils.make_dir(op.join(MMVT_DIR, mri_subject, 'eeg'))
+        output_fname_template = op.join(MMVT_DIR, mri_subject, 'eeg', 'eeg_sensors_positions.npz')
+
     if info is None:
         info_fname, info_exist = get_info_fname(info_fname)
         if not info_exist:
@@ -3073,36 +3084,31 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
             utils.save(info, info_fname)
         else:
             info = utils.load(info_fname)
-    picks = mne.io.pick.pick_types(info, meg=pick_meg, eeg=pick_eeg)
-    sensors_pos = np.array([info['chs'][k]['loc'][:3] for k in picks])
-    sensors_names = np.array([info['ch_names'][k] for k in picks])
-    if 'Event' in sensors_names:
-        event_ind = np.where(sensors_names == 'Event')[0]
-        sensors_names = np.delete(sensors_names, event_ind)
-        sensors_pos = np.delete(sensors_pos, event_ind)
     if pick_meg:
-        utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
-        output_fname = op.join(MMVT_DIR, mri_subject, 'meg', 'meg_sensors_positions.npz')
+        sensors_picks = {sensor_type:mne.io.pick.pick_types(info, meg=sensor_type, eeg=pick_eeg) for sensor_type in
+                 ['mag', 'planar1', 'planar2']}
     else:
-        utils.make_dir(op.join(MMVT_DIR, mri_subject, 'eeg'))
-        output_fname = op.join(MMVT_DIR, mri_subject, 'eeg', 'eeg_sensors_positions.npz')
-    if op.isfile(output_fname) and not overwrite_sensors:
-        return True
-    ret = False
-    if len(sensors_pos) > 0:
-        trans_file = find_trans_file(trans_file, args.remote_subject_dir, mri_subject, SUBJECTS_MRI_DIR)
-        if not op.isfile(trans_file):
-            print('No trans files!')
-        else:
-            trans = mne.transforms.read_trans(trans_file)
-            head_mri_t = mne.transforms._ensure_trans(trans, 'head', 'mri')
-            sensors_pos = mne.transforms.apply_trans(head_mri_t, sensors_pos)
-            sensors_pos *= 1000
-            np.savez(output_fname, pos=sensors_pos, names=sensors_names)
-            ret = True
-    else:
-        print('No sensors found!')
-    return ret
+        sensors_picks = {
+            sensor_type: mne.io.pick.pick_types(info, meg=pick_meg, eeg=pick_eeg) for sensor_type in ['eeg']}
+    for sensors_type, picks in sensors_picks.items():
+        output_fname = output_fname_template.format(sensors_type=sensors_type)
+        if op.isfile(output_fname) and not overwrite_sensors:
+            continue
+        sensors_pos = np.array([info['chs'][k]['loc'][:3] for k in picks])
+        if len(sensors_pos) == 0:
+            print('{}: No sensors found!'.format(sensors_type))
+            continue
+        sensors_names = np.array([info['ch_names'][k] for k in picks])
+        if 'Event' in sensors_names:
+            event_ind = np.where(sensors_names == 'Event')[0]
+            sensors_names = np.delete(sensors_names, event_ind)
+            sensors_pos = np.delete(sensors_pos, event_ind)
+        trans = mne.transforms.read_trans(trans_file)
+        head_mri_t = mne.transforms._ensure_trans(trans, 'head', 'mri')
+        sensors_pos = mne.transforms.apply_trans(head_mri_t, sensors_pos)
+        sensors_pos *= 1000
+        np.savez(output_fname, pos=sensors_pos, names=sensors_names)
+    return True
 
 
 def create_meg_mesh(subject, excludes=[], overwrite_faces_verts=True):
@@ -4455,6 +4461,9 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     #     subject, mri_subject, fname_format, fname_format_cond, MEG_DIR, SUBJECTS_MRI_DIR, MMVT_DIR, args)
     stat = STAT_AVG if len(conditions) == 1 else STAT_DIFF
 
+    if utils.should_run(args, 'read_sensors_layout'):
+        flags['read_sensors_layout'] = read_sensors_layout(mri_subject, args, overwrite_sensors=args.overwrite_sensors)
+
     # flags: calc_evoked
     flags, evoked, epochs = calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)
     # flags: make_forward_solution, calc_inverse_operator
@@ -4464,9 +4473,6 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     # flags: calc_labels_avg_per_condition
     flags = calc_labels_avg_per_condition_wrapper(
         subject, conditions, args.atlas, inverse_method, stcs_conds, args, flags, stcs_num, raw, epochs)
-
-    if utils.should_run(args, 'read_sensors_layout'):
-        flags['read_sensors_layout'] = read_sensors_layout(mri_subject, args)
 
     if 'calc_power_spectrum' in args.function:
         flags['calc_power_spectrum'] = calc_power_spectrum(subject, conditions, args)

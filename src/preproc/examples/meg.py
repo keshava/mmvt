@@ -39,7 +39,7 @@ def calc_mne_python_sample_data(args):
     args = meg.read_cmd_args(dict(
         subject=args.subject,
         mri_subject=args.mri_subject,
-        function='calc_epochs,calc_evokes',
+        function='read_sensors_layout,calc_epochs,calc_evokes',
         # atlas='laus250',
         contrast='audvis',
         fname_format='{subject}_audvis-{ana_type}.{file_type}',
@@ -47,7 +47,8 @@ def calc_mne_python_sample_data(args):
         conditions=['LA', 'RA'],
         read_events_from_file=True,
         t_min=-0.2, t_max=0.5,
-        extract_mode=['mean_flip', 'mean', 'pca_flip']
+        extract_mode=['mean_flip', 'mean', 'pca_flip'],
+        overwrite_epochs=args.overwrite
     ))
     meg.call_main(args)
 
@@ -78,7 +79,7 @@ def calc_msit(args):
         mri_subject=args.mri_subject,
         task='MSIT',
         # function=args.real_function,
-        function='calc_epochs,calc_evokes,calc_stc,calc_labels_avg_per_condition,calc_labels_min_max',
+        function='read_sensors_layout,calc_epochs,calc_evokes,calc_stc,calc_labels_avg_per_condition,calc_labels_min_max',
         data_per_task=True,
         atlas=args.atlas,
         contrast='interference',
@@ -96,7 +97,8 @@ def calc_msit(args):
         extract_mode=['mean_flip'], #, 'mean', 'pca_flip'],
         pick_ori='normal',
         overwrite_stc=True,
-        overwrite_labels_data=True
+        overwrite_labels_data=True,
+        overwrite_sensors=True
     ))
     meg.call_main(args)
 
@@ -344,6 +346,7 @@ if __name__ == '__main__':
                         type=au.str_arr_type)
     parser.add_argument('-f', '--function', help='function name', required=True)
     parser.add_argument('-r', '--real_function', help='function name', required=False, default='all')
+    parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
     args = utils.Bag(au.parse_parser(parser))
     if not args.mri_subject:
         args.mri_subject = args.subject
