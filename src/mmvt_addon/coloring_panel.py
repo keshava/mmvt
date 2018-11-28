@@ -393,6 +393,9 @@ def color_objects_homogeneously(data, names, conditions, data_min, colors_ratio,
         if obj is None:
             print('{} is None!'.format(obj_name))
             continue
+        if obj.hide:
+            print('you are coloring {}, but it is hiding!'.format(obj.name))
+        # print('{}: {}'.format(obj.name, new_color))
         ret = object_coloring(obj, new_color)
         # if not ret:
         #     print('color_objects_homogeneously: Error in coloring the object {}!'.format(obj_name))
@@ -1484,7 +1487,7 @@ def clear_subcortical_regions():
 
 
 def clear_colors_from_parent_childrens(parent_object):
-    parent_obj = bpy.data.objects.get(parent_object)
+    parent_obj = bpy.data.objects.get(parent_object) if isinstance(parent_object, str) else parent_object
     if parent_obj is not None:
         for obj in parent_obj.children:
             if 'RGB' in obj.active_material.node_tree.nodes:
@@ -2137,8 +2140,11 @@ class ClearColors(bpy.types.Operator):
 def clear_colors():
     clear_cortex()
     clear_subcortical_fmri_activity()
-    for root in ['Subcortical_meg_activity_map', 'Deep_electrodes', 'EEG_sensors', 'MEG_sensors']:
+    for root in ['Subcortical_meg_activity_map', 'Deep_electrodes', 'EEG_sensors']:
         clear_colors_from_parent_childrens(root)
+    if bpy.data.objects.get('MEG_sensors'):
+        for meg_sensors_root in bpy.data.objects['MEG_sensors'].children:
+            clear_colors_from_parent_childrens(meg_sensors_root)
     # todo: fix!
     # clear_connections()
     for cur_obj in [bpy.data.objects.get(helmet) for helmet in ['eeg_helmet', 'meg_helmet']]:

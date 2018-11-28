@@ -285,8 +285,6 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
     #         ar_consensus_percs, ar_n_interpolates, bad_ar_threshold, epo_fname, overwrite_epochs, n_jobs)
     #     return clean_epochs
 
-    # for meg_sensors_type in ['mag', 'planar1', 'planar2']:
-    #     picks = mne.pick_types(raw.info, meg=meg_sensors_type, eeg=False, eog=False, exclude='bads')
     picks = mne.pick_types(raw.info, meg=pick_meg, eeg=pick_eeg, eog=pick_eog, exclude='bads')
     if reject:
         reject_dict = {}
@@ -901,6 +899,7 @@ def calc_evokes(epochs, events, mri_subject, normalize_data=False, epo_fname='',
         evoked_fname = get_evo_fname(evoked_fname)
         fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
         task_str = '{}_'.format(task) if task != '' else ''
+        # todo: check for all sensors types
         mmvt_files = [op.join(fol, '{}_{}sensors_evoked_data.npy'.format(modality, task_str)),
                       op.join(fol, '{}_{}sensors_evoked_data_meta.npz'.format(modality, task_str)),
                       op.join(fol, '{}_{}sensors_evoked_minmax.npy'.format(modality, task_str))]
@@ -962,40 +961,58 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
                         norm_by_percentile=False, norm_percs=None, modality='meg', calc_max_min_diff=True, task=''):
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
     first_evokes = evokes if isinstance(evokes, mne.evoked.EvokedArray) else evokes[0]
+    # if modality == 'meg':
+    #     # channels_indices = [k for k, name in enumerate(evokes[0].ch_names) if name.startswith('MEG')]
+    #     channels_indices = mne.pick_types(evokes[0].info, meg=True, eeg=False, eog=False, exclude='bads')
+    #     if len(channels_indices) == 0:
+    #         print('None of the channels names starts with "MEG"!')
+    # else:
+    #     channels_indices = range(len(first_evokes.ch_names))
+
+    info = evokes[0].info
     if modality == 'meg':
-        channels_indices = [k for k, name in enumerate(evokes[0].ch_names) if name.startswith('MEG')]
-        if len(channels_indices) == 0:
-            print('None of the channels names starts with "MEG"!')
+        sensors_picks = {sensor_type:mne.pick_types(info, meg=sensor_type, exclude='bads') for sensor_type in
+                 ['mag', 'planar1', 'planar2']}
     else:
-        channels_indices = range(len(first_evokes.ch_names))
-    ch_names = [first_evokes.ch_names[k] for k in channels_indices]
-    dt = np.diff(first_evokes.times[:2])[0]
-    if isinstance(evokes, mne.evoked.EvokedArray):
-        data = evokes.data[channels_indices]
-    else:
-        data_shape = len(events_keys) + (0 if evokes_all is None else 1)
-        data = np.zeros((len(channels_indices), first_evokes.data.shape[1], data_shape))
-        for event_ind, event in enumerate(events_keys):
-            data[:, :, event_ind] = evokes[event_ind].data[channels_indices]
+        sensors_picks = {
+            sensor_type: mne.pick_types(info, meg=False, eeg=True, exclude='bads')
+            for sensor_type in ['eeg']}
+
+    task_str = '{}_'.format(task) if task != '' else ''
+    for sensor_type, picks in sensors_picks.items():
+        ch_names = [first_evokes.ch_names[k] for k in picks]
+        dt = np.diff(first_evokes.times[:2])[0]
+        if isinstance(evokes, mne.evoked.EvokedArray):
+            data = evokes.data[picks]
+        else:
+            data_shape = len(events_keys) + (0 if evokes_all is None else 1)
+            data = np.zeros((len(picks), first_evokes.data.shape[1], data_shape))
+            for event_ind, event in enumerate(events_keys):
+                data[:, :, event_ind] = evokes[event_ind].data[picks]
+            if evokes_all is not None:
+                data[:, :, data_shape - 1] = evokes_all.data[picks]
+        if normalize_data:
+            data = utils.normalize_data(data, norm_by_percentile, norm_percs)
+        else:
+            factor = 6 if modality == 'eeg' else 12 # micro V for EEG, fT (Magnetometers) and fT/cm (Gradiometers) for MEG
+            data *= np.power(10, factor)
+        if calc_max_min_diff and len(events_keys) == 2:
+            data_diff = np.diff(data) if len(events_keys) > 1 else np.squeeze(data)
+            data_max, data_min = utils.get_data_max_min(data_diff, norm_by_percentile, norm_percs)
+        else:
+            data_max, data_min = utils.get_data_max_min(data, norm_by_percentile, norm_percs)
+        max_abs = utils.get_max_abs(data_max, data_min)
         if evokes_all is not None:
-            data[:, :, data_shape - 1] = evokes_all.data[channels_indices]
-    if normalize_data:
-        data = utils.normalize_data(data, norm_by_percentile, norm_percs)
-    else:
-        factor = 6 if modality == 'eeg' else 12 # micro V for EEG, fT (Magnetometers) and fT/cm (Gradiometers) for MEG
-        data *= np.power(10, factor)
-    if calc_max_min_diff and len(events_keys) == 2:
-        data_diff = np.diff(data) if len(events_keys) > 1 else np.squeeze(data)
-        data_max, data_min = utils.get_data_max_min(data_diff, norm_by_percentile, norm_percs)
-    else:
-        data_max, data_min = utils.get_data_max_min(data, norm_by_percentile, norm_percs)
-    max_abs = utils.get_max_abs(data_max, data_min)
-    if evokes_all is not None:
-        events_keys.append('all')
-    task = '{}_'.format(task) if task != '' else ''
-    np.save(op.join(fol, '{}_{}sensors_evoked_data.npy'.format(modality, task)), data)
-    np.savez(op.join(fol, '{}_{}sensors_evoked_data_meta.npz'.format(modality, task)), names=ch_names, conditions=events_keys, dt=dt)
-    np.save(op.join(fol, '{}_{}sensors_evoked_minmax.npy'.format(modality, task)), [-max_abs, max_abs])
+            events_keys.append('all')
+        np.save(op.join(fol, '{}_{}{}_sensors_evoked_data.npy'.format(modality, task_str, sensor_type)), data)
+        np.savez(op.join(fol, '{}_{}{}_sensors_evoked_data_meta.npz'.format(modality, task_str, sensor_type)),
+                 names=ch_names, conditions=events_keys, dt=dt, picks=picks)
+        np.save(op.join(fol, '{}_{}{}_sensors_evoked_minmax.npy'.format(modality, task_str, sensor_type)), [-max_abs, max_abs])
+
+        # dict_fname = op.join(MMVT_DIR, SUBJECT, 'meg', 'meg_{}_sensors_positions.npz'.format(meg_sensors_type))
+        # sensors_dict = utils.Bag(np.load(dict_fname))
+        # sensors_dict.picks = picks
+        # np.savez(dict_fname, **sensors_dict)
 
 
 def equalize_epoch_counts(events, method='mintime'):
@@ -3062,7 +3079,10 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
                         trans_file='', info_fname='', info=None):
     if pick_eeg and pick_meg or (not pick_meg and not pick_eeg):
         raise Exception('read_sensors_layout: You should pick only meg or eeg!')
-    trans_file = find_trans_file(trans_file, args.remote_subject_dir, mri_subject, SUBJECTS_MRI_DIR)
+    try:
+        trans_file = find_trans_file(trans_file, args.remote_subject_dir, mri_subject, SUBJECTS_MRI_DIR)
+    except:
+        return False
     if not op.isfile(trans_file):
         print('read_sensors_layout: No trans files!')
         return False
@@ -3086,11 +3106,11 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
         else:
             info = utils.load(info_fname)
     if pick_meg:
-        sensors_picks = {sensor_type:mne.io.pick.pick_types(info, meg=sensor_type, exclude='bads') for sensor_type in
+        sensors_picks = {sensor_type:mne.io.pick.pick_types(info, meg=sensor_type, exclude=[]) for sensor_type in # , exclude='bads'
                  ['mag', 'planar1', 'planar2']}
     else:
         sensors_picks = {
-            sensor_type: mne.io.pick.pick_types(info, meg=pick_meg, eeg=pick_eeg, exclude='bads')
+            sensor_type: mne.io.pick.pick_types(info, meg=pick_meg, eeg=pick_eeg, exclude=[]) # , exclude='bads'
             for sensor_type in ['eeg']}
     for sensors_type, picks in sensors_picks.items():
         output_fname = output_fname_template.format(sensors_type=sensors_type)
@@ -3113,11 +3133,11 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
     return True
 
 
-def create_meg_mesh(subject, excludes=[], overwrite_faces_verts=True):
+def create_meg_mesh(subject, excludes=[], overwrite_faces_verts=True, ssensors_type='mag'):
     try:
         from scipy.spatial import Delaunay
         from src.utils import trig_utils
-        input_file = op.join(MMVT_DIR, subject, 'meg', 'meg_sensors_positions.npz')
+        input_file = op.join(MMVT_DIR, subject, 'meg', 'meg_{}_sensors_positions.npz'.format(ssensors_type))
         mesh_ply_fname = op.join(MMVT_DIR, subject, 'meg', 'meg_helmet.ply')
         faces_verts_out_fname = op.join(MMVT_DIR, subject, 'meg', 'meg_faces_verts.npy')
         f = np.load(input_file)
@@ -3292,7 +3312,7 @@ def get_fname_format_args(args):
         args.task, args.fname_format,args.fname_format_cond, args.conditions, args.get_task_defaults)
 
 
-def get_fname_format(task, fname_format='', fname_format_cond='', args_conditions=('all'), get_task_defaults=True):
+def get_fname_format(task, fname_format='', fname_format_cond='', args_conditions=None, get_task_defaults=True):
     conditions = None
     if get_task_defaults:
         if task == 'MSIT':
@@ -3329,6 +3349,10 @@ def get_fname_format(task, fname_format='', fname_format_cond='', args_condition
             raise Exception('Empty fname_format and/or fname_format_cond!')
         # raise Exception('Unkown task! Known tasks are MSIT/ECR/ARC')
         # print('Unkown task! Known tasks are MSIT/ECR/ARC.')
+        args_conditions = ('all') if args_conditions is None else args_conditions
+        conditions = dict((cond_name, cond_id + 1) for cond_id, cond_name in enumerate(args_conditions))
+    # todo: what if we want to set something like LV=3, RV=4 from the args?
+    if args_conditions is not None:
         conditions = dict((cond_name, cond_id + 1) for cond_id, cond_name in enumerate(args_conditions))
     return fname_format, fname_format_cond, conditions
 

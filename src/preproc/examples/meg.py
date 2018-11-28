@@ -39,16 +39,18 @@ def calc_mne_python_sample_data(args):
     args = meg.read_cmd_args(dict(
         subject=args.subject,
         mri_subject=args.mri_subject,
-        function='read_sensors_layout,calc_epochs,calc_evokes',
+        function='read_sensors_layout,calc_evokes',
         # atlas='laus250',
         contrast='audvis',
+        task='audvis',
         fname_format='{subject}_audvis-{ana_type}.{file_type}',
         fname_format_cond='{subject}_audvis_{cond}-{ana_type}.{file_type}',
         conditions=['LA', 'RA'],
         read_events_from_file=True,
         t_min=-0.2, t_max=0.5,
-        extract_mode=['mean_flip', 'mean', 'pca_flip'],
-        overwrite_epochs=args.overwrite
+        extract_mode=['mean_flip'],#, 'mean', 'pca_flip'],
+        overwrite_epochs=args.overwrite,
+        overwrite_evoked=True
     ))
     meg.call_main(args)
 
@@ -96,9 +98,11 @@ def calc_msit(args):
         morph_to_subject = 'fsaverage5',
         extract_mode=['mean_flip'], #, 'mean', 'pca_flip'],
         pick_ori='normal',
-        overwrite_stc=True,
-        overwrite_labels_data=True,
-        overwrite_sensors=True
+        overwrite_epochs=False,
+        overwrite_evoked=True,
+        overwrite_stc=False,
+        overwrite_labels_data=False,
+        overwrite_sensors=False
     ))
     meg.call_main(args)
 

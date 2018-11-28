@@ -436,6 +436,7 @@ def create_meg_mesh():
 
 
 def recalc_meg_mesh_faces_verts():
+    calc_meg_mesh_verts_sensors()
     mu.add_mmvt_code_root_to_path()
     from src.utils import utils
     importlib.reload(utils)
@@ -450,6 +451,23 @@ def recalc_meg_mesh_faces_verts():
     utils.calc_ply_faces_verts(verts, faces, out_file, overwrite=True)
     utils.write_ply_file(verts, faces, ply_file_name, write_also_npz=True)
     mu.fix_normals('meg_helmet')
+
+
+def calc_meg_mesh_verts_sensors():
+    meg_helmet = bpy.data.objects.get('meg_helmet')
+    meg_helmet_indices = {}
+    if meg_helmet is not None and bpy.data.objects.get('MEG_sensors'):
+        from scipy.spatial.distance import cdist
+        meg_helmet_vets_loc = np.array([v.co for v in meg_helmet.data.vertices])
+        for sensor_type in _addon().meg.get_meg_sensors_types().keys():
+            meg_sensors_loc = np.array(
+                [meg_obj.location * 10 for meg_obj in bpy.data.objects['MEG_{}_sensors'.format(sensor_type)].children])
+            max_dists = np.max(np.min(cdist(meg_sensors_loc, meg_helmet_vets_loc), axis=1))
+            if max_dists > 0.01:
+                raise Exception('Wrong distances!')
+            meg_helmet_indices[sensor_type] = np.argmin(cdist(meg_sensors_loc, meg_helmet_vets_loc), axis=1)
+    mu.save(meg_helmet_indices, op.join(mu.get_user_fol(), 'meg', 'meg_vertices_sensors.pkl'))
+
 
 
 class ImportRois(bpy.types.Operator):

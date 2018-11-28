@@ -502,8 +502,8 @@ meg_sensors_exist = meg_panel.meg_sensors_exist
 get_meg_sensors_data = meg_panel.get_meg_sensors_data
 get_meg_sensors_file = meg_panel.get_meg_sensors_file
 set_meg_sensors_file = meg_panel.set_meg_sensors_file
-get_meg_sensors_types = meg_panel.get_meg_sensors_types
-set_meg_sensors_types = meg_panel.set_meg_sensors_types
+# get_meg_sensors_types = meg_panel.get_meg_sensors_types
+# set_meg_sensors_types = meg_panel.set_meg_sensors_types
 get_meg_sensors_conditions = meg_panel.get_meg_sensors_conditions
 set_meg_sensors_conditions = meg_panel.set_meg_sensors_conditions
 

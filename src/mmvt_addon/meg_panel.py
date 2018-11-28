@@ -61,15 +61,17 @@ def _addon():
 def get_meg_sensors_data():
     meg_sensors_data_fname, meg_sensors_meta_data_fname, meg_sensors_data_minmax_fname = get_meg_sensors_files_names()
     meg_sensors_file_name = get_meg_sensors_file()
-    meg_sensors_data = MEGPanel.meg_sensors_data.get(meg_sensors_file_name, None)
-    meg_sensors_meta_data = MEGPanel.meg_sensors_meta_data.get(meg_sensors_file_name, None)
+    # meg_sensors_data = MEGPanel.meg_sensors_data.get(meg_sensors_file_name, None)
+    # meg_sensors_meta_data = MEGPanel.meg_sensors_meta_data.get(meg_sensors_file_name, None)
+    meg_sensors_data, meg_sensors_meta_data = None, None
     if meg_sensors_data is None:
-        MEGPanel.meg_sensors_data[meg_sensors_file_name] = np.load(meg_sensors_data_fname)
+        meg_sensors_data = np.load(meg_sensors_data_fname)
     if meg_sensors_meta_data is None:
         meta = mu.Bag(np.load(meg_sensors_meta_data_fname))
         meta['names'] = [n.replace(' ', '') for n in meta['names']] # ugly patch
-        MEGPanel.meg_sensors_meta_data[meg_sensors_file_name] = meta
-    return MEGPanel.meg_sensors_data[meg_sensors_file_name], MEGPanel.meg_sensors_meta_data[meg_sensors_file_name]
+        meg_sensors_meta_data = meta
+    return meg_sensors_data, meg_sensors_meta_data
+    # return MEGPanel.meg_sensors_data[meg_sensors_file_name], MEGPanel.meg_sensors_meta_data[meg_sensors_file_name]
 
 
 def get_eeg_sensors_data():
@@ -102,12 +104,12 @@ def set_eeg_sensors_file(val):
     bpy.context.scene.eeg_sensors_files = val
 
 
-def set_meg_sensors_types(val):
-    bpy.context.scene.meg_sensors_types = val
-
-
-def get_meg_sensors_types():
-    return bpy.context.scene.meg_sensors_types
+# def set_meg_sensors_types(val):
+#     bpy.context.scene.meg_sensors_types = val
+#
+#
+# def get_meg_sensors_types():
+#     return bpy.context.scene.meg_sensors_types
 
 
 def set_meg_sensors_conditions(val):
@@ -128,29 +130,33 @@ def meg_sensors_exist():
 ##################
 def init_meg_sensors():
     user_fol = mu.get_user_fol()
-    meg_data_files = [f for f in glob.glob(op.join(user_fol, 'meg', '*sensors_evoked_data*.npy'))
-                      if 'minmax' not in mu.namebase(f)]
-    if len(meg_data_files) == 0:
-        return False
-    items = [(mu.namebase(f), mu.namebase(f), '', ind + 1) for ind, f in enumerate(meg_data_files)]
-    bpy.types.Scene.meg_sensors_files = bpy.props.EnumProperty(
-        items=items, description='Selects the MEG sensors evoked activity file.', update=meg_sensors_files_update)
-    bpy.context.scene.meg_sensors_files = mu.namebase(meg_data_files[0])
 
     if bpy.data.objects.get('MEG_sensors') is not None:
-        # for meg_sensor_obj in bpy.data.objects['MEG_sensors'].children:
-        #     for sensor_type, sensor_key in ColoringMakerPanel.meg_sensors_types.items():
-        #         if meg_sensor_obj.name.endswith(str(sensor_key)):
-        #             ColoringMakerPanel.meg_sensors_groups[sensor_key].append(meg_sensor_obj)
-        #             break
         items = [(sensor_type, sensor_type, '', sensor_key) for sensor_type, sensor_key in
                  MEGPanel.meg_sensors_types.items()]
         bpy.types.Scene.meg_sensors_types = bpy.props.EnumProperty(
             items=items, description='Selects the MEG sensors type.', update=meg_sensors_types_update)
-        bpy.context.scene.meg_sensors_types = [t for t,t,_,k in items if k==0][0]
+        bpy.context.scene.meg_sensors_types = [t for t,t,_,k in items if k == 0][0]
 
-    # meg_helmet = bpy.data.objects.get('meg_helmet')
-    # if meg_helmet is not None and bpy.data.objects.get('MEG_sensors'):
+    meg_data_files = sorted([mu.namebase(f) for f in glob.glob(op.join(
+        user_fol, 'meg', 'meg_*_mag_sensors_evoked_data*.npy')) if 'minmax' not in mu.namebase(f)])
+    if len(meg_data_files) == 0:
+        return False
+    items = []
+    for ind, meg_data_file in enumerate(meg_data_files):
+        item_name = meg_data_file[len('meg_'):meg_data_file.index('mag_sensors_evoked') - 1]
+        items.append((item_name, item_name, '', ind + 1))
+    # items = [(f, f, '', ind + 1) for ind, f in enumerate(meg_data_files)]
+    bpy.types.Scene.meg_sensors_files = bpy.props.EnumProperty(
+        items=items, description='Selects the MEG sensors evoked activity file.', update=meg_sensors_files_update)
+    bpy.context.scene.meg_sensors_files = items[0][0]
+
+    meg_helmet = bpy.data.objects.get('meg_helmet')
+    if meg_helmet is not None and bpy.data.objects.get('MEG_sensors'):
+        MEGPanel.meg_vertices_sensors = {}
+        meg_vertices_sensors = mu.load(op.join(mu.get_user_fol(), 'meg', 'meg_vertices_sensors.pkl'))
+        for sensor_type in MEGPanel.meg_sensors_types.keys():
+            MEGPanel.meg_vertices_sensors[sensor_type] = meg_vertices_sensors[sensor_type]
     #     from scipy.spatial.distance import cdist
     #     # meg_sensors_loc = np.array(
     #     #     [meg_obj.matrix_world.to_translation() * 10 for meg_obj in bpy.data.objects['MEG_sensors'].children])
@@ -177,14 +183,19 @@ def meg_sensors_types_update(self, context):
         do_show = bpy.context.scene.meg_sensors_types in meg_sensors_type_obj.name
         # do_show = meg_sensor_obj.name.endswith(
         #     str(MEGPanel.meg_sensors_types[bpy.context.scene.meg_sensors_types]))
-        mu.show_hide_obj(meg_sensors_type_obj, do_show)
+        mu.show_hide_hierarchy(do_show, meg_sensors_type_obj, also_parent=True, select=False)
+
+
+def get_meg_sensors_types():
+    return MEGPanel.meg_sensors_types
 
 
 def get_meg_sensors_files_names():
     user_fol = mu.get_user_fol()
-    meg_sensors_data_fname = op.join(user_fol, 'meg', '{}.npy'.format(bpy.context.scene.meg_sensors_files))
-    meg_sensors_meta_data_fname = op.join(user_fol, 'meg', '{}_meta.npz'.format(mu.namebase(meg_sensors_data_fname)))
-    meg_sensors_data_minmax_fname = op.join(user_fol, 'meg', '{}_minmax.npy'.format(mu.namebase(meg_sensors_data_fname)))
+    name = 'meg_{}_{}_sensors_evoked'.format(bpy.context.scene.meg_sensors_files, bpy.context.scene.meg_sensors_types)
+    meg_sensors_data_fname = op.join(user_fol, 'meg', '{}_data.npy'.format(name))
+    meg_sensors_meta_data_fname = op.join(user_fol, 'meg', '{}_data_meta.npz'.format(name))
+    meg_sensors_data_minmax_fname = op.join(user_fol, 'meg', '{}_minmax.npy'.format(name))
     return meg_sensors_data_fname, meg_sensors_meta_data_fname, meg_sensors_data_minmax_fname
 
 
@@ -330,11 +341,11 @@ def color_meg_helmet(use_abs=None, threshold=None):
         use_abs = bpy.context.scene.coloring_use_abs
     fol = mu.get_user_fol()
     data, meta = get_meg_sensors_data()
-    sensors_dict = mu.Bag(np.load(
-        op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
+    # sensors_dict = mu.Bag(np.load(
+    #     op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
     # inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
     # data = data[inds, :, :]
-    data = data[sensors_dict.picks, :, :]
+    # data = data[sensors_dict.picks, :, :]
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
@@ -359,10 +370,15 @@ def color_meg_helmet(use_abs=None, threshold=None):
 
     if bpy.context.scene.find_max_meg_sensors:
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
-    cur_obj = bpy.data.objects['meg_helmet']
+        meg_helmet = bpy.data.objects['meg_helmet']
     data_t = data[:, bpy.context.scene.frame_current]
+
+    indices = MEGPanel.meg_vertices_sensors[bpy.context.scene.meg_sensors_types]
+    helmet_data = np.zeros(len(meg_helmet.data.vertices))
+    helmet_data[indices] = data_t#[meta.picks]
+
     _addon().coloring.activity_map_obj_coloring(
-        cur_obj, data_t, lookup, threshold, True, data_min=data_min,
+        meg_helmet, helmet_data, lookup, threshold, True, data_min=data_min,
         colors_ratio=colors_ratio, bigger_or_equall=False, use_abs=use_abs)
 
 
@@ -373,10 +389,10 @@ def color_meg_sensors(threshold=None):
         threshold = _addon().coloring.get_lower_threshold()
     # threshold = bpy.context.scene.coloring_lower_threshold
     data, meta = get_meg_sensors_data()
-    sensors_dict = mu.Bag(np.load(
-        op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
+    # sensors_dict = mu.Bag(np.load(
+    #     op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
     # inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
-    data = data[sensors_dict.picks, :, :]
+    # data = data[sensors_dict.picks, :, :]
 
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
@@ -400,7 +416,7 @@ def color_meg_sensors(threshold=None):
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
 
     # names = np.array([obj.name for obj in bpy.data.objects['MEG_sensors'].children])[inds]
-    names = sensors_dict.names
+    names = meta.names
     if threshold > data_max:
         print('threshold is bigger than data_max ({})! Setting to 0.'.format(data_max))
         threshold = 0
