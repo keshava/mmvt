@@ -285,7 +285,8 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
     #         ar_consensus_percs, ar_n_interpolates, bad_ar_threshold, epo_fname, overwrite_epochs, n_jobs)
     #     return clean_epochs
 
-    # meg=['mag', 'planar1' or 'planar2']
+    # for meg_sensors_type in ['mag', 'planar1', 'planar2']:
+    #     picks = mne.pick_types(raw.info, meg=meg_sensors_type, eeg=False, eog=False, exclude='bads')
     picks = mne.pick_types(raw.info, meg=pick_meg, eeg=pick_eeg, eog=pick_eog, exclude='bads')
     if reject:
         reject_dict = {}
@@ -3085,11 +3086,12 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
         else:
             info = utils.load(info_fname)
     if pick_meg:
-        sensors_picks = {sensor_type:mne.io.pick.pick_types(info, meg=sensor_type, eeg=pick_eeg) for sensor_type in
+        sensors_picks = {sensor_type:mne.io.pick.pick_types(info, meg=sensor_type, exclude='bads') for sensor_type in
                  ['mag', 'planar1', 'planar2']}
     else:
         sensors_picks = {
-            sensor_type: mne.io.pick.pick_types(info, meg=pick_meg, eeg=pick_eeg) for sensor_type in ['eeg']}
+            sensor_type: mne.io.pick.pick_types(info, meg=pick_meg, eeg=pick_eeg, exclude='bads')
+            for sensor_type in ['eeg']}
     for sensors_type, picks in sensors_picks.items():
         output_fname = output_fname_template.format(sensors_type=sensors_type)
         if op.isfile(output_fname) and not overwrite_sensors:

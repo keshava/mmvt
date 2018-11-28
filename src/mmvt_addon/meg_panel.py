@@ -149,24 +149,24 @@ def init_meg_sensors():
             items=items, description='Selects the MEG sensors type.', update=meg_sensors_types_update)
         bpy.context.scene.meg_sensors_types = [t for t,t,_,k in items if k==0][0]
 
-    meg_helmet = bpy.data.objects.get('meg_helmet')
-    if meg_helmet is not None and bpy.data.objects.get('MEG_sensors'):
-        from scipy.spatial.distance import cdist
-        # meg_sensors_loc = np.array(
-        #     [meg_obj.matrix_world.to_translation() * 10 for meg_obj in bpy.data.objects['MEG_sensors'].children])
-        meg_helmet_vets_loc = np.array([v.co for v in meg_helmet.data.vertices])
-        for sensor_type, sensor_key in MEGPanel.meg_sensors_types.items():
-            meg_sensors_loc = np.array(
-                [meg_obj.location * 10 if meg_obj.name.endswith(str(sensor_key)) else (np.inf,np.inf, np.inf)
-                 for meg_obj in bpy.data.objects['MEG_sensors'].children])
-            if np.all(meg_sensors_loc == np.inf):
-                print('Couldn\'t find {} sensors!'.format(sensor_type))
-            MEGPanel.meg_helmet_indices[sensor_type] = np.argmin(cdist(meg_helmet_vets_loc, meg_sensors_loc), axis=1)
-    elif bpy.data.objects.get('MEG_sensors'):
-        for sensor_type, sensor_key in MEGPanel.meg_sensors_types.items():
-            MEGPanel.meg_helmet_indices[sensor_type] = np.array(
-                [ind for ind, meg_obj in enumerate(bpy.data.objects['MEG_sensors'].children)
-                 if meg_obj.name.endswith(str(sensor_key))])
+    # meg_helmet = bpy.data.objects.get('meg_helmet')
+    # if meg_helmet is not None and bpy.data.objects.get('MEG_sensors'):
+    #     from scipy.spatial.distance import cdist
+    #     # meg_sensors_loc = np.array(
+    #     #     [meg_obj.matrix_world.to_translation() * 10 for meg_obj in bpy.data.objects['MEG_sensors'].children])
+    #     meg_helmet_vets_loc = np.array([v.co for v in meg_helmet.data.vertices])
+    #     for sensor_type, sensor_key in MEGPanel.meg_sensors_types.items():
+    #         meg_sensors_loc = np.array(
+    #             [meg_obj.location * 10 if meg_obj.name.endswith(str(sensor_key)) else (np.inf,np.inf, np.inf)
+    #              for meg_obj in bpy.data.objects['MEG_sensors'].children])
+    #         if np.all(meg_sensors_loc == np.inf):
+    #             print('Couldn\'t find {} sensors!'.format(sensor_type))
+    #         MEGPanel.meg_helmet_indices[sensor_type] = np.argmin(cdist(meg_helmet_vets_loc, meg_sensors_loc), axis=1)
+    # elif bpy.data.objects.get('MEG_sensors'):
+    #     for sensor_type, sensor_key in MEGPanel.meg_sensors_types.items():
+    #         MEGPanel.meg_helmet_indices[sensor_type] = np.array(
+    #             [ind for ind, meg_obj in enumerate(bpy.data.objects['MEG_sensors'].children)
+    #              if meg_obj.name.endswith(str(sensor_key))])
     return True
 
 
@@ -330,8 +330,11 @@ def color_meg_helmet(use_abs=None, threshold=None):
         use_abs = bpy.context.scene.coloring_use_abs
     fol = mu.get_user_fol()
     data, meta = get_meg_sensors_data()
-    inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
-    data = data[inds, :, :]
+    sensors_dict = mu.Bag(np.load(
+        op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
+    # inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
+    # data = data[inds, :, :]
+    data = data[sensors_dict.picks, :, :]
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
