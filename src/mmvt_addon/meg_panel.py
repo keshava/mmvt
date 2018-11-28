@@ -173,10 +173,11 @@ def init_meg_sensors():
 def meg_sensors_types_update(self, context):
     if bpy.data.objects.get('MEG_sensors') is None:
         return
-    for meg_sensor_obj in bpy.data.objects['MEG_sensors'].children:
-        do_show = meg_sensor_obj.name.endswith(
-            str(MEGPanel.meg_sensors_types[bpy.context.scene.meg_sensors_types]))
-        mu.show_hide_obj(meg_sensor_obj, do_show)
+    for meg_sensors_type_obj in bpy.data.objects['MEG_sensors'].children:
+        do_show = bpy.context.scene.meg_sensors_types in meg_sensors_type_obj.name
+        # do_show = meg_sensor_obj.name.endswith(
+        #     str(MEGPanel.meg_sensors_types[bpy.context.scene.meg_sensors_types]))
+        mu.show_hide_obj(meg_sensors_type_obj, do_show)
 
 
 def get_meg_sensors_files_names():
@@ -369,8 +370,10 @@ def color_meg_sensors(threshold=None):
         threshold = _addon().coloring.get_lower_threshold()
     # threshold = bpy.context.scene.coloring_lower_threshold
     data, meta = get_meg_sensors_data()
-    inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
-    data = data[inds, :, :]
+    sensors_dict = mu.Bag(np.load(
+        op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
+    # inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
+    data = data[sensors_dict.picks, :, :]
 
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
@@ -393,7 +396,8 @@ def color_meg_sensors(threshold=None):
     if bpy.context.scene.find_max_meg_sensors:
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
 
-    names = np.array([obj.name for obj in bpy.data.objects['MEG_sensors'].children])[inds]
+    # names = np.array([obj.name for obj in bpy.data.objects['MEG_sensors'].children])[inds]
+    names = sensors_dict.names
     if threshold > data_max:
         print('threshold is bigger than data_max ({})! Setting to 0.'.format(data_max))
         threshold = 0

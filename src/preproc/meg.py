@@ -3107,7 +3107,7 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
         head_mri_t = mne.transforms._ensure_trans(trans, 'head', 'mri')
         sensors_pos = mne.transforms.apply_trans(head_mri_t, sensors_pos)
         sensors_pos *= 1000
-        np.savez(output_fname, pos=sensors_pos, names=sensors_names)
+        np.savez(output_fname, pos=sensors_pos, names=sensors_names, picks=picks)
     return True
 
 

@@ -2599,7 +2599,7 @@ def delete_files(temp):
 
 def print_traceback():
     import traceback
-    print(''.join(traceback.format_stack()))
+    print(''.join(traceback.format_stack().strip()))
 
 
 def file_modification_time(fname):
