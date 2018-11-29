@@ -370,7 +370,7 @@ def color_meg_helmet(use_abs=None, threshold=None):
 
     if bpy.context.scene.find_max_meg_sensors:
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
-        meg_helmet = bpy.data.objects['meg_helmet']
+    meg_helmet = bpy.data.objects['meg_helmet']
     data_t = data[:, bpy.context.scene.frame_current]
 
     indices = MEGPanel.meg_vertices_sensors[bpy.context.scene.meg_sensors_types]
