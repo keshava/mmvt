@@ -398,6 +398,7 @@ def create_eeg_mesh():
 
 
 def recalc_eeg_mesh_faces_verts():
+    calc_eeg_mesh_verts_sensors()
     mu.add_mmvt_code_root_to_path()
     from src.utils import utils
     importlib.reload(utils)
@@ -412,6 +413,23 @@ def recalc_eeg_mesh_faces_verts():
     utils.calc_ply_faces_verts(verts, faces, out_file, overwrite=True)
     utils.write_ply_file(verts, faces, ply_file_name, write_also_npz=True)
     mu.fix_normals('eeg_helmet')
+
+
+def calc_eeg_mesh_verts_sensors():
+    eeg_helmet = bpy.data.objects.get('eeg_helmet')
+    eeg_helmet_indices = None
+    if eeg_helmet is not None and bpy.data.objects.get('EEG_sensors'):
+        from scipy.spatial.distance import cdist
+        eeg_helmet_vets_loc = np.array([v.co for v in eeg_helmet.data.vertices])
+        # eeg_sensors_loc = np.array(
+        #     [eeg_obj.location * 10 for eeg_obj in bpy.data.objects['EEG_sensors'].children])
+        eeg_sensors_loc = np.array(
+            [eeg_obj.matrix_world.to_translation() * 10 for eeg_obj in bpy.data.objects['EEG_sensors'].children])
+        max_dists = np.max(np.min(cdist(eeg_sensors_loc, eeg_helmet_vets_loc), axis=1))
+        if max_dists > 0.01:
+            raise Exception('Wrong distances!')
+        eeg_helmet_indices = np.argmin(cdist(eeg_sensors_loc, eeg_helmet_vets_loc), axis=1)
+    mu.save(eeg_helmet_indices, op.join(mu.get_user_fol(), 'eeg', 'eeg_vertices_sensors.pkl'))
 
 
 def create_meg_mesh():

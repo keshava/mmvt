@@ -226,32 +226,51 @@ def meg_sensors_files_update(self, context):
 
 def get_eeg_sensors_files_names():
     user_fol = mu.get_user_fol()
-    eeg_sensors_data_fname = op.join(user_fol, 'eeg', '{}.npy'.format(bpy.context.scene.eeg_sensors_files))
-    eeg_sensors_meta_data_fname = op.join(user_fol, 'eeg', '{}_meta.npz'.format(mu.namebase(eeg_sensors_data_fname)))
-    eeg_sensors_data_minmax_fname = op.join(user_fol, 'eeg', '{}_minmax.npy'.format(mu.namebase(eeg_sensors_data_fname)))
+    name = 'eeg_{}_eeg_sensors_evoked'.format(bpy.context.scene.eeg_sensors_files)
+    eeg_sensors_data_fname = op.join(user_fol, 'eeg', '{}_data.npy'.format(name))
+    eeg_sensors_meta_data_fname = op.join(user_fol, 'eeg', '{}_data_meta.npz'.format(name))
+    eeg_sensors_data_minmax_fname = op.join(user_fol, 'eeg', '{}_minmax.npy'.format(name))
     return eeg_sensors_data_fname, eeg_sensors_meta_data_fname, eeg_sensors_data_minmax_fname
 
 
 def init_eeg_sensors():
     user_fol = mu.get_user_fol()
-    eeg_data_files = [f for f in glob.glob(op.join(user_fol, 'eeg', '*sensors_evoked_data*.npy'))
-                      if 'minmax' not in mu.namebase(f)]
+
+    eeg_data_files = sorted([mu.namebase(f) for f in glob.glob(op.join(
+        user_fol, 'eeg', 'eeg_*_eeg_sensors_evoked_data*.npy')) if 'minmax' not in mu.namebase(f)])
     if len(eeg_data_files) == 0:
         return False
-    items = [(mu.namebase(f), mu.namebase(f), '', ind + 1) for ind, f in enumerate(eeg_data_files)]
+    items = []
+    for ind, eeg_data_file in enumerate(eeg_data_files):
+        item_name = eeg_data_file[len('eeg_'):eeg_data_file.index('eeg_sensors_evoked') - 1]
+        items.append((item_name, item_name, '', ind + 1))
     bpy.types.Scene.eeg_sensors_files = bpy.props.EnumProperty(
         items=items, description='Selects the EEG sensors evoked activity file.', update=eeg_sensors_files_update)
-    bpy.context.scene.eeg_sensors_files = mu.namebase(eeg_data_files[0])
+    bpy.context.scene.eeg_sensors_files = items[0][0]
 
     eeg_helmet = bpy.data.objects.get('eeg_helmet')
-    if eeg_helmet is not None:
-        from scipy.spatial.distance import cdist
-        # eeg_sensors_loc = np.array(
-        #     [eeg_obj.matrix_world.to_translation() * 10 for eeg_obj in bpy.data.objects['EEG_sensors'].children])
-        eeg_sensors_loc = np.array(
-            [eeg_obj.location * 10 for eeg_obj in bpy.data.objects['EEG_sensors'].children])
-        eeg_helmet_vets_loc = np.array([v.co for v in eeg_helmet.data.vertices])
-        MEGPanel.eeg_helmet_indices = np.argmin(cdist(eeg_helmet_vets_loc, eeg_sensors_loc), axis=1)
+    if eeg_helmet is not None and bpy.data.objects.get('EEG_sensors'):
+        MEGPanel.eeg_vertices_sensors = mu.load(op.join(mu.get_user_fol(), 'eeg', 'eeg_vertices_sensors.pkl'))
+
+
+    # eeg_data_files = sorted([f for f in glob.glob(op.join(user_fol, 'eeg', '*sensors_evoked_data*.npy'))
+    #                          if 'minmax' not in mu.namebase(f)])
+    # if len(eeg_data_files) == 0:
+    #     return False
+    # items = [(mu.namebase(f), mu.namebase(f), '', ind + 1) for ind, f in enumerate(eeg_data_files)]
+    # bpy.types.Scene.eeg_sensors_files = bpy.props.EnumProperty(
+    #     items=items, description='Selects the EEG sensors evoked activity file.', update=eeg_sensors_files_update)
+    # bpy.context.scene.eeg_sensors_files = mu.namebase(eeg_data_files[0])
+
+    # eeg_helmet = bpy.data.objects.get('eeg_helmet')
+    # if eeg_helmet is not None:
+    #     from scipy.spatial.distance import cdist
+    #     # eeg_sensors_loc = np.array(
+    #     #     [eeg_obj.matrix_world.to_translation() * 10 for eeg_obj in bpy.data.objects['EEG_sensors'].children])
+    #     eeg_sensors_loc = np.array(
+    #         [eeg_obj.location * 10 for eeg_obj in bpy.data.objects['EEG_sensors'].children])
+    #     eeg_helmet_vets_loc = np.array([v.co for v in eeg_helmet.data.vertices])
+    #     MEGPanel.eeg_helmet_indices = np.argmin(cdist(eeg_helmet_vets_loc, eeg_sensors_loc), axis=1)
     return True
 
 
@@ -300,8 +319,9 @@ def eeg_sensors_files_update(self, context):
 
 
 # ************** Coloring function
-
-def color_eeg_helmet(use_abs=None):
+def color_eeg_helmet(use_abs=None, threshold=None):
+    if threshold is None:
+        threshold = bpy.context.scene.coloring_lower_threshold
     if use_abs is None:
         use_abs = bpy.context.scene.coloring_use_abs
     fol = mu.get_user_fol()
@@ -321,16 +341,20 @@ def color_eeg_helmet(use_abs=None):
         data_max, data_min = _addon().get_colorbar_max_min()
     else:
         data_max, data_min = mu.get_data_max_min(data, True, (1, 99))
-        # data_min, data_max = np.percentile(data, 3), np.percentile(data, 97)
-        # data_maxmin = max([abs(data_min), abs(data_max)])
-        # data_min, data_max = -data_maxmin, data_maxmin
         _addon().set_colorbar_max_min(data_max, data_min, True)
     colors_ratio = 256 / (data_max - data_min)
 
-    cur_obj = bpy.data.objects['eeg_helmet']
-    data_t = data[MEGPanel.eeg_helmet_indices, bpy.context.scene.frame_current]
+    if bpy.context.scene.find_max_eeg_sensors:
+        _, bpy.context.scene.frame_current = mu.argmax2d(data)
+    eeg_helmet = bpy.data.objects['eeg_helmet']
+    data_t = data[:, bpy.context.scene.frame_current]
+
+    indices = MEGPanel.eeg_vertices_sensors
+    helmet_data = np.zeros(len(eeg_helmet.data.vertices))
+    helmet_data[indices] = data_t
+
     _addon().coloring.activity_map_obj_coloring(
-        cur_obj, data_t, lookup, threshold, True, data_min=data_min,
+        eeg_helmet, helmet_data, lookup, threshold, True, data_min=data_min,
         colors_ratio=colors_ratio, bigger_or_equall=False, use_abs=use_abs)
 
 
@@ -341,11 +365,6 @@ def color_meg_helmet(use_abs=None, threshold=None):
         use_abs = bpy.context.scene.coloring_use_abs
     fol = mu.get_user_fol()
     data, meta = get_meg_sensors_data()
-    # sensors_dict = mu.Bag(np.load(
-    #     op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
-    # inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
-    # data = data[inds, :, :]
-    # data = data[sensors_dict.picks, :, :]
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
@@ -362,9 +381,6 @@ def color_meg_helmet(use_abs=None, threshold=None):
         data_max, data_min = _addon().get_colorbar_max_min()
     else:
         data_max, data_min = mu.get_data_max_min(data, True, (1, 99))
-        # data_min, data_max = np.percentile(data, 3), np.percentile(data, 97)
-        # data_maxmin = max([abs(data_min), abs(data_max)])
-        # data_min, data_max = -data_maxmin, data_maxmin
         _addon().set_colorbar_max_min(data_max, data_min, True)
     colors_ratio = 256 / (data_max - data_min)
 
@@ -375,7 +391,7 @@ def color_meg_helmet(use_abs=None, threshold=None):
 
     indices = MEGPanel.meg_vertices_sensors[bpy.context.scene.meg_sensors_types]
     helmet_data = np.zeros(len(meg_helmet.data.vertices))
-    helmet_data[indices] = data_t#[meta.picks]
+    helmet_data[indices] = data_t
 
     _addon().coloring.activity_map_obj_coloring(
         meg_helmet, helmet_data, lookup, threshold, True, data_min=data_min,
@@ -429,13 +445,7 @@ def color_eeg_sensors(threshold=None):
     if threshold is None:
         threshold = bpy.context.scene.coloring_lower_threshold
     data, meta = get_eeg_sensors_data()
-    if _addon().colorbar_values_are_locked():
-        data_max, data_min = _addon().get_colorbar_max_min()
-    else:
-        # data_min, data_max = ColoringMakerPanel.eeg_sensors_data_minmax
-        data_max, data_min = mu.get_data_max_min(data, True, (1, 99))
-        _addon().set_colorbar_max_min(data_max, data_min)
-    colors_ratio = 256 / (data_max - data_min)
+
     if bpy.context.scene.eeg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.eeg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
@@ -444,12 +454,21 @@ def color_eeg_sensors(threshold=None):
     else:
         if not _addon().colorbar_values_are_locked():
             _addon().set_colorbar_title('EEG sensors conditions difference')
+
+    if _addon().colorbar_values_are_locked():
+        data_max, data_min = _addon().get_colorbar_max_min()
+    else:
+        # data_min, data_max = ColoringMakerPanel.eeg_sensors_data_minmax
+        data_max, data_min = mu.get_data_max_min(data, True, (1, 99))
+        _addon().set_colorbar_max_min(data_max, data_min)
+    colors_ratio = 256 / (data_max - data_min)
     if threshold >= data_max:
         print('Threshold is bigger than data_max ({}), setting to 0.'.format(data_max))
         threshold = 0
 
-    if bpy.context.scene.find_max_meg_sensors:
+    if bpy.context.scene.find_max_eeg_sensors:
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
+
     _addon().coloring.color_objects_homogeneously(
         data, meta['names'], meta['conditions'], data_min, colors_ratio, threshold)
 
@@ -903,7 +922,7 @@ def meg_draw(self, context):
         col.operator(ColorEEGSensors.bl_idname, text="Plot EEG sensors", icon='POTATO')
         if not bpy.data.objects.get('eeg_helmet', None) is None:
             col.operator(ColorEEGHelmet.bl_idname, text="Plot EEG Helmet", icon='POTATO')
-            col.prop(context.scene, 'find_max_meg_sensors', text='Find peak activity')
+            col.prop(context.scene, 'find_max_eeg_sensors', text='Find peak activity')
             col.prop(context.scene, 'plot_mesh_using_uv_map', text='Use UV map')
 
     if MEGPanel.meg_clusters_files_exist:
@@ -990,6 +1009,7 @@ bpy.types.Scene.meg_dipole_fit_use_meg = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.meg_dipole_fit_use_eeg = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.plot_mesh_using_uv_map = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.find_max_meg_sensors = bpy.props.BoolProperty(default=False)
+bpy.types.Scene.find_max_eeg_sensors = bpy.props.BoolProperty(default=False)
 
 
 class NextMEGCluster(bpy.types.Operator):

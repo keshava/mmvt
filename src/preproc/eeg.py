@@ -84,14 +84,14 @@ def create_eeg_mesh(subject, excludes=[], overwrite_faces_verts=True):
         faces_verts_out_fname = op.join(MMVT_DIR, subject, 'eeg', 'eeg_faces_verts.npy')
         f = np.load(input_file)
         verts = f['pos']
-        # excluded_inds = [np.where(f['names'] == e)[0] for e in excludes]
-        # verts = np.delete(verts, excluded_inds, 0)
         verts_tup = [(x, y, z) for x, y, z in verts]
         tris = Delaunay(verts_tup)
         faces = tris.convex_hull
         areas = [trig_utils.poly_area(verts[poly]) for poly in tris.convex_hull]
         inds = [k for k, s in enumerate(areas) if s > np.percentile(areas, 97)]
         faces = np.delete(faces, inds, 0)
+        normals = trig_utils.calc_normals(verts, faces)
+        # verts += normals
         utils.write_ply_file(verts, faces, mesh_ply_fname, True)
         utils.calc_ply_faces_verts(verts, faces, faces_verts_out_fname, overwrite_faces_verts,
                                    utils.namebase(faces_verts_out_fname))
@@ -122,8 +122,8 @@ def main(tup, remote_subject_dir, args, flags):
     evoked, epochs = None, None
     conditions, stat = init(subject, args, mri_subject, remote_subject_dir)
 
-    if utils.should_run(args, 'read_eeg_sensors_layout'):
-        flags['read_eeg_sensors_layout'] = read_eeg_sensors_layout(mri_subject, args)
+    if utils.should_run(args, 'read_sensors_layout'):
+        flags['read_sensors_layout'] = read_eeg_sensors_layout(mri_subject, args)
 
     flags, evoked, epochs = meg.calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)
 
@@ -131,7 +131,7 @@ def main(tup, remote_subject_dir, args, flags):
         subject, conditions, inverse_method, args, flags)
 
     flags = meg.calc_labels_avg_per_condition_wrapper(
-        subject, conditions, args.atlas, inverse_method, stcs_conds, args, flags, stcs_num, raw, epochs)
+        subject, conditions, args.atlas, inverse_method, stcs_conds, args, flags, stcs_num, None, epochs)
 
     if utils.should_run(args, 'create_eeg_mesh'):
         flags['create_eeg_mesh'] = create_eeg_mesh(mri_subject, args.eeg_electrodes_excluded_from_mesh)

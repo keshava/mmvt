@@ -25,6 +25,27 @@ def setup_args(**kwargs):
 #     eeg.run_on_subjects(args)
 
 
+
+def calc_mne_python_sample_data(args):
+    args = eeg.read_cmd_args(dict(
+        subject=args.subject,
+        mri_subject=args.mri_subject,
+        function='read_sensors_layout,calc_evokes',
+        # atlas='laus250',
+        contrast='audvis',
+        task='audvis',
+        fname_format='{subject}_audvis-{ana_type}.{file_type}',
+        fname_format_cond='{subject}_audvis_{cond}-{ana_type}.{file_type}',
+        conditions=['LA', 'RA'],
+        read_events_from_file=True,
+        t_min=-0.2, t_max=0.5,
+        extract_mode=['mean_flip'],#, 'mean', 'pca_flip'],
+        overwrite_epochs=args.overwrite,
+        overwrite_evoked=True
+    ))
+    eeg.call_main(args)
+
+
 def calc_msit_evoked(args):
     # python -m src.preproc.eeg -s ep001 -m mg78 -a laus125 -f calc_epochs,calc_evokes -t MSIT
     #   --contrast interference --t_max 2 --t_min -0.5 --data_per_task 1 --read_events_from_file 1
@@ -54,6 +75,7 @@ if __name__ == '__main__':
                         type=au.str_arr_type)
     parser.add_argument('-a', '--atlas', help='atlas name', required=False, default='aparc.DKTatlas')
     parser.add_argument('-f', '--function', help='function name', required=True)
+    parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
     args = utils.Bag(au.parse_parser(parser))
     if not args.mri_subject:
         args.mri_subject = args.subject
