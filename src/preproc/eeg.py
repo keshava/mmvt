@@ -27,7 +27,8 @@ calc_stc_per_condition = meg.calc_stc_per_condition_wrapper
 
 def read_eeg_sensors_layout(mri_subject, args):
     return meg.read_sensors_layout(
-        mri_subject, args, pick_meg=False, pick_eeg=True, overwrite_sensors=args.overwrite_sensors)
+        mri_subject, args, pick_meg=False, pick_eeg=True, overwrite_sensors=args.overwrite_sensors,
+        trans_file=args.trans_fname)
 
 
 def save_evoked_to_blender(mri_subject, events, args, evoked=None):
@@ -96,11 +97,21 @@ def create_eeg_mesh(subject, excludes=[], overwrite_faces_verts=True):
         utils.calc_ply_faces_verts(verts, faces, faces_verts_out_fname, overwrite_faces_verts,
                                    utils.namebase(faces_verts_out_fname))
         np.savez(input_file, pos=f['pos'], names=f['names'], tri=faces, excludes=excludes)
+        calc_eeg_mesh_verts_sensors(subject, f['pos'], verts, modality='eeg')
     except:
         print('Error in create_eeg_mesh!')
         print(traceback.format_exc())
         return False
     return True
+
+
+def calc_eeg_mesh_verts_sensors(subject, sensors_verts, helmet_verts, modality='meg'):
+    from scipy.spatial.distance import cdist
+    max_dists = np.max(np.min(cdist(sensors_verts, helmet_verts), axis=1))
+    if max_dists > 0.01:
+        raise Exception('Wrong distances!')
+    eeg_helmet_indices = np.argmin(cdist(sensors_verts, helmet_verts), axis=1)
+    utils.save(eeg_helmet_indices, op.join(MMVT_DIR, subject, modality, '{}_vertices_sensors.pkl'.format(modality)))
 
 
 def init(subject, args, mri_subject='', remote_subject_dir=''):

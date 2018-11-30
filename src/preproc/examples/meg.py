@@ -36,6 +36,10 @@ def calc_single_trial_labels_msit(subject, mri_subject):
 
 
 def calc_mne_python_sample_data(args):
+    import mne
+    mne_sample_data_fol = mne.datasets.sample.data_path()
+    trans_fname = op.join(mne_sample_data_fol, 'MEG', 'sample', 'sample_audvis_raw-trans.fif')
+
     args = meg.read_cmd_args(dict(
         subject=args.subject,
         mri_subject=args.mri_subject,
@@ -43,6 +47,7 @@ def calc_mne_python_sample_data(args):
         # atlas='laus250',
         contrast='audvis',
         task='audvis',
+        trans_fname = trans_fname,
         fname_format='{subject}_audvis-{ana_type}.{file_type}',
         fname_format_cond='{subject}_audvis_{cond}-{ana_type}.{file_type}',
         conditions=['LA', 'RA'],

@@ -3080,7 +3080,15 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
     if pick_eeg and pick_meg or (not pick_meg and not pick_eeg):
         raise Exception('read_sensors_layout: You should pick only meg or eeg!')
     try:
-        trans_file = find_trans_file(trans_file, args.remote_subject_dir, mri_subject, SUBJECTS_MRI_DIR)
+        if not op.isfile(trans_file):
+            trans_file = find_trans_file(trans_file, args.remote_subject_dir, mri_subject, SUBJECTS_MRI_DIR)
+        else:
+            ok_trans_files = filter_trans_files([trans_file])
+            if len(ok_trans_files) == 1:
+                trans_file = ok_trans_files[0]
+            else:
+                print('Wrong trans file!')
+                return False
     except:
         return False
     if not op.isfile(trans_file):
@@ -4488,7 +4496,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     stat = STAT_AVG if len(conditions) == 1 else STAT_DIFF
 
     if utils.should_run(args, 'read_sensors_layout'):
-        flags['read_sensors_layout'] = read_sensors_layout(mri_subject, args, overwrite_sensors=args.overwrite_sensors)
+        flags['read_sensors_layout'] = read_sensors_layout(
+            mri_subject, args, overwrite_sensors=args.overwrite_sensors, trans_file=args.trans_fname)
 
     # flags: calc_evoked
     flags, evoked, epochs = calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)
@@ -4725,6 +4734,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--surf_name', help='', required=False, default='pial')
     parser.add_argument('--inv_loose', help='', required=False, default=0.2, type=float)
     parser.add_argument('--inv_depth', help='', required=False, default=0.8, type=float)
+    parser.add_argument('--trans_fname', help='', required=False, default='')
     parser.add_argument('--use_raw_for_noise_cov', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--use_empty_room_for_noise_cov', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_noise_cov', help='', required=False, default=0, type=au.is_true)

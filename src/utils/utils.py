@@ -2140,6 +2140,8 @@ def insensitive_glob(pattern):
 
 def find_recursive(fol, name):
     if not is_windows():
+        if not fol.endswith(op.sep):
+            fol += op.sep
         res = run_script('find {} -name "{}"'.format(fol, name))
         files = [f for f in res.decode(sys.getfilesystemencoding(), 'ignore').split('\n') if op.isfile(f)]
     else:

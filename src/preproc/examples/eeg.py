@@ -1,4 +1,5 @@
 import argparse
+import os.path as op
 from src.preproc import eeg as eeg
 from src.utils import utils
 from src.utils import args_utils as au
@@ -27,11 +28,16 @@ def setup_args(**kwargs):
 
 
 def calc_mne_python_sample_data(args):
+    import mne
+    mne_sample_data_fol = mne.datasets.sample.data_path()
+    trans_fname = op.join(mne_sample_data_fol, 'MEG', 'sample', 'sample_audvis_raw-trans.fif')
+
     args = eeg.read_cmd_args(dict(
         subject=args.subject,
         mri_subject=args.mri_subject,
         function='read_sensors_layout,calc_evokes',
         # atlas='laus250',
+        trans_fname=trans_fname,
         contrast='audvis',
         task='audvis',
         fname_format='{subject}_audvis-{ana_type}.{file_type}',
