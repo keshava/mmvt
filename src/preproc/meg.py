@@ -971,19 +971,39 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
 
     info = evokes[0].info
     if modality == 'meg':
+        sensors_picks, channels_sensors_dict = {}, {}
         picks = mne.pick_types(info, meg=True, eeg=False, exclude='bads')
-        sensors_picks = {sensor_type:mne.pick_types(info, meg=sensor_type, exclude='bads') for sensor_type in
-                 ['mag', 'planar1', 'planar2']}
+        for sensor_type in ['mag', 'planar1', 'planar2']:
+            # Load sensors info
+            input_fname = op.join(op.join(
+                MMVT_DIR, SUBJECT, modality, 'meg_{}_sensors_positions.npz'.format(sensor_type)))
+            if not op.isfile(input_fname):
+                print('Can\'t find the sensors info! Please run the create_helmet_mesh function first')
+                return False
+            sensors_info = np.load(input_fname)
+            sensors_names = sensors_info['names']
+            sensors_picks[sensor_type] = mne.pick_types(info, meg=sensor_type, exclude='bads')
+            ch_names = [first_evokes.ch_names[k].replace(' ', '') for k in sensors_picks[sensor_type]]
+            channels_sensors_dict[sensor_type] = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
     elif modality == 'eeg':
+        # Load sensors info
+        input_fname = op.join(op.join(MMVT_DIR, SUBJECT, modality, 'eeg_sensors_positions.npz'))
+        if not op.isfile(input_fname):
+            print('Can\'t find the sensors info! Please run the create_helmet_mesh function first')
+            return False
+        sensors_info = np.load(input_fname)
+        sensors_names = sensors_info['names']
         picks = mne.pick_types(info, meg=False, eeg=True, exclude='bads')
+        ch_names = [first_evokes.ch_names[k].replace(' ', '') for k in picks]
+        channels_sensors_dict = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
         sensors_picks = {
             sensor_type: mne.pick_types(info, meg=False, eeg=True, exclude='bads')
             for sensor_type in ['eeg']}
     else:
         raise Exception('The modality {} is not supported! (only eeg/meg)'.format(modality))
 
+
     task_str = '{}_'.format(task) if task != '' else ''
-    ch_names = [first_evokes.ch_names[k].replace(' ', '') for k in picks]
     # sensors_meta = utils.Bag(np.load(op.join(fol, '{}_sensors_positions.npz'.format(modality))))
     dt = np.diff(first_evokes.times[:2])[0]
     if isinstance(evokes, mne.evoked.EvokedArray):
@@ -1010,7 +1030,8 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
         events_keys.append('all')
     np.save(op.join(fol, '{}_{}sensors_evoked_data.npy'.format(modality, task_str)), data)
     np.savez(op.join(fol, '{}_{}sensors_evoked_data_meta.npz'.format(modality, task_str)),
-        names=np.array(ch_names), conditions=events_keys, dt=dt, picks=sensors_picks)
+        names=np.array(ch_names), conditions=events_keys, dt=dt, picks=sensors_picks,
+        channels_sensors_dict=channels_sensors_dict)
     np.save(op.join(fol, '{}_{}sensors_evoked_minmax.npy'.format(modality, task_str)),
         [-max_abs, max_abs])
 
@@ -3170,13 +3191,17 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
     return True
 
 
-def create_meg_mesh(subject, excludes=[], overwrite_faces_verts=True, ssensors_type='mag'):
+def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True, sensors_type='mag', modality='meg'):
     try:
         from scipy.spatial import Delaunay
         from src.utils import trig_utils
-        input_file = op.join(MMVT_DIR, subject, 'meg', 'meg_{}_sensors_positions.npz'.format(ssensors_type))
-        mesh_ply_fname = op.join(MMVT_DIR, subject, 'meg', 'meg_helmet.ply')
-        faces_verts_out_fname = op.join(MMVT_DIR, subject, 'meg', 'meg_faces_verts.npy')
+        input_file = op.join(MMVT_DIR, subject, modality, '{}_{}sensors_positions.npz'.format(
+            modality, '{}_'.format(sensors_type) if modality == 'meg' else ''))
+        if not op.isfile(input_file):
+            print('Can\'t find {}! Run the read_sensors_layout function first'.format(input_file))
+            return False
+        mesh_ply_fname = op.join(MMVT_DIR, subject, modality, '{}_helmet.ply'.format(modality))
+        faces_verts_out_fname = op.join(MMVT_DIR, subject, modality, '{}_faces_verts.npy'.format(modality))
         f = np.load(input_file)
         verts = f['pos']
         # excluded_inds = [np.where(f['names'] == e)[0] for e in excludes]
@@ -4653,8 +4678,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'fit_ica_on_subjects' in args.function:
         fit_ica_on_subjects(args.subject, meg_root_fol=args.meg_root_fol)
 
-    if 'create_meg_mesh' in args.function:
-        flags['create_meg_mesh'] = create_meg_mesh(subject, excludes=[], overwrite_faces_verts=True)
+    if 'create_helmet_mesh' in args.function:
+        flags['create_helmet_mesh'] = create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True)
 
     if 'find_trans_file' in args.function:
         flags['find_trans_file'] = op.isfile(find_trans_file(

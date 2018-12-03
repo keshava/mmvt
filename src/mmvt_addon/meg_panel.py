@@ -232,7 +232,7 @@ def meg_sensors_files_update(self, context):
 
 def get_eeg_sensors_files_names():
     user_fol = mu.get_user_fol()
-    name = 'eeg_{}_eeg_sensors_evoked'.format(bpy.context.scene.eeg_sensors_files)
+    name = 'eeg_{}_sensors_evoked'.format(bpy.context.scene.eeg_sensors_files)
     eeg_sensors_data_fname = op.join(user_fol, 'eeg', '{}_data.npy'.format(name))
     eeg_sensors_meta_data_fname = op.join(user_fol, 'eeg', '{}_data_meta.npz'.format(name))
     eeg_sensors_data_minmax_fname = op.join(user_fol, 'eeg', '{}_minmax.npy'.format(name))
@@ -243,12 +243,12 @@ def init_eeg_sensors():
     user_fol = mu.get_user_fol()
 
     eeg_data_files = sorted([mu.namebase(f) for f in glob.glob(op.join(
-        user_fol, 'eeg', 'eeg_*_eeg_sensors_evoked_data*.npy')) if 'minmax' not in mu.namebase(f)])
+        user_fol, 'eeg', 'eeg_*_sensors_evoked_data*.npy')) if 'minmax' not in mu.namebase(f)])
     if len(eeg_data_files) == 0:
         return False
     items = []
     for ind, eeg_data_file in enumerate(eeg_data_files):
-        item_name = eeg_data_file[len('eeg_'):eeg_data_file.index('eeg_sensors_evoked') - 1]
+        item_name = eeg_data_file[len('eeg_'):eeg_data_file.index('sensors_evoked') - 1]
         items.append((item_name, item_name, '', ind + 1))
     bpy.types.Scene.eeg_sensors_files = bpy.props.EnumProperty(
         items=items, description='Selects the EEG sensors evoked activity file.', update=eeg_sensors_files_update)
@@ -332,8 +332,8 @@ def color_eeg_helmet(use_abs=None, threshold=None):
         use_abs = bpy.context.scene.coloring_use_abs
     fol = mu.get_user_fol()
     data, meta = get_eeg_sensors_data()
-    indices = meta.picks - np.min(meta.picks)
-    data = data[indices]
+    # indices = meta.picks - np.min(meta.picks)
+    # data = data[indices]
     # names = np.array(meta.names)[indices]
 
     if bpy.context.scene.eeg_sensors_conditions != 'diff':
@@ -356,12 +356,12 @@ def color_eeg_helmet(use_abs=None, threshold=None):
 
     if bpy.context.scene.find_max_eeg_sensors:
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
-    eeg_helmet = bpy.data.objects['eeg_helmet']
     data_t = data[:, bpy.context.scene.frame_current]
 
-    # indices = MEGPanel.eeg_vertices_sensors
-    # helmet_data = np.zeros(len(eeg_helmet.data.vertices))
-    # helmet_data[indices] = data_t
+    eeg_helmet = bpy.data.objects['eeg_helmet']
+    indices = meta.channels_sensors_dict
+    helmet_data = np.zeros(len(eeg_helmet.data.vertices))
+    helmet_data[indices] = data_t
 
     _addon().coloring.activity_map_obj_coloring(
         eeg_helmet, data_t, lookup, threshold, True, data_min=data_min,
@@ -377,6 +377,7 @@ def color_meg_helmet(use_abs=None, threshold=None):
     data, meta = get_meg_sensors_data()
     indices = meta.picks.item()[bpy.context.scene.meg_sensors_types]
     data = data[indices]
+
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
@@ -398,12 +399,12 @@ def color_meg_helmet(use_abs=None, threshold=None):
 
     if bpy.context.scene.find_max_meg_sensors:
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
-    meg_helmet = bpy.data.objects['meg_helmet']
     data_t = data[:, bpy.context.scene.frame_current]
 
-    # indices = MEGPanel.meg_vertices_sensors[bpy.context.scene.meg_sensors_types]
-    # helmet_data = np.zeros(len(meg_helmet.data.vertices))
-    # helmet_data[indices] = data_t
+    meg_helmet = bpy.data.objects['meg_helmet']
+    indices = meta.channels_sensors_dict.item()[bpy.context.scene.meg_sensors_types]
+    helmet_data = np.zeros(len(meg_helmet.data.vertices))
+    helmet_data[indices] = data_t
 
     _addon().coloring.activity_map_obj_coloring(
         meg_helmet, data_t, lookup, threshold, True, data_min=data_min,
@@ -422,7 +423,7 @@ def color_meg_sensors(threshold=None):
     # inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
     indices = meta.picks.item()[bpy.context.scene.meg_sensors_types]
     data = data[indices, :, :]
-    names = np.array(meta.names)[indices]
+    # names = np.array(meta.names)[indices]
 
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
@@ -445,11 +446,17 @@ def color_meg_sensors(threshold=None):
     if bpy.context.scene.find_max_meg_sensors:
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
 
+    meg_sensors_obj = bpy.data.objects['MEG_{}_sensors'.format(bpy.context.scene.meg_sensors_types)]
+    names = [o.name for o in meg_sensors_obj.children]
+    indices = meta.channels_sensors_dict.item()[bpy.context.scene.meg_sensors_types]
+    sensors_data = np.zeros((len(names), data.shape[1]))
+    sensors_data[indices] = data
+
     # names = np.array([obj.name for obj in bpy.data.objects['MEG_sensors'].children])[inds]
     if threshold > data_max:
         print('threshold is bigger than data_max ({})! Setting to 0.'.format(data_max))
         threshold = 0
-    _addon().coloring.color_objects_homogeneously(data, names, meta['conditions'], data_min, colors_ratio, threshold)
+    _addon().coloring.color_objects_homogeneously(sensors_data, names, meta['conditions'], data_min, colors_ratio, threshold)
 
 
 def color_eeg_sensors(threshold=None):
@@ -458,9 +465,9 @@ def color_eeg_sensors(threshold=None):
     if threshold is None:
         threshold = bpy.context.scene.coloring_lower_threshold
     data, meta = get_eeg_sensors_data()
-    indices = meta.picks - np.min(meta.picks)
-    data = data[indices]
-    names = np.array(meta.names)[indices]
+    # indices = meta.picks - np.min(meta.picks)
+    # data = data[indices]
+    # names = np.array(meta.names)[indices]
 
     if bpy.context.scene.eeg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.eeg_sensors_conditions)[0][0]
@@ -485,8 +492,14 @@ def color_eeg_sensors(threshold=None):
     if bpy.context.scene.find_max_eeg_sensors:
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
 
+    eeg_sensors_obj = bpy.data.objects['EEG_sensors']
+    names = [o.name for o in eeg_sensors_obj.children]
+    indices = meta.channels_sensors_dict
+    sensors_data = np.zeros((len(names), data.shape[1]))
+    sensors_data[indices] = data
+
     _addon().coloring.color_objects_homogeneously(
-        data, names, meta['conditions'], data_min, colors_ratio, threshold)
+        sensors_data, names, meta['conditions'], data_min, colors_ratio, threshold)
 
 
 # *************** Coloring classes

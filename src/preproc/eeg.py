@@ -76,33 +76,34 @@ def calc_minmax(mri_subject, args):
     return op.isfile(op.join(fol, 'eeg_data_minmax.npy'))
 
 
-def create_eeg_mesh(subject, excludes=[], overwrite_faces_verts=True):
-    try:
-        from scipy.spatial import Delaunay
-        from src.utils import trig_utils
-        input_file = op.join(MMVT_DIR, subject, 'eeg', 'eeg_sensors_positions.npz')
-        mesh_ply_fname = op.join(MMVT_DIR, subject, 'eeg', 'eeg_helmet.ply')
-        faces_verts_out_fname = op.join(MMVT_DIR, subject, 'eeg', 'eeg_faces_verts.npy')
-        f = np.load(input_file)
-        verts = f['pos']
-        verts_tup = [(x, y, z) for x, y, z in verts]
-        tris = Delaunay(verts_tup)
-        faces = tris.convex_hull
-        areas = [trig_utils.poly_area(verts[poly]) for poly in tris.convex_hull]
-        inds = [k for k, s in enumerate(areas) if s > np.percentile(areas, 97)]
-        faces = np.delete(faces, inds, 0)
-        normals = trig_utils.calc_normals(verts, faces)
-        # verts += normals
-        utils.write_ply_file(verts, faces, mesh_ply_fname, True)
-        utils.calc_ply_faces_verts(verts, faces, faces_verts_out_fname, overwrite_faces_verts,
-                                   utils.namebase(faces_verts_out_fname))
-        np.savez(input_file, pos=f['pos'], names=f['names'], tri=faces, excludes=excludes)
-        calc_eeg_mesh_verts_sensors(subject, f['pos'], verts, modality='eeg')
-    except:
-        print('Error in create_eeg_mesh!')
-        print(traceback.format_exc())
-        return False
-    return True
+def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True):
+    return meg.create_helmet_mesh(subject, excludes, overwrite_faces_verts, modality='eeg')
+    # try:
+    #     from scipy.spatial import Delaunay
+    #     from src.utils import trig_utils
+    #     input_file = op.join(MMVT_DIR, subject, 'eeg', 'eeg_sensors_positions.npz')
+    #     mesh_ply_fname = op.join(MMVT_DIR, subject, 'eeg', 'eeg_helmet.ply')
+    #     faces_verts_out_fname = op.join(MMVT_DIR, subject, 'eeg', 'eeg_faces_verts.npy')
+    #     f = np.load(input_file)
+    #     verts = f['pos']
+    #     verts_tup = [(x, y, z) for x, y, z in verts]
+    #     tris = Delaunay(verts_tup)
+    #     faces = tris.convex_hull
+    #     areas = [trig_utils.poly_area(verts[poly]) for poly in tris.convex_hull]
+    #     inds = [k for k, s in enumerate(areas) if s > np.percentile(areas, 97)]
+    #     faces = np.delete(faces, inds, 0)
+    #     normals = trig_utils.calc_normals(verts, faces)
+    #     # verts += normals
+    #     utils.write_ply_file(verts, faces, mesh_ply_fname, True)
+    #     utils.calc_ply_faces_verts(verts, faces, faces_verts_out_fname, overwrite_faces_verts,
+    #                                utils.namebase(faces_verts_out_fname))
+    #     np.savez(input_file, pos=f['pos'], names=f['names'], tri=faces, excludes=excludes)
+    #     calc_eeg_mesh_verts_sensors(subject, f['pos'], verts, modality='eeg')
+    # except:
+    #     print('Error in create_helmet_mesh!')
+    #     print(traceback.format_exc())
+    #     return False
+    # return True
 
 
 def calc_eeg_mesh_verts_sensors(subject, sensors_verts, helmet_verts, modality='meg'):
@@ -144,8 +145,8 @@ def main(tup, remote_subject_dir, args, flags):
     flags = meg.calc_labels_avg_per_condition_wrapper(
         subject, conditions, args.atlas, inverse_method, stcs_conds, args, flags, stcs_num, None, epochs)
 
-    if utils.should_run(args, 'create_eeg_mesh'):
-        flags['create_eeg_mesh'] = create_eeg_mesh(mri_subject, args.eeg_electrodes_excluded_from_mesh)
+    if utils.should_run(args, 'create_helmet_mesh'):
+        flags['create_helmet_mesh'] = create_helmet_mesh(mri_subject, args.eeg_electrodes_excluded_from_mesh)
 
     if utils.should_run(args, 'save_evoked_to_blender'):
         flags['save_evoked_to_blender'] = save_evoked_to_blender(mri_subject, conditions, args, evoked)
