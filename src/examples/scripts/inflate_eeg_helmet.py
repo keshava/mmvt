@@ -2,6 +2,7 @@ import bpy
 import numpy as np
 import os.path as op
 
+
 def run(mmvt):
     eeg_sensors = np.load(op.join(mmvt.utils.get_user_fol(), 'eeg', 'eeg_sensors_positions.npz'))
     eeg_helmet = bpy.data.objects['eeg_helmet']
