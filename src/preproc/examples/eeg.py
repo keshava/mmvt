@@ -47,7 +47,8 @@ def calc_mne_python_sample_data(args):
         t_min=-0.2, t_max=0.5,
         extract_mode=['mean_flip'],#, 'mean', 'pca_flip'],
         overwrite_epochs=args.overwrite,
-        overwrite_evoked=True
+        overwrite_evoked=True,
+        overwrite_sensors=True
     ))
     eeg.call_main(args)
 

@@ -129,6 +129,7 @@ def minimize_graph():
     bpy.ops.screen.back_to_previous(context)
 
 
+@mu.tryit()
 def calc_best_curves_sep(norm_percs=[3, 97]):
     fcurves, data = get_selected_fcurves_and_data()
     if data.shape[0] == 1:

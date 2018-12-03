@@ -623,6 +623,7 @@ def import_electrodes(input_file='', electrodes_layer=None, bipolar='', electrod
     for elc_pos, elc_name in zip(elecs_pos, elecs_names):
         if not isinstance(elc_name, str):
             elc_name = elc_name.astype(str)
+        elc_name = elc_name.replace(' ', '')
         create_electrode(elc_pos, elc_name, electrode_size, layers_array, parnet_name)
 
 

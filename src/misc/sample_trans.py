@@ -1,7 +1,10 @@
 import os.path as op
 
 import numpy as np
-from mayavi import mlab
+try:
+    from mayavi import mlab
+except:
+    print('No mayavi!')
 
 import mne
 from mne.datasets import sample

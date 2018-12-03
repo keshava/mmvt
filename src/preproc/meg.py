@@ -971,48 +971,48 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
 
     info = evokes[0].info
     if modality == 'meg':
+        picks = mne.pick_types(info, meg=True, eeg=False, exclude='bads')
         sensors_picks = {sensor_type:mne.pick_types(info, meg=sensor_type, exclude='bads') for sensor_type in
                  ['mag', 'planar1', 'planar2']}
-    else:
+    elif modality == 'eeg':
+        picks = mne.pick_types(info, meg=False, eeg=True, exclude='bads')
         sensors_picks = {
             sensor_type: mne.pick_types(info, meg=False, eeg=True, exclude='bads')
             for sensor_type in ['eeg']}
+    else:
+        raise Exception('The modality {} is not supported! (only eeg/meg)'.format(modality))
 
     task_str = '{}_'.format(task) if task != '' else ''
-    for sensor_type, picks in sensors_picks.items():
-        ch_names = [first_evokes.ch_names[k] for k in picks]
-        dt = np.diff(first_evokes.times[:2])[0]
-        if isinstance(evokes, mne.evoked.EvokedArray):
-            data = evokes.data[picks]
-        else:
-            data_shape = len(events_keys) + (0 if evokes_all is None else 1)
-            data = np.zeros((len(picks), first_evokes.data.shape[1], data_shape))
-            for event_ind, event in enumerate(events_keys):
-                data[:, :, event_ind] = evokes[event_ind].data[picks]
-            if evokes_all is not None:
-                data[:, :, data_shape - 1] = evokes_all.data[picks]
-        if normalize_data:
-            data = utils.normalize_data(data, norm_by_percentile, norm_percs)
-        else:
-            factor = 6 if modality == 'eeg' else 12 # micro V for EEG, fT (Magnetometers) and fT/cm (Gradiometers) for MEG
-            data *= np.power(10, factor)
-        if calc_max_min_diff and len(events_keys) == 2:
-            data_diff = np.diff(data) if len(events_keys) > 1 else np.squeeze(data)
-            data_max, data_min = utils.get_data_max_min(data_diff, norm_by_percentile, norm_percs)
-        else:
-            data_max, data_min = utils.get_data_max_min(data, norm_by_percentile, norm_percs)
-        max_abs = utils.get_max_abs(data_max, data_min)
+    ch_names = [first_evokes.ch_names[k].replace(' ', '') for k in picks]
+    # sensors_meta = utils.Bag(np.load(op.join(fol, '{}_sensors_positions.npz'.format(modality))))
+    dt = np.diff(first_evokes.times[:2])[0]
+    if isinstance(evokes, mne.evoked.EvokedArray):
+        data = evokes.data[picks]
+    else:
+        data_shape = len(events_keys) + (0 if evokes_all is None else 1)
+        data = np.zeros((len(picks), first_evokes.data.shape[1], data_shape))
+        for event_ind, event in enumerate(events_keys):
+            data[:, :, event_ind] = evokes[event_ind].data[picks]
         if evokes_all is not None:
-            events_keys.append('all')
-        np.save(op.join(fol, '{}_{}{}_sensors_evoked_data.npy'.format(modality, task_str, sensor_type)), data)
-        np.savez(op.join(fol, '{}_{}{}_sensors_evoked_data_meta.npz'.format(modality, task_str, sensor_type)),
-                 names=ch_names, conditions=events_keys, dt=dt, picks=picks)
-        np.save(op.join(fol, '{}_{}{}_sensors_evoked_minmax.npy'.format(modality, task_str, sensor_type)), [-max_abs, max_abs])
-
-        # dict_fname = op.join(MMVT_DIR, SUBJECT, 'meg', 'meg_{}_sensors_positions.npz'.format(meg_sensors_type))
-        # sensors_dict = utils.Bag(np.load(dict_fname))
-        # sensors_dict.picks = picks
-        # np.savez(dict_fname, **sensors_dict)
+            data[:, :, data_shape - 1] = evokes_all.data[picks]
+    if normalize_data:
+        data = utils.normalize_data(data, norm_by_percentile, norm_percs)
+    else:
+        factor = 6 if modality == 'eeg' else 12 # micro V for EEG, fT (Magnetometers) and fT/cm (Gradiometers) for MEG
+        data *= np.power(10, factor)
+    if calc_max_min_diff and len(events_keys) == 2:
+        data_diff = np.diff(data) if len(events_keys) > 1 else np.squeeze(data)
+        data_max, data_min = utils.get_data_max_min(data_diff, norm_by_percentile, norm_percs)
+    else:
+        data_max, data_min = utils.get_data_max_min(data, norm_by_percentile, norm_percs)
+    max_abs = utils.get_max_abs(data_max, data_min)
+    if evokes_all is not None:
+        events_keys.append('all')
+    np.save(op.join(fol, '{}_{}sensors_evoked_data.npy'.format(modality, task_str)), data)
+    np.savez(op.join(fol, '{}_{}sensors_evoked_data_meta.npz'.format(modality, task_str)),
+        names=np.array(ch_names), conditions=events_keys, dt=dt, picks=sensors_picks)
+    np.save(op.join(fol, '{}_{}sensors_evoked_minmax.npy'.format(modality, task_str)),
+        [-max_abs, max_abs])
 
 
 def equalize_epoch_counts(events, method='mintime'):
@@ -3077,6 +3077,11 @@ def get_info_fname(info_fname=''):
 
 def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, overwrite_sensors=False,
                         trans_file='', info_fname='', info=None):
+    from mne.io import _loc_to_coil_trans
+    from mne.forward import _create_meg_coils
+    from mne.viz._3d import _sensor_shape
+    from mne.transforms import apply_trans
+
     if pick_eeg and pick_meg or (not pick_meg and not pick_eeg):
         raise Exception('read_sensors_layout: You should pick only meg or eeg!')
     try:
@@ -3114,28 +3119,52 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
         else:
             info = utils.load(info_fname)
     if pick_meg:
+        #ref_meg = ?
         sensors_picks = {sensor_type:mne.io.pick.pick_types(info, meg=sensor_type, exclude=[]) for sensor_type in # , exclude='bads'
                  ['mag', 'planar1', 'planar2']}
     else:
         sensors_picks = {
             sensor_type: mne.io.pick.pick_types(info, meg=pick_meg, eeg=pick_eeg, exclude=[]) # , exclude='bads'
             for sensor_type in ['eeg']}
+
+    trans = mne.transforms.read_trans(trans_file)
+    head_mri_t = mne.transforms._ensure_trans(trans, 'head', 'mri')
+    dev_head_t = info['dev_head_t']
+    meg_trans = mne.transforms.combine_transforms(dev_head_t, head_mri_t, 'meg', 'mri')
+
     for sensors_type, picks in sensors_picks.items():
         output_fname = output_fname_template.format(sensors_type=sensors_type)
         if op.isfile(output_fname) and not overwrite_sensors:
             continue
-        sensors_pos = np.array([info['chs'][k]['loc'][:3] for k in picks])
+        if pick_meg:
+            coil_transs = [_loc_to_coil_trans(info['chs'][pick]['loc']) for pick in picks]
+            coils = _create_meg_coils([info['chs'][pick] for pick in picks], acc='normal')
+            offset = 0
+            meg_tris, meg_rrs = [], []
+            for coil, coil_trans in zip(coils, coil_transs):
+                rrs, tris = _sensor_shape(coil)
+                rrs = apply_trans(coil_trans, rrs)
+                meg_rrs.append(np.mean(rrs, axis=0)) #rrs
+                # meg_tris.append(tris + offset)
+                # offset += len(meg_rrs[-1])
+            if len(meg_rrs) == 0:
+                print('MEG sensors not found. Cannot plot MEG locations.')
+            else:
+                sensors_pos = apply_trans(meg_trans, meg_rrs) #np.concatenate(meg_rrs, axis=0))
+                # meg_tris = np.concatenate(meg_tris, axis=0)
+        elif pick_eeg:
+            sensors_pos = np.array([info['chs'][k]['loc'][:3] for k in picks])
+            sensors_pos = apply_trans(head_mri_t, sensors_pos)
         if len(sensors_pos) == 0:
             print('{}: No sensors found!'.format(sensors_type))
             continue
-        sensors_names = np.array([info['ch_names'][k] for k in picks])
+        sensors_names = np.array([info['ch_names'][k].replace(' ', '') for k in picks])
         if 'Event' in sensors_names:
             event_ind = np.where(sensors_names == 'Event')[0]
             sensors_names = np.delete(sensors_names, event_ind)
             sensors_pos = np.delete(sensors_pos, event_ind)
-        trans = mne.transforms.read_trans(trans_file)
         head_mri_t = mne.transforms._ensure_trans(trans, 'head', 'mri')
-        sensors_pos = mne.transforms.apply_trans(head_mri_t, sensors_pos)
+
         sensors_pos *= 1000
         np.savez(output_fname, pos=sensors_pos, names=sensors_names, picks=picks)
     return True

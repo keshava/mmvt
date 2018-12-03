@@ -76,16 +76,18 @@ def get_meg_sensors_data():
 
 def get_eeg_sensors_data():
     eeg_sensors_data_fname, eeg_sensors_meta_data_fname, eeg_sensors_data_minmax_fname = get_eeg_sensors_files_names()
-    eeg_sensors_file_name = get_eeg_sensors_file()
-    eeg_sensors_data = MEGPanel.eeg_sensors_data.get(eeg_sensors_file_name, None)
-    eeg_sensors_meta_data = MEGPanel.eeg_sensors_meta_data.get(eeg_sensors_file_name, None)
-    if eeg_sensors_data is None:
-        MEGPanel.eeg_sensors_data[eeg_sensors_file_name] = np.load(eeg_sensors_data_fname)
-    if eeg_sensors_meta_data is None:
-        meta = mu.Bag(np.load(eeg_sensors_meta_data_fname))
-        meta['names'] = [n.replace(' ', '') for n in meta['names']] # ugly patch
-        MEGPanel.eeg_sensors_meta_data[eeg_sensors_file_name] = meta
-    return MEGPanel.eeg_sensors_data[eeg_sensors_file_name], MEGPanel.eeg_sensors_meta_data[eeg_sensors_file_name]
+    # eeg_sensors_file_name = get_eeg_sensors_file()
+    # eeg_sensors_data = MEGPanel.eeg_sensors_data.get(eeg_sensors_file_name, None)
+    # eeg_sensors_meta_data = MEGPanel.eeg_sensors_meta_data.get(eeg_sensors_file_name, None)
+    # if eeg_sensors_data is None:
+    #     MEGPanel.eeg_sensors_data[eeg_sensors_file_name] = np.load(eeg_sensors_data_fname)
+    eeg_sensors_data = np.load(eeg_sensors_data_fname)
+    # if eeg_sensors_meta_data is None:
+    meta = mu.Bag(np.load(eeg_sensors_meta_data_fname))
+    meta['names'] = [n.replace(' ', '') for n in meta['names']] # ugly patch
+    # MEGPanel.eeg_sensors_meta_data[eeg_sensors_file_name] = meta
+    return eeg_sensors_data, meta
+    # return MEGPanel.eeg_sensors_data[eeg_sensors_file_name], MEGPanel.eeg_sensors_meta_data[eeg_sensors_file_name]
 
 
 def get_meg_sensors_file():
@@ -138,13 +140,16 @@ def init_meg_sensors():
             items=items, description='Selects the MEG sensors type.', update=meg_sensors_types_update)
         bpy.context.scene.meg_sensors_types = [t for t,t,_,k in items if k == 0][0]
 
+    # meg_data_files = sorted([mu.namebase(f) for f in glob.glob(op.join(
+    #     user_fol, 'meg', 'meg_*_mag_sensors_evoked_data*.npy')) if 'minmax' not in mu.namebase(f)])
     meg_data_files = sorted([mu.namebase(f) for f in glob.glob(op.join(
-        user_fol, 'meg', 'meg_*_mag_sensors_evoked_data*.npy')) if 'minmax' not in mu.namebase(f)])
+        user_fol, 'meg', 'meg_*_sensors_evoked_data*.npy')) if 'minmax' not in mu.namebase(f)])
     if len(meg_data_files) == 0:
         return False
     items = []
     for ind, meg_data_file in enumerate(meg_data_files):
-        item_name = meg_data_file[len('meg_'):meg_data_file.index('mag_sensors_evoked') - 1]
+        # item_name = meg_data_file[len('meg_'):meg_data_file.index('mag_sensors_evoked') - 1]
+        item_name = meg_data_file[len('meg_'):meg_data_file.index('sensors_evoked') - 1]
         items.append((item_name, item_name, '', ind + 1))
     # items = [(f, f, '', ind + 1) for ind, f in enumerate(meg_data_files)]
     bpy.types.Scene.meg_sensors_files = bpy.props.EnumProperty(
@@ -192,7 +197,8 @@ def get_meg_sensors_types():
 
 def get_meg_sensors_files_names():
     user_fol = mu.get_user_fol()
-    name = 'meg_{}_{}_sensors_evoked'.format(bpy.context.scene.meg_sensors_files, bpy.context.scene.meg_sensors_types)
+    # name = 'meg_{}_{}_sensors_evoked'.format(bpy.context.scene.meg_sensors_files, bpy.context.scene.meg_sensors_types)
+    name = 'meg_{}_sensors_evoked'.format(bpy.context.scene.meg_sensors_files)
     meg_sensors_data_fname = op.join(user_fol, 'meg', '{}_data.npy'.format(name))
     meg_sensors_meta_data_fname = op.join(user_fol, 'meg', '{}_data_meta.npz'.format(name))
     meg_sensors_data_minmax_fname = op.join(user_fol, 'meg', '{}_minmax.npy'.format(name))
@@ -326,6 +332,10 @@ def color_eeg_helmet(use_abs=None, threshold=None):
         use_abs = bpy.context.scene.coloring_use_abs
     fol = mu.get_user_fol()
     data, meta = get_eeg_sensors_data()
+    indices = meta.picks - np.min(meta.picks)
+    data = data[indices]
+    # names = np.array(meta.names)[indices]
+
     if bpy.context.scene.eeg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.eeg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
@@ -349,12 +359,12 @@ def color_eeg_helmet(use_abs=None, threshold=None):
     eeg_helmet = bpy.data.objects['eeg_helmet']
     data_t = data[:, bpy.context.scene.frame_current]
 
-    indices = MEGPanel.eeg_vertices_sensors
-    helmet_data = np.zeros(len(eeg_helmet.data.vertices))
-    helmet_data[indices] = data_t
+    # indices = MEGPanel.eeg_vertices_sensors
+    # helmet_data = np.zeros(len(eeg_helmet.data.vertices))
+    # helmet_data[indices] = data_t
 
     _addon().coloring.activity_map_obj_coloring(
-        eeg_helmet, helmet_data, lookup, threshold, True, data_min=data_min,
+        eeg_helmet, data_t, lookup, threshold, True, data_min=data_min,
         colors_ratio=colors_ratio, bigger_or_equall=False, use_abs=use_abs)
 
 
@@ -365,6 +375,8 @@ def color_meg_helmet(use_abs=None, threshold=None):
         use_abs = bpy.context.scene.coloring_use_abs
     fol = mu.get_user_fol()
     data, meta = get_meg_sensors_data()
+    indices = meta.picks.item()[bpy.context.scene.meg_sensors_types]
+    data = data[indices]
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
@@ -389,12 +401,12 @@ def color_meg_helmet(use_abs=None, threshold=None):
     meg_helmet = bpy.data.objects['meg_helmet']
     data_t = data[:, bpy.context.scene.frame_current]
 
-    indices = MEGPanel.meg_vertices_sensors[bpy.context.scene.meg_sensors_types]
-    helmet_data = np.zeros(len(meg_helmet.data.vertices))
-    helmet_data[indices] = data_t
+    # indices = MEGPanel.meg_vertices_sensors[bpy.context.scene.meg_sensors_types]
+    # helmet_data = np.zeros(len(meg_helmet.data.vertices))
+    # helmet_data[indices] = data_t
 
     _addon().coloring.activity_map_obj_coloring(
-        meg_helmet, helmet_data, lookup, threshold, True, data_min=data_min,
+        meg_helmet, data_t, lookup, threshold, True, data_min=data_min,
         colors_ratio=colors_ratio, bigger_or_equall=False, use_abs=use_abs)
 
 
@@ -408,7 +420,9 @@ def color_meg_sensors(threshold=None):
     # sensors_dict = mu.Bag(np.load(
     #     op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
     # inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
-    # data = data[sensors_dict.picks, :, :]
+    indices = meta.picks.item()[bpy.context.scene.meg_sensors_types]
+    data = data[indices, :, :]
+    names = np.array(meta.names)[indices]
 
     if bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
@@ -432,7 +446,6 @@ def color_meg_sensors(threshold=None):
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
 
     # names = np.array([obj.name for obj in bpy.data.objects['MEG_sensors'].children])[inds]
-    names = meta.names
     if threshold > data_max:
         print('threshold is bigger than data_max ({})! Setting to 0.'.format(data_max))
         threshold = 0
@@ -445,6 +458,9 @@ def color_eeg_sensors(threshold=None):
     if threshold is None:
         threshold = bpy.context.scene.coloring_lower_threshold
     data, meta = get_eeg_sensors_data()
+    indices = meta.picks - np.min(meta.picks)
+    data = data[indices]
+    names = np.array(meta.names)[indices]
 
     if bpy.context.scene.eeg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.eeg_sensors_conditions)[0][0]
@@ -470,7 +486,7 @@ def color_eeg_sensors(threshold=None):
         _, bpy.context.scene.frame_current = mu.argmax2d(data)
 
     _addon().coloring.color_objects_homogeneously(
-        data, meta['names'], meta['conditions'], data_min, colors_ratio, threshold)
+        data, names, meta['conditions'], data_min, colors_ratio, threshold)
 
 
 # *************** Coloring classes
@@ -1210,3 +1226,4 @@ def unregister():
         bpy.utils.unregister_class(ColorMEGHelmet)
     except:
         pass
+
