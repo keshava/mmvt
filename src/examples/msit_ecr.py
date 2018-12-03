@@ -254,14 +254,14 @@ def meg_preproc_power(args):
         empty_fnames, cors, days = get_empty_fnames(subject, args.tasks, args)
         input_fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
         for task in args.tasks:
-            output_fname = op.join(MMVT_DIR, subject, 'meg', '{}_{}_{}_power_spectrum.npz'.format(
-                task.lower(), inv_method, em))
-            if op.isfile(output_fname) and args.check_file_modification_time:
-                file_mod_time = utils.file_modification_time_struct(output_fname)
-                if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 9 and file_mod_time.tm_mday >= 21) or \
-                        (file_mod_time.tm_mon > 9):
-                    print('{} already exist!'.format(output_fname))
-                    continue
+            # output_fname = op.join(MMVT_DIR, subject, 'meg', '{}_{}_{}_power_spectrum.npz'.format(
+            #     task.lower(), inv_method, em))
+            # if op.isfile(output_fname) and args.check_file_modification_time:
+            #     file_mod_time = utils.file_modification_time_struct(output_fname)
+            #     if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 9 and file_mod_time.tm_mday >= 21) or \
+            #             (file_mod_time.tm_mon > 9):
+            #         print('{} already exist!'.format(output_fname))
+            #         continue
 
             # if not args.overwrite_output_files:
             #     output_fnames = glob.glob(
@@ -644,38 +644,48 @@ def post_analysis(args):
         mean_power_power_task[task] = defaultdict(list)
         power_task[task] = {band: None for band in bands.keys()}
     norm_dict = defaultdict(dict)
-    for subject in args.subject:
-        if not op.isdir(op.join(res_fol, subject)):
-            print('No folder data for {}'.format(subject))
-            continue
-        power_meta_fname = op.join(res_fol, subject, 'labels_{}_{}_meta_power.npz'.format(inv_method, em))
-        if op.isfile(power_meta_fname):
-            meta = utils.Bag(np.load(power_meta_fname)) #labels_bands_avg, baseline, baseline_ind, labels_bands_avg_ind
-        else:
-            print('No meta data for {}!'.format(subject))
-            continue
+    now = time.time()
+    for ind, subject in enumerate(args.subject):
+        utils.time_to_go(now, ind, len(args.subject), 1)
+        # if not op.isdir(op.join(res_fol, subject)):
+        #     print('No folder data for {}'.format(subject))
+        #     continue
+        # power_meta_fname = op.join(res_fol, subject, 'labels_{}_{}_meta_power.npz'.format(inv_method, em))
+        # if op.isfile(power_meta_fname):
+        #     meta = utils.Bag(np.load(power_meta_fname)) #labels_bands_avg, baseline, baseline_ind, labels_bands_avg_ind
+        # else:
+        #     print('No meta data for {}!'.format(subject))
+        #     continue
         for task in args.tasks:
             # mean_fname = op.join(res_fol, subject, '{}_{}_mean.npz'.format(task.lower(), args.atlas))
             # if op.isfile(mean_fname):
             #     d = utils.Bag(np.load(mean_fname))
             #     mean_evo[group_id][task].append(d.data.mean())
             for band_ind, band in enumerate(bands.keys()):
-                if not check_baseline_ind(meta, band_ind, task_ind):
-                    continue
+                # if not check_baseline_ind(meta, band_ind, task_ind):
+                #     continue
                 if power_task[task][band] is None:
                     power_task[task][band] = defaultdict(list)
                 if band not in norm_dict[task]:
                     norm_dict[task][band] = []
+                # power_fname = op.join(
+                #     res_fol, subject, '{}_labels_{}_{}_{}_power.npz'.format(task.lower(), inv_method, em, band))
                 power_fname = op.join(
-                    res_fol, subject, '{}_labels_{}_{}_{}_power.npz'.format(task.lower(), inv_method, em, band))
+                    MMVT_DIR, subject, 'labels', 'labels_data', '{}_labels_{}_{}_{}_power.npz'.format(
+                        task.lower(), inv_method, em, band))
+                file_mod_time = utils.file_modification_time_struct(power_fname)
+                if not (file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 9 and file_mod_time.tm_mday >= 21) or \
+                        (file_mod_time.tm_mon > 9)):
+                    print('Old file! {}'.format(power_fname))
+                    continue
                 if op.isfile(power_fname):
                     try:
                         d = utils.Bag(np.load(power_fname))
                         mean_power_power_task[task][band].append(d.data.mean())
                         # if 'labels_bands_avg' in d.keys():
                         for label_ind, label in enumerate(d.names):
-                            if not check_labels_bands_avg_ind(meta, label_ind, band_ind):
-                                continue
+                            # if not check_labels_bands_avg_ind(meta, label_ind, band_ind):
+                            #     continue
                             power_task[task][band][label].append(d.data[label_ind].mean())
                             # norm = meta.labels_bands_avg[label_id, band_id] / len(args.tasks)
                             # if norm > 0.0 and not np.isnan(norm) and norm < 1e6:
@@ -687,10 +697,10 @@ def post_analysis(args):
                         #     break
                     except:
                         print('Can\'t open {}!'.format(power_fname))
-    for task in args.tasks:
-        for band_id, band in enumerate(bands.keys()):
-            num = np.mean([len(power_task[task][band][label]) for label in d.names])
-            print('power_task: {} {} {} items, norm: {}'.format(task, band, num, np.mean(norm_dict[task][band])))
+    # for task in args.tasks:
+    #     for band_id, band in enumerate(bands.keys()):
+    #         num = np.mean([len(power_task[task][band][label]) for label in d.names])
+    #         print('power_task: {} {} {} items, norm: {}'.format(task, band, num, np.mean(norm_dict[task][band])))
 
 
     # for group_id in range(2):
@@ -718,9 +728,9 @@ def post_analysis(args):
     #                         power_emotion_reactivit[group_id][task][band][label].append(d.data[label_id].mean())
 
     do_plot = False
-    percentile = 95
+    percentile = 90
     alpha = 0.05
-    high_limit_power = 10000
+    high_limit_power = 1000
     print(args.tasks)
     for band in bands.keys():
         ttest_stats, ttest_labels, welch_stats, welch_labels = [], [], [], []
@@ -730,7 +740,7 @@ def post_analysis(args):
             print('band {} is None!'.format(band))
             continue
         title='{} vs {} band {}'.format(args.tasks[0], args.tasks[1], band)
-        sig, pval, = ttest(x[0], x[1], args.tasks[0], args.tasks[1], title, alpha=alpha, always_print=True)
+        sig, pval, = ttest(x[0], x[1], args.tasks[0], args.tasks[1], title=title, alpha=alpha, always_print=True)
         if do_plot: # or sig:
             f, (ax1, ax2) = plt.subplots(2, 1)
             ax1.hist(x[0], bins=80)
@@ -748,7 +758,7 @@ def post_analysis(args):
                 # print('band: {} label: {} is None!'.format(band, label))
                 continue
             title = '{} {}'.format(band, label)
-            sig, pval = ttest(x[0], x[1], args.tasks[0], args.tasks[1], alpha=alpha, title=title)
+            sig, pval = ttest(x[0], x[1], args.tasks[0], args.tasks[1], alpha=alpha, title=title, always_print=False)
             if sig:
                 welch_stats.append(pval)
                 welch_labels.append(label)
@@ -765,7 +775,7 @@ def post_analysis(args):
                  atlas=args.atlas, data=np.array(welch_stats), title='MSIT vs ECR',
                  data_min=0, data_max=0.05, cmap='YlOrRd')
 
-        continue
+
         for group_id in range(2): #, ax in zip(range(2), [ax1, ax2]):
             # subjects_with_data[group_id] = np.array(subjects_with_data[group_id])
             # print()
