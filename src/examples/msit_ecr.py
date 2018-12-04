@@ -774,7 +774,7 @@ def post_analysis(args):
         np.savez(op.join(labels_data_fol, 'MSIT_ECR_{}.npz'.format(band)), names=np.array(welch_labels),
                  atlas=args.atlas, data=np.array(welch_stats), title='MSIT vs ECR',
                  data_min=0, data_max=0.05, cmap='YlOrRd')
-
+        continue
 
         for group_id in range(2): #, ax in zip(range(2), [ax1, ax2]):
             # subjects_with_data[group_id] = np.array(subjects_with_data[group_id])
