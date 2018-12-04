@@ -233,6 +233,42 @@ def meg_preproc_evoked(args):
     print(subjects_with_error)
 
 
+def meg_sensors_psd(args):
+    good_subjects = get_good_subjects(args)
+    args.subject = good_subjects
+    prepare_files(args)
+    for subject in good_subjects:
+        args.subject = subject
+        for task in args.tasks:
+            remote_epo_fname = op.join(args.meg_dir, subject, args.epo_template.format(subject=subject, task=task))
+            local_epo_fname = op.join(MEG_DIR, task, subject, args.epo_template.format(subject=subject, task=task))
+            if not op.isfile(local_epo_fname) and not op.isfile(remote_epo_fname):
+                print('Can\'t find {}!'.format(local_epo_fname))
+                continue
+            if not op.isfile(local_epo_fname):
+                utils.make_link(remote_epo_fname, local_epo_fname)
+
+            meg_args = meg.read_cmd_args(dict(
+                subject=args.subject, mri_subject=args.subject,
+                task=task,
+                # meg_dir=args.meg_dir,
+                remote_subject_dir=args.remote_subject_dir, # Needed for finding COR
+                get_task_defaults=False,
+                fname_format=args.epo_template.format(subject=subject, task=task)[:-len('-epo.fif')],
+                raw_fname=op.join(MEG_DIR, task, subject, args.raw_template.format(subject=subject, task=task)),
+                epo_fname=local_epo_fname,
+                function='calc_labels_psd',
+                conditions=task.lower(),
+                average_per_event=False,
+                data_per_task=True,
+                max_epochs_num=args.max_epochs_num,
+                ignore_missing=args.ignore_missing,
+                check_for_channels_inconsistency=args.check_for_channels_inconsistency,
+                n_jobs=args.n_jobs
+            ))
+            ret = meg.call_main(meg_args)
+
+
 def meg_preproc_power(args):
     inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
     # bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])

@@ -521,6 +521,40 @@ def calc_epochs_wrapper(
     return flag, epochs
 
 
+def calc_epochs_psd(subject, events, mri_subject='', epo_fname='', apply_SSP_projection_vectors=True,
+                    add_eeg_ref=True, epochs=None, fmin=0, fmax=200, bandwidth=2., tmin=None, tmax=None,
+                    adaptive=False, modality='meg', max_epochs_num=0, overwrite=False, n_jobs=4):
+
+    if mri_subject == '':
+        mri_subject = subject
+    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
+    epo_fname = get_epo_fname(epo_fname)
+    fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
+
+    for cond_ind, cond_name in enumerate(events_keys):
+        output_fname = op.join(fol, '{}_sensors_psd.npz'.format(cond_name))
+        if op.isfile(output_fname) and not overwrite:
+            continue
+        if epochs is None:
+            epo_cond_fname = get_cond_fname(epo_fname, cond_name)
+            if not op.isfile(epo_cond_fname):
+                print('Epochs file was not found! ({})'.format(epo_cond_fname))
+                return False
+            epochs = mne.read_epochs(epo_cond_fname, apply_SSP_projection_vectors, add_eeg_ref)
+        if max_epochs_num > 0:
+            epochs = epochs[:max_epochs_num]
+        try:
+            mne.set_eeg_reference(epochs, ref_channels=None)
+            epochs.apply_proj()
+        except:
+            print('annot create EEG average reference projector (no EEG data found)')
+        psds, freqs = mne.time_frequency.psd_multitaper(
+            epochs, fmin=fmin, fmax=fmax, tmin=tmin, tmax=tmax, bandwidth=bandwidth, adaptive=adaptive,
+            low_bias=True, normalization='length', picks=None, proj=False, n_jobs=n_jobs)
+        np.savez(output_fname, psds=psds, freqs=freqs)
+    return True
+
+
 @utils.tryit(print_only_last_error_line=False)
 def calc_labels_power_spectrum(
         subject, atlas, events, inverse_method='dSPM', extract_modes=['mean_flip'],
@@ -4650,6 +4684,10 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.add_eeg_ref, args.fwd_usingMEG, args.fwd_usingEEG, args.extract_mode, args.surf_name,
             args.con_method, args.con_mode, args.cwt_n_cycles, args.max_epochs_num, args.overwrite_connectivity,
             n_jobs=args.n_jobs)
+
+    if 'calc_labels_psd' in args.function:
+        flags['calc_labels_psd'] = calc_epochs_psd(
+            subject, conditions, max_epochs_num=args.max_epochs_num, n_jobs=args.n_jobs)
 
     if 'calc_labels_power_spectrum' in args.function:
         flags['calc_labels_power_spectrum'] = calc_labels_power_spectrum(
