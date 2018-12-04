@@ -35,7 +35,11 @@ def copy_resources_files(mmvt_root_dir, overwrite=True, only_verbose=False):
         for file_name in files:
             print('Copying {} to {}'.format(op.join(resource_dir, file_name), op.join(mmvt_root_dir, file_name)))
             if not only_verbose:
-                shutil.copy(op.join(resource_dir, file_name), op.join(mmvt_root_dir, file_name))
+                local_fname = op.join(resource_dir, file_name)
+                if op.isfile(op.join(resource_dir, file_name)):
+                    shutil.copy(local_fname, op.join(mmvt_root_dir, file_name))
+                else:
+                    print('{} is missing, please update your code from github (git pull)')
     return utils.all([op.isfile(op.join(mmvt_root_dir, file_name)) for file_name in files])
 
 

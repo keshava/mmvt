@@ -3091,8 +3091,8 @@ def get_info(info_fname='', evoked_fname='', raw_fname=''):
 
 def get_info_fname(info_fname=''):
     if info_fname == '':
-        fwd_fname = INFO
-    info_fname, info_exist = locating_meg_file(fwd_fname, '*-info.pkl')
+        info_fname = INFO
+    info_fname, info_exist = locating_meg_file(info_fname, '*-info.pkl')
     return info_fname, info_exist
 
 
@@ -4551,7 +4551,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
 
     if utils.should_run(args, 'read_sensors_layout'):
         flags['read_sensors_layout'] = read_sensors_layout(
-            mri_subject, args, overwrite_sensors=args.overwrite_sensors, trans_file=args.trans_fname)
+            mri_subject, args, overwrite_sensors=args.overwrite_sensors, trans_file=args.trans_fname,
+            info_fname=args.info_fname)
 
     # flags: calc_evoked
     flags, evoked, epochs = calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)

@@ -607,6 +607,7 @@ def calc_meg_connectivity(args):
 def post_analysis(args):
     import matplotlib.pyplot as plt
     from collections import defaultdict
+    from operator import mul
 
     def check_labels_bands_avg_ind(meta, label_ind, band_ind):
         if meta.labels_bands_avg_ind[label_ind, band_ind] != 2:
@@ -637,6 +638,11 @@ def post_analysis(args):
     mean_power_power_emotion_reactivit = {group_id: {} for group_id in range(2)}
     power_emotion_reactivit = {group_id: {} for group_id in range(2)}
 
+    do_plot = False
+    percentile = 90
+    alpha = 0.05
+    high_limit_power = 1000
+
     mean_power_power_task = {}
     power_task = {}
     no_norm_subjects = 0
@@ -644,32 +650,18 @@ def post_analysis(args):
         mean_power_power_task[task] = defaultdict(list)
         power_task[task] = {band: None for band in bands.keys()}
     norm_dict = defaultdict(dict)
+    bad_subjects = ['hc006', 'hc011', 'pp001', 'ep011']
+    good_subjects = set(args.subject) - set(bad_subjects)
     now = time.time()
-    for ind, subject in enumerate(args.subject):
-        utils.time_to_go(now, ind, len(args.subject), 1)
-        # if not op.isdir(op.join(res_fol, subject)):
-        #     print('No folder data for {}'.format(subject))
-        #     continue
-        # power_meta_fname = op.join(res_fol, subject, 'labels_{}_{}_meta_power.npz'.format(inv_method, em))
-        # if op.isfile(power_meta_fname):
-        #     meta = utils.Bag(np.load(power_meta_fname)) #labels_bands_avg, baseline, baseline_ind, labels_bands_avg_ind
-        # else:
-        #     print('No meta data for {}!'.format(subject))
-        #     continue
-        for task in args.tasks:
-            # mean_fname = op.join(res_fol, subject, '{}_{}_mean.npz'.format(task.lower(), args.atlas))
-            # if op.isfile(mean_fname):
-            #     d = utils.Bag(np.load(mean_fname))
-            #     mean_evo[group_id][task].append(d.data.mean())
-            for band_ind, band in enumerate(bands.keys()):
-                # if not check_baseline_ind(meta, band_ind, task_ind):
-                #     continue
+    for ind, subject in enumerate(good_subjects):
+        # utils.time_to_go(now, ind, len(args.subject), 1)
+        for band_ind, band in enumerate(bands.keys()):
+            ecpohs_power = {}
+            for task in args.tasks:
                 if power_task[task][band] is None:
                     power_task[task][band] = defaultdict(list)
                 if band not in norm_dict[task]:
                     norm_dict[task][band] = []
-                # power_fname = op.join(
-                #     res_fol, subject, '{}_labels_{}_{}_{}_power.npz'.format(task.lower(), inv_method, em, band))
                 power_fname = op.join(
                     MMVT_DIR, subject, 'labels', 'labels_data', '{}_labels_{}_{}_{}_power.npz'.format(
                         task.lower(), inv_method, em, band))
@@ -681,22 +673,24 @@ def post_analysis(args):
                 if op.isfile(power_fname):
                     try:
                         d = utils.Bag(np.load(power_fname))
+                        if d.data.mean() > 1000:
+                            continue
                         mean_power_power_task[task][band].append(d.data.mean())
-                        # if 'labels_bands_avg' in d.keys():
+                        ecpohs_power[task] = d.data
                         for label_ind, label in enumerate(d.names):
-                            # if not check_labels_bands_avg_ind(meta, label_ind, band_ind):
-                            #     continue
                             power_task[task][band][label].append(d.data[label_ind].mean())
-                            # norm = meta.labels_bands_avg[label_id, band_id] / len(args.tasks)
-                            # if norm > 0.0 and not np.isnan(norm) and norm < 1e6:
-                            #     norm_dict[task][band].append(norm)
-                            #     power_task[task][band][label].append(d.data[label_id].mean() / norm)
-                        # else:
-                        #     print('{} does not have a norm!'.format(subject))
-                        #     no_norm_subjects += 1
-                        #     break
                     except:
                         print('Can\'t open {}!'.format(power_fname))
+            if all([t in ecpohs_power for t in args.tasks]):
+                x = [ecpohs_power[args.tasks[0]], ecpohs_power[args.tasks[1]]]
+                title = '{} {}'.format(subject, band)
+                sig, pval, = ttest(x[0].mean(axis=0), x[1].mean(axis=0),
+                                   args.tasks[0], args.tasks[1], title=title, alpha=alpha, always_print=False)
+                # for label_id, label in enumerate(d.names):
+                #     title = '{} {} {}'.format(subject, band, label)
+                #     sig, pval, = ttest(ecpohs_power[args.tasks[0]][label_id], ecpohs_power[args.tasks[1]][label_id],
+                #                        args.tasks[0], args.tasks[1], title=title, alpha=alpha, always_print=False)
+            del  ecpohs_power
     # for task in args.tasks:
     #     for band_id, band in enumerate(bands.keys()):
     #         num = np.mean([len(power_task[task][band][label]) for label in d.names])
@@ -727,11 +721,6 @@ def post_analysis(args):
     #                     for label_id, label in enumerate(d.names):
     #                         power_emotion_reactivit[group_id][task][band][label].append(d.data[label_id].mean())
 
-    do_plot = False
-    percentile = 90
-    alpha = 0.05
-    high_limit_power = 1000
-    print(args.tasks)
     for band in bands.keys():
         ttest_stats, ttest_labels, welch_stats, welch_labels = [], [], [], []
         x = [np.array(mean_power_power_task[task][band]) for task in args.tasks]

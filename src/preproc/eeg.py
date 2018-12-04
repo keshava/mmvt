@@ -25,10 +25,10 @@ calc_fwd_inv = meg.calc_fwd_inv_wrapper
 calc_stc_per_condition = meg.calc_stc_per_condition_wrapper
 
 
-def read_eeg_sensors_layout(mri_subject, args):
+def read_sensors_layout(mri_subject, args):
     return meg.read_sensors_layout(
         mri_subject, args, pick_meg=False, pick_eeg=True, overwrite_sensors=args.overwrite_sensors,
-        trans_file=args.trans_fname)
+        trans_file=args.trans_fname, info_fname=args.info_fname)
 
 
 def save_evoked_to_blender(mri_subject, events, args, evoked=None):
@@ -135,9 +135,11 @@ def main(tup, remote_subject_dir, args, flags):
     conditions, stat = init(subject, args, mri_subject, remote_subject_dir)
 
     if utils.should_run(args, 'read_sensors_layout'):
-        flags['read_sensors_layout'] = read_eeg_sensors_layout(mri_subject, args)
+        flags['read_sensors_layout'] = read_sensors_layout(mri_subject, args)
 
     flags, evoked, epochs = meg.calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)
+
+    flags = meg.calc_fwd_inv_wrapper(subject, args, conditions, flags, mri_subject)
 
     flags, stcs_conds, stcs_num = meg.calc_stc_per_condition_wrapper(
         subject, conditions, inverse_method, args, flags)
@@ -154,16 +156,16 @@ def main(tup, remote_subject_dir, args, flags):
     if utils.should_run(args, 'calc_minmax'):
         flags['calc_minmax'] = calc_minmax(mri_subject, args)
 
-    if utils.should_run(args, 'make_forward_solution') or utils.should_run(args, 'calc_inverse_operator') or \
-            utils.should_run(args, 'calc_stc'):
-        if not op.isfile(meg.COR):
-            eeg_cor = op.join(meg.SUBJECT_MEG_FOLDER, '{}-cor-trans.fif'.format(subject))
-            if op.isfile(eeg_cor):
-                meg.COR = eeg_cor
-                flags = meg.calc_fwd_inv_wrapper(subject, args, conditions, flags, mri_subject)
-                flags = meg.calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, flags)
-            else:
-                print("Can't find head-MRI transformation matrix. Should be in {} or in {}".format(meg.COR, eeg_cor))
+    # if utils.should_run(args, 'make_forward_solution') or utils.should_run(args, 'calc_inverse_operator') or \
+    #         utils.should_run(args, 'calc_stc'):
+    #     if not op.isfile(meg.COR):
+    #         eeg_cor = op.join(meg.SUBJECT_MEG_FOLDER, '{}-cor-trans.fif'.format(subject))
+    #         if op.isfile(eeg_cor):
+    #             meg.COR = eeg_cor
+    #             flags = meg.calc_fwd_inv_wrapper(subject, args, conditions, flags, mri_subject)
+    #             flags = meg.calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, flags)
+    #         else:
+    #             print("Can't find head-MRI transformation matrix. Should be in {} or in {}".format(meg.COR, eeg_cor))
 
     return flags
 
