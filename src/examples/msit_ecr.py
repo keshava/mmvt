@@ -641,10 +641,36 @@ def calc_meg_connectivity(args):
 
 
 def sensors_ttest(args):
+    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    alpha = 0.05
+    good_subjects = 0
     now = time.time()
-    for ind, subject in enumerate(args.subjects):
+    for ind, subject in enumerate(args.subject):
         utils.time_to_go(now, ind, len(args.subject), 1)
-        input_fname = op.join(fol, '{}_sensors_psd.npz'.format(cond_name))
+        fol = op.join(MMVT_DIR, subject, 'meg')
+        band_data_exist = 0
+        for band_ind, band in enumerate(bands.keys()):
+            psds = {task: None for task in args.tasks}
+            for task in args.tasks:
+                input_fname = op.join(fol, '{}_sensors_{}_psd.npz'.format(task.lower(), band))
+                if not op.isfile(input_fname):
+                    continue
+                d = utils.Bag(np.load(input_fname))
+                psds[task] = d.data * 1e+22
+            if all([psds[task] is not None for task in args.tasks]):
+                band_data_exist += 1
+                x = [psds[args.tasks[0]], psds[args.tasks[1]]]
+                for sens_ind in range(x[0].shape[0]):
+                    title = '{} {} sens {}'.format(subject, band, sens_ind)
+                    sig, pval, = ttest(x[0][sens_ind], x[1][sens_ind],
+                                       args.tasks[0], args.tasks[1], title=title, alpha=alpha, always_print=False)
+
+                title = '{} {}'.format(subject, band)
+                sig, pval, = ttest(x[0].mean(axis=0), x[1].mean(axis=0),
+                                   args.tasks[0], args.tasks[1], title=title, alpha=alpha, always_print=False)
+        if band_data_exist == len(bands):
+            good_subjects += 1
+    print('{}/{} subjects with sensors psd'.format(good_subjects, len(args.subject)))
 
 
 def post_analysis(args):
