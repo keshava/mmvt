@@ -555,6 +555,35 @@ def calc_epochs_psd(subject, events, mri_subject='', epo_fname='', apply_SSP_pro
     return True
 
 
+def calc_source_psd(subject, events, mri_subject='', raw_fname='', inv_fname='', method='dSPM', snr=3.0,
+                    tmin=0.0, tmax=None, fmin=0.0, fmax=200.0, n_fft=2048, overlap=0.5,
+                    pick_ori='normal', label=None, nave=1, pca=True, bandwidth='hann', adaptive=False,
+                    fwd_usingMEG=True, fwd_usingEEG=True, output_as_db=True, overwrite=False, n_jobs=4):
+    if mri_subject == '':
+        mri_subject = subject
+    if inv_fname == '':
+        inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
+    raw_fname = get_raw_fname(raw_fname)
+    lambda2 = 1.0 / snr ** 2
+    inverse_operator = None
+    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
+    fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
+    for cond_ind, cond_name in enumerate(events_keys):
+        output_fname = op.join(fol, '{}_source_psd.npz'.format(cond_name))
+        if op.isfile(output_fname) and not overwrite:
+            print('{}: source psd already exist'.format(cond_name))
+            continue
+        if inverse_operator is None:
+            inverse_operator = read_inverse_operator(inv_fname)
+        if raw is None:
+            raw = mne.io.read_raw_fif(raw_fname)
+        stc_psd, sensor_psd = mne.minimum_norm.compute_source_psd(
+            raw, inverse_operator, lambda2, method, tmin, tmax, fmin, fmax, n_fft, overlap, pick_ori, label, nave, pca,
+            bandwidth=bandwidth, adaptive=adaptive, return_sensor=True, dB=output_as_db, n_jobs=n_jobs)
+        print('asdf')
+    return True
+
+
 @utils.tryit(print_only_last_error_line=False)
 def calc_labels_power_spectrum(
         subject, atlas, events, inverse_method='dSPM', extract_modes=['mean_flip'],
@@ -4688,6 +4717,11 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'calc_labels_psd' in args.function:
         flags['calc_labels_psd'] = calc_epochs_psd(
             subject, conditions, max_epochs_num=args.max_epochs_num, n_jobs=args.n_jobs)
+
+    if 'calc_source_psd' in args.function:
+        flags['calc_source_psd'] = calc_source_psd(
+            subject, conditions, args.mri_subject, args.raw_fname, args.inv_fname, method=inverse_method,
+            n_jobs=args.n_jobs)
 
     if 'calc_labels_power_spectrum' in args.function:
         flags['calc_labels_power_spectrum'] = calc_labels_power_spectrum(
