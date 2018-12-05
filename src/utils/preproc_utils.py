@@ -132,12 +132,15 @@ def run_on_subjects(args, main_func, subjects_itr=None, subject_func=None):
 def set_default_args(args, ini_name='default_args.ini'):
     settings = utils.read_config_ini(MMVT_DIR, ini_name)
     if settings is not None:
-        import inspect
-        module_name = ''
-        for frm in inspect.stack():
-            if 'src/preproc' in frm.filename:
-                module_name = utils.namebase(frm.filename)
-                break
+        try:
+            import inspect
+            module_name = ''
+            for frm in inspect.stack():
+                if 'src/preproc' in frm.filename:
+                    module_name = utils.namebase(frm.filename)
+                    break
+        except:
+            pass
         if module_name != '' and module_name in settings.sections():
             for args_key in args.keys():
                 settings_val = settings[module_name].get(args_key, '')

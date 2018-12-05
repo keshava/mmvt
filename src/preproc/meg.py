@@ -700,7 +700,6 @@ def calc_labels_power_spectrum(
         if inverse_operator is None:
             inverse_operator, src = get_inv_src(inv_fname, src, cond_name)
 
-        # epochs_num = min(max_epochs_num, len(epochs)) if max_epochs_num != 0 else len(epochs)
         now = time.time()
         epochs_num = min(max_epochs_num, len(epochs)) if max_epochs_num != 0 else len(epochs)
 
@@ -731,22 +730,6 @@ def calc_labels_power_spectrum(
                          label=label.name, cond=cond_name)
             if do_plot:
                 plot_label_psd(power_spectrum[:, label_ind, :, cond_ind], freqs, label, cond_name, plots_fol)
-
-        # stcs = mne.minimum_norm.apply_inverse_epochs(
-        #     epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
-        # labels_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, return_generator=True)
-        # for epoch_ind, label_ts in enumerate(labels_ts):
-        #     if epoch_ind == epochs_num:
-        #         break
-        #     utils.time_to_go(now, epoch_ind, epochs_num, runs_num_to_print=10)
-        #     psds, freqs = mne.time_frequency.psd_array_multitaper(
-        #         label_ts, sfreq, fmin, fmax, bandwidth, n_jobs=n_jobs)
-        #     if power_spectrum is None:
-        #         power_spectrum = np.empty((epochs_num, len(labels), len(freqs), len(events)))
-        #     power_spectrum[epoch_ind, :, :, cond_ind] = psds
-
-        # if do_plot:
-        #     plot_psds(subject, power_spectrum, freqs, labels, cond_ind, cond_name, plots_fol)
 
         np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs)
 
@@ -1614,6 +1597,8 @@ def get_inv_fname(inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True):
 def get_raw_fname(raw_fname='', include_empty=False):
     if raw_fname == '':
         raw_fname = RAW
+    if op.isfile(raw_fname):
+        return raw_fname
     print('{}: looking for raw fif file...'.format(inspect.stack()[1][3]))
     exclude_pattern = '*empty*.fif' if not include_empty else ''
     raw_fname, raw_exist = locating_meg_file(raw_fname, '*raw.fif', exclude_pattern=exclude_pattern)

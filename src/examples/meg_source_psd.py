@@ -20,12 +20,28 @@ def calc_meg_source_psd(args):
     subjects = args.subject
     for subject in subjects:
         args.subject = subject
+        local_raw_fname = op.join(MEG_DIR, args.task, subject, args.raw_template.format(
+            subject=subject, task=args.task))
+        remote_raw_fname = op.join(args.remote_root_dir, 'raw_preprocessed', subject, args.raw_template.format(
+            subject=subject, task=args.task))
+        if not op.isfile(remote_raw_fname):
+            print('Can\'t find remote raw file! {}'.format(remote_raw_fname))
+            continue
+        if op.isfile(local_raw_fname):
+            os.remove(local_raw_fname)
+        utils.make_link(remote_raw_fname, local_raw_fname)
+        if not op.islink(local_raw_fname):
+            print('Can\'t create a link to the remote raw!')
+            continue
+        inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
         meg_args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
             function='calc_source_psd',
             task=args.task,
+            data_per_task=True,
             l_freq=65, h_freq=120,
-            raw_fname=op.join(MEG_DIR, args.task, subject, args.raw_template.format(subject=subject, task=args.task)),
+            raw_fname=local_raw_fname,
+            inv_fname=inv_fname,
             remote_subject_dir=args.remote_subject_dir,
             n_jobs=args.n_jobs
         ))
@@ -58,7 +74,8 @@ if __name__ == '__main__':
                         default='/autofs/space/lilli_003/users/DARPA-TRANSFER/meg')
     parser.add_argument('--epo_template', required=False, default='{subject}_{task}_meg_Onset_ar-epo.fif')
     parser.add_argument('--raw_template', required=False, default='{subject}_{task}_meg_ica-raw.fif')
-    parser.add_argument('--n_jobs', help='cpu num', required=False, default=1)
+    parser.add_argument('--inv_template', required=False, default='{subject}_{task}_Onset-inv.fif')
+    parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
     args.subject = pu.decode_subjects(args.subject, remote_subject_dir=args.remote_subject_dir)
     args.n_jobs = utils.get_n_jobs(args.n_jobs)
