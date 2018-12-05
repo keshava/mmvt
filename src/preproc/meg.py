@@ -4721,7 +4721,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
 
     if 'calc_source_psd' in args.function:
         flags['calc_source_psd'] = calc_source_psd(
-            subject, conditions, args.mri_subject, args.raw_fname, args.inv_fname, method=inverse_method,
+            subject, conditions, mri_subject, args.raw_fname, args.inv_fname, method=inverse_method,
             n_jobs=args.n_jobs)
 
     if 'calc_labels_power_spectrum' in args.function:
