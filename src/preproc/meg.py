@@ -565,7 +565,7 @@ def calc_source_psd(subject, events, mri_subject='', raw_fname='', inv_fname='',
         inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
     raw_fname = get_raw_fname(raw_fname)
     lambda2 = 1.0 / snr ** 2
-    inverse_operator = None
+    raw, inverse_operator = None, None
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
     for cond_ind, cond_name in enumerate(events_keys):
