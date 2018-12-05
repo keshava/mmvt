@@ -580,7 +580,8 @@ def calc_source_psd(subject, events, mri_subject='', raw_fname='', inv_fname='',
         stc_psd, sensor_psd = mne.minimum_norm.compute_source_psd(
             raw, inverse_operator, lambda2, method, tmin, tmax, fmin, fmax, n_fft, overlap, pick_ori, label, nave, pca,
             bandwidth=bandwidth, adaptive=adaptive, return_sensor=True, dB=output_as_db, n_jobs=n_jobs)
-        print('asdf')
+        mne.write_evokeds(op.join(MMVT_DIR, subject, 'meg', 'sensors_psd-eve.fif'), sensor_psd)
+        stc_psd.save(op.join(MMVT_DIR, subject, 'meg', 'source_psd'))
     return True
 
 
