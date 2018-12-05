@@ -257,7 +257,7 @@ def meg_sensors_psd(args):
                 fname_format=args.epo_template.format(subject=subject, task=task)[:-len('-epo.fif')],
                 raw_fname=op.join(MEG_DIR, task, subject, args.raw_template.format(subject=subject, task=task)),
                 epo_fname=local_epo_fname,
-                function='calc_labels_psd',
+                function='calc_epochs_psd',
                 conditions=task.lower(),
                 average_per_event=False,
                 data_per_task=True,
@@ -640,6 +640,13 @@ def calc_meg_connectivity(args):
             meg.call_main(con_args)
 
 
+def sensors_ttest(args):
+    now = time.time()
+    for ind, subject in enumerate(args.subjects):
+        utils.time_to_go(now, ind, len(args.subject), 1)
+        input_fname = op.join(fol, '{}_sensors_psd.npz'.format(cond_name))
+
+
 def post_analysis(args):
     import matplotlib.pyplot as plt
     from collections import defaultdict
@@ -990,7 +997,7 @@ if __name__ == '__main__':
                         default='/autofs/space/lilli_003/users/DARPA-TRANSFER/meg')
     parser.add_argument('--epo_template', required=False, default='{subject}_{task}_meg_Onset_ar-epo.fif')
     parser.add_argument('--raw_template', required=False, default='{subject}_{task}_meg_ica-raw.fif')
-    parser.add_argument('--n_jobs', help='cpu num', required=False, default=1)
+    parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
     args.n_jobs = utils.get_n_jobs(args.n_jobs)
 

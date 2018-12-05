@@ -523,14 +523,15 @@ def calc_epochs_wrapper(
 
 def calc_epochs_psd(subject, events, mri_subject='', epo_fname='', apply_SSP_projection_vectors=True,
                     add_eeg_ref=True, epochs=None, fmin=0, fmax=200, bandwidth=2., tmin=None, tmax=None,
-                    adaptive=False, modality='meg', max_epochs_num=0, overwrite=False, n_jobs=4):
-
+                    adaptive=False, modality='meg', max_epochs_num=0, raw_template='', precentiles=(1, 99),
+                    overwrite=False, n_jobs=4):
     if mri_subject == '':
         mri_subject = subject
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
     epo_fname = get_epo_fname(epo_fname)
+    sensors_picks, sensors_names = get_sensors_picks(modality, raw_template=raw_template)
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
-
+    ret = True
     for cond_ind, cond_name in enumerate(events_keys):
         output_fname = op.join(fol, '{}_sensors_psd.npz'.format(cond_name))
         if op.isfile(output_fname) and not overwrite:
@@ -548,11 +549,73 @@ def calc_epochs_psd(subject, events, mri_subject='', epo_fname='', apply_SSP_pro
             epochs.apply_proj()
         except:
             print('annot create EEG average reference projector (no EEG data found)')
+        picks = mne.pick_types(epochs.info, meg=True, exclude='bads')
+        ch_names = [epochs.info['ch_names'][k].replace(' ', '') for k in picks]
+        channels_sensors_dict = np.array([np.where(sensors_names==c)[0][0] for c in ch_names])
         psds, freqs = mne.time_frequency.psd_multitaper(
             epochs, fmin=fmin, fmax=fmax, tmin=tmin, tmax=tmax, bandwidth=bandwidth, adaptive=adaptive,
-            low_bias=True, normalization='length', picks=None, proj=False, n_jobs=n_jobs)
-        np.savez(output_fname, psds=psds, freqs=freqs)
-    return True
+            low_bias=True, normalization='length', picks=picks, proj=False, n_jobs=n_jobs)
+        all_psds = np.empty((len(epochs), len(sensors_picks), len(freqs)))
+        all_psds.fill(np.nan)
+        all_psds[:, channels_sensors_dict, :] = psds
+        np.savez(output_fname, psds=all_psds, freqs=freqs)
+        ret = ret and _calc_epochs_bands_psd(mri_subject, all_psds, freqs, None, cond_name, precentiles, overwrite)
+    return ret
+
+
+def get_sensors_picks(modality, info_fname='', info=None, raw_template=''):
+    if info is None:
+        info_fname, info_exist = get_info_fname(info_fname)
+        if not info_exist:
+            raw_fname = get_raw_fname(raw_template, include_empty=False)
+            if not op.isfile(raw_fname):
+                print('No raw or raw info file!')
+                return None
+            raw = mne.io.read_raw_fif(raw_fname)
+            info = raw.info
+            utils.save(info, info_fname)
+        else:
+            info = utils.load(info_fname)
+    sensors_picks = mne.io.pick.pick_types(info, meg=modality == 'meg', eeg=modality == 'eeg', exclude=[])
+    sensors_names = np.array([info['ch_names'][k].replace(' ', '') for k in sensors_picks])
+    return sensors_picks, sensors_names
+
+
+def calc_epochs_bands_psd(mri_subject, events, precentiles=(1, 99), bands=None, overwrite=False):
+    meg_fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
+    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
+    if bands is None:
+        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    ret = True
+    for cond_ind, cond_name in enumerate(events_keys):
+        input_fname = op.join(meg_fol, '{}_sensors_psd.npz'.format(cond_name))
+        if not op.isfile(input_fname):
+            print('No power specturm for {}!'.format(cond_name))
+            continue
+        d = utils.Bag(np.load(input_fname))
+        psds = d.psds  # (epochs_num, len(sensors), len(freqs), len(events))
+        freqs = d.freqs
+        _calc_epochs_bands_psd(mri_subject, psds, freqs, bands, cond_name, precentiles, overwrite)
+    return ret
+
+
+def _calc_epochs_bands_psd(mri_subject, psds, freqs, bands=None, cond_name='all', precentiles=(1, 99), overwrite=False):
+    meg_fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
+    if bands is None:
+        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    ret = True
+    for band, (lf, hf) in bands.items():
+        output_fname = op.join(meg_fol, '{}_sensors_{}_psd.npz'.format(cond_name, band))
+        if op.isfile(output_fname) and not overwrite:
+            continue
+        band_mask = np.where((freqs >= lf) & (freqs <= hf))[0]
+        band_psd = psds[:, :, band_mask].mean(axis=2).squeeze().T  # sensors x epochs
+        data_max = utils.calc_max(band_psd, norm_percs=precentiles)
+        print('calc_labels_power_bands: Saving results in {}'.format(output_fname))
+        np.savez(output_fname, data=band_psd, title='sensors {} power ({})'.format(band, cond_name),
+                 data_min=0, data_max=data_max)
+        ret = ret and op.isfile(output_fname)
+    return ret
 
 
 def calc_source_psd(subject, events, mri_subject='', raw_fname='', inv_fname='', method='dSPM', snr=3.0,
@@ -1025,47 +1088,8 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
                         norm_by_percentile=False, norm_percs=None, modality='meg', calc_max_min_diff=True, task=''):
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
     first_evokes = evokes if isinstance(evokes, mne.evoked.EvokedArray) else evokes[0]
-    # if modality == 'meg':
-    #     # channels_indices = [k for k, name in enumerate(evokes[0].ch_names) if name.startswith('MEG')]
-    #     channels_indices = mne.pick_types(evokes[0].info, meg=True, eeg=False, eog=False, exclude='bads')
-    #     if len(channels_indices) == 0:
-    #         print('None of the channels names starts with "MEG"!')
-    # else:
-    #     channels_indices = range(len(first_evokes.ch_names))
-
     info = evokes[0].info
-    if modality == 'meg':
-        sensors_picks, channels_sensors_dict = {}, {}
-        picks = mne.pick_types(info, meg=True, eeg=False, exclude='bads')
-        for sensor_type in ['mag', 'planar1', 'planar2']:
-            # Load sensors info
-            input_fname = op.join(op.join(
-                MMVT_DIR, SUBJECT, modality, 'meg_{}_sensors_positions.npz'.format(sensor_type)))
-            if not op.isfile(input_fname):
-                print('Can\'t find the sensors info! Please run the create_helmet_mesh function first')
-                return False
-            sensors_info = np.load(input_fname)
-            sensors_names = sensors_info['names']
-            sensors_picks[sensor_type] = mne.pick_types(info, meg=sensor_type, exclude='bads')
-            ch_names = [first_evokes.ch_names[k].replace(' ', '') for k in sensors_picks[sensor_type]]
-            channels_sensors_dict[sensor_type] = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
-    elif modality == 'eeg':
-        # Load sensors info
-        input_fname = op.join(op.join(MMVT_DIR, SUBJECT, modality, 'eeg_sensors_positions.npz'))
-        if not op.isfile(input_fname):
-            print('Can\'t find the sensors info! Please run the create_helmet_mesh function first')
-            return False
-        sensors_info = np.load(input_fname)
-        sensors_names = sensors_info['names']
-        picks = mne.pick_types(info, meg=False, eeg=True, exclude='bads')
-        ch_names = [first_evokes.ch_names[k].replace(' ', '') for k in picks]
-        channels_sensors_dict = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
-        sensors_picks = {
-            sensor_type: mne.pick_types(info, meg=False, eeg=True, exclude='bads')
-            for sensor_type in ['eeg']}
-    else:
-        raise Exception('The modality {} is not supported! (only eeg/meg)'.format(modality))
-
+    picks, sensors_picks, ch_names, channels_sensors_dict = get_sensros_info(modality, info, first_evokes.ch_names)
 
     task_str = '{}_'.format(task) if task != '' else ''
     # sensors_meta = utils.Bag(np.load(op.join(fol, '{}_sensors_positions.npz'.format(modality))))
@@ -1098,6 +1122,42 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
         channels_sensors_dict=channels_sensors_dict)
     np.save(op.join(fol, '{}_{}sensors_evoked_minmax.npy'.format(modality, task_str)),
         [-max_abs, max_abs])
+
+
+def get_sensros_info(modality, info, ch_names):
+    if modality == 'meg':
+        sensors_picks, channels_sensors_dict = {}, {}
+        picks = mne.pick_types(info, meg=True, eeg=False, exclude='bads')
+        for sensor_type in ['mag', 'planar1', 'planar2']:
+            # Load sensors info
+            input_fname = op.join(op.join(
+                MMVT_DIR, SUBJECT, modality, 'meg_{}_sensors_positions.npz'.format(sensor_type)))
+            if not op.isfile(input_fname):
+                print('Can\'t find the sensors info! Please run the create_helmet_mesh function first')
+                return False
+            sensors_info = np.load(input_fname)
+            sensors_names = sensors_info['names']
+            sensors_picks[sensor_type] = mne.pick_types(info, meg=sensor_type, exclude='bads')
+            ch_names = [ch_names[k].replace(' ', '') for k in sensors_picks[sensor_type]]
+            channels_sensors_dict[sensor_type] = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
+    elif modality == 'eeg':
+        # Load sensors info
+        input_fname = op.join(op.join(MMVT_DIR, SUBJECT, modality, 'eeg_sensors_positions.npz'))
+        if not op.isfile(input_fname):
+            print('Can\'t find the sensors info! Please run the create_helmet_mesh function first')
+            return False
+        sensors_info = np.load(input_fname)
+        sensors_names = sensors_info['names']
+        picks = mne.pick_types(info, meg=False, eeg=True, exclude='bads')
+        ch_names = [ch_names[k].replace(' ', '') for k in picks]
+        channels_sensors_dict = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
+        sensors_picks = {
+            sensor_type: mne.pick_types(info, meg=False, eeg=True, exclude='bads')
+            for sensor_type in ['eeg']}
+    else:
+        raise Exception('The modality {} is not supported! (only eeg/meg)'.format(modality))
+
+    return picks, sensors_picks, ch_names, channels_sensors_dict
 
 
 def equalize_epoch_counts(events, method='mintime'):
@@ -4715,9 +4775,14 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.con_method, args.con_mode, args.cwt_n_cycles, args.max_epochs_num, args.overwrite_connectivity,
             n_jobs=args.n_jobs)
 
-    if 'calc_labels_psd' in args.function:
-        flags['calc_labels_psd'] = calc_epochs_psd(
-            subject, conditions, max_epochs_num=args.max_epochs_num, n_jobs=args.n_jobs)
+    if 'calc_epochs_psd' in args.function:
+        flags['calc_epochs_psd'] = calc_epochs_psd(
+            subject, conditions, max_epochs_num=args.max_epochs_num, raw_template=args.raw_template,
+            n_jobs=args.n_jobs)
+
+    if 'calc_epochs_bands_psd' in args.function:
+        flags['calc_epochs_bands_psd'] = calc_epochs_bands_psd(
+            subject, conditions, args.precentiles, overwrite=args.overwrite_sensors_psd)
 
     if 'calc_source_psd' in args.function:
         flags['calc_source_psd'] = calc_source_psd(
@@ -4809,6 +4874,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--overwrite_stc', help='overwrite_stc', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_labels_data', help='overwrite_labels_data', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_labels_power_spectrum', help='', required=False, default=0, type=au.is_true)
+    parser.add_argument('--overwrite_sensors_psd', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_labels_induced_power', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--read_events_from_file', help='read_events_from_file', required=False, default=0, type=au.is_true)
     parser.add_argument('--events_file_name', help='events_file_name', required=False, default='')
