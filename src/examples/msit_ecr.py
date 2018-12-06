@@ -259,6 +259,7 @@ def meg_sensors_psd(args):
                 epo_fname=local_epo_fname,
                 function='calc_baseline_sensors_bands_psd,calc_epochs_psd',
                 conditions=task.lower(),
+                baseline_len=60000,
                 average_per_event=False,
                 data_per_task=True,
                 max_epochs_num=args.max_epochs_num,

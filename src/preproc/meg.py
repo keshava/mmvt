@@ -627,6 +627,9 @@ def calc_baseline_sensors_bands_psd(mri_subject, epo_fname='', raw_template='', 
 
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
     output_fname = op.join(fol, 'raw_sensors_psd.npz')
+    if op.isfile(output_fname) and not overwrite:
+        print('{} already exist'.format(output_fname))
+        return True
     raw_fname = get_raw_fname(raw_template, include_empty=False)
     if not op.isfile(raw_fname):
         print('calc_raw_bands_psd: No raw file!')
