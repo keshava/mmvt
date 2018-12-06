@@ -257,7 +257,7 @@ def meg_sensors_psd(args):
                 fname_format=args.epo_template.format(subject=subject, task=task)[:-len('-epo.fif')],
                 raw_fname=op.join(MEG_DIR, task, subject, args.raw_template.format(subject=subject, task=task)),
                 epo_fname=local_epo_fname,
-                function='calc_epochs_psd',
+                function='calc_baseline_sensors_bands_psd,calc_epochs_psd',
                 conditions=task.lower(),
                 average_per_event=False,
                 data_per_task=True,

@@ -609,12 +609,52 @@ def _calc_epochs_bands_psd(mri_subject, psds, freqs, bands=None, cond_name='all'
         if op.isfile(output_fname) and not overwrite:
             continue
         band_mask = np.where((freqs >= lf) & (freqs <= hf))[0]
-        band_psd = psds[:, :, band_mask].mean(axis=2).squeeze().T  # sensors x epochs
+        if psds.ndim == 3:
+            band_psd = psds[:, :, band_mask].mean(axis=2).squeeze().T  # sensors x epochs
+        elif psds.ndim == 2:
+            band_psd = psds[:, band_mask].mean(axis=1) # sensors
         data_max = utils.calc_max(band_psd, norm_percs=precentiles)
         print('calc_labels_power_bands: Saving results in {}'.format(output_fname))
         np.savez(output_fname, data=band_psd, title='sensors {} power ({})'.format(band, cond_name),
                  data_min=0, data_max=data_max)
         ret = ret and op.isfile(output_fname)
+    return ret
+
+
+def calc_baseline_sensors_bands_psd(mri_subject, epo_fname='', raw_template='', modality='meg', bad_channels=[],
+        baseline_len=10000, l_freq=1, h_freq=120, bandwidth=2., cond_name='all', precentiles=(1, 99),
+        overwrite=False, adaptive=False, bands=None, n_jobs=4):
+
+    fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
+    output_fname = op.join(fol, 'raw_sensors_psd.npz')
+    raw_fname = get_raw_fname(raw_template, include_empty=False)
+    if not op.isfile(raw_fname):
+        print('calc_raw_bands_psd: No raw file!')
+        return None
+    raw = load_raw(raw_fname, bad_channels, l_freq, h_freq)
+    try:
+        raw.set_eeg_reference('average', projection=True)  # set EEG average reference
+    except:
+        print('calc_raw_bands_psd: Can\'t set_eeg_reference')
+    cond_name = 'baseline_{}'.format(cond_name)
+    sensors_picks, sensors_names = get_sensors_picks(modality, raw_template=raw_template)
+    epo_fname = get_epo_fname(epo_fname)
+    epochs = mne.read_epochs(epo_fname)
+    t_end = epochs.events[0, 0]
+    t_start = 0 if t_end <= baseline_len else t_end - baseline_len
+    raw.crop(t_start / raw.info['sfreq'], t_end / raw.info['sfreq'])
+    picks = mne.pick_types(raw.info, meg=modality == 'meg', eeg=modality == 'eeg', exclude='bads')
+    psds, freqs = mne.time_frequency.psd_multitaper(
+        raw, fmin=l_freq, fmax=h_freq, bandwidth=bandwidth, adaptive=adaptive,
+        low_bias=True, normalization='length', picks=picks, proj=False, n_jobs=n_jobs)
+    print(psds.shape)
+    ch_names = [raw.info['ch_names'][k].replace(' ', '') for k in picks]
+    channels_sensors_dict = np.array([np.where(sensors_names == c)[0][0] for c in ch_names])
+    all_psds = np.empty((len(sensors_picks), len(freqs)))
+    all_psds.fill(np.nan)
+    all_psds[channels_sensors_dict, :] = psds
+    np.savez(output_fname, psds=all_psds, freqs=freqs)
+    ret = _calc_epochs_bands_psd(mri_subject, all_psds, freqs, bands, cond_name, precentiles, overwrite)
     return ret
 
 
@@ -4653,6 +4693,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if flags is None:
         flags = {}
     fname_format, fname_format_cond, conditions = init(subject, args, mri_subject, remote_subject_dir)
+    if len(conditions) == 1:
+        args.cond_name = list(conditions)[0]
     # fname_format, fname_format_cond, conditions = init_main(subject, mri_subject, remote_subject_dir, args)
     # init_globals_args(
     #     subject, mri_subject, fname_format, fname_format_cond, MEG_DIR, SUBJECTS_MRI_DIR, MMVT_DIR, args)
@@ -4760,6 +4802,12 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.con_method, args.con_mode, args.cwt_n_cycles, args.max_epochs_num, args.overwrite_connectivity,
             n_jobs=args.n_jobs)
 
+    if 'calc_baseline_sensors_bands_psd' in args.function:
+        flags['calc_baseline_sensors_bands_psd'] = calc_baseline_sensors_bands_psd(
+            mri_subject, args.epo_fname, args.raw_template, args.modality, args.bad_channels,
+            args.baseline_len, args.fmin, args.fmax, args.bandwidth, args.cond_name,
+            args.precentiles, overwrite=args.overwrite_baseline_sensors_bands_psd, n_jobs=args.n_jobs)
+
     if 'calc_epochs_psd' in args.function:
         flags['calc_epochs_psd'] = calc_epochs_psd(
             subject, conditions, max_epochs_num=args.max_epochs_num, raw_template=args.raw_template,
@@ -4861,6 +4909,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--overwrite_labels_power_spectrum', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_sensors_psd', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_labels_induced_power', help='', required=False, default=0, type=au.is_true)
+    parser.add_argument('--overwrite_baseline_sensors_bands_psd', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--read_events_from_file', help='read_events_from_file', required=False, default=0, type=au.is_true)
     parser.add_argument('--events_file_name', help='events_file_name', required=False, default='')
     parser.add_argument('--use_demi_events', help='use_demi_events', required=False, default=0, type=au.is_true)
@@ -4897,6 +4946,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--stc_time_average_dt', help='', required=False, default=10, type=int)
     parser.add_argument('--baseline_min', help='', required=False, default=None, type=float)
     parser.add_argument('--baseline_max', help='', required=False, default=0, type=au.float_or_none)
+    parser.add_argument('--baseline_len', help='', required=False, default=10000, type=au.float_or_none)
     parser.add_argument('--files_includes_cond', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--inv_no_cond', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--fwd_no_cond', help='', required=False, default=1, type=au.is_true)
