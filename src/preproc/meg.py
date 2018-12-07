@@ -4731,6 +4731,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     fname_format, fname_format_cond, conditions = init(subject, args, mri_subject, remote_subject_dir)
     if len(conditions) == 1:
         args.cond_name = list(conditions)[0]
+    if args.raw_fname != '':
+        args.raw_template = args.raw_fname
     # fname_format, fname_format_cond, conditions = init_main(subject, mri_subject, remote_subject_dir, args)
     # init_globals_args(
     #     subject, mri_subject, fname_format, fname_format_cond, MEG_DIR, SUBJECTS_MRI_DIR, MMVT_DIR, args)

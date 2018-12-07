@@ -245,8 +245,15 @@ def meg_sensors_psd(args):
             if not op.isfile(local_epo_fname) and not op.isfile(remote_epo_fname):
                 print('Can\'t find {}!'.format(local_epo_fname))
                 continue
+            remote_raw_fname = op.join(args.remote_root_dir, 'raw_preprocessed', subject, args.raw_template.format(subject=subject, task=task))
+            local_raw_fname = op.join(MEG_DIR, task, subject, args.raw_template.format(subject=subject, task=task))
+            if not op.isfile(local_raw_fname) and not op.isfile(remote_raw_fname):
+                print('Can\'t find {}!'.format(local_raw_fname))
+                continue
             if not op.isfile(local_epo_fname):
                 utils.make_link(remote_epo_fname, local_epo_fname)
+            if not op.isfile(local_raw_fname):
+                utils.make_link(remote_raw_fname, local_raw_fname)
 
             meg_args = meg.read_cmd_args(dict(
                 subject=args.subject, mri_subject=args.subject,
@@ -645,33 +652,54 @@ def sensors_ttest(args):
     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     alpha = 0.05
     good_subjects = 0
+    mean_psd_task = {}
+    for task in args.tasks:
+        mean_psd_task[task] = defaultdict(list)
     now = time.time()
     for ind, subject in enumerate(args.subject):
-        utils.time_to_go(now, ind, len(args.subject), 1)
+        # utils.time_to_go(now, ind, len(args.subject), 1)
         fol = op.join(MMVT_DIR, subject, 'meg')
         band_data_exist = 0
         for band_ind, band in enumerate(bands.keys()):
             psds = {task: None for task in args.tasks}
             for task in args.tasks:
+                # Loading baseline
+                baseline_fname = op.join(
+                    MMVT_DIR, subject, 'meg', 'baseline_{}_sensors_{}_psd.npz'.format(task.lower(), band))
+                if not op.isfile(baseline_fname):
+                    continue
+                baseline_dict = utils.Bag(np.load(baseline_fname))
+                # Setting nan as mean
+                baseline_dict.data[np.where(np.isnan(baseline_dict.data))] = np.mean(baseline_dict.data)
                 input_fname = op.join(fol, '{}_sensors_{}_psd.npz'.format(task.lower(), band))
                 if not op.isfile(input_fname):
                     continue
                 d = utils.Bag(np.load(input_fname))
-                psds[task] = d.data * 1e+22
+                # normalize the psd with the baseline (for each sensors)
+                psds[task] = (d.data.T / baseline_dict.data).T
+                mean_psd_task[task][band].append(np.nanmean(psds[task]))
             if all([psds[task] is not None for task in args.tasks]):
                 band_data_exist += 1
                 x = [psds[args.tasks[0]], psds[args.tasks[1]]]
-                for sens_ind in range(x[0].shape[0]):
-                    title = '{} {} sens {}'.format(subject, band, sens_ind)
-                    sig, pval, = ttest(x[0][sens_ind], x[1][sens_ind],
-                                       args.tasks[0], args.tasks[1], title=title, alpha=alpha, always_print=False)
-
+                # for sens_ind in range(x[0].shape[0]):
+                #     title = '{} {} sens {}'.format(subject, band, sens_ind)
+                #     sig, pval, = ttest(x[0][sens_ind], x[1][sens_ind],
+                #                        args.tasks[0], args.tasks[1], title=title, alpha=alpha, always_print=False)
                 title = '{} {}'.format(subject, band)
                 sig, pval, = ttest(x[0].mean(axis=0), x[1].mean(axis=0),
                                    args.tasks[0], args.tasks[1], title=title, alpha=alpha, always_print=False)
         if band_data_exist == len(bands):
             good_subjects += 1
     print('{}/{} subjects with sensors psd'.format(good_subjects, len(args.subject)))
+
+    for band in bands.keys():
+        x = [np.array(mean_psd_task[task][band]) for task in args.tasks]
+        # x = clean_power(x, band, percentile, high_limit_power)
+        if x is None:
+            print('band {} is None!'.format(band))
+            continue
+        title='{} vs {} band {}'.format(args.tasks[0], args.tasks[1], band)
+        sig, pval, = ttest(x[0], x[1], args.tasks[0], args.tasks[1], title=title, alpha=alpha, always_print=True)
 
 
 def post_analysis(args):
