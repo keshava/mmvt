@@ -713,8 +713,9 @@ def calc_labels_power_spectrum(
     power_spectrum = None
     first_time = True
     labels = None
-    vertices_num = utils.get_ply_vertices_num(op.join(MMVT_DIR, MRI_SUBJECT, 'surf', '{}.pial.ply'))
     for (cond_ind, cond_name), em in product(enumerate(events_keys), extract_modes):
+        vertices_data = {hemi: dict() for hemi in utils.HEMIS}
+        vertices_data_fname = op.join(fol, '{}_{}_{}_vertices_power_spectrum.pkl'.format(cond_name, inverse_method, em))
         output_fname = op.join(fol, '{}_{}_{}_power_spectrum.npz'.format(cond_name, inverse_method, em))
         if op.isfile(output_fname) and not overwrite:
             print('{} already exist'.format(output_fname))
@@ -749,16 +750,16 @@ def calc_labels_power_spectrum(
 
         for label_ind, label in enumerate(labels):
             utils.time_to_go(now, label_ind, len(labels), 1)
-            output_tmp_fname = op.join(tmp_fol, '{}_{}_{}_{}_power_spectrum.npz'.format(
-                cond_name, inverse_method, em, label.name))
-            if op.isfile(output_tmp_fname) and not overwrite:
-                print('Loading {} power spectrum from tmp file'.format(label.name))
-                d = utils.Bag(np.load(output_tmp_fname))
-                label_ps = np.load(d.power_spectrum)
-                if power_spectrum is None:
-                    power_spectrum = np.empty((label_ps.shape[0], len(labels), len(d.frequencies), len(events)))
-                power_spectrum[:, label_ind, :, cond_ind] = label_ps
-                continue
+            # output_tmp_fname = op.join(tmp_fol, '{}_{}_{}_{}_power_spectrum.npz'.format(
+            #     cond_name, inverse_method, em, label.name))
+            # if op.isfile(output_tmp_fname) and not overwrite:
+            #     print('Loading {} power spectrum from tmp file'.format(label.name))
+            #     d = utils.Bag(np.load(output_tmp_fname))
+            #     label_ps = np.load(d.power_spectrum)
+            #     if power_spectrum is None:
+            #         power_spectrum = np.empty((label_ps.shape[0], len(labels), len(d.frequencies), len(events)))
+            #     power_spectrum[:, label_ind, :, cond_ind] = label_ps
+            #     continue
             stcs = mne.minimum_norm.compute_source_psd_epochs(
                 epochs, inverse_operator, lambda2=lambda2, method=inverse_method, fmin=fmin, fmax=fmax,
                 bandwidth=bandwidth, label=label, return_generator=True, n_jobs=n_jobs)
@@ -766,15 +767,24 @@ def calc_labels_power_spectrum(
                 if epoch_ind >= epochs_num:
                     break
                 freqs = stc.times
+                label_vertices = stc.lh_vertno if label.hemi == 'lh' else stc.rh_vertno
                 if power_spectrum is None:
                     power_spectrum = np.empty((epochs_num, len(labels), len(freqs), len(events)))
                 power_spectrum[epoch_ind, label_ind, :, cond_ind] = np.mean(stc.data, axis=0)
+                if epoch_ind == 0:
+                    for vert_ind, vert_no in enumerate(label_vertices):
+                        vertices_data[label.hemi][vert_no] = np.zeros(len(freqs))
+                for vert_ind, vert_no in enumerate(label_vertices):
+                    vertices_data[label.hemi][vert_no] += stc.data[vert_ind]
             if save_tmp_files:
                 np.savez(output_fname, power_spectrum=power_spectrum[:, label_ind, :, cond_ind], frequencies=freqs,
                          label=label.name, cond=cond_name)
             if do_plot:
                 plot_label_psd(power_spectrum[:, label_ind, :, cond_ind], freqs, label, cond_name, plots_fol)
-
+        for hemi in utils.HEMIS:
+            for vert_no in vertices_data[hemi].keys():
+                vertices_data[label.hemi][vert_no] /= epochs_num
+        utils.save((vertices_data, freqs), vertices_data_fname)
         np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs)
 
     calc_labels_power_bands(
@@ -1142,6 +1152,7 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
     else:
         factor = 6 if modality == 'eeg' else 12 # micro V for EEG, fT (Magnetometers) and fT/cm (Gradiometers) for MEG
         data *= np.power(10, factor)
+    data = data.squeeze()
     if calc_max_min_diff and len(events_keys) == 2:
         data_diff = np.diff(data) if len(events_keys) > 1 else np.squeeze(data)
         data_max, data_min = utils.get_data_max_min(data_diff, norm_by_percentile, norm_percs)
@@ -1737,6 +1748,9 @@ def calc_inverse_operator(
                     noise_cov = mne.compute_raw_covariance(raw_empty_room, tmin=0, tmax=None)
                     noise_cov.save(noise_cov_fname)
                 elif use_raw_for_noise_cov:
+                    # We might want to downfilter the raw for the noise cov calculatation, like in here:
+                    # https://martinos.org/mne/stable/manual/sample_dataset.html#computing-the-noise-covariance-matrix
+                    # mne_process_raw --raw sample_audvis_raw.fif --lowpass 40 --projon --savecovtag -cov --cov audvis.cov
                     raw = mne.io.read_raw_fif(raw_fname) # preload=True # add_eeg_ref=False
                     noise_cov = mne.compute_raw_covariance(raw, tmin=0, tmax=None)
                     noise_cov.save(noise_cov_fname)

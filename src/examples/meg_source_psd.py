@@ -36,7 +36,7 @@ def calc_meg_source_psd(args):
         inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
         meg_args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
-            function='calc_source_psd',
+            function='calc_labels_power_spectrum',
             task=args.task,
             data_per_task=True,
             l_freq=65, h_freq=120,
