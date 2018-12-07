@@ -713,6 +713,7 @@ def calc_labels_power_spectrum(
     power_spectrum = None
     first_time = True
     labels = None
+    vertices_num = utils.get_ply_vertices_num(op.join(MMVT_DIR, MRI_SUBJECT, 'surf', '{}.pial.ply'))
     for (cond_ind, cond_name), em in product(enumerate(events_keys), extract_modes):
         output_fname = op.join(fol, '{}_{}_{}_power_spectrum.npz'.format(cond_name, inverse_method, em))
         if op.isfile(output_fname) and not overwrite:
@@ -1052,14 +1053,17 @@ def calc_evokes(epochs, events, mri_subject, normalize_data=False, epo_fname='',
         evoked_fname = get_evo_fname(evoked_fname)
         fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
         task_str = '{}_'.format(task) if task != '' else ''
+        events_keys = list(events.keys())
         # todo: check for all sensors types
         mmvt_files = [op.join(fol, '{}_{}sensors_evoked_data.npy'.format(modality, task_str)),
                       op.join(fol, '{}_{}sensors_evoked_data_meta.npz'.format(modality, task_str)),
                       op.join(fol, '{}_{}sensors_evoked_minmax.npy'.format(modality, task_str))]
-        if op.isfile(evoked_fname) and all([op.isfile(f) for f in mmvt_files]) and not overwrite_evoked:
+        if op.isfile(evoked_fname) and not overwrite_evoked:
             evoked = mne.read_evokeds(evoked_fname)
+            if not all([op.isfile(f) for f in mmvt_files]):
+                save_evokes_to_mmvt(evoked, events_keys, mri_subject, None, normalize_data, norm_by_percentile,
+                                    norm_percs, modality, calc_max_min_diff, task)
             return True, evoked
-        events_keys = list(events.keys())
         if epochs is None:
             epochs = mne.read_epochs(epo_fname)
         if average_per_event and not (len(events_keys) == 1 and events_keys[0] == 'rest'):
@@ -1117,7 +1121,7 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
     info = evokes[0].info
     picks, sensors_picks, ch_names, channels_sensors_dict = get_sensros_info(modality, info, first_evokes.ch_names)
 
-    task_str = '{}_'.format(task) if task != '' else ''
+    task_str = '{}_'.format(task) if task != '' else 'all_'
     # sensors_meta = utils.Bag(np.load(op.join(fol, '{}_sensors_positions.npz'.format(modality))))
     dt = np.diff(first_evokes.times[:2])[0]
     if isinstance(evokes, mne.evoked.EvokedArray):
@@ -1211,13 +1215,13 @@ def find_epoches(raw, picks,  events, event_id, tmin, tmax, baseline=(None, 0)):
 
 def check_src_ply_vertices_num(src):
     # check the vertices num with the ply files
-    ply_vertives_num = utils.get_ply_vertices_num(op.join(MMVT_DIR, MRI_SUBJECT, 'surf', '{}.pial.ply'))
-    if ply_vertives_num is not None:
-        print(ply_vertives_num)
+    ply_vertices_num = utils.get_ply_vertices_num(op.join(MMVT_DIR, MRI_SUBJECT, 'surf', '{}.pial.ply'))
+    if ply_vertices_num is not None:
+        print(ply_vertices_num)
         src_vertices_num = [src_h['np'] for src_h in src]
         print(src_vertices_num)
-        if not src_vertices_num[0] in ply_vertives_num.values() or \
-                not src_vertices_num[1] in ply_vertives_num.values():
+        if not src_vertices_num[0] in ply_vertices_num.values() or \
+                not src_vertices_num[1] in ply_vertices_num.values():
             raise Exception("src and ply files doesn't have the same vertices number! {}".format(SRC))
     else:
         print('No ply files to check the src!')
@@ -1697,14 +1701,15 @@ def calc_inverse_operator(
         empty_fname='', inv_loose=0.2, inv_depth=0.8, noise_t_min=None, noise_t_max=0, overwrite_inverse_operator=False,
         use_empty_room_for_noise_cov=False, use_raw_for_noise_cov=False, overwrite_noise_cov=False,
         calc_for_cortical_fwd=True, calc_for_sub_cortical_fwd=True, fwd_usingMEG=True, fwd_usingEEG=True,
-        check_for_channels_inconsistency=True, calc_for_spec_sub_cortical=False,
+        modality='meg', check_for_channels_inconsistency=True, calc_for_spec_sub_cortical=False,
         cortical_fwd=None, subcortical_fwd=None, spec_subcortical_fwd=None, region=None, args=None):
     raw_fname = get_raw_fname(raw_fname)
     fwd_fname = get_fwd_fname(fwd_fname, fwd_usingMEG, fwd_usingEEG)
     inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
     evo_fname = get_evo_fname(evo_fname)
     epo_fname = get_epo_fname(epo_fname)
-    empty_fname = get_empty_fname(empty_fname)
+    if use_empty_room_for_noise_cov:
+        empty_fname = get_empty_fname(empty_fname)
     noise_cov = None
     if noise_cov_fname == '':
         noise_cov_fname = NOISE_COV
@@ -1743,20 +1748,23 @@ def calc_inverse_operator(
                     cortical_fwd = get_cond_fname(fwd_fname, cond)
                 _calc_inverse_operator(
                     cortical_fwd, get_cond_fname(inv_fname, cond), raw_fname, get_cond_fname(evo_fname, cond),
-                    epo_fname, noise_cov, inv_loose, inv_depth, noise_cov_fname, check_for_channels_inconsistency)
+                    epo_fname, noise_cov, fwd_usingMEG, fwd_usingEEG, inv_loose, inv_depth, noise_cov_fname,
+                    check_for_channels_inconsistency)
             if calc_for_sub_cortical_fwd and (not op.isfile(get_cond_fname(INV_SUB, cond))
                                               or overwrite_inverse_operator):
                 if subcortical_fwd is None:
                     subcortical_fwd = get_cond_fname(FWD_SUB, cond)
                 _calc_inverse_operator(subcortical_fwd, get_cond_fname(INV_SUB, cond), raw_fname, evo_fname, epo_fname,
-                                       noise_cov, check_for_channels_inconsistency=check_for_channels_inconsistency)
+                                       noise_cov, fwd_usingMEG, fwd_usingEEG,
+                                       check_for_channels_inconsistency=check_for_channels_inconsistency)
             if calc_for_spec_sub_cortical and (not op.isfile(get_cond_fname(INV_X, cond, region=region))
                                                or overwrite_inverse_operator):
                 if spec_subcortical_fwd is None:
                     spec_subcortical_fwd = get_cond_fname(FWD_X, cond, region=region)
                 _calc_inverse_operator(
                     spec_subcortical_fwd, get_cond_fname(INV_X, cond, region=region), raw_fname,
-                    evo_fname, epo_fname, noise_cov, check_for_channels_inconsistency=check_for_channels_inconsistency)
+                    evo_fname, epo_fname, noise_cov, fwd_usingMEG, fwd_usingEEG,
+                    check_for_channels_inconsistency=check_for_channels_inconsistency)
             flag = True
         except:
             print(traceback.format_exc())
@@ -1770,8 +1778,9 @@ def read_noise_cov(noise_cov_fname):
     return mne.read_cov(noise_cov_fname)
 
 
-def _calc_inverse_operator(fwd_name, inv_name, raw_fname, evoked_fname, epochs_fname, noise_cov,
-                           inv_loose=0.2, inv_depth=0.8, noise_cov_fname='', check_for_channels_inconsistency=True):
+def _calc_inverse_operator(
+        fwd_name, inv_name, raw_fname, evoked_fname, epochs_fname, noise_cov, fwd_usingMEG, fwd_usingEEG,
+        inv_loose=0.2, inv_depth=0.8, noise_cov_fname='', check_for_channels_inconsistency=True):
     fwd = mne.read_forward_solution(fwd_name)
     # info = fwd['info']
     if op.isfile(evoked_fname):
@@ -1788,13 +1797,15 @@ def _calc_inverse_operator(fwd_name, inv_name, raw_fname, evoked_fname, epochs_f
         else:
             raise Exception("Can't find info for calculating the inverse operator!")
 
-    noise_cov = check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname, check_for_channels_inconsistency)
+    noise_cov = check_noise_cov_channels(
+        noise_cov, info, fwd, fwd_usingMEG, fwd_usingEEG, noise_cov_fname, check_for_channels_inconsistency)
     inverse_operator = make_inverse_operator(info, fwd, noise_cov,
         loose=inv_loose, depth=inv_depth)
     write_inverse_operator(inv_name, inverse_operator)
 
 
-def check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname='', check_for_channels_inconsistency=True):
+def check_noise_cov_channels(noise_cov, info, fwd, fwd_usingMEG, fwd_usingEEG, noise_cov_fname='',
+                             check_for_channels_inconsistency=True):
     fwd_sol_ch_names = fwd['sol']['row_names']
     if set([c['ch_name'] for c in info['chs']]) == set(noise_cov.ch_names) == set(fwd_sol_ch_names):
         return noise_cov
@@ -1814,8 +1825,18 @@ def check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname='', check_for
                 num_len_dict[group_type] = len(num)
                 break
     cov_dict.names, cov_dict.bads = [], []
-    C = [c['ch_name'] for c in info['chs'] if c['ch_name'][:3] in ['MEG', 'EEG']]
-    F = [c for c in fwd_sol_ch_names if c[:3] in ['MEG', 'EEG']]
+
+    if fwd_usingEEG and fwd_usingMEG:
+        sensors_set = ['EEG', 'MEG']
+    elif fwd_usingEEG and not fwd_usingMEG:
+        sensors_set = ['EEG']
+    elif fwd_usingMEG and not fwd_usingEEG:
+        sensors_set = ['MEG']
+    else:
+        raise Exception('both fwd_usingEEG and fwd_usingMEG are False!')
+
+    C = [c['ch_name'] for c in info['chs'] if c['ch_name'][:3] in sensors_set]
+    F = [c for c in fwd_sol_ch_names if c[:3] in sensors_set]
     setC, setF = set(C), set(F)
     for c in noise_cov.ch_names:
         group, num = get_sensor_group_num(c)
@@ -1828,13 +1849,13 @@ def check_noise_cov_channels(noise_cov, info, fwd, noise_cov_fname='', check_for
     noise_cov = get_cov_from_dict(cov_dict)
 
     if check_for_channels_inconsistency:
-        N = [c for c in noise_cov.ch_names if c[:3] in ['MEG', 'EEG']]
+        N = [c for c in noise_cov.ch_names if c[:3] in sensors_set]
         if not len(C) == len(N) == len(F):
             print('Inconsistency in channels num: info:{}, noise:{}, fwd:{}'.format(len(C), len(N), len(F)))
             ret = input('Do you want to continue? ')
             if not au.is_true(ret):
                 raise Exception('Inconsistency in channels names')
-        elif not set([c['ch_name'] for c in info['chs']]) == set(noise_cov.ch_names) == set(fwd_sol_ch_names):
+        elif not setC == set(noise_cov.ch_names) == setF:
             for k in range(len(C)):
                 # if not fwd_sol_ch_names[k] == noise_cov.ch_names[k] == info['chs'][k]['ch_name']:
                 if not C[k] == N[k] == F[k]:
@@ -1887,7 +1908,9 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
         stc_template = STC
         stc_hemi_template = STC_HEMI
     else:
-        stc_hemi_template = '{}{}'.format(stc_template[:-4], '-{hemi}.stc')
+        if stc_template.endswith('.stc'):
+            stc_template = stc_template[:-4]
+        stc_hemi_template = '{}{}'.format(stc_template, '-{hemi}.stc')
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
     stcs, stcs_num = {}, {}
     lambda2 = 1.0 / snr ** 2
@@ -1902,7 +1925,9 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
         events_keys.append('all')
     flag = False
     for cond_name in events_keys:
-        stc_fname = stc_template.format(cond=cond_name, method=inverse_method)[:-4]
+        stc_fname = stc_template.format(cond=cond_name, method=inverse_method)
+        if utils.get_parent_fol(stc_fname) == '':
+            stc_fname = op.join(MMVT_DIR, SUBJECT, modality, stc_fname)
         if op.isfile('{}.stc'.format(stc_fname)) and not overwrite_stc:
             stcs[cond_name] = mne.read_source_estimate(stc_fname)
             continue
@@ -1979,11 +2004,13 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
             if save_stc and (not op.isfile(stc_fname) or overwrite_stc) and \
                     not isinstance(stcs[cond_name], types.GeneratorType):
                 mmvt_fol = utils.make_dir(op.join(MMVT_DIR, MRI_SUBJECT, modality))
+                mmvt_stc_fname =  op.join(mmvt_fol, utils.namebase(stc_fname))
                 print('Saving the source estimate to {}.stc and\n {}.stc'.format(
-                    stc_fname, op.join(mmvt_fol, utils.namebase(stc_fname))))
+                    stc_fname, mmvt_stc_fname))
                 print('max: {}, min: {}'.format(np.max(stcs[cond_name].data), np.min(stcs[cond_name].data)))
-                stcs[cond_name].save(stc_fname)
-                utils.make_link(stc_fname, op.join(mmvt_fol, utils.namebase_with_ext(stc_fname)))
+                stcs[cond_name].save(mmvt_stc_fname)
+                if mmvt_stc_fname != stc_fname:
+                    utils.make_link(stc_fname, op.join(mmvt_fol, utils.namebase_with_ext(stc_fname)))
                 # stcs[cond_name].save(op.join(mmvt_fol, utils.namebase(stc_fname)))
             flag = True
         except:
@@ -2268,7 +2295,7 @@ def get_evoked_cond(cond_name, evo_fname='', epo_fname='', baseline=(None, 0), a
                 epochs = mne.read_epochs(epo_cond, apply_SSP_projection_vectors, add_eeg_ref)
                 evoked = epochs.average()
             mne.write_evokeds(evo_cond, evoked)
-    return evoked
+    return evoked[0] if isinstance(evoked, list) else evoked
 
 
 def get_cond_fname(fname, cond, **kargs):
@@ -3653,7 +3680,7 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
                 args.inv_loose, args.inv_depth, args.noise_t_min, args.noise_t_max, args.overwrite_inv,
                 args.use_empty_room_for_noise_cov, args.use_raw_for_noise_cov,
                 args.overwrite_noise_cov, args.inv_calc_cortical, args.inv_calc_subcorticals,
-                args.fwd_usingMEG, args.fwd_usingEEG, args.check_for_channels_inconsistency, args=args)
+                args.fwd_usingMEG, args.fwd_usingEEG, args.modality, args.check_for_channels_inconsistency, args=args)
     return flags
 
 
@@ -3679,7 +3706,9 @@ def calc_evokes_wrapper(subject, conditions, args, flags={}, raw=None, mri_subje
 
 
 def get_stc_hemi_template(stc_template):
-    return '{}{}'.format(stc_template[:-4], '-{hemi}.stc')
+    if stc_template.endswith('.stc'):
+        stc_template = stc_template[:-4]
+    return '{}{}'.format(stc_template, '-{hemi}.stc')
 
 
 def calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, flags={}, raw=None, epochs=None):

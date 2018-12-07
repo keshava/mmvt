@@ -243,20 +243,22 @@ def init_eeg_sensors():
     user_fol = mu.get_user_fol()
 
     eeg_data_files = sorted([mu.namebase(f) for f in glob.glob(op.join(
-        user_fol, 'eeg', 'eeg_*_sensors_evoked_data*.npy')) if 'minmax' not in mu.namebase(f)])
+        user_fol, 'eeg', 'eeg_*sensors_evoked_data*.npy')) if 'minmax' not in mu.namebase(f)])
     if len(eeg_data_files) == 0:
         return False
     items = []
     for ind, eeg_data_file in enumerate(eeg_data_files):
         item_name = eeg_data_file[len('eeg_'):eeg_data_file.index('sensors_evoked') - 1]
+        if item_name == '':
+            item_name = 'eeg_sensors'
         items.append((item_name, item_name, '', ind + 1))
     bpy.types.Scene.eeg_sensors_files = bpy.props.EnumProperty(
         items=items, description='Selects the EEG sensors evoked activity file.', update=eeg_sensors_files_update)
     bpy.context.scene.eeg_sensors_files = items[0][0]
 
-    eeg_helmet = bpy.data.objects.get('eeg_helmet')
-    if eeg_helmet is not None and bpy.data.objects.get('EEG_sensors'):
-        MEGPanel.eeg_vertices_sensors = mu.load(op.join(mu.get_user_fol(), 'eeg', 'eeg_vertices_sensors.pkl'))
+    # eeg_helmet = bpy.data.objects.get('eeg_helmet')
+    # if eeg_helmet is not None and bpy.data.objects.get('EEG_sensors'):
+    #     MEGPanel.eeg_vertices_sensors = mu.load(op.join(mu.get_user_fol(), 'eeg', 'eeg_vertices_sensors.pkl'))
 
 
     # eeg_data_files = sorted([f for f in glob.glob(op.join(user_fol, 'eeg', '*sensors_evoked_data*.npy'))
