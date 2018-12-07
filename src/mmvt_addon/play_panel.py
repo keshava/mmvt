@@ -236,15 +236,17 @@ def plot_something(self=None, context=None, cur_frame=0, uuid='', camera_fname='
     if play_type in ['stim_sources']:
         _addon().color_electrodes_sources()
     if play_type in ['eeg_helmet', 'eeg_helmet_source']:
+        bpy.context.scene.find_max_eeg_sensors = False
         _addon().color_eeg_sensors()
-        _addon().color_eeg_helmet()
+        # _addon().color_eeg_helmet()
     if play_type in ['eeg_sensors']:
         _addon().color_eeg_sensors()
     if play_type in ['meg_sensors']:
         _addon().color_meg_sensors()
     if play_type in ['meg_helmet', 'meg_helmet_source']:
+        bpy.context.scene.find_max_meg_sensors = False
         _addon().color_meg_sensors()
-        _addon().color_meg_helmet()
+        # _addon().color_meg_helmet()
     if successful_ret:
         if bpy.context.scene.save_images:
             _addon().save_image(play_type, bpy.context.scene.save_selected_view,

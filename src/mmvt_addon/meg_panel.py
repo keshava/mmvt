@@ -223,6 +223,7 @@ def meg_sensors_files_update(self, context):
                 items.append(('diff', 'Conditions difference', '', len(meg_sensors_meta_data['conditions']) +1))
         else:
             items = []
+        MEGPanel.meg_sensors_conditions_items = items
         bpy.types.Scene.meg_sensors_conditions = bpy.props.EnumProperty(items=items,
             description='Selects the condition to plot the MEG sensors activity.\n\nCurrent condition')
         if len(items) > 0:
@@ -236,6 +237,7 @@ def get_eeg_sensors_files_names():
     eeg_sensors_data_fname = op.join(user_fol, 'eeg', '{}_data.npy'.format(name))
     eeg_sensors_meta_data_fname = op.join(user_fol, 'eeg', '{}_data_meta.npz'.format(name))
     eeg_sensors_data_minmax_fname = op.join(user_fol, 'eeg', '{}_minmax.npy'.format(name))
+    # print('eeg sensors data: {}'.format(eeg_sensors_data_fname))
     return eeg_sensors_data_fname, eeg_sensors_meta_data_fname, eeg_sensors_data_minmax_fname
 
 
@@ -297,6 +299,7 @@ def eeg_sensors_files_update(self, context):
                 items.append(('diff', 'Conditions difference', '', len(eeg_sensors_meta_data['conditions']) +1))
         else:
             items = []
+        MEGPanel.eeg_sensors_conditions_items = items
         bpy.types.Scene.eeg_sensors_conditions = bpy.props.EnumProperty(items=items,
             description='Selects the condition to plot the EEG sensors activity.\n\nCurrent condition')
         if len(items) > 0:
@@ -460,6 +463,9 @@ def color_meg_sensors(threshold=None):
         threshold = 0
     _addon().coloring.color_objects_homogeneously(sensors_data, names, meta['conditions'], data_min, colors_ratio, threshold)
 
+    if not bpy.data.objects.get('meg_helmet', None) is None:
+        color_meg_helmet()
+
 
 def color_eeg_sensors(threshold=None):
     _addon().show_hide_eeg_sensors()
@@ -502,6 +508,9 @@ def color_eeg_sensors(threshold=None):
 
     _addon().coloring.color_objects_homogeneously(
         sensors_data, names, meta['conditions'], data_min, colors_ratio, threshold)
+
+    if not bpy.data.objects.get('eeg_helmet', None) is None:
+        color_eeg_helmet()
 
 
 # *************** Coloring classes
@@ -939,22 +948,24 @@ def meg_draw(self, context):
         col = layout.box().column()
         col.prop(context.scene, 'meg_sensors_files', text='')
         col.prop(context.scene, 'meg_sensors_types', text='')
-        col.prop(context.scene, "meg_sensors_conditions", text="")
+        if len(MEGPanel.meg_sensors_conditions_items) > 1:
+            col.prop(context.scene, "meg_sensors_conditions", text="")
         col.operator(ColorMEGSensors.bl_idname, text="Plot MEG sensors", icon='POTATO')
-        if not bpy.data.objects.get('meg_helmet', None) is None:
-            col.operator(ColorMEGHelmet.bl_idname, text="Plot MEG Helmet", icon='POTATO')
-            col.prop(context.scene, 'find_max_meg_sensors', text='Find peak activity')
-            col.prop(context.scene, 'plot_mesh_using_uv_map', text='Use UV map')
+        # if not bpy.data.objects.get('meg_helmet', None) is None:
+            # col.operator(ColorMEGHelmet.bl_idname, text="Plot MEG Helmet", icon='POTATO')
+            # col.prop(context.scene, 'plot_mesh_using_uv_map', text='Use UV map')
+        col.prop(context.scene, 'find_max_meg_sensors', text='Find peak activity')
 
     if MEGPanel.eeg_sensors_exist:
         col = layout.box().column()
         col.prop(context.scene, 'eeg_sensors_files', text='')
-        col.prop(context.scene, "eeg_sensors_conditions", text="")
+        if len(MEGPanel.eeg_sensors_conditions_items) > 1:
+            col.prop(context.scene, "eeg_sensors_conditions", text="")
         col.operator(ColorEEGSensors.bl_idname, text="Plot EEG sensors", icon='POTATO')
-        if not bpy.data.objects.get('eeg_helmet', None) is None:
-            col.operator(ColorEEGHelmet.bl_idname, text="Plot EEG Helmet", icon='POTATO')
-            col.prop(context.scene, 'find_max_eeg_sensors', text='Find peak activity')
-            col.prop(context.scene, 'plot_mesh_using_uv_map', text='Use UV map')
+        # if not bpy.data.objects.get('eeg_helmet', None) is None:
+            # col.operator(ColorEEGHelmet.bl_idname, text="Plot EEG Helmet", icon='POTATO')
+            # col.prop(context.scene, 'plot_mesh_using_uv_map', text='Use UV map')
+        col.prop(context.scene, 'find_max_eeg_sensors', text='Find peak activity')
 
     if MEGPanel.meg_clusters_files_exist:
         layout.prop(context.scene, 'meg_clusters_labels_files', text='')
@@ -1139,7 +1150,7 @@ class MEGPanel(bpy.types.Panel):
     bl_region_type = "UI"
     bl_context = "objectmode"
     bl_category = "mmvt"
-    bl_label = "MEG"
+    bl_label = "EEG and MEG"
     addon = None
     init = False
     clusters_labels = None
@@ -1158,6 +1169,8 @@ class MEGPanel(bpy.types.Panel):
     meg_sensors_data_minmax, meg_sensors_colors_ratio = None, None
     eeg_sensors_data, eeg_sensors_meta_data, eeg_sensors_data_minmax = {}, {}, None
     meg_sensors_data, meg_sensors_meta_data, meg_sensors_data_minmax = {}, {}, None
+    eeg_sensors_conditions_items = []
+    meg_sensors_conditions_items = []
 
     def draw(self, context):
         if MEGPanel.init:

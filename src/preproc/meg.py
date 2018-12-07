@@ -1047,7 +1047,7 @@ def get_inv_src(inv_fname, src=None, cond_name=''):
 
 def calc_evokes(epochs, events, mri_subject, normalize_data=False, epo_fname='', evoked_fname='', norm_by_percentile=False,
                 norm_percs=None, modality='meg', calc_max_min_diff=True, calc_evoked_for_all_epoches=False,
-                overwrite_evoked=False, task='', set_eeg_reference=True, average_per_event=True):
+                overwrite_evoked=False, task='', set_eeg_reference=True, average_per_event=True, bad_channels=[]):
     try:
         epo_fname = get_epo_fname(epo_fname)
         evoked_fname = get_evo_fname(evoked_fname)
@@ -1062,7 +1062,7 @@ def calc_evokes(epochs, events, mri_subject, normalize_data=False, epo_fname='',
             evoked = mne.read_evokeds(evoked_fname)
             if not all([op.isfile(f) for f in mmvt_files]):
                 save_evokes_to_mmvt(evoked, events_keys, mri_subject, None, normalize_data, norm_by_percentile,
-                                    norm_percs, modality, calc_max_min_diff, task)
+                                    norm_percs, modality, calc_max_min_diff, task, bad_channels)
             return True, evoked
         if epochs is None:
             epochs = mne.read_epochs(epo_fname)
@@ -1095,7 +1095,7 @@ def calc_evokes(epochs, events, mri_subject, normalize_data=False, epo_fname='',
         else:
             evokes_all = None
         save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all, normalize_data, norm_by_percentile,
-                            norm_percs, modality, calc_max_min_diff, task)
+                            norm_percs, modality, calc_max_min_diff, task, bad_channels)
         if '{cond}' in evoked_fname:
             # evokes = {event: epochs[event].average() for event in events_keys}
             for event, evoked in zip(events_keys, evokes):
@@ -1115,10 +1115,14 @@ def calc_evokes(epochs, events, mri_subject, normalize_data=False, epo_fname='',
 
 
 def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, normalize_data=False,
-                        norm_by_percentile=False, norm_percs=None, modality='meg', calc_max_min_diff=True, task=''):
+                        norm_by_percentile=False, norm_percs=None, modality='meg', calc_max_min_diff=True, task='',
+                        bad_channels=[]):
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
     first_evokes = evokes if isinstance(evokes, mne.evoked.EvokedArray) else evokes[0]
     info = evokes[0].info
+    for c in bad_channels:
+        if c not in info['bads'] and c in info['ch_names']:
+            info['bads'].append(c)
     picks, sensors_picks, ch_names, channels_sensors_dict = get_sensros_info(modality, info, first_evokes.ch_names)
 
     task_str = '{}_'.format(task) if task != '' else 'all_'
@@ -1496,13 +1500,13 @@ def _make_forward_solution(src, raw_fname, epo_fname, cor_fname, usingMEG=True, 
     try:
         fwd = mne.make_forward_solution(
             info=info_fname, trans=cor_fname, src=src, bem=bem, meg=usingMEG, eeg=usingEEG, mindist=5.0,
-            n_jobs=n_jobs, overwrite=True)
+            n_jobs=n_jobs) #, overwrite=True)
     except:
         utils.print_last_error_line()
         print('Trying to create fwd only with MEG')
         fwd = mne.make_forward_solution(
             info=info_fname, trans=cor_fname, src=src, bem=bem_fname, meg=usingMEG, eeg=False, mindist=5.0,
-            n_jobs=n_jobs, overwrite=True)
+            n_jobs=n_jobs) #, overwrite=True)
 
     return fwd
 
@@ -3700,7 +3704,7 @@ def calc_evokes_wrapper(subject, conditions, args, flags={}, raw=None, mri_subje
             epochs, conditions, mri_subject, args.normalize_data, args.epo_fname, args.evo_fname,
             args.norm_by_percentile, args.norm_percs, args.modality, args.calc_max_min_diff,
             args.calc_evoked_for_all_epoches, args.overwrite_evoked, args.task,
-            args.set_eeg_reference, args.average_per_event)
+            args.set_eeg_reference, args.average_per_event, bad_channels=args.bad_channels)
 
     return flags, evoked, epochs
 

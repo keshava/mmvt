@@ -427,7 +427,7 @@ def calc_eeg_mesh_verts_sensors():
             [eeg_obj.matrix_world.to_translation() * 10 for eeg_obj in bpy.data.objects['EEG_sensors'].children])
         max_dists = np.max(np.min(cdist(eeg_sensors_loc, eeg_helmet_vets_loc), axis=1))
         if max_dists > 0.01:
-            raise Exception('Wrong distances!')
+            print('calc_eeg_mesh_verts_sensors: Wrong distances!')
         eeg_helmet_indices = np.argmin(cdist(eeg_sensors_loc, eeg_helmet_vets_loc), axis=1)
     mu.save(eeg_helmet_indices, op.join(mu.get_user_fol(), 'eeg', 'eeg_vertices_sensors.pkl'))
 
