@@ -781,9 +781,9 @@ def calc_labels_power_spectrum(
                          label=label.name, cond=cond_name)
             if do_plot:
                 plot_label_psd(power_spectrum[:, label_ind, :, cond_ind], freqs, label, cond_name, plots_fol)
-        for hemi in utils.HEMIS:
-            for vert_no in vertices_data[hemi].keys():
-                vertices_data[label.hemi][vert_no] /= epochs_num
+        # for hemi in utils.HEMIS:
+        #     for vert_no in vertices_data[hemi].keys():
+        #         vertices_data[label.hemi][vert_no] /= epochs_num
         utils.save((vertices_data, freqs), vertices_data_fname)
         np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs)
 
