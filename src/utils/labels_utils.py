@@ -557,6 +557,11 @@ def read_labels(subject, subjects_dir, atlas, try_first_from_annotation=True, on
                 hemi='both', surf_name='pial', labels_fol='', read_only_from_annot=False, n_jobs=1):
     try:
         labels = []
+        # Fix for supporting both FS5.3 and FS6
+        if atlas == 'aparc.DKTatlas' and not op.isfile(op.join(
+                SUBJECTS_DIR, subject, 'label', 'rh.aparc.DKTatlas.annot')) and op.isfile(
+                op.join(SUBJECTS_DIR, subject, 'label', 'rh.aparc.DKTatlas40.annot')):
+            atlas = 'aparc.DKTatlas40'
         if try_first_from_annotation:
             try:
                 labels = mne.read_labels_from_annot(

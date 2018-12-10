@@ -596,8 +596,10 @@ def _clusters_update():
     _addon().save_cursor_position()
     _addon().create_slices()
     if bpy.context.scene.plot_current_meg_cluster:
+        # _addon().color_contours(
+        #     [cluster_name], cluster.hemi, MEGPanel.contours, bpy.context.scene.cumulate_meg_cluster, False)
         _addon().color_contours(
-            [cluster_name], cluster.hemi, MEGPanel.contours, bpy.context.scene.cumulate_meg_cluster, False)
+            [], 'both', MEGPanel.contours, bpy.context.scene.cumulate_meg_cluster, False)
     bpy.data.objects[PARENT_OBJ_NAME].select = True
     # mu.view_all_in_graph_editor()
     fcurves = mu.get_fcurves(PARENT_OBJ_NAME)
@@ -671,7 +673,8 @@ def dipole_fit():
 
 def set_cluster_time_series(cluster):
     cluster_uid_name = get_cluster_fcurve_name(cluster)
-    _addon().create_empty_if_doesnt_exists(PARENT_OBJ_NAME, _addon().EMPTY_LAYER, bpy.context.scene.layers, 'Functional maps')
+    _addon().create_empty_if_doesnt_exists(
+        PARENT_OBJ_NAME, _addon().EMPTY_LAYER, bpy.context.scene.layers, 'Functional maps')
     parent_obj = bpy.data.objects[PARENT_OBJ_NAME]
     T = len(cluster.label_data)
     cluster.label_data = np.array(cluster.label_data, dtype=np.float64)
@@ -1198,18 +1201,18 @@ def init(addon):
     if not MEGPanel.meg_clusters_files_exist:
         print('No MEG_clusters_files_exist')
     else:
+        for fname, name in zip(clusters_labels_files, files_names):
+            MEGPanel.clusters_labels_fnames[name] = fname
         bpy.types.Scene.meg_clusters_labels_files = bpy.props.EnumProperty(
             items=clusters_labels_items, description="meg files", update=meg_clusters_labels_files_update)
         bpy.context.scene.meg_clusters_labels_files = files_names[0]
+        _meg_clusters_labels_files_update()
         bpy.context.scene.meg_clusters_val_threshold = MEGPanel.clusters_labels.min_cluster_max
         bpy.context.scene.meg_clusters_size_threshold = MEGPanel.clusters_labels.min_cluster_size
         bpy.context.scene.meg_clusters_label = MEGPanel.clusters_labels.clusters_label
         bpy.context.scene.meg_how_to_sort = 'val'
         bpy.context.scene.meg_show_filtering = False
         bpy.context.scene.cumulate_meg_cluster = False
-
-        for fname, name in zip(clusters_labels_files, files_names):
-            MEGPanel.clusters_labels_fnames[name] = fname
 
     register()
     MEGPanel.init = True

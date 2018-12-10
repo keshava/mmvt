@@ -136,8 +136,10 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
         bpy.context.scene.meg_files = meg_file_name
     stc_t_fname = op.join(fol, '{}_t{}'.format(bpy.context.scene.meg_files, t))
     if op.isfile('{}-rh.stc'.format(stc_t_fname)) and op.isfile('{}-lh.stc'.format(stc_t_fname)):
-        print('Reading stc_t_smooth from {}'.format(stc_t_fname))
         stc_t_smooth = mne.read_source_estimate(stc_t_fname)
+        min_stc = mu.min_stc(stc_t_smooth)
+        max_stc = mu.max_stc(stc_t_smooth)
+        print('Reading stc_t_smooth from {} ({}-{}):'.format(stc_t_fname, min_stc, max_stc))
     else:
         # subjects_dir = mu.get_link_dir(mu.get_links_dir(), 'subjects')
         subjects_dir = mu.get_parent_fol(mu.get_user_fol())

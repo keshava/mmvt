@@ -781,9 +781,9 @@ def calc_labels_power_spectrum(
                          label=label.name, cond=cond_name)
             if do_plot:
                 plot_label_psd(power_spectrum[:, label_ind, :, cond_ind], freqs, label, cond_name, plots_fol)
-        # for hemi in utils.HEMIS:
-        #     for vert_no in vertices_data[hemi].keys():
-        #         vertices_data[label.hemi][vert_no] /= epochs_num
+        for hemi in utils.HEMIS:
+            for vert_no in vertices_data[hemi].keys():
+                vertices_data[hemi][vert_no] /= epochs_num
         utils.save((vertices_data, freqs), vertices_data_fname)
         np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs)
 
@@ -4188,12 +4188,12 @@ def calc_labels_power_bands_diff(subject, task1, task2, precentiles=(1, 99), fun
                  data_min=-data_diff_minmax, data_max=data_diff_minmax, cmap='BuPu-RdOrYl')
 
 
-
-def find_functional_rois_in_stc(subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=True, time_index=None,
-                                label_name_template='', peak_mode='abs', extract_mode='mean_flip',
-                                min_cluster_max=0, min_cluster_size=0, clusters_label='', src=None,
-                                inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True,
-                                recreate_src_spacing='oct6', n_jobs=6):
+def find_functional_rois_in_stc(
+        subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=True, time_index=None,
+        label_name_template='', peak_mode='abs', extract_mode='mean_flip',
+        min_cluster_max=0, min_cluster_size=0, clusters_label='', src=None,
+        inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True,
+        recreate_src_spacing='oct6', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, 'meg', 'clusters')
@@ -4227,17 +4227,22 @@ def find_functional_rois_in_stc(subject, mri_subject, atlas, stc_name, threshold
     connectivity = load_connectivity(subject)
     if threshold_is_precentile:
         threshold = np.percentile(stc_t_smooth.data, threshold)
-    clusters_name = '{}-{}'.format(stc_name, label_name_template.replace('*', '').replace('?', ''))
+    if threshold < 1e-4:
+        threshold *= np.power(10, 9) # nAmp
+    label_name_template_str = label_name_template.replace('*', '').replace('?', '')
+    clusters_name = '{}{}'.format(stc_name, '-{}'.format(
+        label_name_template_str) if label_name_template_str != '' else '')
     clusters_fol = op.join(clusters_root_fol, clusters_name)
     # data_minmax = utils.get_max_abs(utils.min_stc(stc), utils.max_stc(stc))
     # factor = -int(utils.ceil_floor(np.log10(data_minmax)))
-    threshold *= np.power(10, 9) # nAmp
     min_cluster_max = max(threshold, min_cluster_max)
     clusters_labels = utils.Bag(
         dict(stc_name=stc_name, threshold=threshold, time=time_index, label_name_template=label_name_template, values=[],
              min_cluster_max=min_cluster_max, min_cluster_size=min_cluster_size, clusters_label=clusters_label))
     for hemi in utils.HEMIS:
-        stc_data = (stc_t_smooth.rh_data if hemi == 'rh' else stc_t_smooth.lh_data).squeeze() * np.power(10, 9)
+        stc_data = (stc_t_smooth.rh_data if hemi == 'rh' else stc_t_smooth.lh_data).squeeze()
+        if np.max(stc_data) < 1e-4:
+            stc_data *= np.power(10, 9)
         clusters, _ = mne_clusters._find_clusters(stc_data, threshold, connectivity=connectivity[hemi])
         if len(clusters) == 0:
             print('No clusters where found for {}-{}!'.format(stc_name, hemi))
@@ -4313,8 +4318,8 @@ def extract_time_series_for_cluster(subject, mri_subject, stc, hemi, clusters, c
             # todo: set the recreate_src_spacing according to the stc
             # https://martinos.org/mne/dev/manual/cookbook.html#source-localization
             src = check_src(mri_subject, recreate_src_spacing=recreate_src_spacing)
-    for cluster_ind, cluster in enumerate(clusters):
-        cluster = utils.Bag(cluster)
+    for cluster_ind in range(len(clusters)):
+        cluster = utils.Bag(clusters[cluster_ind])
         # cluster: vertices, intersects, name, coordinates, max, hemi, size
         cluster_label = mne.Label(
             cluster.vertices, cluster.coordinates, hemi=cluster.hemi, name=cluster.name, subject=subject)
@@ -4322,15 +4327,19 @@ def extract_time_series_for_cluster(subject, mri_subject, stc, hemi, clusters, c
         if time_index == -1:
             cluster.ts_max = np.min(x) if abs(np.min(x)) > abs(np.max(x)) else np.max(x)
         else:
-            cluster.ts_max = x[time_index] * np.power(10, 9)
+            cluster.ts_max = x[time_index]
+            if cluster.ts_max < 1e-4:
+                cluster.ts_max *= np.power(10, 9)
         cluster_name = 'cluster_size_{}_max_{:.2f}_{}.label'.format(cluster.size, cluster.max, cluster.name)
         cluster_label.save(op.join(clusters_fol, cluster_name))
         if np.all(label_data == 0):
             cluster.label_data = None
         else:
             cluster.label_data = np.squeeze(label_data)
-            cluster.label_data *= np.power(10, 9)
+            if np.max(cluster.label_data) < 1e-4:
+                cluster.label_data *= np.power(10, 9)
             np.save(op.join(time_series_fol, '{}.npy'.format(cluster_name)), cluster.label_data)
+        clusters[cluster_ind] = cluster
     if len(clusters) > 0 and calc_contours:
         new_atlas_name = 'clusters-{}-{}'.format(utils.namebase(clusters_fol), hemi)
         annot_files = labels_to_annot(new_atlas_name, clusters_fol)

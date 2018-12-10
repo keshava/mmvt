@@ -346,6 +346,30 @@ def calc_msit_functional_rois(args):
     meg.call_main(_args)
 
 
+def calc_sample_clusters(args):
+    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, 'sample', 'meg', 'clusters'))
+    utils.delete_folder_files(clusters_root_fol)
+    _args = meg.read_cmd_args(dict(
+        subject=args.subject,
+        mri_subject=args.mri_subject,
+        task='audvis',
+        conditions=['LA', 'RA'],
+        function='find_functional_rois_in_stc',
+        stc_name='sample_audvis-meg',
+        inv_fname='sample_audvis-meg-eeg-oct-6-meg-eeg-inv',
+        label_name_template='*',
+        peak_stc_time_index=10,
+        # peak_mode='pos',
+        threshold=9,#99.5,
+        threshold_is_precentile=False,
+        # min_cluster_max=5,
+        min_cluster_size=100,
+        # recreate_src_spacing='ico5'
+        # clusters_label='precentral'
+    ))
+    meg.call_main(_args)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MMVT')
     parser.add_argument('-s', '--subject', help='subject name', required=True, type=au.str_arr_type)
