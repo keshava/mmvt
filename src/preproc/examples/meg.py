@@ -352,7 +352,7 @@ def calc_sample_clusters(args):
 
     clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, 'sample', 'meg', 'clusters'))
     for threshold in np.arange(2, 9.6, 0.1):
-        utils.delete_folder_files(clusters_root_fol)
+        utils.delete_folder_files(op.join(clusters_root_fol, 'sample_audvis-meg'))
         _args = meg.read_cmd_args(dict(
             subject=args.subject,
             mri_subject=args.mri_subject,
