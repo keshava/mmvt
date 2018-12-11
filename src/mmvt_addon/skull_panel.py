@@ -166,7 +166,7 @@ def find_point_thickness(cursor_location=None, skull_type=''):
     return closest_mesh_name, vertex_ind, vertex_co
 
 
-# def fix_normals():
+# def fix_children_normals():
 #     # c = mu.get_view3d_context()
 #     bpy.ops.object.select_all(action='DESELECT')
 #
@@ -425,7 +425,7 @@ class CalcThickness(bpy.types.Operator):
     bl_options = {"UNDO"}
 
     def invoke(self, context, event=None):
-        # fix_normals()
+        # fix_children_normals()
         for inner in [True, False]:
             ray_cast(inner, bpy.context.scene.create_thickness_arrows) # and inner and )
         return {'PASS_THROUGH'}

@@ -2920,15 +2920,17 @@ def in_mat(x, y, z, mat):
     return in_range(x, 0, X - 1), in_range(y, 0, Y - 1), in_range(z, 0, Z - 1)
 
 
-def fix_normals(parent_name):
-    parent_obj =  bpy.data.objects.get(parent_name)
+def fix_children_normals(parent_obj):
+    if isinstance(parent_obj, str):
+        parent_obj =  bpy.data.objects.get(parent_obj)
     if parent_obj is None:
-        print('Can\'t find {}!'.format(parent_name))
+        print('Can\'t find {}!'.format(parent_obj.name))
         return
-    for obj in bpy.data.objects:
-        obj.select = False
+    # for obj in bpy.data.objects:
+    #     obj.select = False
+    bpy.ops.object.select_all(action='DESELECT')
     bm = bmesh.new()
-    for obj in bpy.data.objects[parent_name].children:
+    for obj in parent_obj.children:
         mesh = obj.data
         bm.from_mesh(mesh)
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
@@ -2936,6 +2938,36 @@ def fix_normals(parent_name):
         bm.clear()
         mesh.update()
     bm.free()
+
+
+def fix_normals(obj):
+    if isinstance(obj, str):
+        obj =  bpy.data.objects.get(obj)
+    bpy.ops.object.select_all(action='DESELECT')
+    bm = bmesh.new()
+    mesh = obj.data
+    bm.from_mesh(mesh)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.clear()
+    mesh.update()
+    bm.free()
+
+
+def recalc_normals(obj, calc_inside=False):
+    if isinstance(obj, str):
+        obj =  bpy.data.objects.get(obj)
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select = True
+    bpy.context.scene.objects.active = obj
+    # go edit mode
+    bpy.ops.object.mode_set(mode='EDIT')
+    # select al faces
+    bpy.ops.mesh.select_all(action='SELECT')
+    # recalculate outside normals
+    bpy.ops.mesh.normals_make_consistent(inside=calc_inside)
+    # go object mode again
+    bpy.ops.object.editmode_toggle()
 
 
 def prop_exist(prop_name):

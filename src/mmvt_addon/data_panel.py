@@ -199,7 +199,7 @@ def import_subcorticals(base_path, parent_name='Subcortical'):
                 else:
                     mu.log_err('import_subcorticals: Wrong path_type! Nothing to do...', logging)
                 cur_obj.hide_select = True
-                mu.fix_normals('{}_meg_activity_map'.format(parent_name))
+                mu.fix_children_normals('{}_meg_activity_map'.format(parent_name))
             except:
                 mu.log_err('Error in importing {}!'.format(ply_fname), logging)
     bpy.ops.object.select_all(action='DESELECT')
@@ -365,7 +365,7 @@ def import_rois(base_path, selected_inputs=None):
                 cur_obj.active_material = current_mat
                 cur_obj.hide = False
                 cur_obj.name = new_obj_name
-                mu.fix_normals(anatomy_name)
+                mu.fix_children_normals(anatomy_name)
             except:
                 mu.log_err('import_rois: Error in importing {}'.format(ply_fname), logging)
             # cur_obj.location[0] += 5.5 if 'rh' in anatomy_name else -5.5
@@ -412,7 +412,7 @@ def recalc_eeg_mesh_faces_verts():
     ply_file_name = op.join(mu.get_user_fol(), 'eeg', 'eeg_helmet.ply')
     utils.calc_ply_faces_verts(verts, faces, out_file, overwrite=True)
     utils.write_ply_file(verts, faces, ply_file_name, write_also_npz=True)
-    mu.fix_normals('eeg_helmet')
+    mu.fix_children_normals('eeg_helmet')
 
 
 def calc_eeg_mesh_verts_sensors():
@@ -468,7 +468,7 @@ def recalc_meg_mesh_faces_verts():
     ply_file_name = op.join(mu.get_user_fol(), 'meg', 'meg_helmet.ply')
     utils.calc_ply_faces_verts(verts, faces, out_file, overwrite=True)
     utils.write_ply_file(verts, faces, ply_file_name, write_also_npz=True)
-    mu.fix_normals('meg_helmet')
+    mu.fix_children_normals('meg_helmet')
 
 
 def calc_meg_mesh_verts_sensors():
