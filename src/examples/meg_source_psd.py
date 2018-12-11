@@ -8,6 +8,8 @@ from src.preproc import meg
 from src.preproc import fMRI as fmri
 from src.preproc import connectivity
 from src.utils import freesurfer_utils as fu
+import mne
+from collections import defaultdict
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
@@ -36,8 +38,8 @@ def calc_meg_source_psd(args):
         inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
         _args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
-            function='make_forward_solution,calc_inverse_operator,calc_vertices_data_power_bands', #calc_labels_power_spectrum',
-            task=args.task,
+            function='make_forward_solution,calc_inverse_operator,calc_vertices_data_power_bands',
+            task='MSIT',
             data_per_task=True,
             fmin=65, fmax=120,
             raw_fname=local_raw_fname,
@@ -47,6 +49,49 @@ def calc_meg_source_psd(args):
             n_jobs=args.n_jobs
         ))
         meg.call_main(_args)
+
+
+def morph_meg_powers(args):
+    subjects = args.subject
+    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg', 'morphed'))
+    for subject in subjects:
+        for band, stc_band in bands.items():
+            output_fname = op.join(fol, '{}_{}'.format(subject, band))
+            if op.isfile(output_fname) and not args.overwrite:
+                continue
+            stc_fname = op.join(MMVT_DIR, subject, 'meg', 'all_dSPM_mean_flip_{}_power-{}.stc'.format(band, '{hemi}'))
+            if not utils.both_hemi_files_exist(stc_fname):
+                continue
+            stc = mne.read_source_estimate(stc_fname.format(hemi='lh'))
+            stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, smooth=70, n_jobs=args.n_jobs)
+            print('Saving {}'.format(output_fname))
+            stc_morphed.save(output_fname)
+
+
+def average_meg_powers(args):
+    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg'))
+    power_upper_limit = 1e4
+    powers = defaultdict(list)
+    stc_mean = {}
+    stcs_num = {}
+    for band, stc_band in bands.items():
+        stc_mean[band] = None
+        stcs_num[band] = 0
+        stcs_fnames = glob.glob(op.join(fol, 'morphed',  '*_{}-{}.stc'.format(band, 'lh')))
+        for stc_fname in stcs_fnames:
+            stc = mne.read_source_estimate(stc_fname, args.morph_target)
+            min_stc, max_stc = utils.calc_min_max_stc(stc)
+            if max_stc > power_upper_limit:
+                continue
+            powers[band].append(utils.calc_mean_stc(stc))
+            stc_mean[band] = stc if stc_mean[band] is None else stc_mean[band] + stc
+            stcs_num[band] += 1
+    for band, stc_band in bands.items():
+        stc_mean[band] /= stcs_num[band]
+        stc_mean[band].save(op.join(fol, 'MSIT_mean_{}'.format(band)))
+        print('{} {}+-{}'.format(band, np.mean(powers[band]), np.std(powers[band])))
 
 
 
@@ -77,6 +122,8 @@ if __name__ == '__main__':
     parser.add_argument('--epo_template', required=False, default='{subject}_{task}_meg_Onset_ar-epo.fif')
     parser.add_argument('--raw_template', required=False, default='{subject}_{task}_meg_ica-raw.fif')
     parser.add_argument('--inv_template', required=False, default='{subject}_{task}_Onset-inv.fif')
+    parser.add_argument('--morph_target', required=False, default='fsaverage5')
+    parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
     args.subject = pu.decode_subjects(args.subject, remote_subject_dir=args.remote_subject_dir)

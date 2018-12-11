@@ -803,7 +803,7 @@ def calc_vertices_data_power_bands(
     if bands is None:
         bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
 
-    ret = True
+    results_num = 0
     for (cond_ind, cond_name), em in product(enumerate(events_keys), extract_modes):
         if vertices_data is None or freqs is None:
             vertices_data_fname = op.join(fol, '{}_{}_{}_vertices_power_spectrum.pkl'.format(cond_name, inverse_method, em))
@@ -813,7 +813,7 @@ def calc_vertices_data_power_bands(
             vertices_data, freqs = utils.load(vertices_data_fname)
         for band, (lf, hf) in bands.items():
             stc_fname = op.join(fol, '{}_{}_{}_{}_power'.format(cond_name, inverse_method, em, band))
-            if op.isfile(stc_fname) and not overwrite:
+            if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_fname, '{hemi}')) and not overwrite:
                 continue
             band_mask = np.where((freqs >= lf) & (freqs <= hf))[0]
             data = {hemi: [vertices_data[hemi][vert_ind][band_mask].mean() for vert_ind in vertices_data[hemi].keys()]
@@ -821,8 +821,8 @@ def calc_vertices_data_power_bands(
             stc_power = creating_stc_obj(data, vertices_data, subject)
             print('Saving power stc to: {}'.format(stc_fname))
             stc_power.save(stc_fname)
-            ret = ret and utils.both_hemi_files_exist('{}-{}.stc'.format(stc_fname, '{hemi}'))
-    return ret
+            results_num += 1 if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_fname, '{hemi}')) else 0
+    return results_num == len(events_keys) * len(bands)
 
 
 def creating_stc_obj(data_dict, vertno_dict, subject, tmin=0, tstep=0):
@@ -2711,8 +2711,10 @@ def create_stc_t_from_data(subject, rh_data, lh_data, tstep=0.001):
 
 @utils.files_needed({'surf': ['lh.sphere.reg', 'rh.sphere.reg']})
 def morph_stc(subject, events, morph_to_subject, inverse_method='dSPM', grade=5, smoothing_iterations=None,
-              overwrite=False, n_jobs=6):
+              stc_name='', overwrite=False, n_jobs=6):
     ret = True
+    # if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+    #         output_fname = op.join(MMVT_DIR, morph_to_subject stc_name.replace(subject, morph_to_subject)
     for ind, cond in enumerate(events.keys()):
         input_fname = stc_fname = STC_HEMI.format(cond=cond, method=inverse_method, hemi='rh')
         if not op.isfile(input_fname):

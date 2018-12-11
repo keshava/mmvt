@@ -2280,6 +2280,20 @@ def max_stc(stc, max_perc=None):
     return max([max_stc_hemi(stc, hemi, max_perc) for hemi in HEMIS])
 
 
+def calc_min_max_stc(stc, min_perc=None, max_perc=None):
+    return min_stc(stc, min_perc), max_stc(stc, max_perc)
+
+
+def calc_mean_stc(stc):
+    data = np.concatenate([stc.lh_data, stc.rh_data])
+    return np.mean(data)
+
+
+def calc_mean_stc_hemi(stc, hemi):
+    data = stc.lh_data if hemi=='lh' else stc.rh_data
+    return np.mean(data)
+
+
 def check_hemi(hemi):
     if hemi in HEMIS:
         hemi = [hemi]
