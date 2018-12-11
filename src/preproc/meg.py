@@ -661,9 +661,9 @@ def calc_baseline_sensors_bands_psd(mri_subject, epo_fname='', raw_template='', 
     return ret
 
 
-def calc_source_psd(subject, events, mri_subject='', raw_fname='', inv_fname='', method='dSPM', snr=3.0,
-                    tmin=0.0, tmax=None, fmin=0.0, fmax=200.0, n_fft=2048, overlap=0.5,
-                    pick_ori='normal', label=None, nave=1, pca=True, bandwidth='hann', adaptive=False,
+def calc_source_baseline_psd(subject, task, mri_subject='', raw_fname='', epo_fname='', inv_fname='', method='dSPM', snr=3.0,
+                    baseline_len=10000, l_freq=1, h_freq=120, n_fft=2048, overlap=0.5,
+                    pick_ori='normal', bad_channels=[], nave=1, pca=True, bandwidth='hann', adaptive=False,
                     fwd_usingMEG=True, fwd_usingEEG=True, output_as_db=True, overwrite=False, n_jobs=4):
     if mri_subject == '':
         mri_subject = subject
@@ -672,22 +672,40 @@ def calc_source_psd(subject, events, mri_subject='', raw_fname='', inv_fname='',
     raw_fname = get_raw_fname(raw_fname)
     lambda2 = 1.0 / snr ** 2
     raw, inverse_operator = None, None
-    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
-    for cond_ind, cond_name in enumerate(events_keys):
-        output_fname = op.join(fol, '{}_source_psd.npz'.format(cond_name))
-        if op.isfile(output_fname) and not overwrite:
-            print('{}: source psd already exist'.format(cond_name))
-            continue
-        if inverse_operator is None:
-            inverse_operator = read_inverse_operator(inv_fname)
-        if raw is None:
-            raw = mne.io.read_raw_fif(raw_fname)
-        stc_psd, sensor_psd = mne.minimum_norm.compute_source_psd(
-            raw, inverse_operator, lambda2, method, tmin, tmax, fmin, fmax, n_fft, overlap, pick_ori, label, nave, pca,
-            bandwidth=bandwidth, adaptive=adaptive, return_sensor=True, dB=output_as_db, n_jobs=n_jobs)
-        mne.write_evokeds(op.join(MMVT_DIR, subject, 'meg', 'sensors_psd-eve.fif'), sensor_psd)
-        stc_psd.save(op.join(MMVT_DIR, subject, 'meg', 'source_psd'))
+
+    output_fname = op.join(fol, '{}_{}_baseline_psd'.format(task, method))
+    sensors_output_fname = op.join(fol, '{}_sensors_baseline_psd-eve.fif'.format(task))
+    if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not overwrite:
+        print('source psd already exist'.format(output_fname))
+        return True
+    epo_fname = get_epo_fname(epo_fname)
+    if not op.isfile(epo_fname):
+        print('calc_source_baseline_psd: Can\'t find the epochs file! {}'.format(epo_fname))
+        return False
+    raw_fname = get_raw_fname(raw_fname, include_empty=False)
+    if not op.isfile(raw_fname):
+        print('calc_raw_bands_psd: No raw file!')
+        return None
+
+    raw = load_raw(raw_fname, bad_channels, l_freq, h_freq)
+    try:
+        raw.set_eeg_reference('average', projection=True)  # set EEG average reference
+    except:
+        print('calc_raw_bands_psd: Can\'t set_eeg_reference')
+
+    epochs = mne.read_epochs(epo_fname)
+    t_end = epochs.events[0, 0]
+    t_start = 0 if t_end <= baseline_len else t_end - baseline_len
+    raw.crop(t_start / raw.info['sfreq'], t_end / raw.info['sfreq'])
+
+    if inverse_operator is None:
+        inverse_operator = read_inverse_operator(inv_fname)
+    stc_psd, sensor_psd = mne.minimum_norm.compute_source_psd(
+        raw, inverse_operator, lambda2, method, 0, None, l_freq, h_freq, n_fft, overlap, pick_ori, None, nave, pca,
+        bandwidth=bandwidth, adaptive=adaptive, return_sensor=True, dB=output_as_db, n_jobs=n_jobs)
+    mne.write_evokeds(sensors_output_fname, sensor_psd)
+    stc_psd.save(output_fname)
     return True
 
 
@@ -750,16 +768,6 @@ def calc_labels_power_spectrum(
 
         for label_ind, label in enumerate(labels):
             utils.time_to_go(now, label_ind, len(labels), 1)
-            # output_tmp_fname = op.join(tmp_fol, '{}_{}_{}_{}_power_spectrum.npz'.format(
-            #     cond_name, inverse_method, em, label.name))
-            # if op.isfile(output_tmp_fname) and not overwrite:
-            #     print('Loading {} power spectrum from tmp file'.format(label.name))
-            #     d = utils.Bag(np.load(output_tmp_fname))
-            #     label_ps = np.load(d.power_spectrum)
-            #     if power_spectrum is None:
-            #         power_spectrum = np.empty((label_ps.shape[0], len(labels), len(d.frequencies), len(events)))
-            #     power_spectrum[:, label_ind, :, cond_ind] = label_ps
-            #     continue
             stcs = mne.minimum_norm.compute_source_psd_epochs(
                 epochs, inverse_operator, lambda2=lambda2, method=inverse_method, fmin=fmin, fmax=fmax,
                 bandwidth=bandwidth, label=label, return_generator=True, n_jobs=n_jobs)
@@ -4927,10 +4935,16 @@ def main(tup, remote_subject_dir, org_args, flags=None):
         flags['calc_epochs_bands_psd'] = calc_epochs_bands_psd(
             subject, conditions, args.precentiles, overwrite=args.overwrite_sensors_psd)
 
-    if 'calc_source_psd' in args.function:
-        flags['calc_source_psd'] = calc_source_psd(
-            subject, conditions, mri_subject, args.raw_fname, args.inv_fname, method=inverse_method,
+    if 'calc_source_baseline_psd' in args.function:
+        flags['calc_source_baseline_psd'] = calc_source_baseline_psd(
+            subject, args.task, mri_subject, args.raw_fname, args.epo_fname, args.inv_fname, method=inverse_method,
             n_jobs=args.n_jobs)
+
+        # calc_source_baseline_psd(subject, task, mri_subject='', raw_fname='', epo_fname='', inv_fname='', method='dSPM',
+        #                          snr=args.snr,
+        #                          baseline_len=10000, l_freq=1, h_freq=120, n_fft=2048, overlap=0.5,
+        #                          pick_ori='normal', bad_channels=[], nave=1, pca=True, bandwidth='hann', adaptive=False,
+        #                          fwd_usingMEG=True, fwd_usingEEG=True, output_as_db=True, overwrite=False, n_jobs=4)
 
     if 'calc_labels_power_spectrum' in args.function:
         flags['calc_labels_power_spectrum'] = calc_labels_power_spectrum(

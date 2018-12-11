@@ -96,7 +96,7 @@ def plot_source_band_induced_power(stcs):
 
 
 @timeit
-def calc_source_psd_epochs(epochs, inverse_operator, inverse_method, label, bands, lambda2, bandwidth):
+def calc_source_baseline_psd_epochs(epochs, inverse_operator, inverse_method, label, bands, lambda2, bandwidth):
     powers = np.empty((len(bands.keys()), len(epochs)))
     for band_ind, (fmin, fmax) in enumerate(bands.values()):
         # with warnings.catch_warnings():
@@ -124,6 +124,6 @@ if __name__ == '__main__':
     stcs = calc_source_band_induced_power(epochs, inverse_operator, label, bands, n_cycles)
     plot_source_band_induced_power(stcs)
 
-    psd_powers = calc_source_psd_epochs(epochs, inverse_operator, inverse_method, label, bands, lambda2, bandwidth)
+    psd_powers = calc_source_baseline_psd_epochs(epochs, inverse_operator, inverse_method, label, bands, lambda2, bandwidth)
     plt.show()
 

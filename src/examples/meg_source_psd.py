@@ -58,13 +58,13 @@ def morph_meg_powers(args):
     for subject in subjects:
         for band, stc_band in bands.items():
             output_fname = op.join(fol, '{}_{}'.format(subject, band))
-            if op.isfile(output_fname) and not args.overwrite:
+            if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
                 continue
             stc_fname = op.join(MMVT_DIR, subject, 'meg', 'all_dSPM_mean_flip_{}_power-{}.stc'.format(band, '{hemi}'))
             if not utils.both_hemi_files_exist(stc_fname):
                 continue
             stc = mne.read_source_estimate(stc_fname.format(hemi='lh'))
-            stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, smooth=70, n_jobs=args.n_jobs)
+            stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, n_jobs=args.n_jobs)
             print('Saving {}'.format(output_fname))
             stc_morphed.save(output_fname)
 
