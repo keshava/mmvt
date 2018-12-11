@@ -787,9 +787,56 @@ def calc_labels_power_spectrum(
         utils.save((vertices_data, freqs), vertices_data_fname)
         np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs)
 
+    calc_vertices_data_power_bands(subject, events, mri_subject, inverse_method, extract_modes, vertices_data, freqs)
     calc_labels_power_bands(
         mri_subject, atlas, events, inverse_method, extract_modes, precentiles, bands, labels, overwrite, n_jobs=n_jobs)
     return True
+
+
+def calc_vertices_data_power_bands(
+        subject, events, mri_subject='', inverse_method='dSPM', extract_modes=['mean_flip'],
+        vertices_data=None, freqs=None, bands=None, overwrite=False):
+    if mri_subject == '':
+        mri_subject = subject
+    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
+    fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
+    if bands is None:
+        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+
+    ret = True
+    for (cond_ind, cond_name), em in product(enumerate(events_keys), extract_modes):
+        if vertices_data is None or freqs is None:
+            vertices_data_fname = op.join(fol, '{}_{}_{}_vertices_power_spectrum.pkl'.format(cond_name, inverse_method, em))
+            if not op.isfile(vertices_data_fname):
+                print('Can\'t find {}!'.format(vertices_data_fname))
+                continue
+            vertices_data, freqs = utils.load(vertices_data_fname)
+        for band, (lf, hf) in bands.items():
+            stc_fname = op.join(fol, '{}_{}_{}_{}_power'.format(cond_name, inverse_method, em, band))
+            if op.isfile(stc_fname) and not overwrite:
+                continue
+            band_mask = np.where((freqs >= lf) & (freqs <= hf))[0]
+            data = {hemi: [vertices_data[hemi][vert_ind][band_mask].mean() for vert_ind in vertices_data[hemi].keys()]
+                    for hemi in utils.HEMIS}
+            stc_power = creating_stc_obj(data, vertices_data, subject)
+            print('Saving power stc to: {}'.format(stc_fname))
+            stc_power.save(stc_fname)
+            ret = ret and utils.both_hemi_files_exist('{}-{}.stc'.format(stc_fname, '{hemi}'))
+    return ret
+
+
+def creating_stc_obj(data_dict, vertno_dict, subject, tmin=0, tstep=0):
+    vertno, data = {}, {}
+    for hemi in utils.HEMIS:
+        verts_indices = np.array(list(vertno_dict[hemi].keys()))
+        indices_ord = np.argsort(verts_indices)
+        vertno[hemi] = verts_indices[indices_ord]
+        data[hemi] = np.array(data_dict[hemi])[indices_ord]
+    data = np.concatenate([data['lh'], data['rh']])
+    data = np.reshape(data, (len(data), 1))
+    vertices = [vertno['lh'], vertno['rh']]
+    stc = mne.SourceEstimate(data, vertices, tmin, tstep, subject=subject)
+    return stc
 
 
 def plot_psds(subject, power_spectrum, freqs, labels, cond_ind, cond_name, plots_fol):
@@ -4890,6 +4937,10 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.apply_SSP_projection_vectors, args.add_eeg_ref, args.fwd_usingMEG, args.fwd_usingEEG, args.surf_name,
             args.precentiles, overwrite=args.overwrite_labels_power_spectrum, save_tmp_files=args.save_tmp_files,
             n_jobs=args.n_jobs)
+
+    if 'calc_vertices_data_power_bands' in args.function:
+        flags['calc_vertices_data_power_bands'] = calc_vertices_data_power_bands(
+            subject, conditions, MRI_SUBJECT, inverse_method, args.extract_mode)
 
     if 'calc_labels_power_bands' in args.function:
         flags['calc_labels_power_bands'] = calc_labels_power_bands(
