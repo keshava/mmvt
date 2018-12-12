@@ -686,8 +686,8 @@ def calc_source_baseline_psd(subject, task, mri_subject='', raw_fname='', epo_fn
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
     baseline_psd_output_fname = op.join(fol, '{}_{}_baseline_psd'.format(task, method))
     sensors_output_fname = op.join(fol, '{}_sensors_baseline_psd-eve.fif'.format(task))
-    if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not overwrite:
-        print('source psd already exist'.format(output_fname))
+    if utils.both_hemi_files_exist('{}-{}.stc'.format(baseline_psd_output_fname, '{hemi}')) and not overwrite:
+        print('source psd already exist'.format(baseline_psd_output_fname))
         return True
 
     raw = load_raw(raw_fname, bad_channels, l_freq, h_freq)
