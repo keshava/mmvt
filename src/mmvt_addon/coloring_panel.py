@@ -110,7 +110,7 @@ def plot_meg():
 @mu.timeit
 def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
              view_selected=False, subject='', save_prev_colors=False, cm=None,
-             save_with_color_bar=True, n_jobs=-1):
+             save_with_color_bar=True, read_chache=False, n_jobs=-1):
     import mne
     subject = mu.get_user() if subject == '' else subject
     n_jobs = mu.get_n_jobs(n_jobs)
@@ -135,7 +135,7 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
         meg_file_name = mu.namebase(stc)[:-len('-rh')]
         bpy.context.scene.meg_files = meg_file_name
     stc_t_fname = op.join(fol, '{}_t{}'.format(bpy.context.scene.meg_files, t))
-    if op.isfile('{}-rh.stc'.format(stc_t_fname)) and op.isfile('{}-lh.stc'.format(stc_t_fname)):
+    if read_chache and op.isfile('{}-rh.stc'.format(stc_t_fname)) and op.isfile('{}-lh.stc'.format(stc_t_fname)):
         stc_t_smooth = mne.read_source_estimate(stc_t_fname)
         min_stc = mu.min_stc(stc_t_smooth)
         max_stc = mu.max_stc(stc_t_smooth)
