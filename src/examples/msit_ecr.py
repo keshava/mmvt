@@ -289,7 +289,7 @@ def meg_preproc_power(args):
 
     function = 'make_forward_solution,calc_inverse_operator'
     if calc_power_spectrum:
-        function += ',calc_labels_power_spectrum'
+        function += ',calc_source_power_spectrum'
     else:
         function += ',calc_labels_induced_power'
 

@@ -9,6 +9,7 @@ import numpy as np
 import re
 import mmvt_utils as mu
 import colors_utils as cu
+import mne
 
 
 def _addon():
@@ -213,6 +214,10 @@ def _load_labels_data(labels_data_fname):
         print('Currently we support only mat and npz files')
         return False
     labels, data = d.names, d.data
+    if isinstance(labels[0], mne.Label):
+        labels = [l.name for l in labels]
+    if data.ndim == 2 :
+        data = data.mean(axis=1) if data.shape[0] == len(labels) else data.mean(axis=0)
     if 'atlas' not in d:
         atlas = mu.check_atlas_by_labels_names(labels)
         if atlas == '':
@@ -340,6 +345,11 @@ def set_labels_plotted(val):
     LabelsPanel.labels_plotted = val
 
 
+def both_dkt():
+    return bpy.context.scene.atlas.startswith('aparc.DKTatlas') and \
+           LabelsPanel.labels_data_atlas.startswith('aparc.DKTatlas')
+
+
 def labels_draw(self, context):
     layout = self.layout
 
@@ -347,7 +357,7 @@ def labels_draw(self, context):
     col.label(text='Cortical labels data:')
     if len(LabelsPanel.labels_data_files) > 0:
         col.prop(context.scene, 'labels_data_files', text='')
-        if LabelsPanel.labels_data_atlas == bpy.context.scene.atlas:
+        if LabelsPanel.labels_data_atlas == bpy.context.scene.atlas or both_dkt():
             col.prop(context.scene, 'color_rois_homogeneously', text="Color labels homogeneously")
         if LabelsPanel.atlas_in_annot_files:
             row = col.row(align=True)

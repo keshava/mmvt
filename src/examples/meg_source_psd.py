@@ -6,8 +6,6 @@ from src.utils import utils
 from src.preproc import anatomy as anat
 from src.preproc import meg
 from src.preproc import fMRI as fmri
-from src.preproc import connectivity
-from src.utils import freesurfer_utils as fu
 import mne
 from collections import defaultdict
 
@@ -38,7 +36,7 @@ def calc_meg_source_psd(args):
         inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
         _args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
-            function='calc_source_baseline_psd', #make_forward_solution,calc_inverse_operator,calc_labels_power_spectrum',
+            function='make_forward_solution,calc_inverse_operator,calc_source_power_spectrum,calc_source_baseline_psd',
             task='MSIT',
             data_per_task=True,
             fmin=1, fmax=120,
@@ -51,22 +49,51 @@ def calc_meg_source_psd(args):
         meg.call_main(_args)
 
 
-def morph_meg_powers(args):
-    subjects = args.subject
+def normalize_meg_source_psd(args):
+    utils.run_parallel(_normalize_meg_source_psd, args.subject, args.n_jobs)
+
+
+def _normalize_meg_source_psd(subject):
     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    fol = op.join(MMVT_DIR, subject, 'meg')
+    for band, stc_band in bands.items():
+        output_fname = op.join(fol, 'all_dSPM_mean_flip_{}_norm_power'.format(band))
+        if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
+            continue
+        file_name = op.join(fol, 'all_dSPM_mean_flip_{}_power'.format(band))
+        if not utils.both_hemi_files_exist('{}-{}.stc'.format(file_name, '{hemi}')):
+            print('{} is missing!'.format(file_name))
+            continue
+        baseline_file_name = op.join(fol, 'MSIT_dSPM_baseline_{}'.format(band))
+        if not utils.both_hemi_files_exist('{}-{}.stc'.format(baseline_file_name, '{hemi}')):
+            print('{} is missing!'.format(baseline_file_name))
+            continue
+        psd_stc = mne.read_source_estimate('{}-rh.stc'.format(file_name), subject)
+        baseline_stc = mne.read_source_estimate('{}-rh.stc'.format(baseline_file_name), subject)
+        stc_band_norm_power = meg.normalize_stc(subject, psd_stc, baseline_stc)
+        print('Saving {}'.format(output_fname))
+        stc_band_norm_power.save(output_fname)
+
+
+def morph_meg_powers(args):
+    utils.run_parallel(_morph_meg_powers, args.subject, args.n_jobs)
+
+
+def _morph_meg_powers(subject):
     fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg', 'morphed'))
-    for subject in subjects:
-        for band, stc_band in bands.items():
-            output_fname = op.join(fol, '{}_{}'.format(subject, band))
-            if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
-                continue
-            stc_fname = op.join(MMVT_DIR, subject, 'meg', 'all_dSPM_mean_flip_{}_power-{}.stc'.format(band, '{hemi}'))
-            if not utils.both_hemi_files_exist(stc_fname):
-                continue
-            stc = mne.read_source_estimate(stc_fname.format(hemi='lh'))
-            stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, n_jobs=args.n_jobs)
-            print('Saving {}'.format(output_fname))
-            stc_morphed.save(output_fname)
+    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    for band, stc_band in bands.items():
+        output_fname = op.join(fol, '{}_norm_{}'.format(subject, band))
+        if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
+            continue
+        stc_fname = op.join(MMVT_DIR, subject, 'meg', 'all_dSPM_mean_flip_{}_norm_power-{}.stc'.format(
+            band, '{hemi}'))
+        if not utils.both_hemi_files_exist(stc_fname):
+            continue
+        stc = mne.read_source_estimate(stc_fname.format(hemi='lh'))
+        stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, n_jobs=args.n_jobs)
+        print('Saving {}'.format(output_fname))
+        stc_morphed.save(output_fname)
 
 
 def average_meg_powers(args):
@@ -92,22 +119,6 @@ def average_meg_powers(args):
         stc_mean[band] /= stcs_num[band]
         stc_mean[band].save(op.join(fol, 'MSIT_mean_{}'.format(band)))
         print('{} {}+-{}'.format(band, np.mean(powers[band]), np.std(powers[band])))
-
-
-def calc_source_baseline_psd(args):
-    subjects = args.subject
-    for subject in subjects:
-        args.subject = subject
-        _args = meg.read_cmd_args(dict(
-            subject=subject, mri_subject=subject,
-            function='calc_source_baseline_psd',
-            task=args.task,
-            data_per_task=True,
-            remote_subject_dir=args.remote_subject_dir,
-            overwrite_source_baseline_psd=True,
-            n_jobs=args.n_jobs
-        ))
-        meg.call_main(_args)
 
 
 if __name__ == '__main__':

@@ -132,7 +132,7 @@ def calc_meg_power_spectrum(subject, atlas, inv_method, em, overwrite=False, n_j
     meg_args = meg.read_cmd_args(dict(
         subject=subject, mri_subject=subject,
         task='rest', inverse_method=inv_method, extract_mode=em, atlas=atlas,
-        function='calc_labels_power_spectrum',
+        function='calc_source_power_spectrum',
         pick_ori='normal',  # very important for calculation of the power spectrum
         # max_epochs_num=20,
         overwrite_labels_power_spectrum=overwrite,

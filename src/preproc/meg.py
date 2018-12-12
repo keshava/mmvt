@@ -724,8 +724,30 @@ def calc_source_baseline_psd(subject, task, mri_subject='', raw_fname='', epo_fn
            op.isfile(sensors_output_fname)
 
 
+def normalize_stc(subject, stc, baseline):
+    norm_data = {}
+    for hemi_ind, hemi in enumerate(['lh', 'rh']):
+        psd_data = stc.lh_data if hemi == 'lh' else stc.rh_data
+        baseline_data = baseline.lh_data if hemi == 'lh' else baseline.rh_data
+        norm_data[hemi] = np.zeros((len(psd_data)))
+        baseline_ind = 0
+        for vert_ind, vert in enumerate(stc.vertices[hemi_ind]):
+            if vert != baseline.vertices[hemi_ind][baseline_ind]:
+                baseline_inds = np.where(baseline.vertices[hemi_ind] == vert)[0]
+                if len(baseline_inds) > 0:
+                    baseline_ind = baseline_inds[0]
+                else:
+                    print('Can\'t find baseline for {} {} {}'.format(subject, hemi, vert))
+            norm_data[hemi][vert_ind] = psd_data[vert_ind] / baseline_data[baseline_ind]
+            baseline_ind += 1
+    data = np.concatenate([norm_data['lh'], norm_data['rh']])
+    data = np.reshape(data, (len(data), 1))
+    stc_norm = mne.SourceEstimate(data, stc.vertices, 0, 0, subject=subject)
+    return stc_norm
+
+
 @utils.tryit(print_only_last_error_line=False)
-def calc_labels_power_spectrum(
+def calc_source_power_spectrum(
         subject, atlas, events, inverse_method='dSPM', extract_modes=['mean_flip'],
         fmin=0, fmax=200, bandwidth=2., bands=None, max_epochs_num=0,
         mri_subject='', epo_fname='', inv_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
@@ -4961,8 +4983,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.snr, args.baseline_len, args.fmin, args.fmax, fwd_usingMEG=args.fwd_usingMEG,
             fwd_usingEEG=args.fwd_usingEEG, overwrite=args.overwrite_source_baseline_psd, n_jobs=args.n_jobs)
 
-    if 'calc_labels_power_spectrum' in args.function:
-        flags['calc_labels_power_spectrum'] = calc_labels_power_spectrum(
+    if 'calc_source_power_spectrum' in args.function:
+        flags['calc_source_power_spectrum'] = calc_source_power_spectrum(
             subject, args.atlas, conditions, inverse_method, args.extract_mode, args.fmin, args.fmax, args.bandwidth,
             args.bands, args.max_epochs_num, MRI_SUBJECT, args.epo_fname, args.inv_fname, args.snr, args.pick_ori,
             args.apply_SSP_projection_vectors, args.add_eeg_ref, args.fwd_usingMEG, args.fwd_usingEEG, args.surf_name,
