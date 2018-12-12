@@ -38,7 +38,7 @@ def calc_meg_source_psd(args):
         inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
         _args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
-            function='make_forward_solution,calc_inverse_operator,calc_vertices_data_power_bands',
+            function='make_forward_solution,calc_inverse_operator,calc_labels_power_spectrum',
             task='MSIT',
             data_per_task=True,
             fmin=65, fmax=120,
@@ -93,6 +93,21 @@ def average_meg_powers(args):
         stc_mean[band].save(op.join(fol, 'MSIT_mean_{}'.format(band)))
         print('{} {}+-{}'.format(band, np.mean(powers[band]), np.std(powers[band])))
 
+
+def calc_source_baseline_psd(args):
+    subjects = args.subject
+    for subject in subjects:
+        args.subject = subject
+        _args = meg.read_cmd_args(dict(
+            subject=subject, mri_subject=subject,
+            function='calc_source_baseline_psd',
+            task=args.task,
+            data_per_task=True,
+            remote_subject_dir=args.remote_subject_dir,
+            overwrite_source_baseline_psd=True,
+            n_jobs=args.n_jobs
+        ))
+        meg.call_main(_args)
 
 
 if __name__ == '__main__':
