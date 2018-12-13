@@ -41,6 +41,7 @@ def calc_sample_clusters(args):
     labels = {hemi: lu.read_labels(args.subject, SUBJECTS_DIR, args.atlas, hemi=hemi, n_jobs=args.n_jobs) for
               hemi in utils.HEMIS}
     for threshold in np.arange(2, 9.6, 0.1):
+        print('Threshold: {}'.format(threshold))
         utils.delete_folder_files(op.join(clusters_root_fol, 'sample_audvis-meg'))
         meg.find_functional_rois_in_stc(
             args.subject, args.mri_subject, args.atlas, stc_name, threshold, threshold_is_precentile=False,
