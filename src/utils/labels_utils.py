@@ -90,7 +90,7 @@ def _morph_labels_parallel(p):
 
 
 def labels_to_annot(subject, subjects_dir='', aparc_name='aparc250', labels_fol='', overwrite=True, labels=[],
-                    fix_unknown=True, print_error=False, n_jobs=6):
+                    fix_unknown=True, hemi='both', print_error=False, n_jobs=6):
 
     if subjects_dir == '':
         subjects_dir = os.environ['SUBJECTS_DIR']
@@ -121,18 +121,24 @@ def labels_to_annot(subject, subjects_dir='', aparc_name='aparc250', labels_fol=
             label.name = get_label_hemi_invariant_name(label.name)
             labels.append(label)
         labels.sort(key=lambda l: l.name)
+    if hemi != 'both':
+        # todo: read only from this hemi
+        labels = [l for l in labels if l.hemi == hemi]
     if overwrite:
-        for hemi in HEMIS:
+        hemis = HEMIS if hemi == 'both' else [hemi]
+        for hemi in hemis:
             utils.remove_file(op.join(subject_dir, 'label', '{}.{}.annot'.format(hemi, aparc_name)))
     try:
         mne.write_labels_to_annot(subject=subject, labels=labels, parc=aparc_name, overwrite=overwrite,
-                                  subjects_dir=subjects_dir)
+                                  subjects_dir=subjects_dir, hemi=hemi)
     except:
         print('Error in writing annot file!')
+        utils.print_last_error_line()
         if print_error:
             print(traceback.format_exc())
         return False
-    return utils.both_hemi_files_exist(op.join(subject_dir, 'label', '{}.{}.annot'.format('{hemi}', aparc_name)))
+    return utils.both_hemi_files_exist(op.join(subject_dir, 'label', '{}.{}.annot'.format('{hemi}', aparc_name))) \
+        if hemi == 'both' else op.isfile(op.join(subject_dir, 'label', '{}.{}.annot'.format(hemi, aparc_name)))
 
 
 def check_labels(subject, atlas, subjects_dir, mmvt_dir):
@@ -210,22 +216,24 @@ def fix_unknown_labels(subject, atlas):
     return utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{}-{}.annot'.format(atlas, '{hemi}')))
 
 
-def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwrite=False, read_labels_from_fol=''):
+def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwrite=False, read_labels_from_fol='',
+                                  hemi='both'):
 
     def check_loopup_is_ok(lookup):
-        unique_values_num = sum([len(set(lookup[hemi].values())) for hemi in utils.HEMIS])
+        unique_values_num = sum([len(set(lookup[hemi].values())) for hemi in hemis])
         # check it's not only the unknowns
         lookup_ok = unique_values_num > 2
         err = ''
         if not lookup_ok:
             err = 'unique_values_num = {}\n'.format(unique_values_num)
-        for hemi in utils.HEMIS:
+        for hemi in hemis:
             verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
             lookup_ok = lookup_ok and len(lookup[hemi].keys()) == len(verts)
             if not lookup_ok:
                 err += 'len(lookup[{}].keys()) != len(verts) ({}!={})\n'.format(hemi, len(lookup[hemi].keys()), len(verts))
         return lookup_ok, err
 
+    hemis = utils.HEMIS if hemi == 'both' else [hemi]
     output_fname = op.join(MMVT_DIR, subject, '{}_vertices_labels_{}lookup.pkl'.format(
         atlas, 'ids_' if save_labels_ids else ''))
     if op.isfile(output_fname) and not overwrite:
@@ -235,7 +243,7 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
             return lookup
     lookup = {}
 
-    for hemi in utils.HEMIS:
+    for hemi in hemis:
         lookup[hemi] = {}
         if read_labels_from_fol != '':
             labels = read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi, try_first_from_annotation=False,
@@ -899,14 +907,15 @@ def grow_label(subject, vertice_indice, hemi, new_label_name, new_label_r=5, n_j
     return new_label_fname
 
 
-def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts,
+def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts, labels=None,
                                      min_cluster_max=0, min_cluster_size=0, clusters_label='', n_jobs=6):
     cluster_labels = []
     if not op.isfile(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi))):
         from src.utils import freesurfer_utils as fu
         verts, faces = utils.read_pial(subject, MMVT_DIR, hemi)
         fu.write_surf(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)), verts, faces)
-    labels = read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi, n_jobs=n_jobs)
+    if labels is None:
+        labels = read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi, n_jobs=n_jobs)
     if len(labels) == 0:
         print('No labels!')
         return None

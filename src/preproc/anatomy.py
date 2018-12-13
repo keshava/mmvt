@@ -823,8 +823,8 @@ def write_flat_brain_patch(subject, hemi, flat_patch_fname):
     return utils.write_ply_file(flat_verts, flat_faces, ply_fname, True)
 
 
-@utils.tryit(False, False)
-def calc_labeles_contours(subject, atlas, overwrite=True, verbose=False):
+# @utils.tryit(False, False)
+def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, verbose=False):
     utils.make_dir(op.join(MMVT_DIR, subject, 'labels'))
     output_fname = op.join(MMVT_DIR, subject, 'labels', '{}_contours_{}.npz'.format(atlas, '{hemi}'))
     if utils.both_hemi_files_exist(output_fname) and not overwrite:
@@ -834,8 +834,9 @@ def calc_labeles_contours(subject, atlas, overwrite=True, verbose=False):
         print('calc_labeles_contours: You should first run create_spatial_connectivity')
         create_spatial_connectivity(subject)
         return calc_labeles_contours(subject, atlas, overwrite, verbose)
-    vertices_labels_lookup = lu.create_vertices_labels_lookup(subject, atlas, False, overwrite)
-    for hemi in utils.HEMIS:
+    vertices_labels_lookup = lu.create_vertices_labels_lookup(subject, atlas, False, overwrite, hemi=hemi)
+    hemis = utils.HEMIS if hemi == 'both' else [hemi]
+    for hemi in hemis:
         verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
         contours = np.zeros((len(verts)))
         vertices_neighbors = np.load(verts_neighbors_fname.format(hemi=hemi))
@@ -860,7 +861,7 @@ def calc_labeles_contours(subject, atlas, overwrite=True, verbose=False):
             centers = None
         np.savez(output_fname.format(hemi=hemi), contours=contours, max=len(labels),
                  labels=[l.name for l in labels], centers=centers)
-    return utils.both_hemi_files_exist(output_fname)
+    return utils.both_hemi_files_exist(output_fname) if hemi == 'both' else op.isfile(output_fname.format(hemi=hemi))
 
 
 @utils.timeit

@@ -49,8 +49,8 @@ FWD_SMOOTH, INV, INV_EEG, INV_SMOOTH, INV_EEG_SMOOTH, INV_SUB, INV_X, EMPTY_ROOM
 STC_HEMI, STC_HEMI_SAVE, STC_HEMI_SMOOTH, STC_HEMI_SMOOTH_SAVE, STC_ST,\
 COR, LBL, STC_MORPH, ACT, ASEG, DATA_COV, NOISE_COV, DATA_CSD, NOISE_CSD, MEG_TO_HEAD_TRANS = [''] * 43
 
-locating_meg_file = None
-locating_subject_file = None
+locating_meg_file = lambda x, y: ('', False)
+locating_subject_file = lambda x, y: ('', False)
 
 
 def init_globals_args(subject, mri_subject, fname_format, fname_format_cond, args):
@@ -2714,7 +2714,7 @@ def save_subcortical_activity_to_blender(sub_corticals_codes_file, events, stat,
 
 
 def calc_stc_for_all_vertices(stc, subject='', morph_to_subject='', n_jobs=6):
-    subject = MRI_SUBJECT if subject == '' else MRI_SUBJECT
+    subject = MRI_SUBJECT if subject == '' else subject
     morph_to_subject = subject if morph_to_subject == '' else morph_to_subject
     grade = None if morph_to_subject != 'fsaverage' else 5
     vertices_to = mne.grade_to_vertices(morph_to_subject, grade)
@@ -2731,7 +2731,7 @@ def calc_stc_for_all_vertices(stc, subject='', morph_to_subject='', n_jobs=6):
 
 
 def create_stc_t(stc, t, subject=''):
-    subject = MRI_SUBJECT if subject == '' else MRI_SUBJECT
+    subject = MRI_SUBJECT if subject == '' else subject
     C = max([stc.rh_data.shape[0], stc.lh_data.shape[0]])
     stc_lh_data = stc.lh_data[:, t:t + 1] if stc.lh_data.shape[0] > 0 else np.zeros((C, 1))
     stc_rh_data = stc.rh_data[:, t:t + 1] if stc.rh_data.shape[0] > 0 else np.zeros((C, 1))
@@ -2833,6 +2833,14 @@ def check_stc_with_ply(stc, cond_name='', subject=''):
         print('{} {} ply vertices: {}'.format(hemi, cond_name, verts[hemi].shape[0]))
         if len(stc_vertices) != verts[hemi].shape[0]:
             raise Exception('check_stc_with_ply: Wrong number of vertices!')
+    return verts
+
+
+def get_pial_vertices(subject):
+    mmvt_surf_fol = op.join(MMVT_DIR, MRI_SUBJECT if subject == '' else subject, 'surf')
+    verts = {}
+    for hemi in HEMIS:
+        verts[hemi], _ = utils.read_ply_file(op.join(mmvt_surf_fol, '{}.pial.ply'.format(hemi)))
     return verts
 
 
@@ -3080,12 +3088,12 @@ def morph_labels_from_fsaverage(atlas='aparc250', fs_labels_fol='', sub_labels_f
     lu.morph_labels_from_fsaverage(MRI_SUBJECT, SUBJECTS_MRI_DIR, MMVT_DIR, atlas, fs_labels_fol, sub_labels_fol, n_jobs)
 
 
-def labels_to_annot(parc_name, labels_fol='', overwrite=True):
-    ret = lu.labels_to_annot(MRI_SUBJECT, SUBJECTS_MRI_DIR, parc_name, labels_fol, overwrite)
-    if ret:
-        return op.join(SUBJECTS_MRI_DIR, MRI_SUBJECT, 'label', '{}.{}.annot'.format('{hemi}', parc_name))
-    else:
-        return None
+def labels_to_annot(parc_name, subject='', mri_subject='', labels_fol='', hemi='both', labels=[], overwrite=True):
+    subject = SUBJECT if subject == '' else subject
+    mri_subject = subject if mri_subject == '' else mri_subject
+    ret = lu.labels_to_annot(mri_subject, SUBJECTS_MRI_DIR, parc_name, labels_fol, overwrite, hemi=hemi,
+                             labels=labels)
+    return op.join(SUBJECTS_MRI_DIR, mri_subject, 'label', '{}.{}.annot'.format(hemi, parc_name))
 
 
 def calc_single_trial_labels_per_condition(atlas, events, stcs, extract_modes=('mean_flip'), src=None):
@@ -4289,10 +4297,10 @@ def calc_labels_power_bands_diff(subject, task1, task2, precentiles=(1, 99), fun
 
 def find_functional_rois_in_stc(
         subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=True, time_index=None,
-        label_name_template='', peak_mode='abs', extract_mode='mean_flip',
+        label_name_template='', peak_mode='abs', extract_time_series_for_clusters=True, extract_mode='mean_flip',
         min_cluster_max=0, min_cluster_size=0, clusters_label='', src=None,
-        inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True,
-        recreate_src_spacing='oct6', n_jobs=6):
+        inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
+        labels=None, recreate_src_spacing='oct6', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, 'meg', 'clusters')
@@ -4301,12 +4309,13 @@ def find_functional_rois_in_stc(
     utils.make_dir(clusters_root_fol)
     if '{subject}' in stc_name:
         stc_name = stc_name.replace('{subject}', subject)
-    stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
-    if not op.isfile(stc_fname):
-        stc_fname = op.join(SUBJECT_MEG_FOLDER, '{}-lh.stc'.format(stc_name))
-    if not op.isfile(stc_fname):
-        raise Exception("Can't find the stc file! ({})".format(stc_name))
-    stc = mne.read_source_estimate(stc_fname)
+    if stc is None:
+        stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
+        if not op.isfile(stc_fname):
+            stc_fname = op.join(SUBJECT_MEG_FOLDER, '{}-lh.stc'.format(stc_name))
+        if not op.isfile(stc_fname):
+            raise Exception("Can't find the stc file! ({})".format(stc_name))
+        stc = mne.read_source_estimate(stc_fname)
     labels_fol = op.join(SUBJECTS_MRI_DIR, mri_subject, 'label')
     if not utils.check_if_atlas_exist(labels_fol, atlas):
         from src.preproc import anatomy
@@ -4320,10 +4329,12 @@ def find_functional_rois_in_stc(
         else:
             max_vert, time_index = find_pick_activity(
                 subject, stc, atlas, label_name_template, hemi='both', peak_mode=peak_mode)
-    stc_t = create_stc_t(stc, time_index, subject)
-    stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
-    verts = check_stc_with_ply(stc_t_smooth, subject=subject)
-    connectivity = load_connectivity(subject)
+    if stc_t_smooth is None or verts is None:
+        stc_t = create_stc_t(stc, time_index, subject)
+        stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
+        verts = check_stc_with_ply(stc_t_smooth, subject=subject)
+    if connectivity is None:
+        connectivity = load_connectivity(subject)
     if threshold_is_precentile:
         threshold = np.percentile(stc_t_smooth.data, threshold)
     if threshold < 1e-4:
@@ -4346,15 +4357,20 @@ def find_functional_rois_in_stc(
         if len(clusters) == 0:
             print('No clusters where found for {}-{}!'.format(stc_name, hemi))
             continue
+        labels_hemi = None if labels is None else labels[hemi]
         clusters_labels_hemi = lu.find_clusters_overlapped_labeles(
-            subject, clusters, stc_data, atlas, hemi, verts[hemi], min_cluster_max, min_cluster_size, clusters_label,
-            n_jobs)
+            subject, clusters, stc_data, atlas, hemi, verts[hemi], labels_hemi, min_cluster_max, min_cluster_size,
+            clusters_label, n_jobs)
         if clusters_labels_hemi is None or len(clusters_labels_hemi) == 0:
             print("Can't find overlapped_labeles in {}-{}!".format(stc_name, hemi))
         else:
-            clusters_labels_hemi = extract_time_series_for_cluster(
-                subject, mri_subject, stc, hemi, clusters_labels_hemi, clusters_fol, extract_mode[0], src, inv_fname,
-                time_index, min_cluster_max, fwd_usingMEG, fwd_usingEEG, recreate_src_spacing=recreate_src_spacing)
+            clusters_labels_hemi, clusters_cortical_labels = calc_cluster_labels(
+                subject, mri_subject, stc, clusters_labels_hemi, clusters_fol, False, extract_time_series_for_clusters,
+                extract_mode[0], src, inv_fname, time_index, fwd_usingMEG, fwd_usingEEG,
+                recreate_src_spacing=recreate_src_spacing)
+            if len(clusters_labels_hemi) > 0:
+                new_atlas_name = 'clusters-{}-{}'.format(utils.namebase(clusters_fol), hemi)
+                calc_contours(subject, new_atlas_name, hemi, clusters_cortical_labels, clusters_fol, mri_subject)
             clusters_labels.values.extend(clusters_labels_hemi)
     clusters_labels_output_fname = op.join(clusters_root_fol, 'clusters_labels_{}.pkl'.format(stc_name, atlas))
     print('Saving clusters labels: {}'.format(clusters_labels_output_fname))
@@ -4402,14 +4418,15 @@ def load_connectivity(subject):
     return connectivity_per_hemi
 
 
-def extract_time_series_for_cluster(subject, mri_subject, stc, hemi, clusters, clusters_fol, extract_mode='mean_flip',
-                                    src=None, inv_fname='', time_index=-1, cluster_max_min=0, fwd_usingMEG=True,
-                                    fwd_usingEEG=True, calc_contours=True, recreate_src_spacing='oct6'):
+def calc_cluster_labels(
+        subject, mri_subject, stc, clusters, clusters_fol, extract_time_series_for_clusters=True,
+        save_labels=True, extract_mode='mean_flip', src=None, inv_fname='', time_index=-1, fwd_usingMEG=True,
+        fwd_usingEEG=True, recreate_src_spacing='oct6'):
     utils.make_dir(clusters_fol)
     time_series_fol = op.join(clusters_fol, 'time_series_{}'.format(extract_mode))
     utils.make_dir(time_series_fol)
-    inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
-    if src is None:
+    if src is None and extract_time_series_for_clusters:
+        inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
         if op.isfile(inv_fname):
             inverse_operator = read_inverse_operator(inv_fname)
             src = inverse_operator['src']
@@ -4417,39 +4434,51 @@ def extract_time_series_for_cluster(subject, mri_subject, stc, hemi, clusters, c
             # todo: set the recreate_src_spacing according to the stc
             # https://martinos.org/mne/dev/manual/cookbook.html#source-localization
             src = check_src(mri_subject, recreate_src_spacing=recreate_src_spacing)
+    labels = []
     for cluster_ind in range(len(clusters)):
         cluster = utils.Bag(clusters[cluster_ind])
         # cluster: vertices, intersects, name, coordinates, max, hemi, size
         cluster_label = mne.Label(
             cluster.vertices, cluster.coordinates, hemi=cluster.hemi, name=cluster.name, subject=subject)
-        label_data = x = stc.extract_label_time_course(cluster_label, src, mode=extract_mode, allow_empty=True).squeeze()
-        if time_index == -1:
-            cluster.ts_max = np.min(x) if abs(np.min(x)) > abs(np.max(x)) else np.max(x)
-        else:
-            cluster.ts_max = x[time_index]
-            if cluster.ts_max < 1e-4:
-                cluster.ts_max *= np.power(10, 9)
+        labels.append(cluster_label)
         cluster_name = 'cluster_size_{}_max_{:.2f}_{}.label'.format(cluster.size, cluster.max, cluster.name)
-        cluster_label.save(op.join(clusters_fol, cluster_name))
-        if np.all(label_data == 0):
-            cluster.label_data = None
+        if save_labels:
+            cluster_label.save(op.join(clusters_fol, cluster_name))
+
+        if extract_time_series_for_clusters:
+            label_data = x = stc.extract_label_time_course(
+                cluster_label, src, mode=extract_mode, allow_empty=True).squeeze()
+            if time_index == -1:
+                cluster.ts_max = np.min(x) if abs(np.min(x)) > abs(np.max(x)) else np.max(x)
+            else:
+                cluster.ts_max = x[time_index]
+                if cluster.ts_max < 1e-4:
+                    cluster.ts_max *= np.power(10, 9)
+            if np.all(label_data == 0):
+                cluster.label_data = None
+            else:
+                cluster.label_data = np.squeeze(label_data)
+                if np.max(cluster.label_data) < 1e-4:
+                    cluster.label_data *= np.power(10, 9)
+                np.save(op.join(time_series_fol, '{}.npy'.format(cluster_name)), cluster.label_data)
         else:
-            cluster.label_data = np.squeeze(label_data)
-            if np.max(cluster.label_data) < 1e-4:
-                cluster.label_data *= np.power(10, 9)
-            np.save(op.join(time_series_fol, '{}.npy'.format(cluster_name)), cluster.label_data)
+            cluster.label_data = None
         clusters[cluster_ind] = cluster
-    if len(clusters) > 0 and calc_contours:
-        new_atlas_name = 'clusters-{}-{}'.format(utils.namebase(clusters_fol), hemi)
-        annot_files = labels_to_annot(new_atlas_name, clusters_fol)
-        if annot_files is not None:
-            for hemi in utils.HEMIS:
-                annot_fname = annot_files.format(hemi=hemi)
-                dest_annot_fname = op.join(clusters_fol, utils.namebase_with_ext(annot_fname))
-                if not op.isfile(dest_annot_fname):
-                    shutil.copy(annot_fname, dest_annot_fname)
-        anat.calc_labeles_contours(subject, new_atlas_name, overwrite=True, verbose=False)
-    return clusters
+    return clusters, labels
+
+
+def calc_contours(subject, atlas_name, hemi, clusters_labels, clusters_labels_fol, mri_subject=''):
+    mri_subject = subject if mri_subject == '' else mri_subject
+    annot_fname = labels_to_annot(atlas_name[:-3], subject, mri_subject, '', hemi, clusters_labels)
+    if op.isfile(annot_fname):
+        # for hemi in utils.HEMIS:
+        # annot_fname = annot_files.format(hemi=hemi)
+        dest_annot_fname = op.join(clusters_labels_fol, utils.namebase_with_ext(annot_fname))
+        if not op.isfile(dest_annot_fname):
+            shutil.copy(annot_fname, dest_annot_fname)
+    else:
+        print('calc_contours: No annot file!')
+    anat.calc_labeles_contours(subject, atlas_name[:-3], hemi=hemi, overwrite=True, verbose=False)
 
 
 def fit_ica(raw=None, n_components=0.95, method='fastica', ica_fname='', raw_fname='', overwrite_ica=False,
@@ -4909,7 +4938,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'find_functional_rois_in_stc' in args.function:
         flags['find_functional_rois_in_stc'] = find_functional_rois_in_stc(
             subject, mri_subject, args.atlas, args.stc_name, args.threshold, args.threshold_is_precentile,
-            args.peak_stc_time_index, args.label_name_template, args.peak_mode,
+            args.peak_stc_time_index, args.label_name_template, args.peak_mode, args.extract_time_series_for_clusters,
             args.extract_mode, args.min_cluster_max, args.min_cluster_size, args.clusters_label,
             inv_fname=args.inv_fname, fwd_usingMEG=args.fwd_usingMEG, fwd_usingEEG=args.fwd_usingEEG,
             recreate_src_spacing=args.recreate_src_spacing, n_jobs=args.n_jobs)
@@ -5189,6 +5218,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--peak_stc_time_index', required=False, default=None, type=au.int_or_none)
     parser.add_argument('--label_name_template', required=False, default='')
     parser.add_argument('--peak_mode', required=False, default='abs')
+    parser.add_argument('--extract_time_series_for_clusters', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--min_cluster_max', required=False, default=0, type=float)
     parser.add_argument('--min_cluster_size', required=False, default=0, type=int)
     parser.add_argument('--clusters_label', required=False, default='')
