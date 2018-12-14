@@ -676,6 +676,8 @@ def set_cluster_time_series(cluster):
     _addon().create_empty_if_doesnt_exists(
         PARENT_OBJ_NAME, _addon().EMPTY_LAYER, bpy.context.scene.layers, 'Functional maps')
     parent_obj = bpy.data.objects[PARENT_OBJ_NAME]
+    if cluster.label_data is None:
+        return
     T = len(cluster.label_data)
     cluster.label_data = np.array(cluster.label_data, dtype=np.float64)
     fcurves_names = mu.get_fcurves_names(parent_obj)

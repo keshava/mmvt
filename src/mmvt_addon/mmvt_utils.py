@@ -737,14 +737,14 @@ def elec_group_number(elec_name, bipolar=False, num_to_int=True):
         group1, num1 = elec_group_number(elec_name1, False)
         group2, num2 = elec_group_number(elec_name2, False)
         group = group1 if group1 != '' else group2
-        return group, num1, num2
+        return group.strip(), num1, num2
     else:
         elec_name = elec_name.strip()
         num = re.sub('\D', ',', elec_name).split(',')[-1]
         group = elec_name[:elec_name.rfind(num)]
         if num_to_int:
             num = int(num)
-        return group, num if num != '' else ''
+        return group.strip(), num if num != '' else ''
 
 
 def get_group_and_number(ch_name):

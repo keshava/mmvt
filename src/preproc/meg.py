@@ -1931,7 +1931,7 @@ def check_noise_cov_channels(noise_cov, info, fwd, fwd_usingMEG, fwd_usingEEG, n
     if '{}{}'.format(group, num) == ch0:
         sep = ''
     else:
-        sep = ch0[len(group) - 1:-len(num)]
+        sep = ch0[len(group):-len(num)]
     num_len_dict = {'MEG': 0, 'EEG': 0}
     for group_type in num_len_dict.keys():
         for c in info['chs']:
@@ -2020,7 +2020,7 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
     evo_fname = get_evo_fname(evo_fname)
     inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
     if stc_template == '':
-        stc_template = STC
+        stc_template = STC[:-4]
         stc_hemi_template = STC_HEMI
     else:
         if stc_template.endswith('.stc'):
@@ -2120,12 +2120,16 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                     not isinstance(stcs[cond_name], types.GeneratorType):
                 mmvt_fol = utils.make_dir(op.join(MMVT_DIR, MRI_SUBJECT, modality))
                 mmvt_stc_fname =  op.join(mmvt_fol, utils.namebase(stc_fname))
-                print('Saving the source estimate to {}.stc and\n {}.stc'.format(
+                print('Saving the source estimate to {} and\n {}'.format(
                     stc_fname, mmvt_stc_fname))
                 print('max: {}, min: {}'.format(np.max(stcs[cond_name].data), np.min(stcs[cond_name].data)))
                 stcs[cond_name].save(mmvt_stc_fname)
-                if mmvt_stc_fname != stc_fname:
-                    utils.make_link(stc_fname, op.join(mmvt_fol, utils.namebase_with_ext(stc_fname)))
+                stcs[cond_name].save(stc_fname)
+                # if mmvt_stc_fname != stc_fname:
+                #     for hemi in utils.HEMIS:
+                #         utils.make_link(
+                #             '{}-{}.stc'.format(stc_fname, hemi),
+                #             '{}-{}.stc'.format(mmvt_stc_fname, hemi))
                 # stcs[cond_name].save(op.join(mmvt_fol, utils.namebase(stc_fname)))
             flag = True
         except:
@@ -2134,6 +2138,11 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
     if calc_stcs_diff and len(events) == 2:
         calc_stc_diff_both_hemis(events, stc_hemi_template, inverse_method, overwrite_stc)
     return flag, stcs, stcs_num
+
+
+def get_stc_fname(args):
+    return '{}-{}.stc'.format(
+        STC[:-4].format(cond=args.conditions[0], method=args.inverse_method[0]), '{hemi}')
 
 
 def calc_induced_power(epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
@@ -5269,6 +5278,8 @@ def read_cmd_args(argv=None):
     except:
         args.precentiles = [0, 100]
     # todo: Was set as a remark, why?
+    if args.pick_ori == 'None':
+        args.pick_ori = None
     if args.n_jobs == -1:
         args.n_jobs = utils.get_n_jobs(args.n_jobs)
     if args.function == ['rest_functions']:
