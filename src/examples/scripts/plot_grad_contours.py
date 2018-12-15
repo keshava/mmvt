@@ -8,7 +8,6 @@ def run(mmvt):
     mmvt.show_activity()
     all_contours = mu.load(op.join(mu.get_user_fol(), 'meg', 'clusters', 'sample_audvis-meg_contoures_10.pkl'))
     thresholds = sorted([float(k) for k in all_contours.keys()])
-    # thresholds = np.arange(2, 9.6, 1.)
     mmvt.colorbar.set_colormap('RdOrYl')
     mmvt.colorbar.set_colorbar_max_min(np.max(thresholds), 0)
     for hemi in mu.HEMIS:
