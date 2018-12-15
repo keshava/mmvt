@@ -42,13 +42,13 @@ def calc_sample_clusters(args):
     verts_neighbors_fname = op.join(MMVT_DIR, 'sample', 'verts_neighbors_{}.pkl')
     verts_neighbors_dict = {hemi: utils.load(verts_neighbors_fname.format(hemi)) for hemi in utils.HEMIS}
 
-    all_contours = defaultdict(dict)
+    all_contours = {}
     thresholds = np.arange(2, 9.6, 1)
     now = time.time()
     for run, threshold in enumerate(thresholds):
         key = '{:.2}'.format(threshold)
+        all_contours[key] = {}
         utils.time_to_go(now, run, len(thresholds), 1)
-        print('Threshold: {}'.format(threshold))
         contours = meg.find_functional_rois_in_stc(
             args.subject, args.mri_subject, '', stc_name, threshold, threshold_is_precentile=False,
             time_index=pick_t, extract_time_series_for_clusters=False, stc=stc, stc_t_smooth=stc_t_smooth, verts=verts,
