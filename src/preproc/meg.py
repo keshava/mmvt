@@ -4309,7 +4309,8 @@ def find_functional_rois_in_stc(
         label_name_template='', peak_mode='abs', extract_time_series_for_clusters=True, extract_mode='mean_flip',
         min_cluster_max=0, min_cluster_size=0, clusters_label='', src=None,
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
-        labels=None, recreate_src_spacing='oct6', n_jobs=6):
+        labels=None, verts_dict=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
+        only_contours=False, recreate_src_spacing='oct6', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, 'meg', 'clusters')
@@ -4326,11 +4327,12 @@ def find_functional_rois_in_stc(
             raise Exception("Can't find the stc file! ({})".format(stc_name))
         stc = mne.read_source_estimate(stc_fname)
     labels_fol = op.join(SUBJECTS_MRI_DIR, mri_subject, 'label')
-    if not utils.check_if_atlas_exist(labels_fol, atlas):
-        from src.preproc import anatomy
-        anatomy.create_annotation(mri_subject, atlas, n_jobs=n_jobs)
-    if not utils.check_if_atlas_exist(labels_fol, atlas):
-        raise Exception("find_functional_rois_in_stc: Can't find the atlas {}!".format(atlas))
+    if find_clusters_overlapped_labeles:
+        if not utils.check_if_atlas_exist(labels_fol, atlas):
+            from src.preproc import anatomy
+            anatomy.create_annotation(mri_subject, atlas, n_jobs=n_jobs)
+        if not utils.check_if_atlas_exist(labels_fol, atlas):
+            raise Exception("find_functional_rois_in_stc: Can't find the atlas {}!".format(atlas))
     if time_index is None:
         if label_name_template == '':
             max_vert, time_index = stc.get_peak(
@@ -4344,6 +4346,8 @@ def find_functional_rois_in_stc(
         verts = check_stc_with_ply(stc_t_smooth, subject=subject)
     if connectivity is None:
         connectivity = load_connectivity(subject)
+    if verts_dict is None:
+        verts_dict = get_pial_vertices(args.subject)
     if threshold_is_precentile:
         threshold = np.percentile(stc_t_smooth.data, threshold)
     if threshold < 1e-4:
@@ -4358,18 +4362,32 @@ def find_functional_rois_in_stc(
     clusters_labels = utils.Bag(
         dict(stc_name=stc_name, threshold=threshold, time=time_index, label_name_template=label_name_template, values=[],
              min_cluster_max=min_cluster_max, min_cluster_size=min_cluster_size, clusters_label=clusters_label))
+    contours = {}
     for hemi in utils.HEMIS:
         stc_data = (stc_t_smooth.rh_data if hemi == 'rh' else stc_t_smooth.lh_data).squeeze()
         if np.max(stc_data) < 1e-4:
             stc_data *= np.power(10, 9)
+        print('Calculating clusters for threshold {}'.format(threshold))
         clusters, _ = mne_clusters._find_clusters(stc_data, threshold, connectivity=connectivity[hemi])
         if len(clusters) == 0:
             print('No clusters where found for {}-{}!'.format(stc_name, hemi))
             continue
         labels_hemi = None if labels is None else labels[hemi]
-        clusters_labels_hemi = lu.find_clusters_overlapped_labeles(
-            subject, clusters, stc_data, atlas, hemi, verts[hemi], labels_hemi, min_cluster_max, min_cluster_size,
-            clusters_label, n_jobs)
+        if find_clusters_overlapped_labeles:
+            clusters_labels_hemi = lu.find_clusters_overlapped_labeles(
+                subject, clusters, stc_data, atlas, hemi, verts[hemi], labels_hemi, min_cluster_max, min_cluster_size,
+                clusters_label, n_jobs)
+        else:
+            clusters_labels_hemi = []
+            for cluster_ind, cluster in enumerate(clusters):
+                x = stc_data[cluster]
+                cluster_max = np.min(x) if abs(np.min(x)) > abs(np.max(x)) else np.max(x)
+                if abs(cluster_max) < min_cluster_max or len(cluster) < min_cluster_size:
+                    continue
+                max_vert_ind = np.argmin(x) if abs(np.min(x)) > abs(np.max(x)) else np.argmax(x)
+                max_vert = cluster[max_vert_ind]
+                clusters_labels_hemi.append(dict(vertices=cluster, intersects=[], name='{}{}'.format(hemi, cluster_ind),
+                    coordinates=verts[hemi][cluster], max=cluster_max, hemi=hemi, size=len(cluster), max_vert=max_vert))
         if clusters_labels_hemi is None or len(clusters_labels_hemi) == 0:
             print("Can't find overlapped_labeles in {}-{}!".format(stc_name, hemi))
         else:
@@ -4379,16 +4397,22 @@ def find_functional_rois_in_stc(
                 recreate_src_spacing=recreate_src_spacing)
             if len(clusters_labels_hemi) > 0:
                 new_atlas_name = 'clusters-{}-{}'.format(utils.namebase(clusters_fol), hemi)
-                calc_contours(subject, new_atlas_name, hemi, clusters_cortical_labels, clusters_fol, mri_subject)
-            clusters_labels.values.extend(clusters_labels_hemi)
-    clusters_labels_output_fname = op.join(clusters_root_fol, 'clusters_labels_{}.pkl'.format(stc_name, atlas))
-    print('Saving clusters labels: {}'.format(clusters_labels_output_fname))
-    # Change Bag to regular dict because we want to load the pickle file in Blender (argggg)
-    for ind in range(len(clusters_labels.values)):
-        clusters_labels.values[ind] = dict(**clusters_labels.values[ind])
-    clusters_labels = dict(**clusters_labels)
-    utils.save(clusters_labels, clusters_labels_output_fname)
-    return op.isfile(clusters_labels_output_fname)
+                contours[hemi] = calc_contours(
+                    subject, new_atlas_name, hemi, clusters_cortical_labels, clusters_fol, mri_subject,
+                    verts_dict, verts_neighbors_dict)
+            if not only_contours:
+                clusters_labels.values.extend(clusters_labels_hemi)
+    if not only_contours:
+        clusters_labels_output_fname = op.join(clusters_root_fol, 'clusters_labels_{}.pkl'.format(stc_name, atlas))
+        print('Saving clusters labels: {}'.format(clusters_labels_output_fname))
+        # Change Bag to regular dict because we want to load the pickle file in Blender (argggg)
+        for ind in range(len(clusters_labels.values)):
+            clusters_labels.values[ind] = dict(**clusters_labels.values[ind])
+        clusters_labels = dict(**clusters_labels)
+        utils.save(clusters_labels, clusters_labels_output_fname)
+        return op.isfile(clusters_labels_output_fname)
+    else:
+        return contours
 
 
 def find_pick_activity(subject, stc, atlas, label_name_template='', hemi='both', peak_mode='abs'):
@@ -4476,18 +4500,25 @@ def calc_cluster_labels(
     return clusters, labels
 
 
-def calc_contours(subject, atlas_name, hemi, clusters_labels, clusters_labels_fol, mri_subject=''):
+def calc_contours(subject, atlas_name, hemi, clusters_labels, clusters_labels_fol, mri_subject='', verts_dict=None,
+                  verts_neighbors_dict=None):
     mri_subject = subject if mri_subject == '' else mri_subject
-    annot_fname = labels_to_annot(atlas_name[:-3], subject, mri_subject, '', hemi, clusters_labels)
-    if op.isfile(annot_fname):
-        # for hemi in utils.HEMIS:
-        # annot_fname = annot_files.format(hemi=hemi)
-        dest_annot_fname = op.join(clusters_labels_fol, utils.namebase_with_ext(annot_fname))
-        if not op.isfile(dest_annot_fname):
-            shutil.copy(annot_fname, dest_annot_fname)
-    else:
-        print('calc_contours: No annot file!')
-    anat.calc_labeles_contours(subject, atlas_name[:-3], hemi=hemi, overwrite=True, verbose=False)
+    # annot_fname = labels_to_annot(atlas_name[:-3], subject, mri_subject, '', hemi, clusters_labels)
+    labels_dict = {hemi: [l for l in clusters_labels if l.hemi == hemi] for hemi in utils.HEMIS}
+    # if op.isfile(annot_fname):
+    #     # for hemi in utils.HEMIS:
+    #     # annot_fname = annot_files.format(hemi=hemi)
+    #     dest_annot_fname = op.join(clusters_labels_fol, utils.namebase_with_ext(annot_fname))
+    #     if op.isfile(dest_annot_fname):
+    #         os.remove(dest_annot_fname)
+    #     shutil.copy(annot_fname, dest_annot_fname)
+    # else:
+    #     print('calc_contours: No annot file!')
+    contours = anat.calc_labeles_contours(
+        subject, atlas_name[:-3], hemi=hemi, overwrite=True, labels_dict=labels_dict, verts_dict=verts_dict,
+        verts_neighbors_dict=verts_neighbors_dict, check_unknown=False, save_lookup=False, return_contours=True,
+        verbose=False)
+    return contours[hemi]
 
 
 def fit_ica(raw=None, n_components=0.95, method='fastica', ica_fname='', raw_fname='', overwrite_ica=False,

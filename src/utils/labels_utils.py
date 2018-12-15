@@ -217,7 +217,7 @@ def fix_unknown_labels(subject, atlas):
 
 
 def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwrite=False, read_labels_from_fol='',
-                                  hemi='both'):
+                                  hemi='both', labels_dict=None, verts_dict=None, check_unknown=True, save_lookup=True):
 
     def check_loopup_is_ok(lookup):
         unique_values_num = sum([len(set(lookup[hemi].values())) for hemi in hemis])
@@ -227,7 +227,10 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
         if not lookup_ok:
             err = 'unique_values_num = {}\n'.format(unique_values_num)
         for hemi in hemis:
-            verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+            if verts_dict is None:
+                verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+            else:
+                verts = verts_dict[hemi]
             lookup_ok = lookup_ok and len(lookup[hemi].keys()) == len(verts)
             if not lookup_ok:
                 err += 'len(lookup[{}].keys()) != len(verts) ({}!={})\n'.format(hemi, len(lookup[hemi].keys()), len(verts))
@@ -245,15 +248,18 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
 
     for hemi in hemis:
         lookup[hemi] = {}
-        if read_labels_from_fol != '':
-            labels = read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi, try_first_from_annotation=False,
-                                 labels_fol=read_labels_from_fol)
+        if labels_dict is None:
+            if read_labels_from_fol != '':
+                labels = read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi, try_first_from_annotation=False,
+                                     labels_fol=read_labels_from_fol)
+            else:
+                labels = read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi)
         else:
-            labels = read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi)
+            labels = labels_dict[hemi]
         if len(labels) == 0:
             raise Exception("Can't read labels from {} {}".format(subject, atlas))
         labels_names = [l.name for l in labels]
-        if len([l for l in labels_names if 'unknown' in l.lower()]) == 0:
+        if check_unknown and len([l for l in labels_names if 'unknown' in l.lower()]) == 0:
             # add the unknown label
             # todo: this code is needed to be debugged!
             annot_fname = get_annot_fnames(subject, SUBJECTS_DIR, atlas, hemi=hemi)[0]
@@ -270,19 +276,28 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
             labels = mne.read_labels_from_annot(
                 subject, atlas, subjects_dir=SUBJECTS_DIR, surf_name='pial', hemi=hemi)
             labels_names = [l.name for l in labels]
-        if len([l for l in labels_names if 'unknown' in l.lower()]) == 0:
+        if check_unknown and len([l for l in labels_names if 'unknown' in l.lower()]) == 0:
             raise Exception('No unknown label in {}'.format(annot_fname))
-        verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+        if verts_dict is None:
+            verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+        else:
+            verts = verts_dict[hemi]
         verts_indices = set(range(len(verts)))
+        assign_vertices = set()
         for label in labels:
             for vertice in label.vertices:
                 if vertice in verts_indices:
                     lookup[hemi][vertice] = labels_names.index(label.name) if save_labels_ids else label.name
+                    assign_vertices.add(vertice)
                 else:
                     print('vertice {} of label {} not in verts! ({}, {})'.format(vertice, label.name, subject, hemi))
+        not_assign_vertices = verts_indices - assign_vertices
+        for vertice in not_assign_vertices:
+            lookup[hemi][vertice] = len(labels_names) if save_labels_ids else 'unknown_{}'.format(hemi)
     loopup_is_ok, err = check_loopup_is_ok(lookup)
     if loopup_is_ok:
-        utils.save(lookup, output_fname)
+        if save_lookup:
+            utils.save(lookup, output_fname)
         return lookup
     else:
         print('unknown labels: ', [l for l in labels_names if 'unknown' in l])

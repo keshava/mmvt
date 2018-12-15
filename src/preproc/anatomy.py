@@ -824,24 +824,39 @@ def write_flat_brain_patch(subject, hemi, flat_patch_fname):
 
 
 # @utils.tryit(False, False)
-def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, verbose=False):
+def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, labels_dict=None, verts_dict=None,
+                          check_unknown=True, save_lookup=True, verts_neighbors_dict=None, calc_centers=True,
+                          return_contours=False, verbose=False):
     utils.make_dir(op.join(MMVT_DIR, subject, 'labels'))
     output_fname = op.join(MMVT_DIR, subject, 'labels', '{}_contours_{}.npz'.format(atlas, '{hemi}'))
     if utils.both_hemi_files_exist(output_fname) and not overwrite:
         return True
-    verts_neighbors_fname = op.join(MMVT_DIR, subject, 'verts_neighbors_{hemi}.pkl')
-    if not utils.both_hemi_files_exist(verts_neighbors_fname):
-        print('calc_labeles_contours: You should first run create_spatial_connectivity')
-        create_spatial_connectivity(subject)
-        return calc_labeles_contours(subject, atlas, overwrite, verbose)
-    vertices_labels_lookup = lu.create_vertices_labels_lookup(subject, atlas, False, overwrite, hemi=hemi)
+    if verts_neighbors_dict is None:
+        verts_neighbors_fname = op.join(MMVT_DIR, subject, 'verts_neighbors_{hemi}.pkl')
+        if not utils.both_hemi_files_exist(verts_neighbors_fname):
+            print('calc_labeles_contours: You should first run create_spatial_connectivity')
+            create_spatial_connectivity(subject)
+            return calc_labeles_contours(subject, atlas, overwrite, verbose)
+    vertices_labels_lookup = lu.create_vertices_labels_lookup(
+        subject, atlas, False, overwrite, hemi=hemi, labels_dict=labels_dict, verts_dict=verts_dict,
+        check_unknown=check_unknown, save_lookup=save_lookup)
     hemis = utils.HEMIS if hemi == 'both' else [hemi]
+    contours_ret = {}
     for hemi in hemis:
-        verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+        if verts_dict is None:
+            verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+        else:
+            verts = verts_dict[hemi]
         contours = np.zeros((len(verts)))
-        vertices_neighbors = np.load(verts_neighbors_fname.format(hemi=hemi))
+        if verts_neighbors_dict is None:
+            vertices_neighbors = np.load(verts_neighbors_fname.format(hemi=hemi))
+        else:
+            vertices_neighbors = verts_neighbors_dict[hemi]
         # labels = lu.read_hemi_labels(subject, SUBJECTS_DIR, atlas, hemi)
-        labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi)
+        if labels_dict is None:
+            labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi)
+        else:
+            labels = labels_dict[hemi]
         labels = [l for l in labels if 'unknown' not in l.name]
         for label_ind, label in enumerate(labels):
             if verbose:
@@ -855,13 +870,19 @@ def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, verbose=F
                     label_nei[vert_ind] = contours[vert]
             if verbose:
                 print(label.name, len(np.where(label_nei)[0]) / len(verts))
-        if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.sphere')):
+        if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.sphere')) and calc_centers:
             centers = [l.center_of_mass(restrict_vertices=True) for l in labels]
         else:
             centers = None
-        np.savez(output_fname.format(hemi=hemi), contours=contours, max=len(labels),
-                 labels=[l.name for l in labels], centers=centers)
-    return utils.both_hemi_files_exist(output_fname) if hemi == 'both' else op.isfile(output_fname.format(hemi=hemi))
+        if return_contours:
+            contours_ret[hemi] = dict(contours=contours, max=len(labels), labels=[l.name for l in labels], centers=centers)
+        else:
+            np.savez(output_fname.format(hemi=hemi), contours=contours, max=len(labels),
+                     labels=[l.name for l in labels], centers=centers)
+    if return_contours:
+        return contours_ret
+    else:
+        return utils.both_hemi_files_exist(output_fname) if hemi == 'both' else op.isfile(output_fname.format(hemi=hemi))
 
 
 @utils.timeit
