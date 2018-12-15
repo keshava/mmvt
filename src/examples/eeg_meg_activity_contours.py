@@ -15,6 +15,7 @@ FMRI_DIR = utils.get_link_dir(utils.get_links_dir(), 'fMRI')
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 
 
+@utils.timeit
 def calc_sample_clusters(args):
     clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, args.subject, 'meg', 'clusters'))
     labels_fol = utils.make_dir(op.join(MMVT_DIR, args.subject, 'labels'))
@@ -51,9 +52,10 @@ def calc_sample_clusters(args):
 
     from collections import defaultdict
     all_contours = defaultdict(dict)
-    thresholds = np.arange(2, 9.6, 0.1)
+    thresholds = np.arange(2, 9.6, 1)
     now = time.time()
     for run, threshold in enumerate(thresholds):
+        key = '{:.2}'.format(threshold)
         utils.time_to_go(now, run, len(thresholds), 1)
         print('Threshold: {}'.format(threshold))
         threshold_output_fname = op.join(labels_fol, 'clusters-sample_audvis-meg_contours_{:.2f}_{}.npz'.format(threshold, '{hemi}'))
@@ -68,7 +70,7 @@ def calc_sample_clusters(args):
             verts_neighbors_dict=verts_neighbors_dict, only_contours=True, n_jobs=args.n_jobs)
 
         for hemi in utils.HEMIS:
-            all_contours[threshold][hemi] = np.where(contours[hemi]['contours']) # {hemi: utils.Bag(np.load(threshold_output_fname.format(hemi=hemi))) for hemi in utils.HEMIS}
+            all_contours[key][hemi] = np.where(contours[hemi]['contours']) # {hemi: utils.Bag(np.load(threshold_output_fname.format(hemi=hemi))) for hemi in utils.HEMIS}
         # os.rename(op.join(clusters_root_fol, 'sample_audvis-meg'),
         #           op.join(clusters_root_fol, 'sample_audvis-meg-{:.2f}'.format(threshold)))
         # os.rename(op.join(clusters_root_fol, 'clusters_labels_sample_audvis-meg.pkl'),
