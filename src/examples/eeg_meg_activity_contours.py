@@ -43,10 +43,10 @@ def calc_sample_clusters(args):
     verts_neighbors_dict = {hemi: utils.load(verts_neighbors_fname.format(hemi)) for hemi in utils.HEMIS}
 
     all_contours = {}
-    thresholds = np.arange(2, 9.6, 1)
+    thresholds = np.arange(2, 11, 1)
     now = time.time()
     for run, threshold in enumerate(thresholds):
-        key = '{:.2}'.format(threshold)
+        key = '{:.2f}'.format(threshold)
         all_contours[key] = {}
         utils.time_to_go(now, run, len(thresholds), 1)
         contours = meg.find_functional_rois_in_stc(
