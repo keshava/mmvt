@@ -314,11 +314,11 @@ def merge_meg_connectivity(args):
     inv_method, em = 'dSPM', 'mean_flip'
     con_method, con_mode = 'pli2_unbiased', 'multitaper'
     template_con = utils.make_dir(op.join(MMVT_DIR, args.template_brain, 'connectivity'))
-    output_fname = op.join(template_con, 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
+    output_fname = op.join(template_con, 'rest_{}_{}_{}.npy'.format(em, con_method, con_mode))
     con = None
     subjects_num = 0
     for subject in args.subject:
-        meg_con_fname = op.join(MMVT_DIR, subject, 'connectivity', 'rest_{}_{}_{}.npy'.format(em, con_method, con_mode))
+        meg_con_fname = op.join(MMVT_DIR, subject, 'connectivity', 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
         if not op.isfile(meg_con_fname):
             continue
         con_dict = utils.Bag(np.load(meg_con_fname))
