@@ -132,40 +132,40 @@ def convert_rest_dicoms_to_mgz(subject, rest_fol, overwrite=False):
         return ''
 
 
-def analyze_meg(args):
-    subjects = args.subject
-    for subject, mri_subject in zip(subjects, args.mri_subject):
-        init_meg(subject)
-        local_rest_raw_fname, empty_fname, cor_fname = get_meg_empty_fnames(
-            subject, args.remote_meg_dir.format(subject=subject.upper()), args)
-        if not op.isfile(empty_fname) or not op.isfile(cor_fname):
-            print('{}: Can\'t find empty, raw, or cor files!'.format(subject))
-            continue
-        args = meg.read_cmd_args(dict(
-            subject=subject,
-            mri_subject=mri_subject,
-            atlas=args.atlas,
-            function='rest_functions',
-            task='rest',
-            reject=True, # Should be True here, unless you are dealling with bad data...
-            remove_power_line_noise=True,
-            l_freq=3, h_freq=80,
-            windows_length=500,
-            windows_shift=100,
-            inverse_method='MNE',
-            raw_fname=local_rest_raw_fname,
-            cor_fname=cor_fname,
-            empty_fname=empty_fname,
-            remote_subject_dir=args.remote_subject_dir,
-            # This properties are set automatically if task=='rest'
-            # calc_epochs_from_raw=True,
-            # single_trial_stc=True,
-            # use_empty_room_for_noise_cov=True,
-            # windows_num=10,
-            # baseline_min=0,
-            # baseline_max=0,
-        ))
-        meg.call_main(args)
+# def analyze_meg(args):
+#     subjects = args.subject
+#     for subject, mri_subject in zip(subjects, args.mri_subject):
+#         init_meg(subject)
+#         local_rest_raw_fname, empty_fname, cor_fname = get_meg_empty_fnames(
+#             subject, args.remote_meg_dir.format(subject=subject.upper()), args)
+#         if not op.isfile(empty_fname) or not op.isfile(cor_fname):
+#             print('{}: Can\'t find empty, raw, or cor files!'.format(subject))
+#             continue
+#         args = meg.read_cmd_args(dict(
+#             subject=subject,
+#             mri_subject=mri_subject,
+#             atlas=args.atlas,
+#             function='rest_functions',
+#             task='rest',
+#             reject=True, # Should be True here, unless you are dealling with bad data...
+#             remove_power_line_noise=True,
+#             l_freq=3, h_freq=80,
+#             windows_length=500,
+#             windows_shift=100,
+#             inverse_method='MNE',
+#             raw_fname=local_rest_raw_fname,
+#             cor_fname=cor_fname,
+#             empty_fname=empty_fname,
+#             remote_subject_dir=args.remote_subject_dir,
+#             # This properties are set automatically if task=='rest'
+#             # calc_epochs_from_raw=True,
+#             # single_trial_stc=True,
+#             # use_empty_room_for_noise_cov=True,
+#             # windows_num=10,
+#             # baseline_min=0,
+#             # baseline_max=0,
+#         ))
+#         meg.call_main(args)
 
 
 # def calc_meg_connectivity(args):
@@ -232,7 +232,7 @@ def calc_meg_connectivity(args):
             con_mode=con_mode,
             conditions='rest',
             max_epochs_num=args.max_epochs_num,
-            recreate_src_spacing='oct6p',
+            # recreate_src_spacing='oct6p',
             check_for_channels_inconsistency=False,
             overwrite_inv=True,
             overwrite_connectivity=True,#args.overwrite_connectivity,
@@ -310,10 +310,35 @@ def analyze_rest_fmri(gargs):
     print('Bad subjects: ', set(gargs.mri_subject) - set(good_subjects))
 
 
-def merge_connectivity(args):
+def merge_meg_connectivity(args):
+    inv_method, em = 'dSPM', 'mean_flip'
+    con_method, con_mode = 'pli2_unbiased', 'multitaper'
+    template_con = utils.make_dir(op.join(MMVT_DIR, args.template_brain, 'connectivity'))
+    output_fname = op.join(template_con, 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
+    con = None
+    subjects_num = 0
+    for subject in args.mri_subject:
+        meg_con_fname = op.join(MMVT_DIR, subject, 'connectivity', 'rest_{}_{}_{}.npy'.format(em, con_method, con_mode))
+        if not op.isfile(meg_con_fname):
+            continue
+        con_dict = utils.Bag(np.load(meg_con_fname))
+        print('{}: con.shape {}'.format(subject, con_dict.con.shape))
+        if con is None:
+            con = np.zeros(con_dict.con.shape)
+        con += con_dict.con
+        subjects_num += 1
+    con /= subjects_num
+    np.save(output_fname, con)
+
+
+
+def merge_modalities_connectivity(args):
+    inv_method, em = 'dSPM', 'mean_flip'
+    con_method, con_mode = 'pli2_unbiased', 'multitaper'
     for subject in args.mri_subject:
         conn_args = connectivity.read_cmd_args(dict(subject=subject, atlas=args.atlas, norm_by_percentile=False))
-        meg_con = np.abs(np.load(op.join(MMVT_DIR, subject, 'connectivity', 'meg_static_pli.npy')).squeeze())
+        meg_con_fname = op.join(MMVT_DIR, subject, 'connectivity', 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
+        meg_con = np.abs(np.load(meg_con_fname).squeeze())
         fmri_con = np.abs(np.load(op.join(MMVT_DIR, subject, 'connectivity', 'fmri_static_corr.npy')).squeeze())
         d = utils.Bag(np.load(op.join(MMVT_DIR, subject, 'connectivity', 'meg_static_pli.npz')))
         labels_names = np.load(op.join(MMVT_DIR, subject, 'connectivity', 'labels_names.npy'))
@@ -408,7 +433,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--subject', help='subject name', required=True, type=au.str_arr_type)
     parser.add_argument('-m', '--mri_subject', help='subject name', required=False, default='')
     parser.add_argument('-a', '--atlas', required=False, default='laus125')
-    parser.add_argument('-f', '--function', help='function name', required=False, default='analyze_meg')
+    parser.add_argument('-f', '--function', help='function name', required=True)
     parser.add_argument('--top_k', required=False, default=0, type=int)
     parser.add_argument('--remote_meg_dir', required=False,
                         default='/autofs/space/lilli_003/users/DARPA-TRANSFER/meg')
@@ -419,6 +444,7 @@ if __name__ == '__main__':
                         default='/autofs/space/lilli_001/users/DARPA-Recons/{subject}')
     parser.add_argument('--epo_template', required=False, default='{subject}_Resting_meg_Demi_ar-epo.fif')
     parser.add_argument('--max_epochs_num', help='', required=False, default=10, type=int)
+    parser.add_argument('--template_brain', required=False, default='noam_peled')
 
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))

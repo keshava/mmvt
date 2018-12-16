@@ -133,7 +133,7 @@ def meg_sensors_exist():
 def init_meg_sensors():
     user_fol = mu.get_user_fol()
 
-    if bpy.data.objects.get('MEG_sensors') is not None:
+    if bpy.data.objects.get('MEG_sensors') is not None and len(MEGPanel.meg_sensors_types) > 0:
         items = [(sensor_type, sensor_type, '', sensor_key) for sensor_type, sensor_key in
                  MEGPanel.meg_sensors_types.items()]
         bpy.types.Scene.meg_sensors_types = bpy.props.EnumProperty(
