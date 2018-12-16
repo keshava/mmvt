@@ -1526,7 +1526,8 @@ def main(subject, remote_subject_dir, org_args, flags):
         flags['connectivity'] = create_spatial_connectivity(subject)
 
     if utils.should_run(args, 'calc_labeles_contours'):
-        flags['calc_labeles_contours'] = calc_labeles_contours(subject, args.atlas, args.overwrite_labels_contours)
+        flags['calc_labeles_contours'] = calc_labeles_contours(
+            subject, args.atlas, overwrite=args.overwrite_labels_contours)
 
     if utils.should_run(args, 'calc_labels_center_of_mass'):
         # *) Calc the labels center of mass
