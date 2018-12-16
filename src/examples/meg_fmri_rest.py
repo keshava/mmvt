@@ -319,6 +319,7 @@ def merge_meg_connectivity(args):
     output_fname = op.join(template_con, 'rest_{}_{}_{}.npy'.format(em, con_method, con_mode))
     con = None
     subjects_num = 0
+    good_subjects = []
     for subject in args.subject:
         meg_con_fname = op.join(MMVT_DIR, subject, 'connectivity', 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
         if not op.isfile(meg_con_fname):
@@ -332,8 +333,10 @@ def merge_meg_connectivity(args):
             con = np.zeros(con_dict.con.shape)
         con += con_dict.con
         subjects_num += 1
+        good_subjects.append(subject)
     con /= subjects_num
     np.save(output_fname, con)
+    print('Good subjects: {}'.format(good_subjects))
 
 
 
