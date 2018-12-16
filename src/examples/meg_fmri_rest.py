@@ -3,6 +3,7 @@ import os
 import glob
 import numpy as np
 from src.utils import utils
+from src.utils import labels_utils as lu
 from src.preproc import anatomy as anat
 from src.preproc import meg
 from src.preproc import fMRI as fmri
@@ -314,6 +315,7 @@ def merge_meg_connectivity(args):
     inv_method, em = 'dSPM', 'mean_flip'
     con_method, con_mode = 'pli2_unbiased', 'multitaper'
     template_con = utils.make_dir(op.join(MMVT_DIR, args.template_brain, 'connectivity'))
+    tempalte_labels = lu.read_labels(args.template_brain, SUBJECTS_DIR, args.atlas)
     output_fname = op.join(template_con, 'rest_{}_{}_{}.npy'.format(em, con_method, con_mode))
     con = None
     subjects_num = 0
@@ -323,6 +325,9 @@ def merge_meg_connectivity(args):
             continue
         con_dict = utils.Bag(np.load(meg_con_fname))
         print('{}: con.shape {}'.format(subject, con_dict.con.shape))
+        if con_dict.con.shape[0] != len(tempalte_labels):
+            print('Wrong number of cortical labels!')
+            continue
         if con is None:
             con = np.zeros(con_dict.con.shape)
         con += con_dict.con
