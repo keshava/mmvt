@@ -317,7 +317,7 @@ def merge_meg_connectivity(args):
     output_fname = op.join(template_con, 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
     con = None
     subjects_num = 0
-    for subject in args.mri_subject:
+    for subject in args.subject:
         meg_con_fname = op.join(MMVT_DIR, subject, 'connectivity', 'rest_{}_{}_{}.npy'.format(em, con_method, con_mode))
         if not op.isfile(meg_con_fname):
             continue
