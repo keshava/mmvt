@@ -409,6 +409,11 @@ def mri_convert_hemis(contrast_file_template, contrasts=None, existing_format='n
 
 def convert_fmri_file(input_fname_template, from_format='nii.gz', to_format='mgz'):
     try:
+        for postfix in ['nii.gz', 'nii', 'mgz', 'mgh']:
+            if input_fname_template.endswith(postfix):
+                input_fname_template = input_fname_template[:-len(postfix)]
+                input_fname_template += '{format}'
+                break
         output_fname = input_fname_template.format(format=to_format)
         intput_fname = input_fname_template.format(format=from_format)
         output_files = glob.glob(output_fname)
@@ -869,6 +874,8 @@ def analyze_4d_data(subject, atlas, input_fname_template='rest.sm6.{subject}.{he
     for hemi in utils.HEMIS:
         fmri_fname = input_fname_template_file.format(hemi=hemi)
         fmri_fname = convert_fmri_file(fmri_fname, from_format=input_format)
+        if not op.isfile(fmri_fname):
+            raise Exception('Can\'t convert input file to mgz!')
         print('loading {} ({})'.format(fmri_fname, utils.file_modification_time(fmri_fname)))
         x = nib.load(fmri_fname).get_data()
         morph_from_subject = check_vertices_num(subject, hemi, x, morph_from_subject)
@@ -1309,6 +1316,9 @@ def get_fmri_fname(subject, fmri_file_template, no_files_were_found_func=lambda:
     fmri_fname = ''
     if '{subject}' in fmri_file_template:
         fmri_file_template = fmri_file_template.replace('{subject}', subject)
+    if utils.both_hemi_files_exist(fmri_file_template):
+        return fmri_file_template
+    fmri_file_template = utils.namebase_with_ext(fmri_file_template)
     full_fmri_file_template = op.join(FMRI_DIR, subject, fmri_file_template)
     if only_volumes:
         files = find_volume_files_from_template(full_fmri_file_template)

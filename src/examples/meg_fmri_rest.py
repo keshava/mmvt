@@ -254,33 +254,54 @@ def calc_meg_connectivity(args):
 def analyze_rest_fmri(gargs):
     good_subjects = []
     for subject in gargs.mri_subject:
-        remote_rest_fol = get_fMRI_rest_fol(subject, gargs.remote_fmri_dir)
-        print('{}: {}'.format(subject, remote_rest_fol))
-        if remote_rest_fol == '':
+        # remote_rest_fol = get_fMRI_rest_fol(subject, gargs.remote_fmri_dir)
+        # print('{}: {}'.format(subject, remote_rest_fol))
+        # if remote_rest_fol == '':
+        #     continue
+        # local_rest_fname = convert_rest_dicoms_to_mgz(subject, remote_rest_fol, overwrite=True)
+        # if local_rest_fname == '':
+        #     continue
+        # if not op.isfile(local_rest_fname):
+        #     print('{}: Can\'t find {}!'.format(subject, local_rest_fname))
+        #     continue
+        # args = fmri.read_cmd_args(dict(
+        #     subject=subject,
+        #     atlas=gargs.atlas,
+        #     remote_subject_dir=gargs.remote_subject_dir,
+        #     function='clean_4d_data',
+        #     fmri_file_template=local_rest_fname,
+        #     overwrite_4d_preproc=True
+        # ))
+        # flags = fmri.call_main(args)
+        # if subject not in flags or not flags[subject]['clean_4d_data']:
+        #     continue
+
+        output_fname = op.join(MMVT_DIR, subject, 'connectivity', 'fmri_corr.npz')
+        if op.isfile(output_fname):
+            print('{} already exist!'.format(output_fname))
+            good_subjects.append(subject)
             continue
-        local_rest_fname = convert_rest_dicoms_to_mgz(subject, remote_rest_fol, overwrite=True)
-        if local_rest_fname == '':
+        remote_fname = op.join(
+            gargs.remote_fmri_rest_dir, subject, 'rest_001', '001',
+            'fmcpr.siemens.sm6.{}.{}.nii.gz'.format(subject, '{hemi}'))
+        if not utils.both_hemi_files_exist(remote_fname):
+            print('Couldn\t find fMRI rest data for {} ({})'.format(subject, remote_fname))
             continue
-        if not op.isfile(local_rest_fname):
-            print('{}: Can\'t find {}!'.format(subject, local_rest_fname))
-            continue
-        args = fmri.read_cmd_args(dict(
-            subject=subject,
-            atlas=gargs.atlas,
-            remote_subject_dir=gargs.remote_subject_dir,
-            function='clean_4d_data',
-            fmri_file_template=local_rest_fname,
-            overwrite_4d_preproc=True
-        ))
-        flags = fmri.call_main(args)
-        if subject not in flags or not flags[subject]['clean_4d_data']:
-            continue
+        local_fmri_fol = utils.make_dir(op.join(FMRI_DIR, subject))
+        local_fmri_template = op.join(local_fmri_fol, utils.namebase_with_ext(remote_fname))
+        if utils.both_hemi_files_exist(local_fmri_template):
+            print('{} al')
+        for hemi in utils.HEMIS:
+            local_fmri_fname = op.join(local_fmri_fol, local_fmri_template.format(hemi=hemi))
+            if op.isfile(local_fmri_fname):
+                os.remove(local_fmri_fname)
+            utils.make_link(remote_fname.format(hemi=hemi), local_fmri_fname)
 
         args = fmri.read_cmd_args(dict(
             subject=subject,
             atlas=gargs.atlas,
             function='analyze_4d_data',
-            fmri_file_template='rest.sm6.{subject}.{hemi}.mgz',
+            fmri_file_template=local_fmri_template,
             labels_extract_mode='mean',
             overwrite_labels_data=True
         ))
@@ -450,6 +471,8 @@ if __name__ == '__main__':
     parser.add_argument('--remote_epochs_dir', required=False,default=remote_epochs_dir)
     parser.add_argument('--remote_fmri_dir', required=False,
                         default='/autofs/space/lilli_003/users/DARPA-TRANSFER/mri')
+    parser.add_argument('--remote_fmri_rest_dir', required=False,
+                        default='/autofs/space/lilli_003/users/DARPA-RestingState/')
     parser.add_argument('--remote_subject_dir', required=False,
                         default='/autofs/space/lilli_001/users/DARPA-Recons/{subject}')
     parser.add_argument('--epo_template', required=False, default='{subject}_Resting_meg_Demi_ar-epo.fif')
@@ -461,4 +484,15 @@ if __name__ == '__main__':
     args.subject = pu.decode_subjects(args.subject, remote_subject_dir=args.remote_subject_dir)
     if args.mri_subject == '':
         args.mri_subject = args.subject
+    if args.subject[0] == 'goods':
+        meg_goods = 'hc006,hc032,hc025,hc010,hc022,hc020,hc023,hc027,hc019,hc012,hc033,hc035,hc011,hc003,hc044,hc026,hc005,hc002,hc008,hc015,hc024,hc021,hc030,hc001,hc028,hc034,hc036,hc013,hc017,hc014,hc016'
+        fmri_goods = 'hc036,hc002,hc022,hc014,hc042,hc035,hc015,hc033,hc045,hc011,hc010,hc005,hc006,hc041,hc019,hc009,hc047,hc034,hc028,hc031,hc026,hc024,hc044,hc013,hc030,hc021,hc008,hc029,hc018,hc032,hc038,hc012,hc025,hc037,hc007,hc001,hc017,hc023,hc020,hc003,hc016'
+        args.subject = set(meg_goods.split(',')).intersection(set(fmri_goods.split(',')))
+        print('{} good subjects in fMRI and MEG'.format(len(args.subject)))
     locals()[args.function](args)
+
+
+    # MEG good subject:
+    #
+    # fMRI good subjects:
+    # 'hc036,hc002,hc022,hc014,hc042,hc035,hc015,hc033,hc045,hc011,hc010,hc005,hc006,hc041,hc019,hc009,hc047,hc034,hc028,hc031,hc026,hc024,hc044,hc013,hc030,hc021,hc008,hc029,hc018,hc032,hc038,hc012,hc025,hc037,hc007,hc001,hc017,hc023,hc020,hc003,hc016'
