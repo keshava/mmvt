@@ -315,8 +315,11 @@ def merge_meg_connectivity(args):
     inv_method, em = 'dSPM', 'mean_flip'
     con_method, con_mode = 'pli2_unbiased', 'multitaper'
     template_con = utils.make_dir(op.join(MMVT_DIR, args.template_brain, 'connectivity'))
-    tempalte_labels = lu.read_labels(args.template_brain, SUBJECTS_DIR, args.atlas)
     output_fname = op.join(template_con, 'rest_{}_{}_{}.npy'.format(em, con_method, con_mode))
+    if op.isfile(output_fname) and not args.overwrite:
+        print('Averaged connectivity already exist')
+        return True
+    tempalte_labels = lu.read_labels(args.template_brain, SUBJECTS_DIR, args.atlas)
     con = None
     subjects_num = 0
     good_subjects = []
@@ -337,7 +340,6 @@ def merge_meg_connectivity(args):
     con /= subjects_num
     np.save(output_fname, con)
     print('Good subjects: {}'.format(good_subjects))
-
 
 
 def merge_modalities_connectivity(args):
