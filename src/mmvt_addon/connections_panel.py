@@ -489,7 +489,7 @@ def plot_connections(d=None, plot_time=None, threshold=None, calc_t=True, data_m
         colors_ratio = 256 / (data_max - data_min)
         stat_vals = [calc_stat_data(d.con_values[ind, t], STAT_DIFF) if d.con_values.ndim >= 2 else d.con_values[ind]
                      for ind in selected_indices]
-        if len(stat_vals[0]) == 2:
+        if not isinstance(stat_vals[0], float) and len(stat_vals[0]) == 2:
             stat_vals = [np.diff(v) for v in stat_vals]
         colors = _addon().calc_colors(np.array(stat_vals).squeeze(), data_min, colors_ratio)
         # colors = np.concatenate((colors, np.zeros((len(colors), 1))), 1)

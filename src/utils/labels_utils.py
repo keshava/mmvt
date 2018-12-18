@@ -485,6 +485,8 @@ def get_label_hemi(label_name):
 
 
 def get_label_hemi_invariant_name(label_name):
+    if isinstance(label_name, mne.Label):
+        label_name = label_name.name
     _, _, label_inv_name, _ = get_hemi_delim_and_pos(label_name)
     while label_inv_name != label_name:
         label_name = label_inv_name

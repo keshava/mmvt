@@ -12,6 +12,7 @@ from src.utils import freesurfer_utils as fu
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
+os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 FMRI_DIR = utils.get_link_dir(utils.get_links_dir(), 'fMRI')
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
@@ -336,12 +337,15 @@ def merge_meg_connectivity(args):
     inv_method, em = 'dSPM', 'mean_flip'
     con_method, con_mode = 'pli2_unbiased', 'multitaper'
     template_con = utils.make_dir(op.join(MMVT_DIR, args.template_brain, 'connectivity'))
-    output_fname = op.join(template_con, 'rest_{}_{}_{}.npy'.format(em, con_method, con_mode))
+    output_fname = op.join(template_con, 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
     if op.isfile(output_fname) and not args.overwrite:
         print('Averaged connectivity already exist')
         return True
-    tempalte_labels = lu.read_labels(args.template_brain, SUBJECTS_DIR, args.atlas)
-    con = None
+    org_tempalte_labels = lu.read_labels(args.template_brain, SUBJECTS_DIR, args.atlas)
+    tempalte_labels = [l for l in org_tempalte_labels if lu.get_label_hemi_invariant_name(l) not in args.labels_exclude]
+    include_indices = [ind for ind, l in enumerate(org_tempalte_labels) if
+                       lu.get_label_hemi_invariant_name(l) not in args.labels_exclude]
+    all_con = None
     subjects_num = 0
     good_subjects = []
     for subject in args.subject:
@@ -350,52 +354,113 @@ def merge_meg_connectivity(args):
             continue
         con_dict = utils.Bag(np.load(meg_con_fname))
         print('{}: con.shape {}'.format(subject, con_dict.con.shape))
-        if con_dict.con.shape[0] != len(tempalte_labels):
+        if con_dict.con.shape[0] != len(org_tempalte_labels):
             print('Wrong number of cortical labels!')
             continue
-        if con is None:
-            con = np.zeros(con_dict.con.shape)
-        con += con_dict.con
+        subject_con = con_dict.con[np.ix_(include_indices, include_indices)]
+        if subject_con.shape[0] != len(tempalte_labels) or subject_con.shape[1] != len(tempalte_labels):
+            print('Wrong number of cortical labels!')
+            continue
+        print(np.min(subject_con), np.max(subject_con))
+        if np.isnan(np.max(subject_con)):
+            print('nan in data!')
+            continue
+        if all_con is None:
+            all_con = np.zeros(subject_con.shape)
+        all_con += subject_con
         subjects_num += 1
         good_subjects.append(subject)
-    con /= subjects_num
-    np.save(output_fname, con)
+    all_con /= subjects_num
+    np.savez(output_fname, con=all_con, names=[l.name for l in tempalte_labels])
+    print('Good subjects: {}'.format(good_subjects))
+
+
+def merge_fmri_connectivity(args):
+    con_method = 'corr'
+    template_con = utils.make_dir(op.join(MMVT_DIR, args.template_brain, 'connectivity'))
+    output_fname = op.join(template_con, 'rest_{}.npz'.format(con_method))
+    if op.isfile(output_fname) and not args.overwrite:
+        print('Averaged connectivity already exist')
+        return True
+    tempalte_labels = lu.read_labels(args.template_brain, SUBJECTS_DIR, args.atlas)
+    tempalte_labels = [l for l in tempalte_labels if lu.get_label_hemi_invariant_name(l) not in args.labels_exclude]
+    all_con = None
+    subjects_num = 0
+    good_subjects = []
+    for subject in args.subject:
+        fmri_con_fname = op.join(MMVT_DIR, subject, 'connectivity', 'fmri_{}.npy'.format(con_method))
+        if not op.isfile(fmri_con_fname):
+            continue
+        # con_dict = utils.Bag(np.load(fmri_con_fname))
+        subject_con = np.load(fmri_con_fname)
+        print('{}: con.shape {}'.format(subject, subject_con.shape))
+        if subject_con.shape[0] != len(tempalte_labels):
+            print('Wrong number of cortical labels!')
+            continue
+        print(np.min(subject_con), np.max(subject_con))
+        if all_con is None:
+            all_con = np.zeros(subject_con.shape)
+        all_con += subject_con
+        subjects_num += 1
+        good_subjects.append(subject)
+    all_con /= subjects_num
+    np.savez(output_fname, con=all_con, names=[l.name for l in tempalte_labels])
     print('Good subjects: {}'.format(good_subjects))
 
 
 def merge_modalities_connectivity(args):
+    import matplotlib.pyplot as plt
     inv_method, em = 'dSPM', 'mean_flip'
-    con_method, con_mode = 'pli2_unbiased', 'multitaper'
-    for subject in args.mri_subject:
-        conn_args = connectivity.read_cmd_args(dict(subject=subject, atlas=args.atlas, norm_by_percentile=False))
-        meg_con_fname = op.join(MMVT_DIR, subject, 'connectivity', 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
-        meg_con = np.abs(np.load(meg_con_fname).squeeze())
-        fmri_con = np.abs(np.load(op.join(MMVT_DIR, subject, 'connectivity', 'fmri_static_corr.npy')).squeeze())
-        d = utils.Bag(np.load(op.join(MMVT_DIR, subject, 'connectivity', 'meg_static_pli.npz')))
-        labels_names = np.load(op.join(MMVT_DIR, subject, 'connectivity', 'labels_names.npy'))
-        meg_threshold, fmri_threshold = 0.3, 0.5
-        # if args.top_k == 0:
-        #     L = len(d.labels)
-        #     args.top_k = int(np.rint(L * (L - 1) / 200))
-        # meg_con_sparse, meg_top_k = calc_con(meg_con, args.top_k)
-        # fmri_con_sparse, fmri_top_k = calc_con(fmri_con, args.top_k)
+    meg_con_method, meg_con_mode = 'pli2_unbiased', 'multitaper'
+    fmri_con_method = 'corr'
+    conditions = ['interference', 'neutral']
 
-        # if len(set(fmri_top_k).intersection(set(meg_top_k))):
-        #     print('fmri and meg top k intersection!')
-        # con = con_fmri - con_meg
-        # if len(np.where(con)[0]) != args.top_k * 2:
-        #     print('Wrong number of values in the conn matrix!'.format(len(np.where(con)[0])))
-        #     continue
-        meg_hub, fmri_hub = calc_hubs(meg_con, fmri_con, labels_names, meg_threshold, fmri_threshold)
-        meg_con_hubs, fmri_con_hubs, join_con_hubs = create_con_with_only_hubs(
-            meg_con, fmri_con, meg_hub, fmri_hub, meg_threshold, fmri_threshold)
-        for con_hubs, con_name in zip([meg_con_hubs, fmri_con_hubs, join_con_hubs], ['meg-hubs', 'fmri-hubs', 'fmri-meg-hubs']):
-            output_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}.npz'.format(con_name))
-            con_vertices_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}_vertices.pkl'.format(con_name))
-            connectivity.save_connectivity(
-                subject, con_hubs, con_name, connectivity.ROIS_TYPE, labels_names, d.conditions, output_fname, conn_args,
-                con_vertices_fname)
-            print('{} was saved in {}'.format(con_name, output_fname))
+    template_con = utils.make_dir(op.join(MMVT_DIR, args.template_brain, 'connectivity'))
+    meg_con_fname = op.join(template_con, 'rest_{}_{}_{}.npz'.format(em, meg_con_method, meg_con_mode))
+    input_fmri_fname = op.join(template_con, 'rest_{}.npz'.format(fmri_con_method))
+
+    conn_args = connectivity.read_cmd_args(dict(subject=args.template_brain, atlas=args.atlas, norm_by_percentile=False))
+    meg_con_dict = utils.Bag(np.load(meg_con_fname))
+    meg_con = meg_con_dict.con[:, :, 4].squeeze()
+    fmri_con_dict = utils.Bag(np.load(input_fmri_fname))
+    fmri_con = np.abs(fmri_con_dict.con.mean(axis=2)).squeeze()
+    print(np.min(meg_con), np.max(meg_con))
+    print(np.min(fmri_con), np.max(fmri_con))
+    if not all(meg_con_dict.names == fmri_con_dict.names):
+        raise Exception('Not the same names!')
+
+    # plt.matshow(np.mean(fmri_con, axis=2))
+    # plt.show()
+    meg_con = sym_mat(meg_con)
+    fmri_con = sym_mat(fmri_con)
+
+    # d = utils.Bag(np.load(op.join(MMVT_DIR, args.template_brain, 'connectivity', 'meg_static_pli.npz')))
+    labels_names = meg_con_dict.names
+    threshold_perc = 90
+    meg_con = meg_con / (np.max(meg_con) * 2) + 0.5
+    fmri_con = fmri_con / (np.max(fmri_con) * 2) + 0.5
+    meg_threshold, fmri_threshold = np.percentile(meg_con, threshold_perc), np.percentile(fmri_con, threshold_perc)
+    print('meg and fMRI thresholds: {}, {}'.format(meg_threshold, fmri_threshold))
+    meg_hub, fmri_hub = calc_hubs(meg_con, fmri_con, labels_names, meg_threshold, fmri_threshold)
+    meg_con_hubs, fmri_con_hubs, join_con_hubs = create_con_with_only_hubs(
+        meg_con, fmri_con, meg_hub, fmri_hub, meg_threshold, fmri_threshold)
+    for con_hubs, con_name in zip([meg_con_hubs, fmri_con_hubs, join_con_hubs], ['meg-hubs', 'fmri-hubs', 'fmri-meg-hubs']):
+        output_fname = op.join(MMVT_DIR, args.template_brain, 'connectivity', '{}.npz'.format(con_name))
+        con_vertices_fname = op.join(MMVT_DIR, args.template_brain, 'connectivity', '{}_vertices.pkl'.format(con_name))
+        connectivity.save_connectivity(
+            args.template_brain, con_hubs, con_name, connectivity.ROIS_TYPE, labels_names, conditions, output_fname, conn_args,
+            con_vertices_fname)
+        print('{} was saved in {}'.format(con_name, output_fname))
+
+
+def sym_mat(con):
+    if not np.allclose(con, con.T):
+        con = (con + con.T) / 2
+        # if np.all(con[np.triu_indices(con.shape[0])] == 0):
+        #     con[np.triu_indices(con.shape[0])] = con[np.tril_indices(con.shape[0])]
+        # elif np.all(con[np.tril_indices(con.shape[0])] == 0):
+        #     con[np.tril_indices(con.shape[0])] = con[np.triu_indices(con.shape[0])]
+    return con
 
 
 def calc_con(con, top_k):
@@ -477,15 +542,18 @@ if __name__ == '__main__':
                         default='/autofs/space/lilli_001/users/DARPA-Recons/{subject}')
     parser.add_argument('--epo_template', required=False, default='{subject}_Resting_meg_Demi_ar-epo.fif')
     parser.add_argument('--max_epochs_num', help='', required=False, default=10, type=int)
-    parser.add_argument('--template_brain', required=False, default='noam_peled')
+    parser.add_argument('--template_brain', required=False, default='colin27')
+    parser.add_argument('--labels_exclude', help='rois to exclude', required=False, default='unknown,corpuscallosum',
+                        type=au.str_arr_type)
 
+    parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
     args.subject = pu.decode_subjects(args.subject, remote_subject_dir=args.remote_subject_dir)
     if args.mri_subject == '':
         args.mri_subject = args.subject
     if args.subject[0] == 'goods':
-        meg_goods = 'hc006,hc032,hc025,hc010,hc022,hc020,hc023,hc027,hc019,hc012,hc033,hc035,hc011,hc003,hc044,hc026,hc005,hc002,hc008,hc015,hc024,hc021,hc030,hc001,hc028,hc034,hc036,hc013,hc017,hc014,hc016'
+        meg_goods = 'hc006,hc032,hc025,hc010,hc022,hc020,hc023,hc027,hc019,hc012,hc033,hc035,hc011,hc026,hc005,hc002,hc008,hc015,hc024,hc021,hc030,hc001,hc028,hc034,hc036,hc013,hc017,hc014,hc016'
         fmri_goods = 'hc036,hc002,hc022,hc014,hc042,hc035,hc015,hc033,hc045,hc011,hc010,hc005,hc006,hc041,hc019,hc009,hc047,hc034,hc028,hc031,hc026,hc024,hc044,hc013,hc030,hc021,hc008,hc029,hc018,hc032,hc038,hc012,hc025,hc037,hc007,hc001,hc017,hc023,hc020,hc003,hc016'
         args.subject = set(meg_goods.split(',')).intersection(set(fmri_goods.split(',')))
         print('{} good subjects in fMRI and MEG'.format(len(args.subject)))

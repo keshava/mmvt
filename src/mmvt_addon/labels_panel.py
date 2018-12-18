@@ -92,7 +92,10 @@ def labels_data_files_update(self, context):
     # if LabelsPanel.init:
     labels_data_fname = glob.glob(op.join(mu.get_user_fol(), 'labels', 'labels_data', '{}.*'.format(
         bpy.context.scene.labels_data_files.replace(' ', '_'))))[0]
-    d, labels, data, atlas, cb_title, labels_max, labels_min, cmap = _load_labels_data(labels_data_fname)
+    ret = _load_labels_data(labels_data_fname)
+    if isinstance(ret, bool):
+        return
+    d, labels, data, atlas, cb_title, labels_max, labels_min, cmap = ret
     _addon().init_labels_colorbar(data, cb_title, labels_max, labels_min, cmap)
 
 
@@ -214,6 +217,8 @@ def _load_labels_data(labels_data_fname):
         print('Currently we support only mat and npz files')
         return False
     labels, data = d.names, d.data
+    if len(labels) == 0:
+        return False
     if isinstance(labels[0], mne.Label):
         labels = [l.name for l in labels]
     if data.ndim == 2 :
