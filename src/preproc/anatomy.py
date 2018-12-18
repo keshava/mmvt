@@ -1359,16 +1359,16 @@ def get_image_data(image_data, order, flips, ii, pos):
 
 def get_data_and_header(subject, image_name):
     # print('Loading header and data for {}, {}'.format(subject, modality))
-    utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
-    fname = op.join(MMVT_DIR, subject, 'freeview', image_name)
-    if not op.isfile(fname):
-        subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', image_name)
-        if op.isfile(subjects_fname):
-            shutil.copy(subjects_fname, fname)
-        else:
-            print("Can't find subject's {}!".format(image_name))
-            return None, None
-    header = nib.load(fname)
+    # utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
+    # fname = op.join(MMVT_DIR, subject, 'freeview', image_name)
+    # if not op.isfile(fname):
+    subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', image_name)
+    if not op.isfile(subjects_fname):
+        # shutil.copy(subjects_fname, fname)
+    # else:
+        print("Can't find subject's {}!".format(image_name))
+        return None, None
+    header = nib.load(subjects_fname)
     data = header.get_data()
     return data, header
 

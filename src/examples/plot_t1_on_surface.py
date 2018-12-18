@@ -13,7 +13,7 @@ def get_t1_vertices_data(subject):
     trans_dict = utils.Bag(np.load(trans_fname))
     ras_tkr2vox = np.linalg.inv(trans_dict.vox2ras_tkr)
     pial_verts = utils.load_surf(subject, MMVT_DIR, SUBJECTS_DIR)
-    t1_data, t1_header = anat.get_data_and_header(subject, 'T1.mgz')
+    t1_data, t1_header = anat.get_data_and_header(subject, 'brainmask.mgz')
     for hemi in utils.HEMIS:
         output_fname = op.join(MMVT_DIR, subject, 'surf', 'T1-{}.npy'.format(hemi))
         verts = pial_verts[hemi]
@@ -25,5 +25,5 @@ def get_t1_vertices_data(subject):
 
 
 if __name__ == '__main__':
-    get_t1_vertices_data('emily')
+    get_t1_vertices_data('colin27')
     print('Done!')
