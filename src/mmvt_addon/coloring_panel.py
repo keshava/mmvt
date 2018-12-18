@@ -12,6 +12,7 @@ from functools import partial
 import re
 import shutil
 import math
+from tqdm import tqdm
 
 try:
     import bpy
@@ -1169,7 +1170,7 @@ def vertex_object_coloring(cur_obj, mesh, coloring_layer, valid_verts, vert_valu
 def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur_obj_name, save_prev_colors=False):
     if save_prev_colors:
         ColoringMakerPanel.prev_colors[cur_obj_name]['colors'] = defaultdict(dict)
-    for vert in valid_verts:
+    for vert in tqdm(valid_verts):
         x = lookup[vert]
         for loop_ind in x[x > -1]:
             d = vcol_layer.data[loop_ind]
