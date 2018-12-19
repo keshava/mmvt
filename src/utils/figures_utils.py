@@ -44,7 +44,8 @@ def plot_color_bar(data_max, data_min, colors_map, ax=None, fol='', do_save=True
         cb.set_ticks(cb_ticks)
         cb.ax.tick_params(labelsize=cb_ticks_font_size)
     if cb_title != '':
-        cb.ax.set_ylabel(cb_title.strip(), color='white' if background_color in ['black', [0, 0, 0]] else 'black')
+        cb.ax.set_ylabel(cb_title.strip(), color='white' if background_color in ['black', [0, 0, 0]] else 'black',
+                         fontsize=cb_ticks_font_size)
     resize_and_move_ax(ax, ddw=0.07, ddh=0.8)
     if colorbar_name == '':
         colorbar_name = '{}_colorbar.jpg'.format(color_map_name)

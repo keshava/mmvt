@@ -189,7 +189,8 @@ def create_vertices(d, mask, verts_color='green'):
     layers = [False] * 20
     layers[_addon().CONNECTIONS_LAYER] = True
     vert_color = np.hstack((cu.name_to_rgb(verts_color), [0.]))
-    parent_name = 'connections_vertices'
+    get_connection_parent()
+    parent_name = '{}_connections_vertices'.format(bpy.context.scene.connectivity_files)
     parent_obj = mu.create_empty_if_doesnt_exists(parent_name, _addon().BRAIN_EMPTY_LAYER, None, get_connections_parent_name())
     for vertice in ConnectionsPanel.vertices:
     # for ind in range(len(d.names[mask])):
@@ -242,7 +243,8 @@ def get_vertices_obj():
     vertices_obj = None
     connection_parent = get_connection_parent()
     if connection_parent is not None:
-        vertices_objs = [c for c in connection_parent.children if c.name == 'connections_vertices']
+        vertices_parent_name = '{}_connections_vertices'.format(bpy.context.scene.connectivity_files)
+        vertices_objs = [c for c in connection_parent.children if c.name == vertices_parent_name]
         if len(vertices_objs) == 1:
             vertices_obj = vertices_objs[0]
     return vertices_obj
@@ -579,11 +581,12 @@ def filter_nodes(do_filter=True, connectivity_file=''):
     if parent is None:
         print('{} is None!'.format(parent))
         return
-    vertices_obj = bpy.data.objects.get('connections_vertices')
+    vertices_parent_name = '{}_connections_vertices'.format(bpy.context.scene.connectivity_files)
+    vertices_obj = bpy.data.objects.get(vertices_parent_name)
     if vertices_obj is None:
         print('connections_vertices is None!')
         return
-    for node in bpy.data.objects.get('connections_vertices').children:
+    for node in vertices_obj.children:
         if do_filter:
             conn_found = False
             label_name = node.name[:-len('_vertice')]

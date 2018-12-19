@@ -509,28 +509,28 @@ def meg_labels_coloring(override_current_mat=True):
             override_current_mat, meg_labels_min, meg_labels_max)
 
 
-def color_connections_labels_avg(override_current_mat=True):
-    ColoringMakerPanel.what_is_colored.add(WIC_CONN_LABELS_AVG)
-    init_activity_map_coloring('MEG')
-    threshold = bpy.context.scene.coloring_lower_threshold
-    hemispheres = [hemi for hemi in HEMIS if not mu.get_hemi_obj(hemi).hide]
-    user_fol = mu.get_user_fol()
-    # files_names = [mu.namebase(fname).replace('_', ' ').replace('{} '.format(atlas), '') for fname in
-    #                conn_labels_avg_files]
-    atlas = bpy.context.scene.atlas
-    # labels_data_minimax = np.load(op.join(user_fol, 'meg', 'meg_labels_{}_{}_minmax.npz'.format(atlas, em)))
-    # meg_labels_min, meg_labels_max = labels_data_minimax['labels_diff_minmax'] \
-    #     if bpy.context.scene.meg_labels_coloring_type == 'diff' else labels_data_minimax['labels_minmax']
-    # data_minmax = max(map(abs, [meg_labels_max, meg_labels_min]))
-    # meg_labels_min, meg_labels_max = -data_minmax, data_minmax
-
-    file_name = bpy.context.scene.conn_labels_avg_files.replace(' ', '_').replace('_labels_avg.npz', '')
-    file_name = '{}_{}_labels_avg.npz'.format(file_name, atlas)
-    data = np.load(op.join(user_fol, 'connectivity', file_name))
-    for hemi in hemispheres:
-        labels_coloring_hemi(
-            labels_data, ColoringMakerPanel.faces_verts, hemi, threshold, bpy.context.scene.meg_labels_coloring_type,
-            override_current_mat, meg_labels_min, meg_labels_max)
+# def color_connections_labels_avg(override_current_mat=True):
+#     ColoringMakerPanel.what_is_colored.add(WIC_CONN_LABELS_AVG)
+#     init_activity_map_coloring('MEG')
+#     threshold = bpy.context.scene.coloring_lower_threshold
+#     hemispheres = [hemi for hemi in HEMIS if not mu.get_hemi_obj(hemi).hide]
+#     user_fol = mu.get_user_fol()
+#     # files_names = [mu.namebase(fname).replace('_', ' ').replace('{} '.format(atlas), '') for fname in
+#     #                conn_labels_avg_files]
+#     atlas = bpy.context.scene.atlas
+#     # labels_data_minimax = np.load(op.join(user_fol, 'meg', 'meg_labels_{}_{}_minmax.npz'.format(atlas, em)))
+#     # meg_labels_min, meg_labels_max = labels_data_minimax['labels_diff_minmax'] \
+#     #     if bpy.context.scene.meg_labels_coloring_type == 'diff' else labels_data_minimax['labels_minmax']
+#     # data_minmax = max(map(abs, [meg_labels_max, meg_labels_min]))
+#     # meg_labels_min, meg_labels_max = -data_minmax, data_minmax
+#
+#     file_name = bpy.context.scene.conn_labels_avg_files.replace(' ', '_').replace('_labels_avg.npz', '')
+#     file_name = '{}_{}_labels_avg.npz'.format(file_name, atlas)
+#     data = np.load(op.join(user_fol, 'connectivity', file_name))
+#     for hemi in hemispheres:
+#         labels_coloring_hemi(
+#             labels_data, ColoringMakerPanel.faces_verts, hemi, threshold, bpy.context.scene.meg_labels_coloring_type,
+#             override_current_mat, meg_labels_min, meg_labels_max)
 
 
 def color_connectivity_degree():
@@ -540,6 +540,9 @@ def color_connectivity_degree():
         return
     threshold = bpy.context.scene.connectivity_degree_threshold
     labels = ColoringMakerPanel.connectivity_labels
+    if len(labels) != corr.shape[0]:
+        print('labels len ({}) != corr shape ({}x{})'.format(len(labels), corr.shape[0], corr.shape[1]))
+        return
     if bpy.context.scene.connectivity_degree_threshold_use_abs:
         degree_mat = np.sum(abs(corr) >= threshold, 0)
     else:
@@ -570,13 +573,29 @@ def color_connectivity_degree():
 
 
 def static_conn_files_update(self, context):
-    ColoringMakerPanel.static_conn = np.load(op.join(mu.get_user_fol(), 'connectivity', '{}.npy'.format(
+    fnames = glob.glob(op.join(mu.get_user_fol(), 'connectivity', '{}.np?'.format(
         bpy.context.scene.static_conn_files)))
-    color_connectivity_degree()
+    if len(fnames) == 0:
+        print('No static conn files for {}!'.format(bpy.context.scene.static_conn_files))
+    else:
+        fname = fnames[0]
+    if fname.endswith('.npy'):
+        ColoringMakerPanel.static_conn = np.load(fname)
+    elif fname.endswith('.npz'):
+        d = np.load(fname)
+        if 'con' in d:
+            ColoringMakerPanel.static_conn = d['con']
+        if 'threshold' in d:
+            bpy.context.scene.connectivity_degree_threshold = d['threshold']
+        if 'labels' in d:
+            ColoringMakerPanel.connectivity_labels = d['labels']
+    if bpy.context.scene.color_rois_homogeneously:
+        color_connectivity_degree()
 
 
 def update_connectivity_degree_threshold(self, context):
-    color_connectivity_degree()
+    if bpy.context.scene.color_rois_homogeneously:
+        color_connectivity_degree()
 
 
 def fmri_labels_coloring(override_current_mat=True, use_abs=None):
@@ -2320,7 +2339,7 @@ def draw(self, context):
         col.prop(context.scene, 'connectivity_degree_threshold', text="Threshold")
         col.prop(context.scene, 'connectivity_degree_threshold_use_abs', text="Use connectivity absolute value")
         # col.prop(context.scene, 'connectivity_degree_save_image', text="Save an image each update")
-        # col.operator(ColorStaticConnectionsDegree.bl_idname, text="Plot Connectivity Degree", icon='POTATO')
+        col.operator(ColorStaticConnectionsDegree.bl_idname, text="Plot Connectivity Degree", icon='POTATO')
 
     if faces_verts_exist:
         if manually_color_files_exist:
@@ -2682,8 +2701,8 @@ def init_static_conn():
     conn_labels_names_fname = op.join(mu.get_user_fol(), 'connectivity', 'labels_names.npy')
     if op.isfile(conn_labels_names_fname):
         ColoringMakerPanel.connectivity_labels = np.load(conn_labels_names_fname)
-    static_conn_files = glob.glob(op.join(user_fol, 'connectivity', '*mean*.npy')) + \
-                        glob.glob(op.join(user_fol, 'connectivity', '*static*.npy'))
+    static_conn_files = glob.glob(op.join(user_fol, 'connectivity', '*mean.np?')) + \
+                        glob.glob(op.join(user_fol, 'connectivity', '*static.np?'))
     if len(static_conn_files) > 0:
         files_names = [mu.namebase(fname) for fname in static_conn_files]
         files_names = [name for name in files_names if 'backup' not in name]

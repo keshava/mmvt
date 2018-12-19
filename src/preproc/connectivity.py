@@ -521,7 +521,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
             lu.create_labels_coloring(subject, labels_names, dFC, '{}_{}_cv_mean'.format(
                 args.connectivity_modality, args.connectivity_method[0]), norm_percs=(1, 99), norm_by_percentile=True,
                 colors_map='YlOrRd')
-    if windows_num > 1 and conn.ndim == 3 and not op.isfile(conn_mean_mat_fname):
+    if windows_num > 1 and conn.ndim == 3: # and not op.isfile(conn_mean_mat_fname) :
         mean_conn = np.mean(conn, 2)
         np.save(conn_mean_mat_fname, mean_conn)
     if not args.save_mmvt_connectivity:

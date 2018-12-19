@@ -7,7 +7,8 @@ def run(mmvt):
 
 def set_curve(val):
     for obj in bpy.data.objects['connections_{}'.format(bpy.context.scene.connectivity_files)].children:
-        if obj == bpy.data.objects['connections_vertices']:
+        vertices_name = '{}_connections_vertices'.format(bpy.context.scene.connectivity_files)
+        if obj == bpy.data.objects[vertices_name]:
             continue
         c1 = obj.data.splines[0].bezier_points[0].co
         obj.data.splines[0].bezier_points[0].handle_right = c1
