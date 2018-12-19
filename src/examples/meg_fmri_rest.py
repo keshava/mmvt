@@ -409,7 +409,6 @@ def merge_fmri_connectivity(args):
 
 
 def merge_modalities_connectivity(args):
-    import matplotlib.pyplot as plt
     inv_method, em = 'dSPM', 'mean_flip'
     meg_con_method, meg_con_mode = 'pli2_unbiased', 'multitaper'
     fmri_con_method = 'corr'
@@ -429,8 +428,6 @@ def merge_modalities_connectivity(args):
     if not all(meg_con_dict.names == fmri_con_dict.names):
         raise Exception('Not the same names!')
 
-    # plt.matshow(np.mean(fmri_con, axis=2))
-    # plt.show()
     meg_con = sym_mat(meg_con)
     fmri_con = sym_mat(fmri_con)
 
