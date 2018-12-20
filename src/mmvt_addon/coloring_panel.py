@@ -113,6 +113,8 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
              view_selected=False, subject='', save_prev_colors=False, cm=None,
              save_with_color_bar=True, read_chache=False, n_jobs=-1):
     import mne
+    # cursor (enum in ['DEFAULT', 'NONE', 'WAIT', 'CROSSHAIR', 'MOVE_X', 'MOVE_Y', 'KNIFE', 'TEXT', 'PAINT_BRUSH', 'HAND', 'SCROLL_X', 'SCROLL_Y', 'SCROLL_XY', 'EYEDROPPER'])
+    bpy.context.window.cursor_set("WAIT")
     subject = mu.get_user() if subject == '' else subject
     n_jobs = mu.get_n_jobs(n_jobs)
 
@@ -211,6 +213,7 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
     # set_default_colormap(data_min, data_max)
     fname = plot_stc_t(stc_t_smooth.rh_data, stc_t_smooth.lh_data, t, data_min, colors_ratio,
                        threshold, save_image, save_with_color_bar, view_selected, save_prev_colors=save_prev_colors)
+    bpy.context.window.cursor_set("DEFAULT")
     return fname, stc_t_smooth
 
 
@@ -1189,13 +1192,23 @@ def vertex_object_coloring(cur_obj, mesh, coloring_layer, valid_verts, vert_valu
 def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur_obj_name, save_prev_colors=False):
     if save_prev_colors:
         ColoringMakerPanel.prev_colors[cur_obj_name]['colors'] = defaultdict(dict)
+    # progress = 0
+    # step = len(valid_verts) / 100
+    # ind = 0
+    bpy.context.window.cursor_set("WAIT")
     for vert in tqdm(valid_verts):
+        # if ind > step:
+        #     progress += 1
+        #     ind = 0
+        #     _addon().colorbar.show_progress(progress)
         x = lookup[vert]
         for loop_ind in x[x > -1]:
             d = vcol_layer.data[loop_ind]
             if save_prev_colors:
                 ColoringMakerPanel.prev_colors[cur_obj_name]['colors'][vert][loop_ind] = d.color.copy()
             d.color = colors_func(vert)
+        # ind += 1
+    bpy.context.window.cursor_set("DEFAULT")
 
 
 def recreate_coloring_layers(mesh, coloring_layer='Col'):
