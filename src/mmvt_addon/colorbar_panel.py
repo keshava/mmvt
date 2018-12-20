@@ -290,6 +290,12 @@ def hide_center(do_hide):
             cb.hide = True
 
 
+def show_progress(progress):
+    cb_prog = len(bpy.data.objects['cCB'].children) * (progress / 100)
+    for ind, cb in enumerate(bpy.data.objects['cCB'].children):
+        cb.hide = ind > cb_prog
+
+
 def colormap_update(self, context):
     if ColorbarPanel.init:
         load_colormap()
