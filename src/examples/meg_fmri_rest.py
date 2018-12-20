@@ -407,25 +407,15 @@ def merge_fmri_connectivity(args):
         if not op.isfile(fmri_con_fname):
             print('{} is missing!'.format(fmri_con_fname))
             continue
-        # fmri_mean_con_fname = op.join(MMVT_DIR, subject, 'connectivity', 'fmri_{}_{}_mean_mean.npy'.format(
-        #     args.atlas, con_method))
-        # if not op.isfile(fmri_con_fname):
-        #     print('{} is missing!'.format(fmri_mean_con_fname))
-        #     continue
-        # con_dict = utils.Bag(np.load(fmri_con_fname))
         subject_con = np.load(fmri_con_fname)
         print('{}: con.shape {}'.format(subject, subject_con.shape))
         if subject_con.shape[0] != len(tempalte_labels):
             print('Wrong number of cortical labels!')
             continue
         print(np.min(subject_con), np.max(subject_con))
-        # subject_mean_con = np.load(fmri_mean_con_fname)
         if all_con is None:
             all_con = np.zeros(subject_con.shape)
-        # if all_mean_con is None:
-        #     all_mean_con = np.zeros(subject_mean_con.shape)
         all_con += subject_con
-        # all_mean_con += subject_mean_con
         subjects_num += 1
         good_subjects.append(subject)
     all_con /= subjects_num
@@ -500,21 +490,16 @@ def check_hubs_intersections(meg_con_dict, fmri_con_dict, labels_names, threshol
 def sym_mat(con):
     if not np.allclose(con, con.T):
         con = (con + con.T) / 2
-        # if np.all(con[np.triu_indices(con.shape[0])] == 0):
-        #     con[np.triu_indices(con.shape[0])] = con[np.tril_indices(con.shape[0])]
-        # elif np.all(con[np.tril_indices(con.shape[0])] == 0):
-        #     con[np.tril_indices(con.shape[0])] = con[np.triu_indices(con.shape[0])]
     return con
 
 
-def calc_con(con, top_k):
-    # con[np.triu_indices(con.shape[0])] = 0
-    top_k = utils.top_n_indexes(con, top_k)
-    norm_con = np.zeros(con.shape)
-    for top in top_k:
-        norm_con[top] = con[top]
-    norm_con /= np.max(norm_con)
-    return norm_con, top_k
+# def calc_con(con, top_k):
+#     top_k = utils.top_n_indexes(con, top_k)
+#     norm_con = np.zeros(con.shape)
+#     for top in top_k:
+#         norm_con[top] = con[top]
+#     norm_con /= np.max(norm_con)
+#     return norm_con, top_k
 
 
 def calc_hubs(con_meg, con_fmri, labels, meg_threshold=0, fmri_threshold=0, topk_meg_hubs=10, topk_fmri_hubs=10):
@@ -553,14 +538,6 @@ def create_con_with_only_hubs(con_meg, con_fmri, meg_hub, fmri_hub, meg_threshol
     con_join_hubs[fmri_hub, fmri_topk_inds] = con_join_hubs[fmri_topk_inds, fmri_hub] = \
         clean_con_fmri[fmri_hub, fmri_topk_inds]
 
-    # for hub in [meg_hub, fmri_hub]:
-    #     meg_inds = np.where(con_meg[hub])[0]
-    #     fmri_inds = np.where(con_fmri[hub])[0]
-    #     int_inds = np.intersect1d(meg_inds, fmri_inds)
-    #     if len(int_inds) > 0:
-    #         print('Intersected connections!')
-    #         # print(int_inds)
-    #     con_join_hubs[hub, :] = con_join_hubs[:, hub] = con_fmri[hub] - con_meg[hub]
     return con_meg_hubs, con_fmri_hubs, con_join_hubs
 
 
