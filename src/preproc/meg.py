@@ -3411,11 +3411,21 @@ def get_info_fname(info_fname=''):
 
 
 def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, overwrite_sensors=False,
-                        trans_file='', info_fname='', info=None):
+                        trans_file='', info_fname='', info=None, read_info_file=True):
     from mne.io import _loc_to_coil_trans
     from mne.forward import _create_meg_coils
     from mne.viz._3d import _sensor_shape
     from mne.transforms import apply_trans
+
+    if pick_meg:
+        all_exist = all([op.isfile(op.join(
+            MMVT_DIR, mri_subject, 'meg', 'meg_{}_sensors_positions.npz'.format(sensor_type)))
+            for sensor_type in ['mag', 'planar1', 'planar2']])
+    elif pick_eeg:
+        all_exist = op.isfile(op.join(MMVT_DIR, mri_subject, 'eeg', 'eeg_sensors_positions.npz'))
+    if all_exist and not overwrite_sensors:
+        return True
+
 
     if pick_eeg and pick_meg or (not pick_meg and not pick_eeg):
         raise Exception('read_sensors_layout: You should pick only meg or eeg!')
@@ -3443,7 +3453,7 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
 
     if info is None:
         info_fname, info_exist = get_info_fname(info_fname)
-        if not info_exist:
+        if not info_exist or not read_info_file:
             raw_fname, raw_exist = locating_meg_file(RAW, args.raw_template)
             if not raw_exist:
                 print('No raw or raw info file!')
@@ -4933,7 +4943,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if utils.should_run(args, 'read_sensors_layout'):
         flags['read_sensors_layout'] = read_sensors_layout(
             mri_subject, args, overwrite_sensors=args.overwrite_sensors, trans_file=args.trans_fname,
-            info_fname=args.info_fname)
+            info_fname=args.info_fname, read_info_file=args.read_info_file)
 
     # flags: calc_evoked
     flags, evoked, epochs = calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)
@@ -5127,6 +5137,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--evo_fname', help='', required=False, default='')
     parser.add_argument('--cor_fname', help='', required=False, default='')
     parser.add_argument('--info_fname', help='', required=False, default='')
+    parser.add_argument('--read_info_file', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--noise_cov_fname', help='', required=False, default='')
     parser.add_argument('--empty_fname', help='', required=False, default='')
     parser.add_argument('--calc_evoked_for_all_epoches', help='', required=False, default=0, type=au.is_true)

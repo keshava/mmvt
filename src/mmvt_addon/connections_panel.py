@@ -1005,7 +1005,10 @@ def init(addon):
                      'con_types', 'data_max', 'data_min', 'connectivity_method'])
     conn_files_template = op.join(mu.get_user_fol(), 'connectivity', '*.npz')
     conn_files = [f for f in glob.glob(conn_files_template) if 'backup' not in mu.namebase(f)]
-    conn_files = [f for f in conn_files if all([k in set(np.load(f).keys()) for k in conn_keys])]
+    try:
+        conn_files = [f for f in conn_files if all([k in set(np.load(f).keys()) for k in conn_keys])]
+    except:
+        pass
 
     ConnectionsPanel.connections_files_exist = len(conn_files) > 0
     addon.set_connection_files_exist(ConnectionsPanel.connections_files_exist)

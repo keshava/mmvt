@@ -2599,7 +2599,7 @@ def create_stc_files_list(list_items=[]):
         for stc_file in stcs_files:
             _, _, label, hemi = mu.get_hemi_delim_and_pos(mu.namebase(stc_file))
             stc_files_dic[label].append(hemi)
-        stc_names = [label for label, hemis in stc_files_dic.items() if len(hemis) == 2]
+        stc_names = sorted([label for label, hemis in stc_files_dic.items() if len(hemis) == 2])
         if len(stc_names) > 0:
             ColoringMakerPanel.stc_file_exist = True
             list_items.extend([(c, c, '', ind + len(list_items)) for ind, c in enumerate(stc_names)])

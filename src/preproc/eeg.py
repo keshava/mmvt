@@ -28,7 +28,7 @@ calc_stc_per_condition = meg.calc_stc_per_condition_wrapper
 def read_sensors_layout(mri_subject, args):
     return meg.read_sensors_layout(
         mri_subject, args, pick_meg=False, pick_eeg=True, overwrite_sensors=args.overwrite_sensors,
-        trans_file=args.trans_fname, info_fname=args.info_fname)
+        trans_file=args.trans_fname, info_fname=args.info_fname, read_info_file=args.read_info_file)
 
 
 def save_evoked_to_blender(mri_subject, events, args, evoked=None):
