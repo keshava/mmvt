@@ -6,8 +6,9 @@ import os
 import shutil
 import glob
 import traceback
-from collections import defaultdict
 import functools
+from collections import defaultdict, Counter
+from tqdm import tqdm
 
 from src.mmvt_addon import mmvt_utils as mu
 from src.utils import freesurfer_utils as fu
@@ -126,8 +127,8 @@ def labels_to_annot(subject, subjects_dir='', aparc_name='aparc250', labels_fol=
         labels = [l for l in labels if l.hemi == hemi]
     if overwrite:
         hemis = HEMIS if hemi == 'both' else [hemi]
-        for hemi in hemis:
-            utils.remove_file(op.join(subject_dir, 'label', '{}.{}.annot'.format(hemi, aparc_name)))
+        for remove_hemi in hemis:
+            utils.remove_file(op.join(subject_dir, 'label', '{}.{}.annot'.format(remove_hemi, aparc_name)))
     try:
         mne.write_labels_to_annot(subject=subject, labels=labels, parc=aparc_name, overwrite=overwrite,
                                   subjects_dir=subjects_dir, hemi=hemi)
@@ -228,7 +229,12 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
             err = 'unique_values_num = {}\n'.format(unique_values_num)
         for hemi in hemis:
             if verts_dict is None:
-                verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+                if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
+                    verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+                elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
+                    verts, _ = utils.read_pial(subject, SUBJECTS_DIR, hemi)
+                else:
+                    raise Exception('Can\'t find {} pial surfaces!'.fomat(subject))
             else:
                 verts = verts_dict[hemi]
             lookup_ok = lookup_ok and len(lookup[hemi].keys()) == len(verts)
@@ -279,7 +285,12 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
         if check_unknown and len([l for l in labels_names if 'unknown' in l.lower()]) == 0:
             raise Exception('No unknown label in {}'.format(annot_fname))
         if verts_dict is None:
-            verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+            if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
+                verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+            elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
+                verts, _ = utils.read_pial(subject, SUBJECTS_DIR, hemi)
+            else:
+                raise Exception('Can\'t find {} pial surfaces!'.fomat(subject))
         else:
             verts = verts_dict[hemi]
         verts_indices = set(range(len(verts)))
@@ -320,13 +331,16 @@ def find_label_vertices(subject, atlas, hemi, vertices, label_template='*'):
     return label_vertices, label_vertices_indices
 
 
-def save_labels_from_vertices_lookup(subject, atlas, subjects_dir, mmvt_dir, surf_type='pial', read_labels_from_fol='',
-                                     overwrite_vertices_labels_lookup=False, n_jobs=6):
-    lookup = create_vertices_labels_lookup(
-        subject, atlas, read_labels_from_fol=read_labels_from_fol, overwrite=overwrite_vertices_labels_lookup)
-    labels_fol = op.join(subjects_dir, subject, 'label', atlas)
+def save_labels_from_vertices_lookup(
+        subject, atlas, subjects_dir, mmvt_dir, surf_type='pial', read_labels_from_fol='',
+        overwrite_vertices_labels_lookup=False, overwrite_labels=False, lookup=None, n_jobs=6):
+    if lookup is None:
+        lookup = create_vertices_labels_lookup(
+            subject, atlas, read_labels_from_fol=read_labels_from_fol, overwrite=overwrite_vertices_labels_lookup)
+    labels_fol = utils.make_dir(op.join(subjects_dir, subject, 'label', atlas))
     surf = utils.load_surf(subject, mmvt_dir, subjects_dir)
-    utils.delete_folder_files(labels_fol)
+    if overwrite_labels:
+        utils.delete_folder_files(labels_fol)
     ok = True
     for hemi in utils.HEMIS:
         labels_vertices = defaultdict(list)
@@ -337,24 +351,83 @@ def save_labels_from_vertices_lookup(subject, atlas, subjects_dir, mmvt_dir, sur
         chunks_indices = np.array_split(np.arange(len(labels_vertices)), n_jobs)
         labels_vertices_items = list(labels_vertices.items())
         chunks = [([labels_vertices_items[ind] for ind in chunk_indices], subject, labels_vertices, surf, hemi,
-                   labels_fol) for chunk_indices in chunks_indices]
+                   labels_fol, overwrite_labels) for chunk_indices in chunks_indices]
         results = utils.run_parallel(_save_labels_from_vertices_lookup_hemi, chunks, n_jobs)
         ok = ok and all(results)
     return ok
 
 
 def _save_labels_from_vertices_lookup_hemi(p):
-    labels_vertices_items, subject, labels_vertices, surf, hemi, labels_fol = p
+    labels_vertices_items, subject, labels_vertices, surf, hemi, labels_fol, overwrite = p
     ok = True
     for label, vertices in labels_vertices_items:
+        output_fname = op.join(labels_fol, '{}.label'.format(label))
+        if op.isfile(output_fname) and not overwrite:
+            continue
         label = get_label_hemi_invariant_name(label)
         if 'unknown' in label.lower():
             # Don't save the unknown label, the labels_to_annot will do that, otherwise there will be 2 unknown labels
             continue
         new_label = mne.Label(sorted(vertices), surf[hemi][vertices], hemi=hemi, name=label, subject=subject)
         new_label.save(op.join(labels_fol, label))
-        ok = ok and op.isfile(op.join(labels_fol, '{}-{}.label'.format(label, hemi)))
+        ok = ok and op.isfile(output_fname)
     return ok
+
+
+def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, atlas, overwrite=False):
+    from scipy.spatial.distance import cdist
+    max_upper_limit = 4
+    check_distances = False
+
+    output_fname = op.join(MMVT_DIR, subject, '{}_vertices_labels_lookup.pkl'.format(atlas))
+    if op.isfile(output_fname) and not overwrite:
+        subject_vertices_labels_lookup = utils.load(output_fname)
+        return subject_vertices_labels_lookup
+    template_vertices_labels_lookup = create_vertices_labels_lookup(template_brain, atlas)
+    for morph_maps_root in [MMVT_DIR, SUBJECTS_DIR]:
+        morph_maps_fol = op.join(MMVT_DIR, 'morph_maps')
+        if op.isfile(op.join(morph_maps_fol, '{}-{}-morph.fif'.format(subject, template_brain))) and \
+                op.isfile(op.join(morph_maps_fol, '{}-{}-morph.fif'.format(template_brain, subject))):
+            break
+    # left_map, right_map : sparse matrix, subject verts x template verts
+    morph_maps = mne.read_morph_map(template_brain, subject, subjects_dir=morph_maps_root)
+    subject_vertices_labels_lookup = defaultdict(dict)
+    for hemi_ind, hemi in enumerate(['lh', 'rh']):
+        subject_vertices, _ = read_pial(subject, hemi)
+        template_vertices, _ = read_pial(template_brain, hemi)
+        if len(subject_vertices) != morph_maps[hemi_ind].shape[0]:
+            raise Exception('Wrong number of vertices!')
+        if not (len(template_vertices) == morph_maps[hemi_ind].shape[1] ==
+                len(template_vertices_labels_lookup[hemi].keys())):
+            raise Exception('Wrong number of vertices!')
+        for subject_vert in tqdm(range(len(subject_vertices))):
+            template_verts_inds = morph_maps[hemi_ind][subject_vert].nonzero()[1]
+            verts_labels = [
+                template_vertices_labels_lookup[hemi][template_vert] for template_vert in template_verts_inds]
+            if len(template_verts_inds) > 1 and check_distances:
+                dists = np.max(cdist(template_vertices[template_verts_inds], template_vertices[template_verts_inds]))
+                if np.max(dists) > max_upper_limit:
+                    raise Exception('dist to high! {} max_dists {}'.format(verts_labels, dists))
+            # filter unknown
+            verts_labels = [l for l in verts_labels if 'unknown' not in l]
+            if len(verts_labels) == 0:
+                verts_label = 'unknown-{}'.format(hemi)
+            elif len(verts_labels) == 1:
+                verts_label = verts_labels[0]
+            else:
+                verts_label = Counter(verts_labels).most_common()[0][0]
+            subject_vertices_labels_lookup[hemi][subject_vert] = verts_label
+    utils.save(subject_vertices_labels_lookup, output_fname)
+    return subject_vertices_labels_lookup
+
+
+def read_pial(subject, hemi):
+    if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
+        return utils.read_pial(subject, MMVT_DIR, hemi)
+    elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
+        return utils.read_pial(subject, SUBJECTS_DIR, hemi)
+    else:
+        raise Exception('Can\'t find {} pial surface!'.format(subject))
 
 
 def calc_labels_centroids(labels_hemi, hemis_verts):

@@ -828,6 +828,9 @@ def color_hemi_data(hemi, data, data_min=None, colors_ratio=None, threshold=0, o
         pial_hemi = hemi[len('inflated_'):]
     if bpy.data.objects[hemi].hide and not color_even_if_hide:
         return
+    if data_min is None and data.ndim == 1:
+        data_min = np.min(data)
+        colors_ratio = 256 / (np.max(data) - np.min(data))
     faces_verts = ColoringMakerPanel.faces_verts[pial_hemi]
     cur_obj = bpy.data.objects[hemi]
     activity_map_obj_coloring(cur_obj, data, faces_verts, threshold, override_current_mat, data_min,
