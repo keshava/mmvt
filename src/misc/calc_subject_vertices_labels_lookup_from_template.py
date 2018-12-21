@@ -10,9 +10,28 @@ from src.preproc import anatomy as anat
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 
+def test(subject, template_brain, subjects_dir):
+    import mne
+    subjects_vertices = []
+    for hemi in ['lh', 'rh']:
+        hemi_vertices, _= lu.read_pial(subject, hemi)
+        subjects_vertices.append(range(len(hemi_vertices)))
+
+    template_vertices, morph_mat = mne.morph._compute_sparse_morph(
+        subjects_vertices, subject, template_brain, subjects_dir=subjects_dir)
+    print('asdf')
+
+
+def test2(template_brain, atlas):
+    template_vertices_labels_lookup = lu.create_vertices_labels_lookup(template_brain, atlas, overwrite=True)
+    create_atlas_coloring(template_brain, atlas, template_vertices_labels_lookup)
+    lu.create_atlas_coloring(template_brain, atlas, n_jobs)
+    anat.calc_labeles_contours(template_brain, atlas, overwrite=True)
+
+
 def create_labels_from_vertices_labels_lookup(
-        subject, template_brain, atlas, overwrite_subject_vertices_labels_lookup=False,
-        overwrite_labels=False, overwrite_annot=False, n_jobs=4):
+        subject, template_brain, atlas, overwrite_subject_vertices_labels_lookup=True,
+        overwrite_labels=True, overwrite_annot=True, n_jobs=4):
     vertices_labels_lookup = lu.calc_subject_vertices_labels_lookup_from_template(
         subject, template_brain, atlas, overwrite_subject_vertices_labels_lookup)
     create_atlas_coloring(subject, atlas, vertices_labels_lookup)
@@ -24,7 +43,6 @@ def create_labels_from_vertices_labels_lookup(
 
 def create_atlas_coloring(subject, atlas, lookup):
     coloring_dir = utils.make_dir(op.join(MMVT_DIR, subject, 'coloring'))
-    colors_rgb_and_names = None
     for hemi in utils.HEMIS:
         labels = list(set(lookup[hemi].values()))
         coloring_fname = op.join(coloring_dir, 'vertices_{}_coloring-{}.npy'.format(atlas, hemi))
@@ -35,7 +53,9 @@ def create_atlas_coloring(subject, atlas, lookup):
 
 
 if __name__ == '__main__':
-    subject, template_brain, atlas, n_jobs = 'hc016', 'fsaverage5', 'laus125', 4
+    subject, template_brain, atlas, n_jobs = 'hc016', 'fsaverage5', 'laus250', 4
+    # test(subject, template_brain, SUBJECTS_DIR)
+    # test2(template_brain, atlas)
     create_labels_from_vertices_labels_lookup(subject, template_brain, atlas, n_jobs=n_jobs)
-    # lu.create_atlas_coloring(subject, atlas, n_jobs)
-    # anat.calc_labeles_contours(subject, atlas, overwrite=True)
+    lu.create_atlas_coloring(subject, atlas, n_jobs)
+    anat.calc_labeles_contours(subject, atlas, overwrite=True)

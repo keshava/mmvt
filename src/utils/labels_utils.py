@@ -375,9 +375,10 @@ def _save_labels_from_vertices_lookup_hemi(p):
 
 
 def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, atlas, overwrite=False):
-    from scipy.spatial.distance import cdist
-    max_upper_limit = 4
-    check_distances = False
+    # from scipy.spatial.distance import cdist
+    # max_upper_limit = 4
+    # check_distances = False
+    filter_unknown = True
 
     output_fname = op.join(MMVT_DIR, subject, '{}_vertices_labels_lookup.pkl'.format(atlas))
     if op.isfile(output_fname) and not overwrite:
@@ -391,31 +392,37 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
             break
     # left_map, right_map : sparse matrix, subject verts x template verts
     morph_maps = mne.read_morph_map(template_brain, subject, subjects_dir=morph_maps_root)
+
     subject_vertices_labels_lookup = defaultdict(dict)
     for hemi_ind, hemi in enumerate(['lh', 'rh']):
         subject_vertices, _ = read_pial(subject, hemi)
         template_vertices, _ = read_pial(template_brain, hemi)
+
         if len(subject_vertices) != morph_maps[hemi_ind].shape[0]:
             raise Exception('Wrong number of vertices!')
         if not (len(template_vertices) == morph_maps[hemi_ind].shape[1] ==
                 len(template_vertices_labels_lookup[hemi].keys())):
             raise Exception('Wrong number of vertices!')
+
         for subject_vert in tqdm(range(len(subject_vertices))):
             template_verts_inds = morph_maps[hemi_ind][subject_vert].nonzero()[1]
             verts_labels = [
                 template_vertices_labels_lookup[hemi][template_vert] for template_vert in template_verts_inds]
-            if len(template_verts_inds) > 1 and check_distances:
-                dists = np.max(cdist(template_vertices[template_verts_inds], template_vertices[template_verts_inds]))
-                if np.max(dists) > max_upper_limit:
-                    raise Exception('dist to high! {} max_dists {}'.format(verts_labels, dists))
+            # if len(template_verts_inds) > 1 and check_distances:
+            #     dists = np.max(cdist(template_vertices[template_verts_inds], template_vertices[template_verts_inds]))
+            #     if np.max(dists) > max_upper_limit:
+            #         raise Exception('dist to high! {} max_dists {}'.format(verts_labels, dists))
             # filter unknown
-            verts_labels = [l for l in verts_labels if 'unknown' not in l]
+            if filter_unknown:
+                verts_labels = [l for l in verts_labels if 'unknown' not in l]
             if len(verts_labels) == 0:
                 verts_label = 'unknown-{}'.format(hemi)
             elif len(verts_labels) == 1:
                 verts_label = verts_labels[0]
             else:
                 verts_label = Counter(verts_labels).most_common()[0][0]
+            if verts_label.endswith('_{}'.format(hemi)):
+                verts_label = '{}-{}'.format(verts_label[:-3], hemi)
             subject_vertices_labels_lookup[hemi][subject_vert] = verts_label
     utils.save(subject_vertices_labels_lookup, output_fname)
     return subject_vertices_labels_lookup
