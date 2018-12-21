@@ -49,6 +49,26 @@ def calc_meg_source_psd(args):
         meg.call_main(_args)
 
 
+def find_meg_psd_clusters(args):
+    subjects = args.subject
+    stc_name = 'all_dSPM_mean_flip_high_gamma_power'
+    for subject in subjects:
+        if not utils.both_hemi_files_exist(
+                op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+            print('{}: Can\'t find {}!'.format(subject, stc_name))
+            continue
+        args.subject = subject
+        _args = meg.read_cmd_args(dict(
+            subject=subject, mri_subject=subject,
+            function='find_functional_rois_in_stc',
+            stc_name=stc_name,
+            threshold=95, threshold_is_precentile=True,
+            extract_time_series_for_clusters=False,
+            n_jobs=args.n_jobs
+        ))
+        meg.call_main(_args)
+
+
 def morph_meg_powers(args):
     utils.run_parallel(_morph_meg_powers, args.subject, args.n_jobs)
 

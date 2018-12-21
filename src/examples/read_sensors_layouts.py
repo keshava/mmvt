@@ -55,7 +55,9 @@ def get_meg_empty_fnames(subject, remote_fol, args, ask_for_different_day_empty=
 def read_meg_layouts(args):
     bad_subjects = []
     output_fol = utils.make_dir(op.join(MMVT_DIR, 'sensors'))
-    for subject in args.subject:
+    subjects = args.subject
+    for subject in subjects:
+        args.subject = subject
         _, _, trans_fname = get_meg_empty_fnames(subject, args.remote_meg_dir, args)
         remote_raw_fname = op.join(args.raw_rest_remote_fol, subject, '{}_Resting_meg_ica-raw.fif'.format(subject))
         if not op.isfile(remote_raw_fname):

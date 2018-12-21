@@ -4358,7 +4358,7 @@ def find_functional_rois_in_stc(
     if connectivity is None:
         connectivity = load_connectivity(subject)
     if verts_dict is None:
-        verts_dict = get_pial_vertices(args.subject)
+        verts_dict = get_pial_vertices(subject)
     if threshold_is_precentile:
         threshold = np.percentile(stc_t_smooth.data, threshold)
     if threshold < 1e-4:
