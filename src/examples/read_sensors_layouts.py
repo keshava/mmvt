@@ -65,10 +65,13 @@ def read_clin_meg_layouts(args):
         if len(remote_raw_fols) == 0:
             print('Can\'t find raw fol! {}'.format(remote_raw_template))
             continue
-        remote_raw_fnames_template = op.join(remote_raw_fols[0], '{}*_Resting_eeg_meg_ica-raw.fif'.format(subject))
-        remote_raw_fnames = glob.glob(remote_raw_fnames_template)
+        for remote_raw_fol in remote_raw_fols:
+            remote_raw_fnames_template = op.join(remote_raw_fol, '{}*_Resting_eeg_meg_ica-raw.fif'.format(subject))
+            remote_raw_fnames = glob.glob(remote_raw_fnames_template)
+            if len(remote_raw_fnames) > 0:
+                break
         if len(remote_raw_fnames) == 0:
-            print('Can\'t find raw file! {}'.format(remote_raw_fnames_template))
+            print('Can\'t find remote_raw_fname! {}'.format(remote_raw_fnames_template))
             continue
         read_meg_layouts(args, remote_raw_fnames[0])
 
