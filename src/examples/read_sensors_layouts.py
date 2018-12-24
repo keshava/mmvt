@@ -1,5 +1,6 @@
 import os.path as op
 import os
+import glob
 import shutil
 from src.utils import utils
 from src.preproc import meg
@@ -50,6 +51,28 @@ def get_meg_empty_fnames(subject, remote_fol, args, ask_for_different_day_empty=
     elif op.isfile(op.join(cor_dir, 'COR-{}-day{}.fif'.format(subject, day))):
         cor_fname = op.join(cor_dir, 'COR-{}-day{}.fif'.format(subject, day))
     return local_rest_raw_fname, empty_fname, cor_fname
+
+
+def read_clin_meg_layouts(args):
+    subjects = args.subject
+    for subject in subjects:
+        remote_subject_dir = find_seder_remote_subject_dir(subject)
+        if not op.isdir(remote_subject_dir):
+            print('{}: Can\'t find remote_subject_dir!'.format(subject))
+        args.remote_subject_dir = remote_subject_dir
+        read_meg_layouts(args)
+
+
+def find_seder_remote_subject_dir(subject):
+    seder_root = os.environ.get('SEDER_SUBJECT_META', '')
+    if seder_root != '':
+        remote_subject_dir = glob.glob(op.join(seder_root, subject, 'freesurfer', '*'))[0]
+    else:
+        remote_subject_dir = [d for d in [
+            '/autofs/space/megraid_clinical/MEG-MRI/seder/freesurfer/{}'.format(subject),
+            '/home/npeled/subjects/{}'.format(subject),
+            op.join(SUBJECTS_DIR, subject)] if op.isdir(d)][0]
+    return remote_subject_dir
 
 
 def read_meg_layouts(args):
@@ -131,11 +154,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MMVT')
     parser.add_argument('-s', '--subject', help='subject name', required=True, type=au.str_arr_type)
     parser.add_argument('--raw_rest_remote_fol', required=False,
-                        default='/autofs/space/karima_002/users/Resting/raw_preprocessed')
+        default='/autofs/space/karima_002/users/Resting/raw_preprocessed')
     parser.add_argument('--remote_subject_dir', required=False,
-                        default='/autofs/space/lilli_001/users/DARPA-Recons/{subject}')
+        default='/autofs/space/lilli_001/users/DARPA-Recons/{subject}')
     parser.add_argument('--remote_meg_dir', required=False,
-                        default='/autofs/space/lilli_003/users/DARPA-TRANSFER/meg')
+        default='/autofs/space/lilli_003/users/DARPA-TRANSFER/meg')
+    parser.add_argument('--raw_clin_rest_remote_fol', required=False,
+        default='/autofs/space/karima_002/users/Machine_Learning_Clinical_MEG_EEG_Resting/raw_preprocessed')
     parser.add_argument('-f', '--function', help='function name', required=True)
     parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
