@@ -56,7 +56,7 @@ def get_meg_empty_fnames(subject, remote_fol, args, ask_for_different_day_empty=
 def read_clin_meg_layouts(args):
     subjects = args.subject
     for subject in subjects:
-        args.subject = subject
+        args.subject = [subject]
         remote_subject_dir = find_seder_remote_subject_dir(subject)
         if not op.isdir(remote_subject_dir):
             print('{}: Can\'t find remote_subject_dir!'.format(subject))
@@ -132,6 +132,7 @@ def read_eeg_layouts(args, remote_raw_fname=''):
     bad_subjects = []
     output_fol = utils.make_dir(op.join(MMVT_DIR, 'sensors'))
     for subject in args.subject:
+        args.subject = subject
         _, _, trans_fname = get_meg_empty_fnames(subject, args.remote_meg_dir, args)
         if remote_raw_fname == '':
             remote_raw_fname = op.join(args.raw_rest_remote_fol, subject, '{}_Resting_eeg_ica-raw.fif'.format(subject))
