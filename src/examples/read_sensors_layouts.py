@@ -60,9 +60,15 @@ def read_clin_meg_layouts(args):
         if not op.isdir(remote_subject_dir):
             print('{}: Can\'t find remote_subject_dir!'.format(subject))
         args.remote_subject_dir = remote_subject_dir
-        remote_raw_fol = glob.glob(op.join(args.raw_clin_rest_remote_fol, '*{}'.format(subject)))[0]
-        remote_raw_fname = glob.glob(remote_raw_fol, '{}*_Resting_eeg_meg_ica-raw.fif'.format(subject))[0]
-        read_meg_layouts(args, remote_raw_fname)
+        remote_raw_fols = glob.glob(op.join(args.raw_clin_rest_remote_fol, '{}*'.format(subject)))
+        if len(remote_raw_fols) == 0:
+            print('Can\'t find raw fol! {}'.format(remote_raw_fols))
+            continue
+        remote_raw_fnames = glob.glob(remote_raw_fols[0], '{}*_Resting_eeg_meg_ica-raw.fif'.format(subject))
+        if len(remote_raw_fols) == 0:
+            print('Can\'t find raw file! {}'.format(remote_raw_fnames))
+            continue
+        read_meg_layouts(args, remote_raw_fnames[0])
 
 
 def find_seder_remote_subject_dir(subject):
