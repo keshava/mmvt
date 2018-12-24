@@ -1,6 +1,7 @@
 import os.path as op
 import os
 import glob
+import copy
 import shutil
 from src.utils import utils
 from src.preproc import meg
@@ -90,7 +91,8 @@ def find_seder_remote_subject_dir(subject):
     return remote_subject_dir
 
 
-def read_meg_layouts(args, remote_raw_fname=''):
+def read_meg_layouts(_args, remote_raw_fname=''):
+    args = copy.copy(_args)
     bad_subjects = []
     output_fol = utils.make_dir(op.join(MMVT_DIR, 'sensors'))
     subjects = args.subject
@@ -128,7 +130,8 @@ def read_meg_layouts(args, remote_raw_fname=''):
     print(bad_subjects)
 
 
-def read_eeg_layouts(args, remote_raw_fname=''):
+def read_eeg_layouts(_args, remote_raw_fname=''):
+    args = copy.copy(_args)
     bad_subjects = []
     output_fol = utils.make_dir(op.join(MMVT_DIR, 'sensors'))
     for subject in args.subject:
