@@ -60,7 +60,9 @@ def read_clin_meg_layouts(args):
         if not op.isdir(remote_subject_dir):
             print('{}: Can\'t find remote_subject_dir!'.format(subject))
         args.remote_subject_dir = remote_subject_dir
-        read_meg_layouts(args)
+        remote_raw_fol = glob.glob(op.join(args.raw_clin_rest_remote_fol, '*{}'.format(subject)))[0]
+        remote_raw_fname = glob.glob(remote_raw_fol, '{}*_Resting_eeg_meg_ica-raw.fif'.format(subject))[0]
+        read_meg_layouts(args, remote_raw_fname)
 
 
 def find_seder_remote_subject_dir(subject):
@@ -75,14 +77,15 @@ def find_seder_remote_subject_dir(subject):
     return remote_subject_dir
 
 
-def read_meg_layouts(args):
+def read_meg_layouts(args, remote_raw_fname=''):
     bad_subjects = []
     output_fol = utils.make_dir(op.join(MMVT_DIR, 'sensors'))
     subjects = args.subject
     for subject in subjects:
         args.subject = subject
         _, _, trans_fname = get_meg_empty_fnames(subject, args.remote_meg_dir, args)
-        remote_raw_fname = op.join(args.raw_rest_remote_fol, subject, '{}_Resting_meg_ica-raw.fif'.format(subject))
+        if remote_raw_fname == '':
+            remote_raw_fname = op.join(args.raw_rest_remote_fol, subject, '{}_Resting_meg_ica-raw.fif'.format(subject))
         if not op.isfile(remote_raw_fname):
             print('No Cor fname: {}!!!'.format(remote_raw_fname))
             continue
