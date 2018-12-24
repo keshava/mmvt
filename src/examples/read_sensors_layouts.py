@@ -56,6 +56,7 @@ def get_meg_empty_fnames(subject, remote_fol, args, ask_for_different_day_empty=
 def read_clin_meg_layouts(args):
     subjects = args.subject
     for subject in subjects:
+        args.subject = subject
         remote_subject_dir = find_seder_remote_subject_dir(subject)
         if not op.isdir(remote_subject_dir):
             print('{}: Can\'t find remote_subject_dir!'.format(subject))
