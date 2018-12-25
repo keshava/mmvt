@@ -504,8 +504,11 @@ class ColorContours(bpy.types.Operator):
         if bpy.context.scene.labels_contours_filter == '':
             color_contours(atlas=bpy.context.scene.contours_coloring)
         else:
-            color_contours(LabelsPanel.labels['rh'] + LabelsPanel.labels['lh'],
-                           atlas=bpy.context.scene.contours_coloring)
+            if isinstance(LabelsPanel.labels['rh'], np.ndarray):
+                labels = LabelsPanel.labels['rh'].tolist() + LabelsPanel.labels['lh'].tolist()
+            else:
+                labels = LabelsPanel.labels['rh'] + LabelsPanel.labels['lh']
+            color_contours(labels, atlas=bpy.context.scene.contours_coloring)
         return {"FINISHED"}
 
 

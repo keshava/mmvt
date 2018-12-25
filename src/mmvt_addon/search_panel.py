@@ -1,6 +1,8 @@
 import bpy
 import os.path as op
 import mmvt_utils as mu
+import numpy as np
+
 
 def _addon():
     return SearchPanel.addon
@@ -30,7 +32,20 @@ class SearchFilter(bpy.types.Operator):
                 if label_name in obj.name:
                     SearchPanel.marked_objects.append(obj.name)
         # todo: show rois only if the object is an ROI. Also, move the cursor
-        SearchPanel.addon.show_rois()
+        o = bpy.data.objects[SearchPanel.marked_objects[0]]
+        verts = np.array([vert.co for vert in o.data.vertices])
+        center = np.mean(verts, axis=0)
+        closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(
+            center, use_shape_keys=True)
+        bpy.context.scene.cursor_location = tuple(vertex_co)
+        _addon().set_cursor_pos()
+        if bpy.context.scene.cursor_is_snapped:  # and is_view_3d():
+            _addon().set_tkreg_ras(bpy.context.scene.cursor_location * 10, False)
+            _addon().snap_cursor(True)
+            if bpy.context.scene.slices_rotate_view_on_click:
+                mu.rotate_view_to_vertice()
+        # if any([mu.obj_is_cortex(o.name) for o in SearchPanel.marked_objects]):
+            # SearchPanel.addon.show_rois()
         return {"FINISHED"}
 
 
