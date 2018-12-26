@@ -98,6 +98,8 @@ def where_i_am_draw(self, context):
         row.prop(context.scene, "ras_x", text="x")
         row.prop(context.scene, "ras_y", text="y")
         row.prop(context.scene, "ras_z", text="z")
+        row.operator(MNIToClipboard.bl_idname, text="", icon='PASTEDOWN')
+        row.operator(ClipboardToMNI.bl_idname, text="", icon='PASTEFLIPUP')
         layout.label(text='T1 voxel:')
         row = layout.row(align=0)
         row.prop(context.scene, "voxel_x", text="x")
@@ -614,8 +616,8 @@ def slices_were_clicked(active_image, pos):
     # save_slices_cursor_pos()
 
 
-def pos_to_current_inflation(pos):
-    closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(pos / 10, mu.HEMIS)
+def pos_to_current_inflation(pos, hemis=mu.HEMIS):
+    closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(pos / 10, hemis)
     obj = bpy.data.objects['inflated_{}'.format(closest_mesh_name)]
     me = obj.to_mesh(bpy.context.scene, True, 'PREVIEW')
     try:
@@ -669,6 +671,17 @@ def clipboard_to_tkreg():
 
 def tkreg_to_clipboard():
     bpy.context.window_manager.clipboard = ','.join([str(x) for x in get_tkreg_ras()])
+
+
+def clipboard_to_mni():
+    coords = clipboard_to_coords()
+    if coords is not None:
+        set_mni(coords)
+        create_slices()
+
+
+def mni_to_clipboard():
+    bpy.context.window_manager.clipboard = ','.join(['{:.2f}'.format(x) for x in get_ras()])
 
 
 class WaitForSlices(bpy.types.Operator):
@@ -746,6 +759,30 @@ class TkregToClipboard(bpy.types.Operator):
     @staticmethod
     def invoke(self, context, event=None):
         tkreg_to_clipboard()
+        return {"FINISHED"}
+
+
+class MNIToClipboard(bpy.types.Operator):
+    bl_idname = "mmvt.mni_to_clipboard"
+    bl_label = "mmvt mni_to_clipboard"
+    bl_description = 'Copy\n\nScript: mmvt.where_am_i.mni_to_clipboard()'
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        mni_to_clipboard()
+        return {"FINISHED"}
+
+
+class ClipboardToMNI(bpy.types.Operator):
+    bl_idname = "mmvt.clipboard_to_mni"
+    bl_label = "mmvt clipboard_to_mni"
+    bl_description = 'Copy\n\nScript: mmvt.where_am_i.clipboard_to_mni()'
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        clipboard_to_mni()
         return {"FINISHED"}
 
 
@@ -983,6 +1020,8 @@ def register():
         bpy.utils.register_class(ChooseVoxelID)
         bpy.utils.register_class(ClipboardToTkreg)
         bpy.utils.register_class(TkregToClipboard)
+        bpy.utils.register_class(MNIToClipboard)
+        bpy.utils.register_class(ClipboardToMNI)
         bpy.utils.register_class(WaitForSlices)
         # print('Where am I Panel was registered!')
     except:
@@ -998,6 +1037,8 @@ def unregister():
         bpy.utils.unregister_class(ChooseVoxelID)
         bpy.utils.unregister_class(ClipboardToTkreg)
         bpy.utils.unregister_class(TkregToClipboard)
+        bpy.utils.unregister_class(MNIToClipboard)
+        bpy.utils.unregister_class(ClipboardToMNI)
         bpy.utils.unregister_class(WaitForSlices)
     except:
         # print("Can't unregister Where am I Panel!")

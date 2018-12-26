@@ -32,18 +32,20 @@ class SearchFilter(bpy.types.Operator):
                 if label_name in obj.name:
                     SearchPanel.marked_objects.append(obj.name)
         # todo: show rois only if the object is an ROI. Also, move the cursor
-        o = bpy.data.objects[SearchPanel.marked_objects[0]]
-        verts = np.array([vert.co for vert in o.data.vertices])
+        selected_obj = bpy.data.objects[SearchPanel.marked_objects[0]]
+        verts = np.array([vert.co for vert in selected_obj.data.vertices])
         center = np.mean(verts, axis=0)
-        closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(
-            center, use_shape_keys=True)
-        bpy.context.scene.cursor_location = tuple(vertex_co)
+        if any([mu.obj_is_cortex(o) for o in SearchPanel.marked_objects]):
+            selected_roi = [o for o in SearchPanel.marked_objects if mu.obj_is_cortex(o)][0]
+            hemi = mu.get_obj_hemi(selected_roi)
+            center = _addon().where_am_i.pos_to_current_inflation(center, hemis=[hemi])
+            # if bpy.context.scene.search_plot_contour:
+            #     _addon().where_am_i.plot_closest_label_contour(selected_roi, hemi)
+        bpy.context.scene.cursor_location = tuple(center / 10)
         _addon().set_cursor_pos()
-        if bpy.context.scene.cursor_is_snapped:  # and is_view_3d():
-            _addon().set_tkreg_ras(bpy.context.scene.cursor_location * 10, False)
-            _addon().snap_cursor(True)
-            if bpy.context.scene.slices_rotate_view_on_click:
-                mu.rotate_view_to_vertice()
+        _addon().set_tkreg_ras(bpy.context.scene.cursor_location * 10, False)
+        if bpy.context.scene.slices_rotate_view_on_click:
+            mu.rotate_view_to_vertice()
         # if any([mu.obj_is_cortex(o.name) for o in SearchPanel.marked_objects]):
             # SearchPanel.addon.show_rois()
         return {"FINISHED"}
@@ -116,6 +118,8 @@ class SearchExport(bpy.types.Operator):
 
 
 bpy.types.Scene.labels_regex = bpy.props.StringProperty(default= '', description='Searches all objects types in MMVT')
+bpy.types.Scene.search_plot_contour = bpy.props.BoolProperty(default=False,
+    description='Plot the contour of first label found')
 
 
 class SearchPanel(bpy.types.Panel):
@@ -130,9 +134,11 @@ class SearchPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(context.scene, "labels_regex", text="Keyword")
+        row = layout.row(align=0)
+        row.prop(context.scene, "labels_regex", text="")
+        # row.prop(context.scene, "search_plot_contour", text="Plot contour")
         # row = layout.row(align=0)
-        layout.operator(SearchFilter.bl_idname, text="Search", icon = 'BORDERMOVE')
+        layout.operator(SearchFilter.bl_idname, text="Search", icon='BORDERMOVE')
         # row.operator(SearchMark.bl_idname, text="Mark", icon = 'GREASEPENCIL')
         if len(SearchPanel.marked_objects) > 0:
             box = layout.box()
