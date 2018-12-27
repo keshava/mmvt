@@ -1378,6 +1378,7 @@ def get_data_and_header(subject, image_name):
 
 def save_images_data_and_header(subject):
     modalities = {'T1.mgz':'mri', 'T2.mgz':'t2'}
+    root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
     for image_name in modalities.keys():
         data, header = get_data_and_header(subject, image_name)
         if data is None or header is None:
@@ -1385,7 +1386,7 @@ def save_images_data_and_header(subject):
         affine = header.affine
         precentiles = np.percentile(data, (1, 99))
         colors_ratio = 256 / (precentiles[1] - precentiles[0])
-        output_fname = op.join(MMVT_DIR, subject, 'freeview', '{}_data.npz'.format(modalities[image_name]))
+        output_fname = op.join(root_fol, '{}_data.npz'.format(modalities[image_name]))
         if not op.isfile(output_fname):
             print('save_images_data_and_header: saving {}'.format(output_fname))
             np.savez(output_fname, data=data, affine=affine, precentiles=precentiles, colors_ratio=colors_ratio)
