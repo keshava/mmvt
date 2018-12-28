@@ -780,18 +780,19 @@ def calc_source_power_spectrum(
                 plot_psds(subject, d['power_spectrum'], d['frequencies'], labels, cond_ind, cond_name, plots_fol)
             continue
 
+        if epochs is None:
+            epo_cond_fname = get_cond_fname(epo_fname, cond_name)
+            print('Reading epochs from {}'.format(epo_cond_fname))
+            if not op.isfile(epo_cond_fname):
+                print('single_trial_stc and not epochs file was found! ({})'.format(epo_cond_fname))
+                return False
+            epochs = mne.read_epochs(epo_cond_fname, apply_SSP_projection_vectors, add_eeg_ref)
+
         if first_time:
             first_time = False
             labels = lu.read_labels(mri_subject, SUBJECTS_MRI_DIR, atlas, surf_name=surf_name, n_jobs=n_jobs)
             inverse_operator, src = get_inv_src(inv_fname, src)
 
-        if epochs is None:
-            epo_cond_fname = get_cond_fname(epo_fname, cond_name)
-            if not op.isfile(epo_cond_fname):
-                print('single_trial_stc and not epochs file was found! ({})'.format(epo_cond_fname))
-                return False
-            epochs = mne.read_epochs(epo_cond_fname, apply_SSP_projection_vectors, add_eeg_ref)
-        sfreq = epochs.info['sfreq']
         try:
             mne.set_eeg_reference(epochs, ref_channels=None)
             epochs.apply_proj()
