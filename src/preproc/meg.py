@@ -783,6 +783,7 @@ def calc_source_power_spectrum(
         if epochs is None:
             epo_cond_fname = get_cond_fname(epo_fname, cond_name)
             print('Reading epochs from {}'.format(epo_cond_fname))
+            return True
             if not op.isfile(epo_cond_fname):
                 print('single_trial_stc and not epochs file was found! ({})'.format(epo_cond_fname))
                 return False
