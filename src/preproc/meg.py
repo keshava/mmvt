@@ -818,17 +818,17 @@ def calc_source_power_spectrum(
                 power_spectrum[epoch_ind, label_ind, :, cond_ind] = np.mean(stc.data, axis=0)
                 if epoch_ind == 0:
                     for vert_ind, vert_no in enumerate(label_vertices):
-                        vertices_data[label.hemi][vert_no] = np.zeros(len(freqs))
+                        vertices_data[label.hemi][vert_no] = np.zeros((epochs_num, len(freqs)))
                 for vert_ind, vert_no in enumerate(label_vertices):
-                    vertices_data[label.hemi][vert_no] += stc.data[vert_ind]
+                    vertices_data[label.hemi][vert_no][epoch_ind] = stc.data[vert_ind]
             if save_tmp_files:
                 np.savez(output_fname, power_spectrum=power_spectrum[:, label_ind, :, cond_ind], frequencies=freqs,
                          label=label.name, cond=cond_name)
             if do_plot:
                 plot_label_psd(power_spectrum[:, label_ind, :, cond_ind], freqs, label, cond_name, plots_fol)
-        for hemi in utils.HEMIS:
-            for vert_no in vertices_data[hemi].keys():
-                vertices_data[hemi][vert_no] /= epochs_num
+        # for hemi in utils.HEMIS:
+        #     for vert_no in vertices_data[hemi].keys():
+        #         vertices_data[hemi][vert_no]
         utils.save((vertices_data, freqs), vertices_data_fname)
         np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs)
 
@@ -861,7 +861,7 @@ def calc_vertices_data_power_bands(
             if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_fname, '{hemi}')) and not overwrite:
                 continue
             band_mask = np.where((freqs >= lf) & (freqs <= hf))[0]
-            data = {hemi: [vertices_data[hemi][vert_ind][band_mask].mean() for vert_ind in vertices_data[hemi].keys()]
+            data = {hemi: [vertices_data[hemi][vert_ind][:, band_mask].mean() for vert_ind in vertices_data[hemi].keys()]
                     for hemi in utils.HEMIS}
             stc_power = creating_stc_obj(data, vertices_data, subject)
             print('Saving power stc to: {}'.format(stc_fname))
@@ -3698,7 +3698,7 @@ def get_fname_format_args(args):
         args.task, args.fname_format,args.fname_format_cond, args.conditions, args.get_task_defaults)
 
 
-def get_fname_format(task, fname_format='', fname_format_cond='', args_conditions=None, get_task_defaults=True):
+def get_fname_format(task, fname_format='', fname_format_cond='', args_conditions='', get_task_defaults=True):
     conditions = None
     if get_task_defaults:
         if task == 'MSIT':
@@ -3738,7 +3738,7 @@ def get_fname_format(task, fname_format='', fname_format_cond='', args_condition
         args_conditions = ('all') if args_conditions is None else args_conditions
         conditions = dict((cond_name, cond_id + 1) for cond_id, cond_name in enumerate(args_conditions))
     # todo: what if we want to set something like LV=3, RV=4 from the args?
-    if args_conditions is not None:
+    if args_conditions is not None and args_conditions != '':
         conditions = dict((cond_name, cond_id + 1) for cond_id, cond_name in enumerate(args_conditions))
     return fname_format, fname_format_cond, conditions
 
@@ -5119,7 +5119,7 @@ def read_cmd_args(argv=None):
     parser = argparse.ArgumentParser(description='MMVT anatomy preprocessing')
     parser.add_argument('-m', '--mri_subject', help='mri subject name', required=False, default=None, type=au.str_arr_type)
     parser.add_argument('-t', '--task', help='task name', required=False, default='')
-    parser.add_argument('-c', '--conditions', help='conditions', required=False, default='all', type=au.str_arr_type)
+    parser.add_argument('-c', '--conditions', help='conditions', required=False, default='', type=au.str_arr_type)
     parser.add_argument('-i', '--inverse_method', help='inverse_method', required=False, default='dSPM', type=au.str_arr_type)
     parser.add_argument('--modality', help='', required=False, default='meg')
     parser.add_argument('--sub_dirs_for_tasks', help='', required=False, default=0, type=au.is_true)

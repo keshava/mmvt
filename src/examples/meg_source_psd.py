@@ -24,13 +24,13 @@ def calc_meg_source_psd(args):
             subject=subject, task=args.task))
         remote_raw_fname = op.join(args.remote_root_dir, 'raw_preprocessed', subject, args.raw_template.format(
             subject=subject, task=args.task))
-        if not op.isfile(remote_raw_fname):
+        if not op.isfile(remote_raw_fname) and not args.ignore:
             print('Can\'t find remote raw file! {}'.format(remote_raw_fname))
             continue
         if op.isfile(local_raw_fname):
             os.remove(local_raw_fname)
         utils.make_link(remote_raw_fname, local_raw_fname)
-        if not op.islink(local_raw_fname):
+        if not op.islink(local_raw_fname) and not args.ignore:
             print('Can\'t create a link to the remote raw!')
             continue
         inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
@@ -179,6 +179,7 @@ if __name__ == '__main__':
     parser.add_argument('--inv_template', required=False, default='{subject}_{task}_Onset-inv.fif')
     parser.add_argument('--morph_target', required=False, default='fsaverage5')
     parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
+    parser.add_argument('--ignore', required=False, default=False, type=au.is_true)
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
     args.subject = pu.decode_subjects(args.subject, remote_subject_dir=args.remote_subject_dir)

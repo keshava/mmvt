@@ -195,18 +195,18 @@ def calc_meg_connectivity(args):
         init_meg(subject)
         local_rest_raw_fname, empty_fname, cor_fname = get_meg_empty_fnames(
             subject, op.join(args.remote_meg_dir, subject), args) # subject.upper()
-        if not op.isfile(empty_fname):
+        if not op.isfile(empty_fname) and not args.ignore:
             print('{}: Can\'t find empty! ({})'.format(subject, empty_fname))
             continue
-        if not op.isfile(cor_fname):
+        if not op.isfile(cor_fname) and not args.ignore:
             print('{}: Can\'t find cor! ({})'.format(subject, cor_fname))
             continue
-        if not op.isfile(local_rest_raw_fname):
+        if not op.isfile(local_rest_raw_fname) and not args.ignore:
             print('{}: Can\'t find raw! ({})'.format(subject, local_rest_raw_fname))
             continue
 
         output_fname = op.join(MMVT_DIR, subject, 'connectivity', 'rest_{}_{}_{}.npz'.format(em, con_method, con_mode))
-        if op.isfile(output_fname):
+        if op.isfile(output_fname) and not args.ignore:
             file_mod_time = utils.file_modification_time_struct(output_fname)
             if file_mod_time.tm_year >= 2018 and (file_mod_time.tm_mon == 11 and file_mod_time.tm_mday >= 15) or \
                     (file_mod_time.tm_mon > 11):
@@ -215,7 +215,7 @@ def calc_meg_connectivity(args):
                 continue
 
         remote_epo_fname = op.join(args.remote_epochs_dir, subject, args.epo_template.format(subject=subject))
-        if not op.isfile(remote_epo_fname):
+        if not op.isfile(remote_epo_fname) and not args.ignore:
             print('No epochs file! {}'.format(remote_epo_fname))
             continue
         con_args = meg.read_cmd_args(utils.Bag(
@@ -573,6 +573,7 @@ if __name__ == '__main__':
                         type=au.str_arr_type)
 
     parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
+    parser.add_argument('--ignore', required=False, default=False, type=au.is_true)
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
     args = utils.Bag(au.parse_parser(parser))
     args.subject = pu.decode_subjects(args.subject, remote_subject_dir=args.remote_subject_dir)
