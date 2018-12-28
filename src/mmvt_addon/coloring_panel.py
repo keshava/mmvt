@@ -1193,8 +1193,8 @@ def vertex_object_coloring(cur_obj, mesh, coloring_layer, valid_verts, vert_valu
 
 
 def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur_obj_name, save_prev_colors=False):
-    if save_prev_colors:
-        ColoringMakerPanel.prev_colors[cur_obj_name]['colors'] = defaultdict(dict)
+    # if save_prev_colors:
+    #     ColoringMakerPanel.prev_colors[cur_obj_name]['colors'] = defaultdict(dict)
     # progress = 0
     # step = len(valid_verts) / 100
     # ind = 0
@@ -1207,8 +1207,8 @@ def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur
         x = lookup[vert]
         for loop_ind in x[x > -1]:
             d = vcol_layer.data[loop_ind]
-            if save_prev_colors:
-                ColoringMakerPanel.prev_colors[cur_obj_name]['colors'][vert][loop_ind] = d.color.copy()
+            # if save_prev_colors:
+            #     ColoringMakerPanel.prev_colors[cur_obj_name]['colors'][vert][loop_ind] = d.color.copy()
             d.color = colors_func(vert)
         # ind += 1
     bpy.context.window.cursor_set("DEFAULT")
