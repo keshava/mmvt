@@ -42,6 +42,7 @@ def calc_meg_source_psd(args):
             fmin=1, fmax=120,
             raw_fname=local_raw_fname,
             inv_fname=inv_fname,
+            max_epochs_num=50,
             remote_subject_dir=args.remote_subject_dir,
             overwrite_labels_power_spectrum=True,
             n_jobs=args.n_jobs
