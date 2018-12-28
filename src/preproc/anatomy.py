@@ -334,6 +334,24 @@ def calc_faces_verts_dic(subject, atlas, overwrite=False):
     return len(errors) == 0
 
 
+def create_outer_skin_surface(subject, overwrite=False):
+    seghead_fname = op.join(SUBJECTS_DIR, subject, 'surf', 'lh.seghead')
+    if not op.isfile(seghead_fname):
+        from src.utils import freesurfer_utils as fu
+        fu.create_seghead(subject)
+    if not op.isfile(seghead_fname):
+        print('No seghead!')
+        return False
+    ply_fname = op.join(MMVT_DIR, subject, 'surf', 'seghead.ply')
+    verts, faces = nib_fs.read_geometry(seghead_fname)
+    if not op.isfile(ply_fname) or overwrite:
+        utils.write_ply_file(verts, faces, ply_fname)
+    faces_verts_fname = op.join(MMVT_DIR, subject, 'surf', 'seghead_faces_verts.npy')
+    if not op.isfile(faces_verts_fname):
+        utils.calc_ply_faces_verts(verts, faces, faces_verts_fname, overwrite, 'seghead')
+    return op.isfile(ply_fname) and op.isfile(faces_verts_fname)
+
+
 @utils.tryit()
 def load_bem_surfaces(subject, include_seghead=True, overwrite=False):
     watershed_files = ['brain_surface', 'inner_skull_surface', 'outer_skin_surface', 'outer_skull_surface']
@@ -1574,6 +1592,10 @@ def main(subject, remote_subject_dir, org_args, flags):
         flags['check_bem'] = check_bem(
             subject, remote_subject_dir, args.recreate_src_spacing, args.recreate_bem_solution, args)
 
+    if 'create_outer_skin_surface' in args.function:
+        flags['create_outer_skin_surface'] = create_outer_skin_surface(
+            subject, args.overwrite_seghead)
+
     if 'create_flat_brain' in args.function:
         flags['create_flat_brain'] = create_flat_brain(subject, args.print_only, args.overwrite_flat_surf, args.n_jobs)
 
@@ -1626,6 +1648,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--overwrite_blend', help='overwrite_blend', required=False, default=0, type=au.is_true)
     parser.add_argument('--ask_if_overwrite_blend', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--overwrite_flat_surf', help='overwrite_flat_surf', required=False, default=0, type=au.is_true)
+    parser.add_argument('--overwrite_seghead', help='overwrite_seghead', required=False, default=0, type=au.is_true)
     parser.add_argument('--solve_labels_collisions', help='solve_labels_collisions', required=False, default=0, type=au.is_true)
     parser.add_argument('--morph_labels_from_fsaverage', help='morph_labels_from_fsaverage', required=False, default=1, type=au.is_true)
     parser.add_argument('--fs_labels_fol', help='fs_labels_fol', required=False, default='')

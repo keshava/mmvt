@@ -1907,6 +1907,12 @@ def main(subject, remote_subject_dir, args, flags):
     if 'calc_labels_minmax' in args.function:
         flags['calc_labels_minmax'] = calc_labels_minmax(subject, args.atlas, args.labels_extract_mode)
 
+    if 'calc_lables_connectivity' in args.function:
+        from src.preproc import connectivity as con
+        con_args = con.read_cmd_args(args)
+        con_args.connectivity_modality = 'fMRI'
+        flags['calc_lables_connectivity'] = con.calc_lables_connectivity(subject, args.labels_extract_mode, con_args)
+
     if 'calc_subs_surface_activity' in args.function:
         flags['calc_subs_surface_activity'] = calc_subs_surface_activity(
             subject, args.fmri_file_template, args.template_brain, args.subs_threshold, args.subcortical_codes_file,
