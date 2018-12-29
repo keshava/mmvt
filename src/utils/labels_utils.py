@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from src.mmvt_addon import mmvt_utils as mu
 from src.utils import freesurfer_utils as fu
+from src.utils import args_utils as au
 
 read_labels_from_annots = mu.read_labels_from_annots
 read_labels_from_annot = mu.read_labels_from_annot
@@ -293,6 +294,11 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
                 raise Exception('Can\'t find {} pial surfaces!'.fomat(subject))
         else:
             verts = verts_dict[hemi]
+        if sum([len(l.vertices) for l in labels]) != len(verts):
+            ret = input('{}: labels vertices num: {} != surface verts num {}. Do you want to continue?'.format(
+                hemi, sum([len(l.vertices) for l in labels]), len(verts)))
+            if not au.is_true(ret):
+                raise Exception('Wrong number of vertices!')
         verts_indices = set(range(len(verts)))
         assign_vertices = set()
         for label in labels:

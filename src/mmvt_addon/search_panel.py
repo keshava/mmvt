@@ -31,6 +31,9 @@ class SearchFilter(bpy.types.Operator):
             except:
                 if label_name in obj.name:
                     SearchPanel.marked_objects.append(obj.name)
+        if len(SearchPanel.marked_objects) == 0:
+            print('No objects found for "{}"'.format(context.scene.labels_regex))
+            return
         # todo: show rois only if the object is an ROI. Also, move the cursor
         selected_obj = bpy.data.objects[SearchPanel.marked_objects[0]]
         verts = np.array([vert.co for vert in selected_obj.data.vertices])

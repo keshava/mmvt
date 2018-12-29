@@ -53,7 +53,7 @@ def create_atlas_coloring(subject, atlas, lookup):
 
 
 if __name__ == '__main__':
-    subject, template_brain, atlas, n_jobs = 'hc016', 'fsaverage5', 'laus250', 4
+    subject, template_brain, atlas, n_jobs = 'fsaverage5', 'fsaverage5', 'laus250', 4
     # test(subject, template_brain, SUBJECTS_DIR)
     # test2(template_brain, atlas)
     create_labels_from_vertices_labels_lookup(subject, template_brain, atlas, n_jobs=n_jobs)

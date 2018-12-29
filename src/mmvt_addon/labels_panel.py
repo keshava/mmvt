@@ -51,6 +51,8 @@ def load_labels_contours(atlas=''):
         atlas = bpy.context.scene.contours_coloring
     for hemi in mu.HEMIS:
         labels_contours[hemi] = np.load(op.join(mu.get_user_fol(), 'labels', '{}_contours_{}.npz'.format(atlas, hemi)))
+        if len(np.where(labels_contours[hemi]['contours'])[0]) == 0:
+            print('No contours in {} {}!'.format(atlas, hemi))
     return labels_contours
 
 
@@ -167,6 +169,8 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
                         _addon().move_cursor_according_to_vert(vert, 'inflated_{}'.format(hemi))
                         _addon().set_closest_vertex_and_mesh_to_cursor(vert, 'inflated_{}'.format(hemi))
                         _addon().create_slices()
+                        _addon().snap_cursor(True)
+                        _addon().set_tkreg_ras(bpy.context.scene.cursor_location * 10, False)
                 else:
                     print("Can't find {} in the labels contours!".format(specific_label))
         else:
