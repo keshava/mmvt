@@ -36,7 +36,7 @@ def calc_meg_source_psd(args):
         inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
         _args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
-            function='make_forward_solution,calc_inverse_operator,calc_source_power_spectrum,calc_source_baseline_psd',
+            function='calc_epochs,make_forward_solution,calc_inverse_operator,calc_source_power_spectrum,calc_source_baseline_psd',
             task='MSIT',
             data_per_task=True,
             fmin=1, fmax=120,
@@ -45,6 +45,7 @@ def calc_meg_source_psd(args):
             max_epochs_num=50,
             remote_subject_dir=args.remote_subject_dir,
             overwrite_labels_power_spectrum=True,
+            overwrite_epochs=True,
             n_jobs=args.n_jobs
         ))
         meg.call_main(_args)
