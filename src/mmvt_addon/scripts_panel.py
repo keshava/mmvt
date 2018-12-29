@@ -130,7 +130,8 @@ def scripts_draw(self, context):
     if draw_func is not None:
         draw_func(self, context)
     layout.operator(RunScript.bl_idname, text="Run script", icon='POSE_HLT')
-    layout.prop(context.scene, 'scripts_overwrite', 'Overwrite')
+    layout.operator(UpdateScripts.bl_idname, text="Update scripts", icon='PREFERENCES')
+    # layout.prop(context.scene, 'scripts_overwrite', 'Overwrite')
     # if ScriptsPanel.threshold_exist:
     #     layout.prop(context.scene, 'scripts_threshold', 'threshold')
     # if ScriptsPanel.cb_min_max_exist:
@@ -146,6 +147,17 @@ class RunScript(bpy.types.Operator):
 
     def invoke(self, context, event=None):
         run_script()
+        return {'PASS_THROUGH'}
+
+
+class UpdateScripts(bpy.types.Operator):
+    bl_idname = "mmvt.update_scripts"
+    bl_label = "Scripts update"
+    bl_description = 'Update the scripts.\n\nScript: mmvt.scripts.init(mmvt, False)'
+    bl_options = {"UNDO"}
+
+    def invoke(self, context, event=None):
+        init(_addon(), False)
         return {'PASS_THROUGH'}
 
 
@@ -175,7 +187,7 @@ class ScriptsPanel(bpy.types.Panel):
             scripts_draw(self, context)
 
 
-def init(addon):
+def init(addon, first=True):
     ScriptsPanel.addon = addon
     user_fol = mu.get_user_fol()
     scripts_files = glob.glob(op.join(mu.get_mmvt_code_root(), 'src', 'examples', 'scripts', '*.py'))
@@ -201,7 +213,8 @@ def init(addon):
     # bpy.context.scene.scripts_threshold = 2
     # bpy.context.scene.scripts_cb_min = 2
     # bpy.context.scene.scripts_cb_max = 6
-    register()
+    if first:
+        register()
     ScriptsPanel.init = True
 
 
@@ -210,6 +223,7 @@ def register():
         unregister()
         bpy.utils.register_class(ScriptsPanel)
         bpy.utils.register_class(RunScript)
+        bpy.utils.register_class(UpdateScripts)
     except:
         print("Can't register Scripts Panel!")
 
@@ -218,5 +232,6 @@ def unregister():
     try:
         bpy.utils.unregister_class(ScriptsPanel)
         bpy.utils.unregister_class(RunScript)
+        bpy.utils.unregister_class(UpdateScripts)
     except:
         pass
