@@ -23,7 +23,7 @@ COND_CON, COND_INC = range(2)
 
 
 def calc_meg_source_psd(args):
-    bad_subjects = ['hc004', 'hc012']
+    bad_subjects = ['hc004', 'hc012', 'hc029']
     subjects = args.subject
     for subject in subjects:
         if subject in bad_subjects:
