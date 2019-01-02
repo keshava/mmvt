@@ -4,38 +4,35 @@ import re, os
 import os.path as op
 from pandas import read_csv, DataFrame
 import numpy as np
-from tqdm import tqdm
 from mne.io import Raw, RawArray
 from mne import create_info, find_events
 
-from src.utils import utils
-
-LINKS_DIR = utils.get_links_dir()
-SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
-MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
-MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
+root = '/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/'
 
 
-exclude_subjects = ['ep001']
-
-out_files = np.load(op.join(MEG_DIR, 'file_list.npz'))['out_files'].item()
-data_struct = {task: {modality: {} for modality in ['EEG', 'MEG']} for task in out_files}
-for task in out_files:
-    if task == 'Resting':
-        stimuli = {'Demi': ['STI011', -1, 1]}
-        response = None
-        baseline = ['STI011', -2, -1]
-    else:
-        stimuli = {'Onset': ['STI001', -0.5, 1]}
-        response = ['STI002', -1.5, 1]
-        baseline = ['STI001', -1.1, -0.1]
-    for modality in ['MEG', 'EEG']:
-        d_files = out_files[task][modality]
-        subjects = d_files.keys()
-        if not all([s in d_files for s in subjects]):
-            raise ValueError('Behavior data mismatch subjects')
-        for subject in subjects:
+def get_data(subject, tasks=['MSIT'], modalities=['MEG'], exclude_subjects=['ep001']):
+    out_files = np.load(op.join(root, 'file_list.npz'))['out_files'].item()
+    data_struct = {task: {modality: {} for modality in ['EEG', 'MEG']} for task in out_files}
+    for task in tasks:
+        if task == 'Resting':
+            stimuli = {'Demi': ['STI011', -1, 1]}
+            response = None
+            baseline = ['STI011', -2, -1]
+        else:
+            stimuli = {'Onset': ['STI001', -0.5, 1]}
+            response = ['STI002', -1.5, 1]
+            baseline = ['STI001', -1.1, -0.1]
+        for modality in modalities:
+            d_files = out_files[task][modality]
+            # subjects = d_files.keys()
+            # if not all([s in d_files for s in subjects]):
+            #     raise ValueError('Behavior data mismatch subjects')
+            # for subject in subjects:
+            if subject not in d_files.keys():
+                print('Subject not in d_files.keys!')
+                continue
             if subject in exclude_subjects:
+                print('Subject in exclude_subjects')
                 continue
             if task == 'Resting':
                 events_fname = os.path.join(os.getcwd(), 'Resting_Events', '%s_%s_events.npz' % (subject, modality))
@@ -86,3 +83,4 @@ for task in out_files:
                              task=task, exclude_response=exclude_response, tbuffer=0.3 if task == 'Resting' else 1,
                              subjects_dir=dir_path)
             data_struct[task][modality][subject] = data
+    return data_struct

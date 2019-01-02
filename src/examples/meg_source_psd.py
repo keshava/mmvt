@@ -8,6 +8,7 @@ from src.preproc import meg
 from src.preproc import fMRI as fmri
 import mne
 from collections import defaultdict
+from src.misc import meg_buddy as mb
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
@@ -18,7 +19,14 @@ MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 
 def calc_meg_source_psd(args):
     subjects = args.subject
+
     for subject in subjects:
+        msit_data = mb.get_data(subject, tasks=['MSIT'], modalities=['MEG'])['MSIT']['MEG']
+        if subject not in msit_data:
+            print('{} not in msit_data!'.format(subject))
+            continue
+        msit_data = msit_data[subject]
+        epo = msit_data._load_epochs('Onset', condition='condition', value='congruent')
         args.subject = subject
         local_raw_fname = op.join(MEG_DIR, args.task, subject, args.raw_template.format(
             subject=subject, task=args.task))

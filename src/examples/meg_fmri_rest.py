@@ -191,6 +191,7 @@ def calc_meg_connectivity(args):
     con_method, con_mode = 'pli2_unbiased', 'multitaper'
     subjects = args.subject
     good_subjects = []
+
     for subject, mri_subject in zip(subjects, args.mri_subject):
         init_meg(subject)
         local_rest_raw_fname, empty_fname, cor_fname = get_meg_empty_fnames(

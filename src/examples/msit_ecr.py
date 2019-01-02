@@ -15,6 +15,7 @@ from collections import defaultdict
 from tqdm import tqdm
 import warnings
 import matplotlib.pyplot as plt
+from src.misc import meg_buddy as mb
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
