@@ -8,7 +8,6 @@ tables
 tqdm
 Pillow
 pysftp
-scikit_learn
 winshell
 xlrd
 pymsgbox
