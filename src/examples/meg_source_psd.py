@@ -16,17 +16,14 @@ MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 FMRI_DIR = utils.get_link_dir(utils.get_links_dir(), 'fMRI')
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 
+MSIT_CONDS = ['Congruent', 'Incongruent']
+COND_CON, COND_INC = range(2)
+
 
 def calc_meg_source_psd(args):
     subjects = args.subject
 
     for subject in subjects:
-        msit_data = mb.get_data(subject, tasks=['MSIT'], modalities=['MEG'])['MSIT']['MEG']
-        if subject not in msit_data:
-            print('{} not in msit_data!'.format(subject))
-            continue
-        msit_data = msit_data[subject]
-        epo = msit_data._load_epochs('Onset', condition='condition', value='congruent')
         args.subject = subject
         local_raw_fname = op.join(MEG_DIR, args.task, subject, args.raw_template.format(
             subject=subject, task=args.task))
@@ -42,15 +39,30 @@ def calc_meg_source_psd(args):
             print('Can\'t create a link to the remote raw!')
             continue
         inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
+
+        data = mb.get_data(subject, tasks=['MSIT'], modalities=['MEG'])['MSIT']['MEG']
+        if subject not in data:
+            print('{} not in msit_data!'.format(subject))
+            continue
+        data = data[subject]
+        subject_epochs = data._load_epochs('Onset', ar=True)
+        indices = data._get_indices(subject_epochs, 'Condition', MSIT_CONDS)
+        for cond in MSIT_CONDS:
+            epochs = subject_epochs[indices[cond]]
+            meg.calc_source_power_spectrum(
+                subject, cond.lower(), epochs=epochs, max_epochs_num=50, inv_fname=inv_fname, overwrite=True,
+                n_jobs=args.n_jobs)
+        continue
+
         _args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
-            function='calc_epochs,make_forward_solution,calc_inverse_operator,calc_source_power_spectrum,calc_source_baseline_psd',
+            function='make_forward_solution,calc_inverse_operator',
             task='MSIT',
             data_per_task=True,
             fmin=1, fmax=120,
             raw_fname=local_raw_fname,
             inv_fname=inv_fname,
-            max_epochs_num=50,
+            # max_epochs_num=50,
             remote_subject_dir=args.remote_subject_dir,
             overwrite_labels_power_spectrum=True,
             overwrite_epochs=True,
