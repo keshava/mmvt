@@ -2,11 +2,13 @@ import os.path as op
 import os
 import glob
 import numpy as np
+import scipy.stats
 from src.utils import utils
 from src.preproc import anatomy as anat
 from src.preproc import meg
 from src.preproc import fMRI as fmri
 import mne
+from tqdm import tqdm
 from collections import defaultdict
 from src.misc import meg_buddy as mb
 
@@ -21,9 +23,11 @@ COND_CON, COND_INC = range(2)
 
 
 def calc_meg_source_psd(args):
+    bad_subjects = ['hc004', 'hc012']
     subjects = args.subject
-
     for subject in subjects:
+        if subject in bad_subjects:
+            continue
         args.subject = subject
         local_raw_fname = op.join(MEG_DIR, args.task, subject, args.raw_template.format(
             subject=subject, task=args.task))
@@ -40,6 +44,21 @@ def calc_meg_source_psd(args):
             continue
         inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
 
+        _args = meg.read_cmd_args(dict(
+            subject=subject, mri_subject=subject,
+            function='make_forward_solution,calc_inverse_operator',
+            task='MSIT', data_per_task=True,
+            fmin=1, fmax=120,
+            raw_fname=local_raw_fname, inv_fname=inv_fname,
+            remote_subject_dir=args.remote_subject_dir,
+            n_jobs=args.n_jobs
+        ))
+        ret = meg.call_main(_args)
+        if not ret[subject].get('calc_inverse_operator', True):
+            continue
+
+        # Load the eopchs and calc source power spectrum for both conditions.
+        # The epochs are being splitted first
         data = mb.get_data(subject, tasks=['MSIT'], modalities=['MEG'])['MSIT']['MEG']
         if subject not in data:
             print('{} not in msit_data!'.format(subject))
@@ -50,25 +69,48 @@ def calc_meg_source_psd(args):
         for cond in MSIT_CONDS:
             epochs = subject_epochs[indices[cond]]
             meg.calc_source_power_spectrum(
-                subject, cond.lower(), epochs=epochs, max_epochs_num=50, inv_fname=inv_fname, overwrite=True,
-                n_jobs=args.n_jobs)
-        continue
+                subject, cond.lower(), epochs=epochs, max_epochs_num=50, inv_fname=inv_fname, n_jobs=args.n_jobs)
 
-        _args = meg.read_cmd_args(dict(
-            subject=subject, mri_subject=subject,
-            function='make_forward_solution,calc_inverse_operator',
-            task='MSIT',
-            data_per_task=True,
-            fmin=1, fmax=120,
-            raw_fname=local_raw_fname,
-            inv_fname=inv_fname,
-            # max_epochs_num=50,
-            remote_subject_dir=args.remote_subject_dir,
-            overwrite_labels_power_spectrum=True,
-            overwrite_epochs=True,
-            n_jobs=args.n_jobs
-        ))
-        meg.call_main(_args)
+
+def calc_source_ttest(args):
+    subjects = args.subject
+    for subject in subjects:
+        args.subject = subject
+        fol = op.join(MMVT_DIR, subject, 'meg')
+        output_fname = op.join(fol, 'dSPM_mean_flip_vertices_power_spectrum_stat')
+        if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')):
+            print('{} already exist')
+            continue
+        file_name = '{cond}_dSPM_mean_flip_vertices_power_spectrum.pkl'
+        if not all([op.isfile(op.join(fol, file_name.format(cond=cond.lower())))
+                for cond in MSIT_CONDS]):
+            continue
+        vertices_data = {}
+        try:
+            for cond in MSIT_CONDS:
+                vertices_data[cond], freqs = utils.load(op.join(fol, file_name.format(cond=cond.lower())))
+        except:
+            print('Can\'t read {}'.format(file_name.format(cond=cond.lower())))
+            continue
+        pvals, vertno = defaultdict(list), {}
+        for hemi in utils.HEMIS:
+            vertices_inds = {}
+            for cond in MSIT_CONDS:
+                vertices_inds[cond] = np.array(sorted(list(vertices_data[MSIT_CONDS[0]][hemi].keys())))
+            if not np.all(vertices_inds[MSIT_CONDS[0]] == vertices_inds[MSIT_CONDS[1]]):
+                raise Exception('Not the same vertices!')
+            vertno[hemi] = vertices_inds[MSIT_CONDS[0]]
+            for vert in tqdm(vertices_data[MSIT_CONDS[0]][hemi].keys()):
+                x = [vertices_data[cond][hemi][vert] for cond in MSIT_CONDS]
+                t, pval = scipy.stats.ttest_ind(x[0], x[1], equal_var=False)
+                pvals[hemi].append(-np.log10(pval))
+
+        data = np.concatenate([pvals['lh'], pvals['rh']])
+        vertices = [vertno['lh'], vertno['rh']]
+        stc_pvals = mne.SourceEstimate(data, vertices, freqs[0], freqs[1] - freqs[0], subject=subject)
+        print('Writing to {}'.format(output_fname))
+        stc_pvals.save(output_fname)
+        # todo: calc the labels average and load it into MMVT
 
 
 def find_meg_psd_clusters(args):

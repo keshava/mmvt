@@ -2154,6 +2154,29 @@ def find_recursive(fol, name):
     return files
 
 
+def ttest(x1, x2, x1_name, x2_name, two_tailed_test=True, alpha=0.05, is_greater=True, title='',
+          calc_welch=True, long_print=True, always_print=False):
+    import scipy.stats
+    t, pval = scipy.stats.ttest_ind(x1, x2, equal_var=not calc_welch)
+    sig = is_significant(pval, t, two_tailed_test, alpha, is_greater)
+    if sig or always_print:
+        long_str = '#{} {:.4f}+-{:.4f}, #{} {:.4f}+-{:.4f}'.format(
+            len(x1), np.mean(x1), np.std(x1), len(x2), np.mean(x2), np.std(x2)) if long_print else ''
+        print('{}: {} {} {} ({:.6f}) {}'.format(title, x1_name, '>' if t > 0 else '<', x2_name, pval, long_str))
+
+    return sig, pval
+
+
+def is_significant(pval, t, two_tailed_test, alpha=0.05, is_greater=True):
+    if two_tailed_test:
+        return pval < alpha
+    else:
+        if is_greater:
+            return pval / 2 < alpha and t > 0
+        else:
+            return pval / 2 < alpha and t < 0
+
+
 def power_spectrum(x, fs, scaling='density'):
     r'''
     Estimate power spectral density using Welch's method.
