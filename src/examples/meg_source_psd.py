@@ -133,114 +133,124 @@ def _morph_stcs_pvals(subject):
 def average_stc_pvals(args):
     fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg'))
     stc_mean = None
+    stcs_num = 0
+    pval_lower_limit = 5
     stc_name = 'dSPM_mean_flip_power_spectrum_stat'
+    if utils.both_hemi_files_exist('{}-{}.stc'.format(op.join(fol, stc_name), '{hemi}')) and not args.overwrite:
+        print('{} already exist'.format(op.join(fol, stc_name)))
+        return
     stcs_fnames = glob.glob(op.join(fol, 'morphed',  '*_{}-lh.stc'.format(stc_name)))
-    for stc_fname in stcs_fnames:
+    for stc_fname in tqdm(stcs_fnames):
         stc = mne.read_source_estimate(stc_fname, args.morph_target)
-        stc_mean = stc if stc_mean is None else stc_mean + stc
-    stc_mean /= len(stcs_fnames)
+        stc_max = utils.max_stc(stc)
+        if stc_max > pval_lower_limit:
+            print('{}, max: {:.2f}'.format(stc_fname, stc_max))
+            stc_mean = stc if stc_mean is None else stc_mean + stc
+            stcs_num += 1
+    stc_mean /= stcs_num
+    print('Writing avg stc to {}'.format(op.join(fol, stc_name)))
     stc_mean.save(op.join(fol, stc_name))
 
 
-def find_meg_psd_clusters(args):
-    subjects = args.subject
-    stc_name = 'all_dSPM_mean_flip_high_gamma_power'
-    for subject in subjects:
-        if not utils.both_hemi_files_exist(
-                op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-            print('{}: Can\'t find {}!'.format(subject, stc_name))
-            continue
-        args.subject = subject
-        _args = meg.read_cmd_args(dict(
-            subject=subject, mri_subject=subject,
-            function='find_functional_rois_in_stc',
-            stc_name=stc_name,
-            threshold=95, threshold_is_precentile=True,
-            extract_time_series_for_clusters=False,
-            n_jobs=args.n_jobs
-        ))
-        meg.call_main(_args)
-
-
-def morph_meg_powers(args):
-    utils.run_parallel(_morph_meg_powers, args.subject, args.n_jobs)
-
-
-def _morph_meg_powers(subject):
-    fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg', 'morphed'))
-    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
-    for band, stc_band in bands.items():
-        output_fname = op.join(fol, '{}_{}'.format(subject, band))
-        if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
-            continue
-        stc_fname = op.join(MMVT_DIR, subject, 'meg', 'all_dSPM_mean_flip_{}_power-{}.stc'.format(
-            band, '{hemi}'))
-        if not utils.both_hemi_files_exist(stc_fname):
-            continue
-        stc = mne.read_source_estimate(stc_fname.format(hemi='lh'))
-        stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, n_jobs=args.n_jobs)
-        print('Saving {}'.format(output_fname))
-        stc_morphed.save(output_fname)
-
-
-def normalize_meg_source_psd(args):
-    utils.run_parallel(_normalize_meg_source_psd, args.subject, args.n_jobs)
-
-
-def _normalize_meg_source_psd(subject):
-    normalize_to_one = True
-    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
-    fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg', 'morphed'))
-    subject_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg'))
-    for band, stc_band in bands.items():
-        output_fname = op.join(fol, '{}_{}_norm'.format(subject, band))
-        if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
-            continue
-        file_name = op.join(fol, '{}_{}'.format(subject, band))
-        if not utils.both_hemi_files_exist('{}-{}.stc'.format(file_name, '{hemi}')):
-            print('{} is missing!'.format(file_name))
-            continue
-        if not normalize_to_one:
-            baseline_file_name = op.join(subject_fol, 'MSIT_dSPM_baseline_{}'.format(band))
-            if not utils.both_hemi_files_exist('{}-{}.stc'.format(baseline_file_name, '{hemi}')):
-                print('{} is missing!'.format(baseline_file_name))
-                continue
-        psd_stc = mne.read_source_estimate('{}-rh.stc'.format(file_name), subject)
-        if normalize_to_one:
-            max_psd = utils.max_stc(psd_stc)
-            max_data = np.concatenate(
-                [np.ones((len(psd_stc.lh_data), 1)) * max_psd, np.ones((len(psd_stc.rh_data), 1)) * max_psd])
-            baseline_stc = mne.SourceEstimate(max_data, psd_stc.vertices, 0, 0, subject=subject)
-        else:
-            baseline_stc = mne.read_source_estimate('{}-rh.stc'.format(baseline_file_name), subject)
-        stc_band_norm_power = meg.normalize_stc(subject, psd_stc, baseline_stc)
-        print('Saving {}'.format(output_fname))
-        stc_band_norm_power.save(output_fname)
-
-
-def average_meg_powers(args):
-    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
-    fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg'))
-    power_upper_limit = 1e4
-    powers = defaultdict(list)
-    stc_mean = {}
-    stcs_num = {}
-    for band, stc_band in bands.items():
-        stc_mean[band] = None
-        stcs_num[band] = 0
-        stcs_fnames = glob.glob(op.join(fol, 'morphed',  '*_{}_norm-lh.stc'.format(band)))
-        for stc_fname in stcs_fnames:
-            stc = mne.read_source_estimate(stc_fname, args.morph_target)
-            min_stc, max_stc = utils.calc_min_max_stc(stc)
-            if max_stc > power_upper_limit:
-                continue
-            powers[band].append(utils.calc_mean_stc(stc))
-            stc_mean[band] = stc if stc_mean[band] is None else stc_mean[band] + stc
-            stcs_num[band] += 1
-    for band, stc_band in bands.items():
-        stc_mean[band] /= stcs_num[band]
-        stc_mean[band].save(op.join(fol, 'MSIT_mean_{}'.format(band)))
-        print('{} {}+-{}'.format(band, np.mean(powers[band]), np.std(powers[band])))
+# def find_meg_psd_clusters(args):
+#     subjects = args.subject
+#     stc_name = 'all_dSPM_mean_flip_high_gamma_power'
+#     for subject in subjects:
+#         if not utils.both_hemi_files_exist(
+#                 op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+#             print('{}: Can\'t find {}!'.format(subject, stc_name))
+#             continue
+#         args.subject = subject
+#         _args = meg.read_cmd_args(dict(
+#             subject=subject, mri_subject=subject,
+#             function='find_functional_rois_in_stc',
+#             stc_name=stc_name,
+#             threshold=95, threshold_is_precentile=True,
+#             extract_time_series_for_clusters=False,
+#             n_jobs=args.n_jobs
+#         ))
+#         meg.call_main(_args)
+#
+#
+# def morph_meg_powers(args):
+#     utils.run_parallel(_morph_meg_powers, args.subject, args.n_jobs)
+#
+#
+# def _morph_meg_powers(subject):
+#     fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg', 'morphed'))
+#     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+#     for band, stc_band in bands.items():
+#         output_fname = op.join(fol, '{}_{}'.format(subject, band))
+#         if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
+#             continue
+#         stc_fname = op.join(MMVT_DIR, subject, 'meg', 'all_dSPM_mean_flip_{}_power-{}.stc'.format(
+#             band, '{hemi}'))
+#         if not utils.both_hemi_files_exist(stc_fname):
+#             continue
+#         stc = mne.read_source_estimate(stc_fname.format(hemi='lh'))
+#         stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, n_jobs=args.n_jobs)
+#         print('Saving {}'.format(output_fname))
+#         stc_morphed.save(output_fname)
+#
+#
+# def normalize_meg_source_psd(args):
+#     utils.run_parallel(_normalize_meg_source_psd, args.subject, args.n_jobs)
+#
+#
+# def _normalize_meg_source_psd(subject):
+#     normalize_to_one = True
+#     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+#     fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg', 'morphed'))
+#     subject_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg'))
+#     for band, stc_band in bands.items():
+#         output_fname = op.join(fol, '{}_{}_norm'.format(subject, band))
+#         if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
+#             continue
+#         file_name = op.join(fol, '{}_{}'.format(subject, band))
+#         if not utils.both_hemi_files_exist('{}-{}.stc'.format(file_name, '{hemi}')):
+#             print('{} is missing!'.format(file_name))
+#             continue
+#         if not normalize_to_one:
+#             baseline_file_name = op.join(subject_fol, 'MSIT_dSPM_baseline_{}'.format(band))
+#             if not utils.both_hemi_files_exist('{}-{}.stc'.format(baseline_file_name, '{hemi}')):
+#                 print('{} is missing!'.format(baseline_file_name))
+#                 continue
+#         psd_stc = mne.read_source_estimate('{}-rh.stc'.format(file_name), subject)
+#         if normalize_to_one:
+#             max_psd = utils.max_stc(psd_stc)
+#             max_data = np.concatenate(
+#                 [np.ones((len(psd_stc.lh_data), 1)) * max_psd, np.ones((len(psd_stc.rh_data), 1)) * max_psd])
+#             baseline_stc = mne.SourceEstimate(max_data, psd_stc.vertices, 0, 0, subject=subject)
+#         else:
+#             baseline_stc = mne.read_source_estimate('{}-rh.stc'.format(baseline_file_name), subject)
+#         stc_band_norm_power = meg.normalize_stc(subject, psd_stc, baseline_stc)
+#         print('Saving {}'.format(output_fname))
+#         stc_band_norm_power.save(output_fname)
+#
+#
+# def average_meg_powers(args):
+#     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+#     fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg'))
+#     power_upper_limit = 1e4
+#     powers = defaultdict(list)
+#     stc_mean = {}
+#     stcs_num = {}
+#     for band, stc_band in bands.items():
+#         stc_mean[band] = None
+#         stcs_num[band] = 0
+#         stcs_fnames = glob.glob(op.join(fol, 'morphed',  '*_{}_norm-lh.stc'.format(band)))
+#         for stc_fname in stcs_fnames:
+#             stc = mne.read_source_estimate(stc_fname, args.morph_target)
+#             min_stc, max_stc = utils.calc_min_max_stc(stc)
+#             if max_stc > power_upper_limit:
+#                 continue
+#             powers[band].append(utils.calc_mean_stc(stc))
+#             stc_mean[band] = stc if stc_mean[band] is None else stc_mean[band] + stc
+#             stcs_num[band] += 1
+#     for band, stc_band in bands.items():
+#         stc_mean[band] /= stcs_num[band]
+#         stc_mean[band].save(op.join(fol, 'MSIT_mean_{}'.format(band)))
+#         print('{} {}+-{}'.format(band, np.mean(powers[band]), np.std(powers[band])))
 
 
 if __name__ == '__main__':
