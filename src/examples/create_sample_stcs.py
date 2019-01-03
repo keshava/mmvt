@@ -1,15 +1,16 @@
 import os.path as op
 from src.preproc import meg, eeg
 from src.utils import utils
+import mne
 
 LINKS_DIR = utils.get_links_dir()
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 
-# new version was downloaded from
+# new version can be downloaded from here
 # https://github.com/mne-tools/mne-cpp/tree/master/bin/MNE-sample-data
-MNE_ROOT = '/autofs/space/thibault_001/users/npeled/datasets/MNE-sample-data/MEG/sample'
-# MNE_ROOT = mne.datasets.sample.data_path()
+MNE_ROOT = mne.datasets.sample.data_path()
+# MNE_ROOT = '/autofs/space/thibault_001/users/npeled/datasets/MNE-sample-data/MEG/sample'
 
 
 def calc_sample_meg_data():
@@ -62,3 +63,4 @@ def calc_sample_eeg_data():
 
 if __name__ == '__main__':
     calc_sample_eeg_data()
+    calc_sample_meg_data()
