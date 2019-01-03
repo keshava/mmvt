@@ -130,6 +130,18 @@ def _morph_stcs_pvals(subject):
     stc_morphed.save(output_fname)
 
 
+def average_stc_pvals(args):
+    fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg'))
+    stc_mean = None
+    stc_name = 'dSPM_mean_flip_power_spectrum_stat'
+    stcs_fnames = glob.glob(op.join(fol, 'morphed',  '*_{}-lh.stc'.format(stc_name)))
+    for stc_fname in stcs_fnames:
+        stc = mne.read_source_estimate(stc_fname, args.morph_target)
+        stc_mean = stc if stc_mean is None else stc_mean + stc
+    stc_mean /= len(stcs_fnames)
+    stc_mean.save(op.join(fol, stc_name))
+
+
 def find_meg_psd_clusters(args):
     subjects = args.subject
     stc_name = 'all_dSPM_mean_flip_high_gamma_power'
