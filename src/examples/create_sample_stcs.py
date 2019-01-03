@@ -1,5 +1,4 @@
 import os.path as op
-import mne
 from src.preproc import meg, eeg
 from src.utils import utils
 
