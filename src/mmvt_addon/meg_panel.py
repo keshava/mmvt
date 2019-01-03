@@ -749,10 +749,12 @@ def load_clusters_file(clusters_name=''):
 def load_stc():
     if MNE_EXIST:
         stc_fname = op.join(mu.get_user_fol(), 'meg', '{}-lh.stc'.format(MEGPanel.clusters_labels.stc_name))
-        MEGPanel.stc = mne.read_source_estimate(stc_fname)
-        MEGPanel.stc._data *= np.power(10, 9) # from Amp to nAmp
-        MEGPanel.max_stc = get_max_stc_t(MEGPanel.stc, MEGPanel.clusters_labels.time)
-
+        if op.isfile(stc_fname):
+            MEGPanel.stc = mne.read_source_estimate(stc_fname)
+            MEGPanel.stc._data *= np.power(10, 9) # from Amp to nAmp
+            MEGPanel.max_stc = get_max_stc_t(MEGPanel.stc, MEGPanel.clusters_labels.time)
+        else:
+            print('load_stc: Can\'t find {}!'.format(stc_fname))
 
 def load_contours():
     contours = mu.Bag({hemi:None for hemi in mu.HEMIS})

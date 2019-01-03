@@ -81,7 +81,7 @@ def calc_mne_python_sample_data_stcs_diff(args):
 def calc_msit(args):
     # python -m src.preproc.meg -s ep001 -m mg78 -a laus250 -t MSIT
     #   --contrast interference --t_max 2 --t_min -0.5 --data_per_task 1 --read_events_from_file 1
-    #   --events_file_name {subject}_msit_nTSSS_interference-eve.txt --cleaning_method nTSSS
+    #   --events_fname {subject}_msit_nTSSS_interference-eve.txt --cleaning_method nTSSS
     args = meg.read_cmd_args(dict(
         subject=args.subject,
         mri_subject=args.mri_subject,
@@ -97,7 +97,7 @@ def calc_msit(args):
         # calc_epochs_from_raw=True,
         read_events_from_file=True,
         # remote_subject_meg_dir='/autofs/space/sophia_002/users/DARPA-MEG/project_orig_msit',
-        events_file_name='{subject}_msit_nTSSS_interference-eve.txt',
+        events_fname='{subject}_msit_nTSSS_interference-eve.txt',
         reject=False,
         # save_smoothed_activity=True,
         # stc_t=1189,
@@ -116,7 +116,7 @@ def calc_msit(args):
 def calc_msit_labels_avg(args):
     # python -m src.preproc.meg -s ep001 -m mg78 -a laus250 -t MSIT
     #   --contrast interference --t_max 2 --t_min -0.5 --data_per_task 1 --read_events_from_file 1
-    #   --events_file_name {subject}_msit_nTSSS_interference-eve.txt --cleaning_method nTSSS
+    #   --events_fname {subject}_msit_nTSSS_interference-eve.txt --cleaning_method nTSSS
     args = meg.read_cmd_args(dict(
         subject=args.subject,
         mri_subject=args.mri_subject,
@@ -137,7 +137,7 @@ def calc_msit_labels_avg(args):
 def calc_msit_evoked(args):
     # python -m src.preproc.meg -s ep001 -m mg78 -a laus125 -f calc_epochs,calc_evokes -t MSIT
     #   --contrast interference --t_max 2 --t_min -0.5 --data_per_task 1 --read_events_from_file 1
-    #   --events_file_name {subject}_msit_nTSSS_interference-eve.txt --cleaning_method nTSSS
+    #   --events_fname {subject}_msit_nTSSS_interference-eve.txt --cleaning_method nTSSS
     args = meg.read_cmd_args(dict(
         subject=args.subject,
         mri_subject=args.mri_subject,
@@ -152,7 +152,7 @@ def calc_msit_evoked(args):
         read_events_from_file=True,
         normalize_data = False,
         overwrite_evoked = True,
-        events_file_name='{subject}_msit_nTSSS_interference-eve.txt',
+        events_fname='{subject}_msit_nTSSS_interference-eve.txt',
     ))
     meg.call_main(args)
 

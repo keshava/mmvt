@@ -56,7 +56,7 @@ def calc_mne_python_sample_data(args):
 def calc_msit_evoked(args):
     # python -m src.preproc.eeg -s ep001 -m mg78 -a laus125 -f calc_epochs,calc_evokes -t MSIT
     #   --contrast interference --t_max 2 --t_min -0.5 --data_per_task 1 --read_events_from_file 1
-    #   --events_file_name {subject}_msit_nTSSS_interference-eve.txt --cleaning_method nTSSS
+    #   --events_fname {subject}_msit_nTSSS_interference-eve.txt --cleaning_method nTSSS
     args = eeg.read_cmd_args(dict(
         subject=args.subject,
         mri_subject=args.mri_subject,
@@ -70,7 +70,7 @@ def calc_msit_evoked(args):
         t_max=2,
         read_events_from_file=True,
         normalize_data=False,
-        events_file_name='{subject}_msit_nTSSS_interference-eve.txt',
+        events_fname='{subject}_msit_nTSSS_interference-eve.txt',
     ))
     eeg.call_main(args)
 

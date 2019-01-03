@@ -55,7 +55,7 @@ locating_subject_file = lambda x, y: ('', False)
 
 def init_globals_args(subject, mri_subject, fname_format, fname_format_cond, args):
     return init_globals(subject, mri_subject, fname_format, fname_format_cond, args.raw_fname_format,
-                 args.fwd_fname_format, args.inv_fname_format, args.events_file_name, args.files_includes_cond,
+                 args.fwd_fname_format, args.inv_fname_format, args.events_fname, args.files_includes_cond,
                  args.cleaning_method, args.contrast, args.task, args.meg_dir, args.mri_dir, args.mmvt_dir,
                  args.fwd_no_cond, args.inv_no_cond, args.data_per_task, args.sub_dirs_for_tasks)
 
@@ -263,7 +263,7 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
                  windows_num=0, overwrite_epochs=False, eve_template='*eve.fif', raw_fname='',
                  using_auto_reject=True, ar_compute_thresholds_method='random_search', ar_consensus_percs=None,
                  ar_n_interpolates=None, bad_ar_threshold = 0.5, use_demi_events=False, notch_widths=None, n_jobs=6):
-    epo_fname = get_epo_fname(epo_fname)
+    epo_fname = get_epo_fname(epo_fname, overwrite=overwrite_epochs)
     if op.isfile(epo_fname) and not overwrite_epochs:
         epochs = mne.read_epochs(epo_fname)
         return epochs
@@ -288,9 +288,9 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
     picks = mne.pick_types(raw.info, meg=pick_meg, eeg=pick_eeg, eog=pick_eog, exclude='bads')
     if reject:
         reject_dict = {}
-        if reject_mag > 0:
+        if pick_meg and reject_mag > 0:
             reject_dict['mag'] = reject_mag
-        if reject_grad > 0:
+        if pick_meg and reject_grad > 0:
             reject_dict['grad'] = reject_grad
         if pick_eog and reject_eog > 0:
             reject_dict['eog'] = reject_eog
@@ -349,9 +349,11 @@ def auto_remove_bad_channels(raw, epochs, baseline, events, events_conditions, t
                              pick_meg=True, pick_eeg=False, pick_eog=False, reject_dict=None):
     min_bad_num = len(events) * 0.5
     bad_channels_max_num = 20
-    min_good_epochs_num = len(events) * 0.5
+    min_good_epochs_num = sum([sum(events[:, 2] == k) for k in events_conditions.values()]) * 0.5
     bad_channels = Counter(utils.flat_list_of_lists(epochs.drop_log))
     bad_channels = {ch_name: num for ch_name, num in bad_channels.items() if ch_name in raw.info['ch_names']}
+    if len(bad_channels) == 0:
+        return epochs
     if len(epochs) < min_bad_num and max(bad_channels.values()) > bad_channels_max_num:
         for bad_ch, cnt in bad_channels.items():
             if cnt > bad_channels_max_num:
@@ -433,7 +435,8 @@ def calc_epochs_using_auto_reject(raw_or_epochs, events, events_conditions, tmin
 
 
 def save_epochs(epochs, epo_fname=''):
-    epo_fname = get_epo_fname(epo_fname)
+    if epo_fname == '':
+        epo_fname = EPO #get_epo_fname(epo_fname)
     if '{cond}' in epo_fname:
         for event in epochs.event_id: #events.keys():
             epochs[event].save(get_cond_fname(epo_fname, event))
@@ -479,7 +482,8 @@ def calc_epochs_wrapper(
         ar_n_interpolates=None, bad_ar_threshold=0.5, use_demi_events=False, notch_widths=None, n_jobs=6):
     # Calc evoked data for averaged data and for each condition
     try:
-        epo_fname = get_epo_fname(epo_fname)
+        if epo_fname == '':
+            epo_fname = EPO
         if '{cond}' not in epo_fname:
             epo_exist = op.isfile(epo_fname)
         else:
@@ -1165,7 +1169,9 @@ def calc_evokes(epochs, events, mri_subject, normalize_data=False, epo_fname='',
                 overwrite_evoked=False, task='', set_eeg_reference=True, average_per_event=True, bad_channels=[]):
     try:
         epo_fname = get_epo_fname(epo_fname)
-        evoked_fname = get_evo_fname(evoked_fname)
+        if evoked_fname == '':
+            evoked_fname = EVO
+        # evoked_fname = get_evo_fname(evoked_fname)
         fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
         task_str = '{}_'.format(task) if task != '' else ''
         events_keys = list(events.keys())
@@ -1274,7 +1280,7 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
         [-max_abs, max_abs])
 
 
-def get_sensros_info(modality, info, ch_names):
+def get_sensros_info(modality, info, all_ch_names):
     if modality == 'meg':
         sensors_picks, channels_sensors_dict = {}, {}
         picks = mne.pick_types(info, meg=True, eeg=False, exclude='bads')
@@ -1288,7 +1294,7 @@ def get_sensros_info(modality, info, ch_names):
             sensors_info = np.load(input_fname)
             sensors_names = sensors_info['names']
             sensors_picks[sensor_type] = mne.pick_types(info, meg=sensor_type, exclude='bads')
-            ch_names = [ch_names[k].replace(' ', '') for k in sensors_picks[sensor_type]]
+            ch_names = [all_ch_names[k].replace(' ', '') for k in sensors_picks[sensor_type]]
             channels_sensors_dict[sensor_type] = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
     elif modality == 'eeg':
         # Load sensors info
@@ -1299,7 +1305,7 @@ def get_sensros_info(modality, info, ch_names):
         sensors_info = np.load(input_fname)
         sensors_names = sensors_info['names']
         picks = mne.pick_types(info, meg=False, eeg=True, exclude='bads')
-        ch_names = [ch_names[k].replace(' ', '') for k in picks]
+        ch_names = [all_ch_names[k].replace(' ', '') for k in picks]
         channels_sensors_dict = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
         sensors_picks = {
             sensor_type: mne.pick_types(info, meg=False, eeg=True, exclude='bads')
@@ -1779,7 +1785,9 @@ def get_fwd_fname(fwd_fname='', fwd_usingMEG=True, fwd_usingEEG=True):
     return fwd_fname
 
 
-def get_epo_fname(epo_fname='', load_autoreject_if_exist=True):
+def get_epo_fname(epo_fname='', load_autoreject_if_exist=False, overwrite=False):
+    if overwrite and epo_fname != '':
+        return epo_fname
     if epo_fname == '':
         epo_fname = EPO
     epo_exist = False
@@ -2105,8 +2113,10 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                     if not stc_t_min is None and not stc_t_max is None:
                         evoked = evoked.crop(stc_t_min, stc_t_max)
                     try:
-                        # todo: should check if this was already done
-                        mne.set_eeg_reference(evoked, ref_channels=None)
+                        info = evoked.info
+                        if not info['custom_ref_applied'] and not mne.io.proj._has_eeg_average_ref_proj(info['projs']):
+                            # todo: should check if this was already done
+                            mne.set_eeg_reference(evoked, projection=True) #ref_channels=None)
                         # evoked.apply_ref
                     except:
                         print('Cannot create EEG average reference projector (no EEG data found)')
@@ -2126,7 +2136,8 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                     verbose=stcs[cond_name].verbose)
             if save_stc and (not op.isfile(stc_fname) or overwrite_stc) and \
                     not isinstance(stcs[cond_name], types.GeneratorType):
-                mmvt_fol = utils.make_dir(op.join(MMVT_DIR, MRI_SUBJECT, modality))
+                # MMVT reads stcs only from the 'meg' fol, need to change that
+                mmvt_fol = utils.make_dir(op.join(MMVT_DIR, MRI_SUBJECT, 'meg'))
                 mmvt_stc_fname =  op.join(mmvt_fol, utils.namebase(stc_fname))
                 print('Saving the source estimate to {} and\n {}'.format(
                     stc_fname, mmvt_stc_fname))
@@ -3709,33 +3720,34 @@ def get_fname_format(task, fname_format='', fname_format_cond='', args_condition
     conditions = None
     if get_task_defaults:
         if task == 'MSIT':
-            # fname_format = '{subject}_msit_interference_1-15-{file_type}.fif' # .format(subject, fname (like 'inv'))
-            # fname_format_cond = '{subject}_msit_{cleaning_method}_{contrast}_{cond}_1-15-{ana_type}.{file_type}'
-            # fname_format = '{subject}_msit_{cleaning_method}_{contrast}_1-15-{ana_type}.{file_type}'
-            fname_format_cond = '{subject}_msit_{cleaning_method}_{contrast}_{cond}_1-15-{ana_type}.{file_type}'
-            fname_format = '{subject}_msit_{cleaning_method}_{contrast}_1-15-{ana_type}.{file_type}'
+            if fname_format_cond == '':
+                fname_format_cond = '{subject}_msit_{cleaning_method}_{contrast}_{cond}_1-15-{ana_type}.{file_type}'
+            if fname_format == '':
+                fname_format = '{subject}_msit_{cleaning_method}_{contrast}_1-15-{ana_type}.{file_type}'
             conditions = dict(interference=1, neutral=2) # dict(congruent=1, incongruent=2), events = dict(Fear=1, Happy=2)
-            # event_digit = 1
         elif task == 'ECR':
-            fname_format_cond = '{subject}_ecr_{cond}_15-{ana_type}.{file_type}'
-            fname_format = '{subject}_ecr_15-{ana_type}.{file_type}'
+            if fname_format_cond == '':
+                fname_format_cond = '{subject}_ecr_{cond}_15-{ana_type}.{file_type}'
+            if fname_format == '':
+                fname_format = '{subject}_ecr_15-{ana_type}.{file_type}'
             # conditions = dict(Fear=1, Happy=2) # or dict(congruent=1, incongruent=2)
             conditions = dict(C=1, I=2)
             # event_digit = 3
         elif task == 'ARC':
-            fname_format_cond = '{subject}_arc_rer_{cleaning_method}_{cond}-{ana_type}.{file_type}'
-            fname_format = '{subject}_arc_rer_{cleaning_method}-{ana_type}.{file_type}'
+            if fname_format_cond == '':
+                fname_format_cond = '{subject}_arc_rer_{cleaning_method}_{cond}-{ana_type}.{file_type}'
+            if fname_format == '':
+                fname_format = '{subject}_arc_rer_{cleaning_method}-{ana_type}.{file_type}'
             conditions = dict(low_risk=1, med_risk=2, high_risk=3)
         elif task == 'audvis':
+            if fname_format_cond == '':
+                fname_format_cond = '{subject}_audvis_{cond}_{ana_type}.{file_type}'
+            if fname_format == '':
+                fname_format = '{subject}_audvis_{ana_type}.{file_type}'
             conditions = dict(LA=1, RA=2, LV=3, RV=4, smiley=5, button=32)
-            fname_format_cond = '{subject}_audvis_{cond}_{ana_type}.{file_type}'
-            fname_format = '{subject}_audvis_{ana_type}.{file_type}'
-        elif task == 'vis':
-            conditions = dict(LV=3, RV=4)
-            fname_format_cond = '{subject}_audvis_{cond}_{ana_type}.{file_type}'
-            fname_format = '{subject}_audvis_{ana_type}.{file_type}'
         elif task == 'rest':
-            fname_format = fname_format_cond = '{subject}_{cleaning_method}-rest-{ana_type}.{file_type}'
+            if fname_format == '':
+                fname_format = fname_format_cond = '{subject}_{cleaning_method}-rest-{ana_type}.{file_type}'
             conditions = dict(rest=1)
     if conditions is None:
         if fname_format == '' or fname_format_cond == '':
@@ -4898,10 +4910,10 @@ def get_digitization_points(subject, raw_fname):
 
 
 def init_main(subject, mri_subject, remote_subject_dir, args):
-    if args.events_file_name != '':
-        args.events_file_name = op.join(MEG_DIR, args.task, subject, args.events_file_name)
-        if '{subject}' in args.events_file_name:
-            args.events_file_name = args.events_file_name.format(subject=subject)
+    if args.events_fname != '':
+        args.events_fname = op.join(MEG_DIR, args.task, subject, args.events_fname)
+        if '{subject}' in args.events_fname:
+            args.events_fname = args.events_fname.format(subject=subject)
     args.remote_subject_dir = remote_subject_dir
     args.remote_subject_meg_dir = utils.build_remote_subject_dir(args.remote_subject_meg_dir, subject)
     prepare_subject_folder(mri_subject, remote_subject_dir, SUBJECTS_MRI_DIR,
@@ -4917,14 +4929,14 @@ def init(subject, args, mri_subject='', remote_subject_dir=''):
     init_globals_args(subject, mri_subject, fname_format, fname_format_cond, args=args)
     fname_format = fname_format.replace('{subject}', SUBJECT)
     fname_format = fname_format.replace('{ana_type}', 'raw')
-    if '{file_type}' in fname_format:
-        fname_format = fname_format.replace('{file_type}', '*')
-        raw_files = glob.glob(op.join(SUBJECT_MEG_FOLDER, fname_format))
-    else:
-        raw_files = glob.glob(op.join(SUBJECT_MEG_FOLDER, '{}.fif'.format(fname_format)))
-
-    if len(raw_files) == 1:
-        args.raw_fname = raw_files[0]
+    if args.raw_fname == '':
+        if '{file_type}' in fname_format:
+            fname_format = fname_format.replace('{file_type}', '*')
+            raw_files = glob.glob(op.join(SUBJECT_MEG_FOLDER, fname_format))
+        else:
+            raw_files = glob.glob(op.join(SUBJECT_MEG_FOLDER, '{}.fif'.format(fname_format)))
+        if len(raw_files) == 1:
+            args.raw_fname = raw_files[0]
     return fname_format, fname_format_cond, conditions
 
 
@@ -5165,7 +5177,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--overwrite_baseline_sensors_bands_psd', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_source_baseline_psd', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--read_events_from_file', help='read_events_from_file', required=False, default=0, type=au.is_true)
-    parser.add_argument('--events_file_name', help='events_file_name', required=False, default='')
+    parser.add_argument('--events_fname', help='events_fname', required=False, default='')
     parser.add_argument('--use_demi_events', help='use_demi_events', required=False, default=0, type=au.is_true)
     parser.add_argument('--windows_length', help='', required=False, default=1000, type=int)
     parser.add_argument('--windows_shift', help='', required=False, default=500, type=int)
