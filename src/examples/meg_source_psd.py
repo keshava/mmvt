@@ -110,7 +110,24 @@ def calc_source_ttest(args):
         stc_pvals = mne.SourceEstimate(data, vertices, freqs[0], freqs[1] - freqs[0], subject=subject)
         print('Writing to {}'.format(output_fname))
         stc_pvals.save(output_fname)
-        # todo: calc the labels average and load it into MMVT
+
+
+def morph_stcs_pvals(args):
+    utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
+
+
+def _morph_stcs_pvals(subject):
+    fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg', 'morphed'))
+    output_fname = op.join(fol, '{}_dSPM_mean_flip_power_spectrum_stat'.format(subject))
+    if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
+        return
+    stc_fname = op.join(MMVT_DIR, subject, 'meg', 'dSPM_mean_flip_vertices_power_spectrum_stat-{}.stc'.format('{hemi}'))
+    if not utils.both_hemi_files_exist(stc_fname):
+        return
+    stc = mne.read_source_estimate(stc_fname.format(hemi='lh'))
+    stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, n_jobs=args.n_jobs)
+    print('Saving {}'.format(output_fname))
+    stc_morphed.save(output_fname)
 
 
 def find_meg_psd_clusters(args):
