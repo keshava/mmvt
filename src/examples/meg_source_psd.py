@@ -10,7 +10,6 @@ from src.preproc import fMRI as fmri
 import mne
 from tqdm import tqdm
 from collections import defaultdict
-from src.misc import meg_buddy as mb
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
@@ -23,6 +22,7 @@ COND_CON, COND_INC = range(2)
 
 
 def calc_meg_source_psd(args):
+    from src.misc import meg_buddy
     bad_subjects = ['hc004', 'hc012', 'hc029']
     subjects = args.subject
     for subject in subjects:
@@ -59,7 +59,7 @@ def calc_meg_source_psd(args):
 
         # Load the eopchs and calc source power spectrum for both conditions.
         # The epochs are being splitted first
-        data = mb.get_data(subject, tasks=['MSIT'], modalities=['MEG'])['MSIT']['MEG']
+        data = meg_buddy.get_data(subject, tasks=['MSIT'], modalities=['MEG'])['MSIT']['MEG']
         if subject not in data:
             print('{} not in msit_data!'.format(subject))
             continue
@@ -113,7 +113,7 @@ def calc_source_ttest(args):
 
 
 def calc_pvals_clusters(args):
-    utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
+    utils.run_parallel(_calc_pvals_clusters, args.subject, args.n_jobs)
 
 
 def _calc_pvals_clusters(subject):
