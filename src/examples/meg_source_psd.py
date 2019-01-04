@@ -121,6 +121,8 @@ def calc_pvals_clusters(args):
             print('{}: Can\'t find {}!'.format(subject, stc_name))
             continue
         args.subject = subject
+        clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
+        utils.delete_folder_files(clusters_root_fol)
         _args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
             function='find_functional_rois_in_stc',
