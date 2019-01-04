@@ -4340,7 +4340,7 @@ def find_functional_rois_in_stc(
         min_cluster_max=0, min_cluster_size=0, clusters_label='', src=None,
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
         labels=None, verts_dict=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
-        only_contours=False, recreate_src_spacing='oct6', n_jobs=6):
+        save_func_labels=False, recreate_src_spacing='oct6', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, 'meg', 'clusters')
@@ -4430,9 +4430,9 @@ def find_functional_rois_in_stc(
                 contours[hemi] = calc_contours(
                     subject, new_atlas_name, hemi, clusters_cortical_labels, clusters_fol, mri_subject,
                     verts_dict, verts_neighbors_dict)
-            if not only_contours:
+            if save_func_labels:
                 clusters_labels.values.extend(clusters_labels_hemi)
-    if not only_contours:
+    if save_func_labels:
         clusters_labels_output_fname = op.join(clusters_root_fol, 'clusters_labels_{}.pkl'.format(stc_name, atlas))
         print('Saving clusters labels: {}'.format(clusters_labels_output_fname))
         # Change Bag to regular dict because we want to load the pickle file in Blender (argggg)
@@ -5011,7 +5011,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.peak_stc_time_index, args.label_name_template, args.peak_mode, args.extract_time_series_for_clusters,
             args.extract_mode, args.min_cluster_max, args.min_cluster_size, args.clusters_label,
             inv_fname=args.inv_fname, fwd_usingMEG=args.fwd_usingMEG, fwd_usingEEG=args.fwd_usingEEG,
-            recreate_src_spacing=args.recreate_src_spacing, n_jobs=args.n_jobs)
+            recreate_src_spacing=args.recreate_src_spacing, save_func_labels=args.save_func_labels, n_jobs=args.n_jobs)
 
     if 'print_files_names' in args.function:
         print_files_names()
@@ -5293,6 +5293,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--min_cluster_max', required=False, default=0, type=float)
     parser.add_argument('--min_cluster_size', required=False, default=0, type=int)
     parser.add_argument('--clusters_label', required=False, default='')
+    parser.add_argument('--save_func_labels', help='', required=False, default=0, type=au.is_true)
     # FieldTrip
     parser.add_argument('--fieldtrip_data_name', required=False, default='')
     parser.add_argument('--fieldtrip_data_field_name', required=False, default='')
