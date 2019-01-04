@@ -4340,7 +4340,7 @@ def find_functional_rois_in_stc(
         min_cluster_max=0, min_cluster_size=0, clusters_label='', src=None,
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
         labels=None, verts_dict=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
-        save_func_labels=False, recreate_src_spacing='oct6', n_jobs=6):
+        save_func_labels=True, recreate_src_spacing='oct6', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, 'meg', 'clusters')
@@ -4367,9 +4367,11 @@ def find_functional_rois_in_stc(
         if label_name_template == '':
             max_vert, time_index = stc.get_peak(
                 time_as_index=True, vert_as_index=True, mode=peak_mode)
+            print('peak time index: {}'.format(time_index))
         else:
             max_vert, time_index = find_pick_activity(
                 subject, stc, atlas, label_name_template, hemi='both', peak_mode=peak_mode)
+            print('peak time index: {}'.format(time_index))
     if stc_t_smooth is None or verts is None:
         stc_t = create_stc_t(stc, time_index, subject)
         stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
@@ -5293,7 +5295,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--min_cluster_max', required=False, default=0, type=float)
     parser.add_argument('--min_cluster_size', required=False, default=0, type=int)
     parser.add_argument('--clusters_label', required=False, default='')
-    parser.add_argument('--save_func_labels', help='', required=False, default=0, type=au.is_true)
+    parser.add_argument('--save_func_labels', help='', required=False, default=1, type=au.is_true)
     # FieldTrip
     parser.add_argument('--fieldtrip_data_name', required=False, default='')
     parser.add_argument('--fieldtrip_data_field_name', required=False, default='')

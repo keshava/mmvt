@@ -294,7 +294,8 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
                 raise Exception('Can\'t find {} pial surfaces!'.fomat(subject))
         else:
             verts = verts_dict[hemi]
-        if sum([len(l.vertices) for l in labels]) != len(verts):
+        if len([l for l in labels_names if 'unknown' in l.lower()]) > 0 and \
+                sum([len(l.vertices) for l in labels]) != len(verts):
             ret = input('{}: labels vertices num: {} != surface verts num {}. Do you want to continue?'.format(
                 hemi, sum([len(l.vertices) for l in labels]), len(verts)))
             if not au.is_true(ret):
@@ -1040,11 +1041,13 @@ def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts
         for inter_labels_tup in inter_labels_tups:
             inter_labels.append(dict(name=inter_labels_tup[1], num=inter_labels_tup[0]))
         if len(inter_labels) > 0 and (clusters_label in inter_labels[0]['name'] or clusters_label == ''):
+            print('Cluster max {:.2f}, intersected: {}'.format(
+                cluster_max, ','.join(['{} {}'.format(t[1], t[0]) for t in inter_labels_tups])))
             # max_inter = max([(il['num'], il['name']) for il in inter_labels])
             cluster_labels.append(dict(vertices=cluster, intersects=inter_labels, name=inter_labels[0]['name'],
                 coordinates=verts[cluster], max=cluster_max, hemi=hemi, size=len(cluster), max_vert=max_vert))
-        else:
-            print('No intersected labels!')
+        # else:
+        #     print('No intersected labels!')
     return cluster_labels
 
 
