@@ -112,6 +112,26 @@ def calc_source_ttest(args):
         stc_pvals.save(output_fname)
 
 
+def calc_pvals_clusters(args):
+    subjects = args.subject
+    stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
+    for subject in subjects:
+        if not utils.both_hemi_files_exist(
+                op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+            print('{}: Can\'t find {}!'.format(subject, stc_name))
+            continue
+        args.subject = subject
+        _args = meg.read_cmd_args(dict(
+            subject=subject, mri_subject=subject,
+            function='find_functional_rois_in_stc',
+            stc_name=stc_name,
+            threshold=-np.log10(0.05), threshold_is_precentile=False,
+            extract_time_series_for_clusters=True,
+            n_jobs=args.n_jobs
+        ))
+        meg.call_main(_args)
+
+
 def morph_stcs_pvals(args):
     utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
 
