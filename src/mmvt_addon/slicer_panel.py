@@ -182,7 +182,7 @@ def slice_brain(cut_pos=None, save_image=False, render_image=False):
         bpy.ops.mesh.primitive_plane_add(radius=25.7 / 2.0, location=tuple(cut_pos))
         bpy.context.object.name = '{}_plane'.format(cut_type)
         bpy.context.object.rotation_euler = optional_rots[option_ind]
-        # if cut_type == 'axial':
+        # if cut_type == 'axial':import
         #     bpy.ops.object.mode_set(mode='EDIT')
         #     bpy.ops.mesh.flip_normals()
         #     bpy.ops.object.mode_set(mode='OBJECT')
@@ -241,7 +241,9 @@ def slice_brain(cut_pos=None, save_image=False, render_image=False):
         # inflated_object.modifiers['mask_for_slice'].double_threshold = 0
         mask_object_with_cube(inflated_object)
     try:
-        mask_object_with_cube(bpy.data.objects['seghead'])
+        #  TODO  Noam this is where I slice the head object.
+        # mask_object_with_cube(bpy.data.objects['seghead'])
+        pass
     except:
         print('outer skin object does not exist.')
     bpy.context.scene.objects.active = cur_plane_obj
