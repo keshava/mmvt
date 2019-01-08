@@ -2212,3 +2212,20 @@ def power_spectrum(x, fs, scaling='density'):
     frequencies, Pxx_spec = signal.welch(x, fs, 'flattop', scaling=scaling) # 1024
     linear_spectrum = np.log(np.sqrt(Pxx_spec))
     return frequencies, linear_spectrum #[Hz] / [V RMS]
+
+
+def atlas_exist(subject, atlas, subjects_dir=''):
+    return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
+
+
+def get_atlas_template(subject, atlas, subjects_dir=''):
+    return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
+
+
+def fix_atlas_name(subject, atlas):
+    if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
+        if not atlas_exist(subject, 'aparc.DKTatlas') and atlas_exist(subject, 'aparc.DKTatlas40'):
+            atlas = 'aparc.DKTatlas40'
+        elif not atlas_exist(subject, 'aparc.DKTatlas40') and atlas_exist(subject, 'aparc.DKTatlas'):
+            atlas = 'aparc.DKTatlas'
+    return atlas

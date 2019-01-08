@@ -11,7 +11,6 @@ import warnings
 
 from src.utils import utils
 from src.utils import args_utils as au
-from src.utils import labels_utils as lu
 
 
 LINKS_DIR = utils.get_links_dir()
@@ -74,7 +73,7 @@ def run_on_subjects(args, main_func, subjects_itr=None, subject_func=None):
         os.environ['SUBJECT'] = subject
         flags = dict()
         try:
-            args.atlas = lu.fix_atlas_name(subject, args.atlas)
+            args.atlas = utils.fix_atlas_name(subject, args.atlas, SUBJECTS_DIR)
             # if utils.should_run(args, 'prepare_subject_folder'):
             # I think we always want to run this
             # *) Prepare the local subject's folder
