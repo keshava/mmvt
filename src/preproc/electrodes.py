@@ -1662,7 +1662,6 @@ def main(subject, remote_subject_dir, args, flags):
     utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     utils.make_dir(op.join(MMVT_DIR, subject, 'coloring'))
     args = set_args(args)
-    args.atlas = lu.fix_atlas_name(subject, args.atlas)
 
     if utils.should_run(args, 'get_ras_file'):
         flags['get_ras_file'] = get_ras_file(subject, args)
