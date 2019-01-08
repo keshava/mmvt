@@ -1051,6 +1051,24 @@ def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts
     return cluster_labels
 
 
+def atlas_exist(subject, atlas):
+    return utils.both_hemi_files_exist(get_atlas_template(subject, atlas))
+
+
+def get_atlas_template(subject, atlas):
+    return op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
+
+
+def fix_atlas_name(subject, atlas):
+    ret = None
+    if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
+        if not atlas_exist(subject, 'aparc.DKTatlas') and atlas_exist(subject, 'aparc.DKTatlas40'):
+            ret = 'aparc.DKTatlas40'
+        elif not atlas_exist(subject, 'aparc.DKTatlas40') and atlas_exist(subject, 'aparc.DKTatlas'):
+            ret = 'aparc.DKTatlas'
+    return atlas
+
+
 if __name__ == '__main__':
     pass
     # subject = 'DC'

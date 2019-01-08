@@ -450,7 +450,6 @@ def calc_subs_surface_activity(subject, fmri_file_template, template_brains, thr
     x = nib.load(volume_fname)
     x_data = x.get_data()
     vol_ras2vox = np.linalg.inv(x.header.get_vox2ras()) # todo: need to convert to mgz first
-
     seg_labels = get_subs_names(subcortical_codes_fname, aseg_stats_file_name)
 
     sig_subs = []
@@ -580,13 +579,13 @@ def calc_vert_vals(verts, pts, vals, method='max', k_points=100):
     # sig_dists = dists[np.where(abs(near_vals)>2)]
     cover = len(np.unique(pts_inds.ravel()))/float(len(pts))
     print('{}% of the points are covered'.format(cover*100))
-    if method=='dist':
+    if method == 'dist':
         n_dists = 1/(dists**2)
         norm = 1/np.sum(n_dists, 1)
         norm = np.reshape(norm, (len(norm), 1))
         n_dists = norm * n_dists
         verts_vals = np.sum(near_vals * n_dists, 1)
-    elif method=='max':
+    elif method == 'max':
         verts_vals = near_vals[range(near_vals.shape[0]), np.argmax(abs(near_vals), 1)]
     return verts_vals
 
@@ -1899,10 +1898,11 @@ def main(subject, remote_subject_dir, args, flags):
             args.norm_percs, args.overwrite_labels_data, remote_fmri_dir, args.resting_state_plot,
             args.resting_state_plot_all_vertices, args.excluded_labels, args.input_format)
 
-    if 'save_dynamic_activity_map' in args.function:
-        flags['save_dynamic_activity_map'] = save_dynamic_activity_map(
-            subject, args.fmri_file_template, template_brains=args.template_brain,
-            norm_percs=args.norm_percs, overwrite=args.overwrite_activity_data)
+    # Deprecated
+    # if 'save_dynamic_activity_map' in args.function:
+    #     flags['save_dynamic_activity_map'] = save_dynamic_activity_map(
+    #         subject, args.fmri_file_template, template_brains=args.template_brain,
+    #         norm_percs=args.norm_percs, overwrite=args.overwrite_activity_data)
 
     if 'calc_labels_minmax' in args.function:
         flags['calc_labels_minmax'] = calc_labels_minmax(subject, args.atlas, args.labels_extract_mode)
