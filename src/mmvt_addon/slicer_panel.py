@@ -242,8 +242,14 @@ def slice_brain(cut_pos=None, save_image=False, render_image=False):
         mask_object_with_cube(inflated_object)
     try:
         #  TODO  Noam this is where I slice the head object.
+        slice_seghead = False
+        # if we need to slice the head :
         # mask_object_with_cube(bpy.data.objects['seghead'])
-        pass
+        # else, make sure we don't show the slicing
+        if not slice_seghead:
+            bpy.data.objects['seghead'].modifiers['mask_for_slice'].show_viewport = False
+            bpy.data.objects['seghead'].modifiers['mask_for_slice'].show_render = False
+
     except:
         print('outer skin object does not exist.')
     bpy.context.scene.objects.active = cur_plane_obj
