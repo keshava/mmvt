@@ -429,7 +429,7 @@ def check_ply_files(subject):
 def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_subject_dir='',
         overwrite_annotation=False, overwrite_morphing=False, do_solve_labels_collisions=False,
         morph_labels_from_fsaverage=True, fs_labels_fol='', save_annot_file=True, surf_type='inflated',
-        overwrite_vertices_labels_lookup=False, n_jobs=6):
+        overwrite_vertices_labels_lookup=False, morph_annot=False, n_jobs=6):
     annotation_fname_template = op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
     annotations_exist = utils.both_hemi_files_exist(annotation_fname_template)
     if annotations_exist and not overwrite_annotation:
@@ -444,6 +444,14 @@ def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_s
             annot_ok = annot_ok and len(labels) > 1
         if annot_ok:
             print('The annotation file already exists ({})'.format(annotation_fname_template))
+            return True
+
+    # morph annot
+    if morph_annot:
+        annot_exist = lu.morph_annot(
+            subject, fsaverage, atlas, overwrite_vertices_labels_lookup, overwrite_morphing, overwrite_annotation,
+            n_jobs=n_jobs)
+        if annot_exist:
             return True
 
     labels_files = glob.glob(op.join(SUBJECTS_DIR, subject, 'label', atlas, '*.label'))
@@ -1517,7 +1525,7 @@ def main(subject, remote_subject_dir, org_args, flags):
             subject, args.atlas, args.template_subject, remote_subject_dir, args.overwrite_annotation,
             args.overwrite_morphing_labels, args.solve_labels_collisions, args.morph_labels_from_fsaverage,
             args.fs_labels_fol, args.save_annot_file, args.solve_labels_collision_surf_type,
-            args.overwrite_vertices_labels_lookup, args.n_jobs)
+            args.overwrite_vertices_labels_lookup, args.morph_annot, args.n_jobs)
 
     if utils.should_run(args, 'parcelate_cortex'):
         flags['parcelate_cortex'] = parcelate_cortex(
@@ -1639,6 +1647,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--overwrite_subcorticals', help='overwrite', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_annotation', help='overwrite_annotation', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_vertices_labels_lookup', required=False, default=0, type=au.is_true)
+    parser.add_argument('--morph_annot', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_morphing_labels', help='overwrite_morphing_labels', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_hemis_ply', help='overwrite_hemis_ply', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_labels_ply_files', help='overwrite_labels_ply_files', required=False, default=0, type=au.is_true)

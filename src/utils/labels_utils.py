@@ -382,6 +382,18 @@ def _save_labels_from_vertices_lookup_hemi(p):
     return ok
 
 
+def morph_annot(subject, template_brain, atlas, overwrite_subject_vertices_labels_lookup=False,
+                overwrite_labels=False, overwrite_annot=False, n_jobs=4):
+    vertices_labels_lookup = calc_subject_vertices_labels_lookup_from_template(
+        subject, template_brain, atlas, overwrite_subject_vertices_labels_lookup)
+    create_atlas_coloring(subject, atlas, vertices_labels_lookup)
+    save_labels_from_vertices_lookup(
+        subject, atlas, SUBJECTS_DIR, MMVT_DIR, overwrite_labels=overwrite_labels,
+        lookup=vertices_labels_lookup, n_jobs=n_jobs)
+    labels_to_annot(subject, SUBJECTS_DIR, atlas, overwrite=overwrite_annot, fix_unknown=False, n_jobs=n_jobs)
+    return utils.atlas_exist(subject, atlas, SUBJECTS_DIR)
+
+
 def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, atlas, overwrite=False):
     # from scipy.spatial.distance import cdist
     # max_upper_limit = 4
