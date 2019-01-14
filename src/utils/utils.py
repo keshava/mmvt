@@ -2214,18 +2214,20 @@ def power_spectrum(x, fs, scaling='density'):
     return frequencies, linear_spectrum #[Hz] / [V RMS]
 
 
-def atlas_exist(subject, atlas, subjects_dir=''):
+def atlas_exist(subject, atlas, subjects_dir):
     return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
 
 
-def get_atlas_template(subject, atlas, subjects_dir=''):
+def get_atlas_template(subject, atlas, subjects_dir):
     return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
 
 
-def fix_atlas_name(subject, atlas):
+def fix_atlas_name(subject, atlas, subjects_dir=''):
     if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
-        if not atlas_exist(subject, 'aparc.DKTatlas') and atlas_exist(subject, 'aparc.DKTatlas40'):
+        if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
+                atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
             atlas = 'aparc.DKTatlas40'
-        elif not atlas_exist(subject, 'aparc.DKTatlas40') and atlas_exist(subject, 'aparc.DKTatlas'):
+        elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
+                atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
             atlas = 'aparc.DKTatlas'
     return atlas
