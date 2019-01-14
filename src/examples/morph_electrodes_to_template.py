@@ -52,7 +52,7 @@ apply_morph_mni = 'applyMorph --template {subjects_dir}/{subject_to}/mri/orig.mg
 #         rs(cmd)
 
 
-def cvs_register_to_template(subjects, template_system, subjects_dir, overwrite=False, print_only=False, n_jobs=1):
+def cvs_register_to_template(electrodes, template_system, subjects_dir, overwrite=False, print_only=False, n_jobs=1):
     subject_to = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
     if subject_to == 'fsaverage':
         output_fname = op.join(subjects_dir, '{subject}', 'mri_cvs_register_to_mni',
@@ -60,6 +60,7 @@ def cvs_register_to_template(subjects, template_system, subjects_dir, overwrite=
     else:
         output_fname = op.join(subjects_dir, '{subject}', 'mri_cvs_register_to_{}'.format(subject_to),
                                'combined_to{}_elreg_afteraseg-norm.tm3d'.format(subject_to))
+    subjects = list(electrodes.keys())
     for subject in subjects:
         if op.isfile(output_fname.format(subject=subject)):
             print('{} was already morphed to {}'.format(subject, subject_to))
@@ -589,10 +590,10 @@ def get_all_subjects(remote_subject_template):
 def main(subjects, template_system, remote_subject_templates=(), bipolar=False, save_as_bipolar=False, prefix='', print_only=False, n_jobs=4):
     good_subjects = prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=False)
     electrodes = read_all_electrodes(good_subjects, bipolar)
-    # cvs_register_to_template(good_subjects, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=True, overwrite=False)
+    cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=True, overwrite=False)
     # create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=False)
     # morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=False, n_jobs=n_jobs, print_only=True)
-    read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
+    # read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
     # save_template_electrodes_to_template(None, save_as_bipolar, MMVT_DIR, template_system, prefix)
     # export_into_csv(template_system, MMVT_DIR, prefix)
     # create_mmvt_coloring_file(template_system, electrodes)
@@ -611,11 +612,11 @@ if __name__ == '__main__':
     remote_subject_template = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     # subjects = get_all_subjects(remote_subject_template)
     # subjects = ['MG72','MG73','MG76','MG84','MG84','MG84','MG85','MG86','MG87','MG87','MG90','MG91','MG91','MG92','MG93','MG94','MG95','MG96','MG96','MG100','MG103','MG104','MG105','MG105','MG107','MG108','MG108','MG109','MG109','MG111','MG112','MG112','MG114','MG114','MG115','MG51b','MG110','MG116','MG118','MG106']
-    subjects = ['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44']
+    subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
     print('{} subject to preproc'.format(len(subjects)))
-    remote_subject_template1 = '/mnt/cashlab/projects/DARPA/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput_REDONE'
-    remote_subject_template2 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
-    remote_subject_template3 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
+    remote_subject_template1 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
+    remote_subject_template2 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
+    remote_subject_template3 = '/mnt/cashlab/projects/DARPA/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput_REDONE'
     remote_subject_template4 = '/usr/local/freesurfer/dev/subjects/{subject}'
     remote_subject_templates = (remote_subject_template1, remote_subject_template2, remote_subject_template3, remote_subject_template4)
 

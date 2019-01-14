@@ -380,7 +380,8 @@ def create_annotation_file(subject, atlas, subjects_dir='', freesurfer_home='', 
     '''
     atlas_types = {'aparc': 'curvature.buckner40.filled.desikan_killiany',
                    'aparc.a2009s': 'destrieux.simple.2009-07-28',
-                   'aparc.DKTatlas': 'DKTatlas'}
+                   'aparc.DKTatlas': 'DKTatlas',
+                   'aparc.DKTatlas40': 'DKTatlas40'}
     atlas_type = atlas_types[atlas]
     check_env_var('FREESURFER_HOME', freesurfer_home)
     check_env_var('SUBJECTS_DIR', subjects_dir)
@@ -749,7 +750,7 @@ def create_seghead(subject, subjects_dir=None, print_only=False, **kargs):
 
 
 def is_fs_atlas(atlas):
-    return atlas in ['aparc.DKTatlas', 'aparc', 'aparc.a2009s']
+    return atlas in ['aparc.DKTatlas', 'aparc.DKTatlas40', 'aparc', 'aparc.a2009s']
 
 
 def read_surface(subject, subjects_dir, surf_type='pial'):

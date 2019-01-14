@@ -171,7 +171,7 @@ def read_electrodes_file(subject, bipolar, postfix='', snap=False, electrodes_ty
         return [], []
     else:
         try:
-            print('Loading {}'.format(electrodes_fname))
+            # print('Loading {}'.format(electrodes_fname))
             d = np.load(electrodes_fname)
             # fix for a bug in ielu
             names = [n.replace('elec_unsorted', '') for n in d['names']]
@@ -565,9 +565,12 @@ def find_electrodes_hemis(subject, bipolar, sigma=0, manual=False, electrodes_ty
     if manual:
         groups = list(set([utils.elec_group(elc, bipolar) for elc in electrodes]))
         for group in groups:
-            hem = input("{}: r/l? ".format(group))
-            while hem not in ['r', 'l']:
-                hem = input('r/l? ')
+            if not group[0].lower() in ['r', 'l']:
+                hem = input("{}: r/l? ".format(group))
+                while hem not in ['r', 'l']:
+                    hem = input('r/l? ')
+            else:
+                hem = group[0].lower()
             hemi = '{}h'.format(hem)
             sorted_groups[hemi].append(group)
         utils.save(sorted_groups, op.join(MMVT_DIR, subject, 'electrodes', 'sorted_groups.pkl'))
@@ -1076,13 +1079,16 @@ def create_electrodes_groups_coloring(subject, bipolar, electrodes_type=None, co
 
 def get_electrodes_labeling(subject, blender_root, atlas, bipolar=False, error_radius=3, elec_length=4,
                             electrodes_type=None, other_fname='', overwrite_ela=False):
+    file_name = '{}_{}_electrodes_cigar_r_{}_l_{}{}.pkl'.format(subject, atlas, error_radius, elec_length,
+            '_bipolar' if bipolar else '')
     if other_fname == '':
         # We remove the 'all_rois' and 'stretch' for the name!
-        electrode_labeling_fname = op.join(blender_root, subject, 'electrodes',
-            '{}_{}_electrodes_cigar_r_{}_l_{}{}.pkl'.format(subject, atlas, error_radius, elec_length,
-            '_bipolar' if bipolar else ''))
+        electrode_labeling_fname = op.join(blender_root, subject, 'electrodes', file_name)
     else:
         electrode_labeling_fname = other_fname
+    if not op.isfile(electrode_labeling_fname):
+        ela_fol = op.join(utils.get_parent_fol(utils.get_mmvt_code_root()), 'electrodes_rois', 'electrodes')
+        electrode_labeling_fname = op.join(ela_fol, file_name)
     if not op.isfile(electrode_labeling_fname):
         run_ela(subject, atlas, bipolar, overwrite_ela, error_radius, elec_length, electrodes_type)
     if op.isfile(electrode_labeling_fname):
@@ -1102,7 +1108,7 @@ def create_electrodes_labeling_coloring(subject, bipolar, atlas, good_channels=N
         overwrite_ela=overwrite_ela)
     if elecs_probs is None:
         print('No electrodes labeling file!')
-        return
+        return False
     if electrode_labeling_fname != op.join(MMVT_DIR, subject, 'electrodes',
             op.basename(electrode_labeling_fname)):
         shutil.copy(electrode_labeling_fname, op.join(MMVT_DIR, subject, 'electrodes',
@@ -1662,6 +1668,12 @@ def main(subject, remote_subject_dir, args, flags):
     utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     utils.make_dir(op.join(MMVT_DIR, subject, 'coloring'))
     args = set_args(args)
+    if args.remote_subject_dir == '' and args.remote_ras_fol != '':
+        remote_ras_fol = utils.build_remote_subject_dir(args.remote_ras_fol, subject)
+        remote_subject_dir_test = op.join(utils.get_parent_fol(remote_ras_fol), '{}_SurferOutput'.format(subject))
+        if op.isdir(remote_subject_dir_test):
+            remote_subject_dir = remote_subject_dir_test
+            pu.prepare_subject_folder(subject, remote_subject_dir, args)
 
     if utils.should_run(args, 'get_ras_file'):
         flags['get_ras_file'] = get_ras_file(subject, args)
@@ -1821,7 +1833,15 @@ def read_cmd_args(argv=None):
     for field in ['from_t', 'to_t']:
         if len(args[field]) == 1:
             args[field] = args[field][0]
-    args.necessary_files = {'electrodes': ['{subject}_RAS.csv']}
+    existing_freesurfer_annotations = ['aparc.DKTatlas', 'aparc', 'aparc.a2009s']
+    args.necessary_files = {'mri': ['aseg.mgz', 'norm.mgz', 'ribbon.mgz', 'T1.mgz', 'orig.mgz', 'brain.mgz'],
+        'surf': ['rh.pial', 'lh.pial', 'rh.inflated', 'lh.inflated', 'lh.curv', 'rh.curv', 'rh.sphere.reg',
+                 'lh.sphere.reg', 'rh.sphere', 'lh.sphere', 'lh.white', 'rh.white', 'rh.smoothwm','lh.smoothwm',
+                 'lh.sphere.reg', 'rh.sphere.reg'],
+        'mri:transforms' :['talairach.xfm', 'talairach.m3z'],
+        'label': ['rh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations] +
+                 ['lh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations],
+        'electrodes': ['{subject}_RAS.csv']}
     if args.lower_freq_filter == 0:
         args.lower_freq_filter = None
     if args.upper_freq_filter == 0:

@@ -249,7 +249,7 @@ def is_admin():
 
 
 def set_admin():
-    if not is_windows:
+    if not is_windows():
         return
     import ctypes
     import sys

@@ -1968,7 +1968,7 @@ def ignore_warnings(f, *args, **kw):
 def check_for_freesurfer(func):
     def wrapper(*args, **kwargs):
         if os.environ.get('FREESURFER_HOME', '') == '':
-            if is_windows:
+            if is_windows():
                 print('{}: You need Freesurfer (Linux/Mac) to run this function'.format(func.__name__))
                 retval = True
             else:
@@ -2136,7 +2136,7 @@ def insensitive_glob(pattern):
     # https://stackoverflow.com/questions/8151300/ignore-case-in-glob-on-linux
     def either(c):
         return '[%s%s]' % (c.lower(), c.upper()) if c.isalpha() else c
-    if not is_windows:
+    if not is_windows():
         return glob.glob(''.join(map(either, pattern)))
     else:
         print('Windowd does not support insensitive_glob!')
@@ -2230,6 +2230,11 @@ def fix_atlas_name(subject, atlas, subjects_dir=''):
         elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
                 atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
             atlas = 'aparc.DKTatlas'
+    if os.environ.get('FREESURFER_HOME', '') != '':
+        if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
+            atlas = 'aparc.DKTatlas'
+        elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
+            atlas = 'aparc.DKTatlas40'
     return atlas
 
 
