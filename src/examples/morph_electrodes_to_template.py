@@ -579,6 +579,10 @@ def prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=Fal
             if all_files_exist:
                 good_subjects.append(subject)
                 break
+    bad_subjects = list(set(subjects) - set(good_subjects))
+    if len(bad_subjects > 0):
+        from src.preproc.examples import anatomy as anat
+        anat.get_subject_files_from_mad(None, bad_subjects, necessary_files)
     return good_subjects
 
 

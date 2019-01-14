@@ -1512,7 +1512,7 @@ def call_main(args):
 
 
 def main(subject, remote_subject_dir, org_args, flags):
-    args = utils.Bag({k: copy.deepcopy(org_args[k]) for k in org_args.keys()})
+    args = utils.copy_args(org_args)
     copy_sphere_reg_files(subject)
 
     if utils.should_run(args, 'create_surfaces'):

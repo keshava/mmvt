@@ -26,6 +26,7 @@ import os.path as op
 import traceback
 import multiprocessing
 import getpass
+import copy
 
 try:
     import scipy.io as sio
@@ -2240,3 +2241,7 @@ def fix_atlas_name(subject, atlas, subjects_dir=''):
 
 def pair_list(lst):
     return zip(lst[::2], lst[1::2])
+
+
+def copy_args(args):
+    return Bag({k: copy.deepcopy(args[k]) for k in args.keys()})
