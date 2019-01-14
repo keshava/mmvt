@@ -162,7 +162,7 @@ def _electrodes_update():
     bpy.context.scene.current_lead = ElecsPanel.groups[current_electrode]
     update_cursor()
     # color_electrodes(current_electrode, prev_elect)
-    electrodes_selection_coloring()
+    # electrodes_selection_coloring()
     if not ElecsPanel.lookup is None:
         loc = ElecsPanel.lookup.get(current_electrode, None)
         if loc is None:

@@ -2231,3 +2231,7 @@ def fix_atlas_name(subject, atlas, subjects_dir=''):
                 atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
             atlas = 'aparc.DKTatlas'
     return atlas
+
+
+def pair_list(lst):
+    return zip(lst[::2], lst[1::2])
