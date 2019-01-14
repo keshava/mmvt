@@ -613,6 +613,7 @@ if __name__ == '__main__':
     # subjects = get_all_subjects(remote_subject_template)
     # subjects = ['MG72','MG73','MG76','MG84','MG84','MG84','MG85','MG86','MG87','MG87','MG90','MG91','MG91','MG92','MG93','MG94','MG95','MG96','MG96','MG100','MG103','MG104','MG105','MG105','MG107','MG108','MG108','MG109','MG109','MG111','MG112','MG112','MG114','MG114','MG115','MG51b','MG110','MG116','MG118','MG106']
     subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
+    subjects = [s.lower() for s in subjects]
     print('{} subject to preproc'.format(len(subjects)))
     remote_subject_template1 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     remote_subject_template2 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
