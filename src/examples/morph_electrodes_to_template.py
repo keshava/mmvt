@@ -580,16 +580,16 @@ def prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=Fal
                 good_subjects.append(subject)
                 break
     bad_subjects = list(set(subjects) - set(good_subjects))
-    if len(bad_subjects) > 0:
-        from src.preproc import anatomy as anat
-        for subject in bad_subjects:
-            args = anat.read_cmd_args(dict(
-                subject=subject,
-                remote_subject_dir='/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput',
-                function='prepare_subject_folder'
-            ))
-            args.necessary_files = necessary_files
-            pu.run_on_subjects(args, anat.main)
+    # if len(bad_subjects) > 0:
+        # from src.preproc import anatomy as anat
+        # for subject in bad_subjects:
+        #     args = anat.read_cmd_args(dict(
+        #         subject=subject,
+        #         remote_subject_dir='/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput',
+        #         function='prepare_subject_folder'
+        #     ))
+        #     args.necessary_files = necessary_files
+        #     pu.run_on_subjects(args, anat.main)
     return good_subjects
 
 
@@ -601,7 +601,7 @@ def get_all_subjects(remote_subject_template):
 def main(subjects, template_system, remote_subject_templates=(), bipolar=False, save_as_bipolar=False, prefix='', print_only=False, n_jobs=4):
     good_subjects = prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=False)
     electrodes = read_all_electrodes(good_subjects, bipolar)
-    cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=True, overwrite=False)
+    cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=False, overwrite=False)
     # create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=False)
     # morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=False, n_jobs=n_jobs, print_only=True)
     # read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
@@ -625,6 +625,7 @@ if __name__ == '__main__':
     # subjects = ['MG72','MG73','MG76','MG84','MG84','MG84','MG85','MG86','MG87','MG87','MG90','MG91','MG91','MG92','MG93','MG94','MG95','MG96','MG96','MG100','MG103','MG104','MG105','MG105','MG107','MG108','MG108','MG109','MG109','MG111','MG112','MG112','MG114','MG114','MG115','MG51b','MG110','MG116','MG118','MG106']
     subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
     subjects = [s.lower() for s in subjects]
+    subjects = ['mg105', 'mg104', 'mg96']
     print('{} subject to preproc'.format(len(subjects)))
     remote_subject_template1 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     remote_subject_template2 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
