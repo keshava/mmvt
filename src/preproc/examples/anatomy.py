@@ -26,7 +26,7 @@ def get_subject_files_using_sftp(args):
 
 
 def get_subject_files_from_mad(args=None, subjects=None, necessary_files=None):
-    subjects = args.subject is args is not None else subjects
+    subjects = args.subject if args is not None else subjects
     for subject in subjects:
         args = anat.read_cmd_args(dict(
             subject=subject,
