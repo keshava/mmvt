@@ -581,8 +581,15 @@ def prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=Fal
                 break
     bad_subjects = list(set(subjects) - set(good_subjects))
     if len(bad_subjects) > 0:
-        from src.preproc.examples import anatomy as anat
-        anat.get_subject_files_from_mad(None, bad_subjects, necessary_files)
+        from src.preproc import anatomy as anat
+        for subject in bad_subjects:
+            args = anat.read_cmd_args(dict(
+                subject=subject,
+                remote_subject_dir='/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput',
+                function='prepare_subject_folder'
+            ))
+            args.necessary_files = necessary_files
+            pu.run_on_subjects(args, anat.main)
     return good_subjects
 
 
