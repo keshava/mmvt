@@ -8,6 +8,7 @@ import shutil
 import glob
 import traceback
 from collections import defaultdict
+import functools
 
 try:
     from sklearn.neighbors import BallTree
@@ -49,8 +50,8 @@ SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 SUBJECTS_MEG_DIR = utils.get_link_dir(utils.get_links_dir(), 'meg')
 FMRI_DIR = utils.get_link_dir(utils.get_links_dir(), 'fMRI')
 
-FSAVG_VERTS = 10242
-FSAVG5_VERTS = 163842
+FSAVG_VERTS = 163842
+FSAVG5_VERTS = 10242
 COLIN27_VERTS = dict(lh=166836, rh=165685)
 
 _bbregister = 'bbregister --mov {fsl_input}.nii --bold --s {subject} --init-fsl --lta register.lta'
@@ -224,20 +225,23 @@ def init_clusters(subject, input_fname):
     return contrast_per_hemi, connectivity_per_hemi, verts_per_hemi
 
 
-def find_clusters(subject, surf_template_fname, t_val, atlas, min_cluster_max=0, min_cluster_size=0, clusters_label='',
-                  task='', create_clusters_labels=False, n_jobs=1):
+def find_clusters(subject, surf_template_fname, t_val, atlas, min_cluster_max=2, min_cluster_size=50, clusters_label='',
+                  task='', create_clusters_labels=False, new_atlas_name='', n_jobs=1):
     # contrast_name = contrast_name if volume_name == '' else volume_name
     # volume_name = volume_name if volume_name != '' else contrast_name
     # if input_fol == '':
     #     input_fol = op.join(MMVT_DIR, subject, 'fmri')
     # input_fname = op.join(input_fol, 'fmri_{}_{}_{}.npy'.format(task, contrast_name, '{hemi}'))
 
-    surf_template_fname = utils.namebase_with_ext(surf_template_fname)
-    if lu.get_hemi_from_name(surf_template_fname) == '' and '?h' not in surf_template_fname:
-        surf_template_fname = '{}{}_{}.npy'.format(
-            '' if utils.namebase(surf_template_fname).startswith('fmri_') else 'fmri_',
-            utils.namebase(surf_template_fname), '{hemi}')
-    surf_full_input_fname = op.join(MMVT_DIR, subject, 'fmri', surf_template_fname)
+    if utils.both_hemi_files_exist(surf_template_fname):
+        surf_full_input_fname = surf_template_fname
+    else:
+        surf_template_fname = utils.namebase_with_ext(surf_template_fname)
+        if lu.get_hemi_from_name(surf_template_fname) == '' and '?h' not in surf_template_fname:
+            surf_template_fname = '{}{}_{}.npy'.format(
+                '' if utils.namebase(surf_template_fname).startswith('fmri_') else 'fmri_',
+                utils.namebase(surf_template_fname), '{hemi}')
+        surf_full_input_fname = op.join(MMVT_DIR, subject, 'fmri', surf_template_fname)
     surf_full_input_fnames = find_hemi_files_from_template(surf_full_input_fname)
     if len(surf_full_input_fnames) == 0:
         surf_full_input_fname = op.join(MMVT_DIR, subject, 'fmri', '*{}*'.format(surf_template_fname))
@@ -254,15 +258,16 @@ def find_clusters(subject, surf_template_fname, t_val, atlas, min_cluster_max=0,
         # print('Saving blobs: {}'.format(blobs_output_fname))
         # save_clusters_for_blender(clusters, contrast[hemi], blobs_output_fname)
         clusters_labels_hemi = lu.find_clusters_overlapped_labeles(
-            subject, clusters, contrast[hemi], atlas, hemi, verts[hemi], min_cluster_max, min_cluster_size,
+            subject, clusters, contrast[hemi], atlas, hemi, verts[hemi], None, min_cluster_max, min_cluster_size,
             clusters_label, n_jobs)
         if clusters_labels_hemi is None:
             print("Can't find clusters in {}!".format(hemi))
         else:
             clusters_labels['values'].extend(clusters_labels_hemi)
 
-    new_atlas_name = utils.namebase(surf_full_input_fname).replace('_{hemi}', '').replace('.{hemi}', '').replace(
-        'fmri_', '').replace('{hemi}.', '').replace('{hemi}_', '')
+    if new_atlas_name != '':
+        new_atlas_name = utils.namebase(surf_full_input_fname).replace('_{hemi}', '').replace('.{hemi}', '').replace(
+            'fmri_', '').replace('{hemi}.', '').replace('{hemi}_', '')
     if task != '':
         new_atlas_name = '{}_{}'.format(new_atlas_name, task)
     clusters_labels_output_fname = op.join(
@@ -1099,13 +1104,17 @@ def save_labels_data(
 
 def check_vertice_num_for_template(hemi, x):
     morph_from_subject = ''
-    if x.shape[0] == FSAVG_VERTS:
-        morph_from_subject = 'fsaverage'
-    elif x.shape[0] == FSAVG5_VERTS:
-        morph_from_subject = 'fsaverage5'
-    elif x.shape[0] == COLIN27_VERTS[hemi]:
-        morph_from_subject = 'colin27'
+    for template_name in ['fsaverage', 'fsaverage5', 'colin27']:
+        if x.shape[0] == get_template_verts_num(template_name):
+            morph_from_subject = template_name
+            break
     return morph_from_subject
+
+
+@functools.lru_cache(maxsize=None)
+def get_template_verts_num(template_name):
+    verts, _ = nib.freesurfer.read_geometry(op.join(SUBJECTS_DIR, template_name, 'surf', 'lh.pial'))
+    return len(verts)
 
 
 def check_vertices_num(subject, hemi, x, morph_from_subject=''):
@@ -1825,6 +1834,40 @@ def calc_also_minmax(ret_flag, fmri_contrast_file_template, args):
     return fmri_contrast_file_template, args
 
 
+def load_surf_file(subject, nii_fname):
+    user_fol = op.join(MMVT_DIR, subject)
+    nii_fol = utils.get_fname_folder(nii_fname)
+    hemi, fmri_hemis = utils.get_hemi_from_full_fname(nii_fname)
+    if hemi == '':
+        hemi = utils.find_hemi_using_vertices_num(subject, nii_fname, SUBJECTS_DIR)
+        if hemi == '':
+            return ''
+    local_fname = build_local_fname(nii_fname, user_fol)
+    utils.make_dir(op.join(user_fol, 'fmri'))
+    if nii_fol != op.join(user_fol, 'fmri'):
+        utils.make_link(nii_fname, local_fname, True)
+    other_hemi = utils.other_hemi(hemi)
+    other_hemi_fname = fmri_hemis[other_hemi]
+    npy_output_fname_template = ''
+    if op.isfile(other_hemi_fname):
+        local_other_hemi_fname = build_local_fname(other_hemi_fname, user_fol)
+        if nii_fol != op.join(user_fol, 'fmri'):
+            utils.make_link(other_hemi_fname, local_other_hemi_fname, True)
+        fmri_file_template = utils.get_template_hemi_label_name(utils.namebase_with_ext(local_fname))
+        ret, npy_output_fname_template = load_surf_files(subject, fmri_file_template)
+    else:
+        print("Couldn't find the other hemi file! ({})".format(other_hemi_fname))
+    return npy_output_fname_template
+
+
+def build_local_fname(nii_fname, user_fol):
+    if utils.get_hemi_from_fname(utils.namebase_with_ext(nii_fname)) == '':
+        local_fname = utils.get_label_for_full_fname(nii_fname)
+    else:
+        local_fname = utils.namebase_with_ext(nii_fname)
+    return op.join(user_fol, 'fmri', local_fname)
+
+
 def call_main(args):
     return pu.run_on_subjects(args, main)
 
@@ -1881,8 +1924,9 @@ def main(subject, remote_subject_dir, args, flags):
 
     if utils.should_run(args, 'find_clusters'):
         flags['find_clusters'] = find_clusters(
-            subject, args.fmri_file_template, args.threshold, args.atlas, args.min_cluster_max,
-            args.min_cluster_size, args.clusters_label, args.task, args.create_clusters_labels,  args.n_jobs)
+            subject, args.fmri_file_template, args.threshold, args.atlas, None, args.min_cluster_max,
+            args.min_cluster_size, args.clusters_label, args.task, args.create_clusters_labels,
+            args.new_atlas_name, args.n_jobs)
 
     if 'fmri_pipeline_all' in args.function:
         flags['fmri_pipeline_all'] = fmri_pipeline_all(subject, args.atlas, filter_dic=None)
@@ -2007,6 +2051,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--min_cluster_max', help='', required=False, default=0, type=float)
     parser.add_argument('--min_cluster_size', help='', required=False, default=0, type=float)
     parser.add_argument('--clusters_label', help='', required=False, default='')
+    parser.add_argument('--new_atlas_name', help='', required=False, default='')
 
     # Resting state flags
     parser.add_argument('--fmri_file_template', help='', required=False, default='*.mgz')

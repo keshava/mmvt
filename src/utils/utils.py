@@ -6,6 +6,7 @@ from collections import defaultdict, OrderedDict, Counter
 import itertools
 import time
 import re
+import nibabel as nib
 try:
     import matplotlib.pyplot as plt
     import matplotlib
@@ -43,6 +44,9 @@ from src.mmvt_addon import mmvt_utils as mu
 Bag = mu.Bag
 make_dir = mu.make_dir
 hemi_files_exists = mu.hemi_files_exists
+get_hemi_from_full_fname = mu.get_hemi_from_full_fname
+get_hemi_from_fname = mu.get_hemi_from_fname
+get_template_hemi_label_name = mu.get_template_hemi_label_name
 natural_keys = mu.natural_keys
 elec_group_number = mu.elec_group_number
 elec_group = mu.elec_group
@@ -2245,3 +2249,24 @@ def pair_list(lst):
 
 def copy_args(args):
     return Bag({k: copy.deepcopy(args[k]) for k in args.keys()})
+
+
+def find_hemi_using_vertices_num(subject, fname, subjects_dir):
+    hemi = ''
+    x = nib.load(fname).get_data()
+    vertices_num = [n for n in x.shape if n > 5]
+    if len(vertices_num) == 0:
+        print("Can'f find the vertices number of the nii file! {}".format(fname))
+    else:
+        vertices_num = vertices_num[0]
+        rh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
+        lh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
+        if vertices_num == rh_verts_num:
+            hemi = 'rh'
+        elif vertices_num == lh_verts_num:
+            hemi = 'lh'
+        else:
+            print("The vertices num ({}) in the nii file ({}) doesn't match any hemi! (rh:{}, lh:{})".format(
+                vertices_num, fname, rh_verts_num, lh_verts_num))
+            hemi = ''
+    return hemi

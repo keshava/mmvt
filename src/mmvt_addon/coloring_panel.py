@@ -27,6 +27,13 @@ try:
 except:
     MNE_EXIST = False
 
+
+try:
+    from numba import jit
+    NUMBA_EXIST = True
+except:
+    NUMBA_EXIST = False
+
 HEMIS = mu.HEMIS
 # Should be moved to mmvt_addon
 (WIC_MEG, WIC_MEG_LABELS, WIC_FMRI, WIC_FMRI_DYNAMICS, WIC_FMRI_LABELS, WIC_FMRI_CLUSTERS, WIC_EEG, WIC_MEG_SENSORS,
@@ -1192,6 +1199,7 @@ def vertex_object_coloring(cur_obj, mesh, coloring_layer, valid_verts, vert_valu
             valid_verts, lookup, vcol_layer, lambda vert:vert_values[vert, 1:], cur_obj.name, save_prev_colors)
 
 
+# @jit(nopython=True)
 def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur_obj_name, save_prev_colors=False):
     # if save_prev_colors:
     #     ColoringMakerPanel.prev_colors[cur_obj_name]['colors'] = defaultdict(dict)

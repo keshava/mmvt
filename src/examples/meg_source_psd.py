@@ -176,6 +176,17 @@ def average_stc_pvals(args):
     stc_mean.save(op.join(fol, stc_name))
 
 
+def calc_fMRI_rois(args):
+    subjects = args.subject
+    for subject in subjects:
+        fmri_fname = op.join(FMRI_DIR, 'MSIT', subject, 'msit_I-C.analysis.lh', 'I-C', 'sig.nii.gz')
+        if not op.isfile(fmri_fname):
+            continue
+        surf_template_fname = fmri.load_surf_file(subject, fmri_fname)
+        fmri.find_clusters(subject, surf_template_fname, 2, args.atlas, task='MSIT', create_clusters_labels=True,
+                           new_atlas_name='I-C', n_jobs=args.n_jobs)
+
+
 # def find_meg_psd_clusters(args):
 #     subjects = args.subject
 #     stc_name = 'all_dSPM_mean_flip_high_gamma_power'
