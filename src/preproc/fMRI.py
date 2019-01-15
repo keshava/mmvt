@@ -265,11 +265,11 @@ def find_clusters(subject, surf_template_fname, t_val, atlas, min_cluster_max=2,
         else:
             clusters_labels['values'].extend(clusters_labels_hemi)
 
-    if new_atlas_name != '':
+    if new_atlas_name == '':
         new_atlas_name = utils.namebase(surf_full_input_fname).replace('_{hemi}', '').replace('.{hemi}', '').replace(
             'fmri_', '').replace('{hemi}.', '').replace('{hemi}_', '')
-    if task != '':
-        new_atlas_name = '{}_{}'.format(new_atlas_name, task)
+        if task != '':
+            new_atlas_name = '{}_{}'.format(new_atlas_name, task)
     clusters_labels_output_fname = op.join(
         MMVT_DIR, subject, 'fmri', 'clusters_labels_{}_{}.pkl'.format(new_atlas_name, atlas))
     print('Saving clusters labels: {}'.format(clusters_labels_output_fname))
@@ -1834,7 +1834,7 @@ def calc_also_minmax(ret_flag, fmri_contrast_file_template, args):
     return fmri_contrast_file_template, args
 
 
-def load_surf_file(subject, nii_fname):
+def load_surf_file(subject, nii_fname, overwrite=False):
     user_fol = op.join(MMVT_DIR, subject)
     nii_fol = utils.get_fname_folder(nii_fname)
     hemi, fmri_hemis = utils.get_hemi_from_full_fname(nii_fname)
@@ -1854,7 +1854,10 @@ def load_surf_file(subject, nii_fname):
         if nii_fol != op.join(user_fol, 'fmri'):
             utils.make_link(other_hemi_fname, local_other_hemi_fname, True)
         fmri_file_template = utils.get_template_hemi_label_name(utils.namebase_with_ext(local_fname))
-        ret, npy_output_fname_template = load_surf_files(subject, fmri_file_template)
+        npy_output_fname_template = op.join(utils.get_parent_fol(local_fname), 'fmri_{}.npy'.format(
+            utils.namebase(fmri_file_template)))
+        if not utils.both_hemi_files_exist(npy_output_fname_template) or overwrite:
+            ret, npy_output_fname_template = load_surf_files(subject, fmri_file_template)
     else:
         print("Couldn't find the other hemi file! ({})".format(other_hemi_fname))
     return npy_output_fname_template

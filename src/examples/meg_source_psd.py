@@ -10,12 +10,14 @@ from src.preproc import fMRI as fmri
 import mne
 from tqdm import tqdm
 from collections import defaultdict
+import traceback
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 FMRI_DIR = utils.get_link_dir(utils.get_links_dir(), 'fMRI')
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
+os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
 
 MSIT_CONDS = ['Congruent', 'Incongruent']
 COND_CON, COND_INC = range(2)
@@ -177,14 +179,27 @@ def average_stc_pvals(args):
 
 
 def calc_fMRI_rois(args):
-    subjects = args.subject
-    for subject in subjects:
-        fmri_fname = op.join(FMRI_DIR, 'MSIT', subject, 'msit_I-C.analysis.lh', 'I-C', 'sig.nii.gz')
-        if not op.isfile(fmri_fname):
-            continue
-        surf_template_fname = fmri.load_surf_file(subject, fmri_fname)
-        fmri.find_clusters(subject, surf_template_fname, 2, args.atlas, task='MSIT', create_clusters_labels=True,
-                           new_atlas_name='I-C', n_jobs=args.n_jobs)
+    params = [(s, args.atlas, args.fmri_dir, 1) for s in args.subject]
+    utils.run_parallel(_calc_fMRI_rois, params, args.n_jobs)
+
+
+def _calc_fMRI_rois(p):
+    subject, atlas, fmri_dir, n_jobs = p
+    fMRI_cluster_fname = op.join(MMVT_DIR, subject, 'fmri', 'clusters_labels_MSIT_I-C_{}.pkl'.format(atlas))
+    if op.isfile(fMRI_cluster_fname) and \
+            utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{hemi}.MSIT_I-C.annot')):
+        print('{} already have fMRI clusters'.format(subject))
+        return True
+    fmri_fnames = glob.glob(op.join(fmri_dir, subject, '**', 'msit_I-C.analysis.lh', 'I-C', 'sig.nii.gz'))
+    if len(fmri_fnames) == 0:
+        print('Couldn\'t find MSIT fmri file for {}'.format(subject))
+        return False
+    try:
+        surf_template_fname = fmri.load_surf_file(subject, fmri_fnames[0])
+        fmri.find_clusters(subject, surf_template_fname, 2, atlas, task='MSIT', create_clusters_labels=True,
+                           new_atlas_name='MSIT_I-C', n_jobs=n_jobs)
+    except:
+        print(traceback.format_exc())
 
 
 # def find_meg_psd_clusters(args):
@@ -306,6 +321,9 @@ if __name__ == '__main__':
                 '/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/epochs']
     meg_dir = [d for d in meg_dirs if op.isdir(d.format(task='MSIT'))][0]
     parser.add_argument('--meg_dir', required=False, default=meg_dir)
+    fmri_dirs = ['/autofs/space/lilli_004/users/DARPA-{task}/', '/home/npeled/fmri/{task}']
+    fmri_dir = [d for d in fmri_dirs if op.isdir(d.format(task='MSIT'))][0]
+    parser.add_argument('--fmri_dir', required=False, default=fmri_dir.format(task='MSIT'))
     remote_subject_dirs = ['/autofs/space/lilli_001/users/DARPA-Recons/',
                            '/home/npeled/subjects']
     remote_subject_dir = [op.join(d, '{subject}') for d in remote_subject_dirs if op.isdir(d)][0]

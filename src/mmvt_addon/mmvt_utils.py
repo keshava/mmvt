@@ -2143,18 +2143,18 @@ def get_hemi_from_full_fname(fname):
     if hemi != '':
         other_hemi_fname = other_hemi_fname.replace(folder, get_other_hemi_label_name(folder))
         org_hemi = hemi
-        print('get_hemi_from_full_fname: org_hemi: {}'.format(org_hemi))
-    print('get_hemi_from_full_fname: folder, hemi: {}, {}'.format(folder, hemi))
+        # print('get_hemi_from_full_fname: org_hemi: {}'.format(org_hemi))
+    # print('get_hemi_from_full_fname: folder, hemi: {}, {}'.format(folder, hemi))
     while folder != '': # and hemi == '':
         fname = get_parent_fol(fname)
         folder = fname.split(op.sep)[-1]
         hemi = get_hemi_from_fname(folder)
-        print('get_hemi_from_full_fname: fname, folder, hemi: {}, {} ,{}'.format(fname, folder, hemi))
+        # print('get_hemi_from_full_fname: fname, folder, hemi: {}, {} ,{}'.format(fname, folder, hemi))
         if hemi != '':
-            print('get_hemi_from_full_fname: get_other_hemi_label_name({}): {}'.format(folder, get_other_hemi_label_name(folder)))
+            # print('get_hemi_from_full_fname: get_other_hemi_label_name({}): {}'.format(folder, get_other_hemi_label_name(folder)))
             other_hemi_fname = other_hemi_fname.replace(folder, get_other_hemi_label_name(folder))
             org_hemi = hemi
-            print('get_hemi_from_full_fname: org_hemi: {}'.format(org_hemi))
+            # print('get_hemi_from_full_fname: org_hemi: {}'.format(org_hemi))
         # print('get_hemi_from_full_fname: other_hemi_fname {}'.format(other_hemi_fname))
         # file_name_hemi = get_hemi_from_fname(namebase(other_hemi_fname))
         # print('get_hemi_from_full_fname: file_name_hemi {}'.format(file_name_hemi))
