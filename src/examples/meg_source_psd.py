@@ -213,6 +213,7 @@ def _calc_pvals_fMRI_clusters(p):
             return False
     if op.isfile(res_fname):
         clusters_dict = utils.Bag(utils.load(res_fname))
+        print('{} MEG/fMRI clusters:')
         for cluster in clusters_dict.values:
             print('{}: (sig: {})'.format(cluster['intersects'], cluster['max']))
 
