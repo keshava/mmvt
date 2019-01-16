@@ -225,7 +225,7 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
     def check_loopup_is_ok(lookup):
         unique_values_num = sum([len(set(lookup[hemi].values())) for hemi in hemis])
         # check it's not only the unknowns
-        lookup_ok = unique_values_num > 2
+        lookup_ok = not all([len(set(lookup[hemi].values())) == 1 for hemi in hemis])
         err = ''
         if not lookup_ok:
             err = 'unique_values_num = {}\n'.format(unique_values_num)

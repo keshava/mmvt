@@ -949,6 +949,25 @@ def clear_all_clusters():
     #     clear_cluster(cluster)
 
 
+def plot_activity_contours(activity_contours_name, colormap='RdOrYl'):
+    _addon().show_activity()
+    all_contours = mu.load(op.join(mu.get_user_fol(), 'meg', 'clusters', '{}.pkl'.format(activity_contours_name)))
+    thresholds = sorted([float(k) for k in all_contours.keys()])
+    _addon().colorbar.set_colormap(colormap)
+    _addon().colorbar.set_colorbar_max_min(np.max(thresholds), 0)
+    for hemi in mu.HEMIS:
+        hemi_contours = np.zeros(len(bpy.data.objects[hemi].data.vertices))
+        for threshold in all_contours.keys():
+            if threshold in all_contours and hemi in all_contours[threshold]:
+                hemi_contours[all_contours[threshold][hemi]] = threshold
+        mesh = mu.get_hemi_obj(hemi).data
+        mesh.vertex_colors.active_index = mesh.vertex_colors.keys().index('contours')
+        mesh.vertex_colors['contours'].active_render = True
+        _addon().color_hemi_data(
+            hemi, hemi_contours, 0.1, 256 / np.max(thresholds), override_current_mat=True,
+            coloring_layer='contours', check_valid_verts=False)
+
+
 def meg_draw(self, context):
     layout = self.layout
 

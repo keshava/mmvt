@@ -4383,7 +4383,9 @@ def find_functional_rois_in_stc(
     if threshold_is_precentile:
         threshold = np.percentile(stc_t_smooth.data, threshold)
     if threshold < 1e-4:
-        threshold *= np.power(10, 9) # nAmp
+        ret = input('threshold < 1e-4, do you want to multiply it by 10^9 to get nAmp (y/n)? ')
+        if au.is_true(ret):
+            threshold *= np.power(10, 9)  # nAmp
     label_name_template_str = label_name_template.replace('*', '').replace('?', '')
     clusters_name = '{}{}'.format(stc_name, '-{}'.format(
         label_name_template_str) if label_name_template_str != '' else '')
@@ -4442,8 +4444,6 @@ def find_functional_rois_in_stc(
         clusters_labels = dict(**clusters_labels)
         utils.save(clusters_labels, clusters_labels_output_fname)
     return True, contours
-    # else:
-    #     return contours
 
 
 def find_pick_activity(subject, stc, atlas, label_name_template='', hemi='both', peak_mode='abs'):
@@ -4910,6 +4910,64 @@ def get_digitization_points(subject, raw_fname):
     return op.isfile(output_fname)
 
 
+def stc_to_contours(subject, stc_name, pick_t, thresholds_min=None, thresholds_max=None, contours_num=10,
+                    min_cluster_size=10, atlas='', clusters_label='', find_clusters_overlapped_labeles=False,
+                    mri_subject='', n_jobs=4):
+    if mri_subject == '':
+        mri_subject = subject
+    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
+    output_fname = op.join(clusters_root_fol, '{}_contoures_{}.pkl'.format(stc_name, pick_t))
+    connectivity = load_connectivity(subject)
+    stc_t_smooth_fname = op.join(clusters_root_fol, '{}_{}_smooth'.format(stc_name, pick_t))
+    stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
+    if not op.isfile(stc_fname):
+        raise Exception("Can't find the stc file! ({})".format(stc_name))
+    stc = mne.read_source_estimate(stc_fname)
+    if thresholds_min is None:
+        thresholds_min = utils.min_stc(stc)
+    if thresholds_max is None:
+        thresholds_max = utils.max_stc(stc)
+    thresholds_dx = (thresholds_max - thresholds_min) / contours_num
+    # todo: one to many
+    thresholds = np.arange(thresholds_min, thresholds_max + thresholds_dx, thresholds_dx)
+    print('threshold: {}'.format(thresholds))
+    if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_t_smooth_fname, '{hemi}')):
+        stc_t_smooth = mne.read_source_estimate(stc_t_smooth_fname)
+        verts = get_pial_vertices(subject)
+    else:
+        stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
+        if not op.isfile(stc_fname):
+            raise Exception("Can't find the stc file! ({})".format(stc_name))
+        stc = mne.read_source_estimate(stc_fname)
+        stc_t = create_stc_t(stc, pick_t, subject)
+        stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
+        stc_t_smooth.save(stc_t_smooth_fname)
+        verts = check_stc_with_ply(stc_t_smooth, subject=subject)
+
+    verts_neighbors_fname = op.join(MMVT_DIR, 'sample', 'verts_neighbors_{}.pkl')
+    verts_neighbors_dict = {hemi: utils.load(verts_neighbors_fname.format(hemi)) for hemi in utils.HEMIS}
+
+    all_contours = {}
+    now = time.time()
+    for run, threshold in enumerate(thresholds):
+        key = '{:.2f}'.format(threshold)
+        all_contours[key] = {}
+        utils.time_to_go(now, run, len(thresholds), 1)
+        flag, contours = find_functional_rois_in_stc(
+            subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=False,
+            min_cluster_size=min_cluster_size, time_index=pick_t, extract_time_series_for_clusters=False,
+            stc=stc, stc_t_smooth=stc_t_smooth, verts=verts, connectivity=connectivity, verts_dict=verts,
+            find_clusters_overlapped_labeles=find_clusters_overlapped_labeles,
+            verts_neighbors_dict=verts_neighbors_dict, save_results=False, clusters_label=clusters_label,
+            n_jobs=n_jobs)
+        for hemi in utils.HEMIS:
+            if hemi in contours:
+                all_contours[key][hemi] = np.where(contours[hemi]['contours'])
+    print('Results are saved in {}'.format(output_fname))
+    utils.save(all_contours, output_fname)
+    return op.isfile(output_fname), all_contours
+
+
 def init_main(subject, mri_subject, remote_subject_dir, args):
     if args.events_fname != '':
         args.events_fname = op.join(MEG_DIR, args.task, subject, args.events_fname)
@@ -5132,6 +5190,11 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'get_digitization_points' in args.function:
         flags['get_digitization_points'] = get_digitization_points(subject, args.raw_fname)
 
+    if 'stc_to_contours' in args.function:
+        flags['stc_to_contours'], _ = stc_to_contours(
+            subject, args.stc_name, args.peak_stc_time_index, args.thresholds_min, args.thresholds_max,
+            args.contours_num, args.mri_subject, args.n_jobs)
+
     return flags
 
 
@@ -5297,6 +5360,10 @@ def read_cmd_args(argv=None):
     parser.add_argument('--clusters_label', required=False, default='')
     parser.add_argument('--save_func_labels', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--calc_cluster_contours', help='', required=False, default=1, type=au.is_true)
+    parser.add_argument('--thresholds_min', required=False, default=None, type=au.float_or_none)
+    parser.add_argument('--thresholds_max', required=False, default=None, type=au.float_or_none)
+    parser.add_argument('--contours_num', required=False, default=10, type=int)
+
     # FieldTrip
     parser.add_argument('--fieldtrip_data_name', required=False, default='')
     parser.add_argument('--fieldtrip_data_field_name', required=False, default='')

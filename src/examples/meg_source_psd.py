@@ -226,6 +226,20 @@ def _calc_pvals_fMRI_clusters(p):
                 if len(intersects) > 0 and cluster['max'] > min_sig:
                     print('*** {} ({:.2f}Hz): {}: (sig: {})'.format(subject, cluster_freq, intersects, cluster['max']))
 
+
+def meg_pvals_to_contours(args):
+    # hc030
+    subjects = args.subject
+    for subject in subjects:
+        stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
+        stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
+        _, pick_t = stc.get_peak(time_as_index=True)
+        print('peak freq: {:.2f}Hz'.format(stc.times[pick_t]))
+        meg.stc_to_contours(subject, stc_name, pick_t, thresholds_min=1.3, thresholds_max=2, contours_num=2,
+                            min_cluster_size=5, clusters_label='caudalmiddlefrontal', find_clusters_overlapped_labeles=True,
+                            atlas='MSIT_I-C', n_jobs=args.n_jobs)
+
+
 # def find_meg_psd_clusters(args):
 #     subjects = args.subject
 #     stc_name = 'all_dSPM_mean_flip_high_gamma_power'
