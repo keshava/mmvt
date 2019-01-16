@@ -182,7 +182,6 @@ def calc_pvals_fMRI_clusters(args):
     utils.run_parallel(_calc_pvals_fMRI_clusters, [(s, args.overwrite) for s in args.subject], args.n_jobs)
 
 
-@utils.tryit()
 def _calc_pvals_fMRI_clusters(p):
     subject, overwrite = p
     stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
@@ -205,13 +204,17 @@ def _calc_pvals_fMRI_clusters(p):
             calc_cluster_contours=False,
             n_jobs=args.n_jobs
         ))
-        meg.call_main(_args)
+        try:
+            meg.call_main(_args)
+        except:
+            print(traceback.format_exc())
         if not op.isfile(res_fname):
             print('Cluster output can\'t be found!')
             return False
-    clusters_dict = utils.Bag(utils.load(res_fname))
-    for cluster in clusters_dict.values:
-        print('{}: (sig: {})'.format(cluster['intersects'], cluster['max']))
+    if op.isfile(res_fname):
+        clusters_dict = utils.Bag(utils.load(res_fname))
+        for cluster in clusters_dict.values:
+            print('{}: (sig: {})'.format(cluster['intersects'], cluster['max']))
 
 # def find_meg_psd_clusters(args):
 #     subjects = args.subject
