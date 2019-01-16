@@ -212,16 +212,19 @@ def _calc_pvals_fMRI_clusters(p):
             print('Cluster output can\'t be found!')
             return False
     min_vertices_num = 50
-    min_sig = 1.5
+    min_sig = 2
+    labels = ['superiorfrontal', 'caudalmiddlefrontal']
+    args.bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
     if op.isfile(res_fname):
         clusters_dict = utils.Bag(utils.load(res_fname))
         stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
         cluster_freq = stc.times[clusters_dict['time']]
-        print('{} MEG/fMRI clusters ({:.2f}Hz):'.format(subject, cluster_freq))
-        for cluster in clusters_dict.values:
-            intersects = [c for c in cluster['intersects'] if c['num'] > min_vertices_num]
-            if len(intersects) > 0 and cluster['max'] > min_sig:
-                print('{}: (sig: {})'.format(intersects, cluster['max']))
+        if cluster_freq > 65:
+            for cluster in clusters_dict.values:
+                intersects = [(c['name'].split('_')[0], (c['num'] / cluster['size'])) for c in cluster['intersects'] if c['num'] > min_vertices_num]
+                intersects = ['{} ({:.2f}%)'.format(l, num * 100) for l, num in intersects if l in labels]
+                if len(intersects) > 0 and cluster['max'] > min_sig:
+                    print('*** {} ({:.2f}Hz): {}: (sig: {})'.format(subject, cluster_freq, intersects, cluster['max']))
 
 # def find_meg_psd_clusters(args):
 #     subjects = args.subject

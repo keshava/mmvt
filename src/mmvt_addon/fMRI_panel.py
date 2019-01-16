@@ -289,8 +289,9 @@ def load_current_fmri_clusters_labels_file():
     if not minmax_exist:
         data = None
         for hemi in mu.HEMIS:
-            x_ravel = fMRIPanel.constrast[hemi]
-            data = x_ravel if data is None else np.hstack((x_ravel, data))
+            if hemi in fMRIPanel.constrast:
+                x_ravel = fMRIPanel.constrast[hemi]
+                data = x_ravel if data is None else np.hstack((x_ravel, data))
         norm_percs = (bpy.context.scene.fmri_blobs_percentile_min, bpy.context.scene.fmri_blobs_percentile_max)
         min_val, max_val = mu.calc_min_max(data, norm_percs=norm_percs)
         _addon().colorbar.set_colorbar_max_min(max_val, min_val, force_update=True)
@@ -304,6 +305,10 @@ def get_contrast_fname(constrast_name, hemi):
         constrast_name_template = '_'.join(constrast_name.split('_')[:-1])
     contrast_fnames = glob.glob(op.join(mu.get_user_fol(), 'fmri', 'fmri_{}*{}.npy'.format(
         constrast_name_template, hemi)))
+    if len(contrast_fnames) == 0:
+        contrasts = [mu.namebase(f) for f in glob.glob(op.join(mu.get_user_fol(), 'fmri', 'fmri_*{}.npy'.format(hemi)))]
+        contrasts = [c for c in contrasts if constrast_name_template.lower() in c.lower()]
+        contrast_fnames = [op.join(mu.get_user_fol(), 'fmri', '{}.npy'.format(c)) for c in contrasts]
     if len(contrast_fnames) == 0:
         print("fmri_clusters_labels_files_update: Couldn't find  any clusters data! ({})".format(constrast_name_template))
         return ''

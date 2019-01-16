@@ -751,7 +751,8 @@ def load_stc():
         stc_fname = op.join(mu.get_user_fol(), 'meg', '{}-lh.stc'.format(MEGPanel.clusters_labels.stc_name))
         if op.isfile(stc_fname):
             MEGPanel.stc = mne.read_source_estimate(stc_fname)
-            MEGPanel.stc._data *= np.power(10, 9) # from Amp to nAmp
+            if mu.max_stc(MEGPanel.stc) < 1e-4:
+                MEGPanel.stc._data *= np.power(10, 9) # from Amp to nAmp
             MEGPanel.max_stc = get_max_stc_t(MEGPanel.stc, MEGPanel.clusters_labels.time)
         else:
             print('load_stc: Can\'t find {}!'.format(stc_fname))
@@ -844,7 +845,7 @@ def prev_cluster():
     bpy.context.scene.meg_clusters = prev_cluster
 
 
-def plot_clusters():
+def plot_meg_clusters():
     if MEGPanel.stc is not None:
         if bpy.context.scene.coloring_lower_threshold > MEGPanel.max_stc:
             bpy.context.scene.coloring_lower_threshold = 0
@@ -1148,7 +1149,7 @@ class PlotMEGClusters(bpy.types.Operator):
     bl_options = {"UNDO"}
 
     def invoke(self, context, event=None):
-        plot_clusters()
+        plot_meg_clusters()
         return {'PASS_THROUGH'}
 
 
