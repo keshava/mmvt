@@ -2229,17 +2229,18 @@ def get_atlas_template(subject, atlas, subjects_dir):
 
 def fix_atlas_name(subject, atlas, subjects_dir=''):
     if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
-        if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
-                atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
-            atlas = 'aparc.DKTatlas40'
-        elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
-                atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
-            atlas = 'aparc.DKTatlas'
-    if os.environ.get('FREESURFER_HOME', '') != '':
-        if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
-            atlas = 'aparc.DKTatlas'
-        elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
-            atlas = 'aparc.DKTatlas40'
+        if os.environ.get('FREESURFER_HOME', '') != '':
+            if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
+                atlas = 'aparc.DKTatlas'
+            elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
+                atlas = 'aparc.DKTatlas40'
+        else:
+            if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
+                    atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
+                atlas = 'aparc.DKTatlas40'
+            elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
+                    atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
+                atlas = 'aparc.DKTatlas'
     return atlas
 
 

@@ -114,30 +114,6 @@ def calc_source_ttest(args):
         stc_pvals.save(output_fname)
 
 
-def calc_pvals_clusters(args):
-    utils.run_parallel(_calc_pvals_clusters, args.subject, args.n_jobs)
-
-
-def _calc_pvals_clusters(subject):
-    stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
-    if not utils.both_hemi_files_exist(
-            op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-        print('{}: Can\'t find {}!'.format(subject, stc_name))
-        return
-    args.subject = subject
-    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
-    utils.delete_folder_files(clusters_root_fol)
-    _args = meg.read_cmd_args(dict(
-        subject=subject, mri_subject=subject,
-        function='find_functional_rois_in_stc',
-        stc_name=stc_name,
-        threshold=-np.log10(0.05), threshold_is_precentile=False,
-        extract_time_series_for_clusters=True,
-        n_jobs=args.n_jobs
-    ))
-    meg.call_main(_args)
-
-
 def morph_stcs_pvals(args):
     utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
 
@@ -201,6 +177,41 @@ def _calc_fMRI_rois(p):
     except:
         print(traceback.format_exc())
 
+
+def calc_pvals_fMRI_clusters(args):
+    utils.run_parallel(_calc_pvals_fMRI_clusters, [(s, args.overwrite) for s in args.subject], args.n_jobs)
+
+
+@utils.tryit()
+def _calc_pvals_fMRI_clusters(p):
+    subject, overwrite = p
+    stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
+    if not utils.both_hemi_files_exist(
+            op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+        print('{}: Can\'t find {}!'.format(subject, stc_name))
+        return False
+    args.subject = subject
+    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
+    res_fname = op.join(clusters_root_fol, 'clusters_labels_dSPM_mean_flip_vertices_power_spectrum_stat.pkl')
+    if not op.isfile(res_fname) or overwrite:
+        utils.delete_folder_files(clusters_root_fol)
+        _args = meg.read_cmd_args(dict(
+            subject=subject, mri_subject=subject,
+            atlas = 'MSIT_I-C',
+            function='find_functional_rois_in_stc',
+            stc_name=stc_name,
+            threshold=-np.log10(0.05), threshold_is_precentile=False,
+            extract_time_series_for_clusters=False, save_func_labels=False,
+            calc_cluster_contours=False,
+            n_jobs=args.n_jobs
+        ))
+        meg.call_main(_args)
+        if not op.isfile(res_fname):
+            print('Cluster output can\'t be found!')
+            return False
+    clusters_dict = utils.Bag(utils.load(res_fname))
+    for cluster in clusters_dict.values:
+        print('{}: (sig: {})'.format(cluster['intersects'], cluster['max']))
 
 # def find_meg_psd_clusters(args):
 #     subjects = args.subject

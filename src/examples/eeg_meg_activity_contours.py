@@ -49,11 +49,11 @@ def calc_sample_clusters(args):
         key = '{:.2f}'.format(threshold)
         all_contours[key] = {}
         utils.time_to_go(now, run, len(thresholds), 1)
-        contours = meg.find_functional_rois_in_stc(
+        flag, contours = meg.find_functional_rois_in_stc(
             args.subject, args.mri_subject, '', stc_name, threshold, threshold_is_precentile=False,
             time_index=pick_t, extract_time_series_for_clusters=False, stc=stc, stc_t_smooth=stc_t_smooth, verts=verts,
             connectivity=connectivity, verts_dict=verts, find_clusters_overlapped_labeles=False,
-            verts_neighbors_dict=verts_neighbors_dict, only_contours=True, n_jobs=args.n_jobs)
+            verts_neighbors_dict=verts_neighbors_dict, only_contours=True, save_results=False, n_jobs=args.n_jobs)
         for hemi in utils.HEMIS:
             all_contours[key][hemi] = np.where(contours[hemi]['contours'])
     utils.save(all_contours, output_fname)
