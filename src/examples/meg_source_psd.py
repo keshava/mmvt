@@ -211,11 +211,15 @@ def _calc_pvals_fMRI_clusters(p):
         if not op.isfile(res_fname):
             print('Cluster output can\'t be found!')
             return False
+    min_vertices_num = 50
+    min_sig = 1.5
     if op.isfile(res_fname):
         clusters_dict = utils.Bag(utils.load(res_fname))
-        print('{} MEG/fMRI clusters:')
+        print('{} MEG/fMRI clusters:'.format(subject))
         for cluster in clusters_dict.values:
-            print('{}: (sig: {})'.format(cluster['intersects'], cluster['max']))
+            intersects = [c for c in cluster['intersects'] if c['num'] > min_vertices_num]
+            if len(intersects) > 0 and cluster['max'] > min_sig:
+                print('{}: (sig: {})'.format(intersects, cluster['max']))
 
 # def find_meg_psd_clusters(args):
 #     subjects = args.subject
