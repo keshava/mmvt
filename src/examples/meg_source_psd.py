@@ -215,7 +215,9 @@ def _calc_pvals_fMRI_clusters(p):
     min_sig = 1.5
     if op.isfile(res_fname):
         clusters_dict = utils.Bag(utils.load(res_fname))
-        print('{} MEG/fMRI clusters:'.format(subject))
+        stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
+        cluster_freq = stc.times[clusters_dict['time']]
+        print('{} MEG/fMRI clusters ({:.2f}Hz):'.format(subject, cluster_freq))
         for cluster in clusters_dict.values:
             intersects = [c for c in cluster['intersects'] if c['num'] > min_vertices_num]
             if len(intersects) > 0 and cluster['max'] > min_sig:
