@@ -852,7 +852,7 @@ def write_flat_brain_patch(subject, hemi, flat_patch_fname):
 # @utils.tryit(False, False)
 def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, labels_dict=None, verts_dict=None,
                           check_unknown=True, save_lookup=True, verts_neighbors_dict=None, calc_centers=True,
-                          return_contours=False, verbose=False):
+                          return_contours=False, verbose=True):
     utils.make_dir(op.join(MMVT_DIR, subject, 'labels'))
     output_fname = op.join(MMVT_DIR, subject, 'labels', '{}_contours_{}.npz'.format(atlas, '{hemi}'))
     if utils.both_hemi_files_exist(output_fname) and not overwrite:
@@ -895,7 +895,7 @@ def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, labels_di
                 if verbose:
                     label_nei[vert_ind] = contours[vert]
             if verbose:
-                print(label.name, len(np.where(label_nei)[0]) / len(verts))
+                print(label.name, len(np.where(label_nei)[0]) / len(label.vertices))
         if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.sphere')) and calc_centers:
             try:
                 centers = [l.center_of_mass(restrict_vertices=True) for l in labels]
@@ -905,9 +905,9 @@ def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, labels_di
             centers = None
         if return_contours:
             contours_ret[hemi] = dict(contours=contours, max=len(labels), labels=[l.name for l in labels], centers=centers)
-        else:
-            np.savez(output_fname.format(hemi=hemi), contours=contours, max=len(labels),
-                     labels=[l.name for l in labels], centers=centers)
+        # else:
+        np.savez(output_fname.format(hemi=hemi), contours=contours, max=len(labels),
+                 labels=[l.name for l in labels], centers=centers)
     if return_contours:
         return contours_ret
     else:

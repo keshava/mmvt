@@ -259,6 +259,14 @@ def read_ply_file(ply_file, npz_fname=''):
     return verts, faces
 
 
+def get_pial_vertices(subject, mmvt_dir):
+    mmvt_surf_fol = op.join(mmvt_dir, subject, 'surf')
+    verts = {}
+    for hemi in HEMIS:
+        verts[hemi], _ = read_ply_file(op.join(mmvt_surf_fol, '{}.pial.ply'.format(hemi)))
+    return verts
+
+
 def ply2fs(ply_fname, fs_fname=''):
     import nibabel.freesurfer as fs
     if fs_fname == '':
@@ -2271,3 +2279,7 @@ def find_hemi_using_vertices_num(subject, fname, subjects_dir):
                 vertices_num, fname, rh_verts_num, lh_verts_num))
             hemi = ''
     return hemi
+
+
+def extract_numpy_values_with_zero_dimensions(x):
+    return x.item()

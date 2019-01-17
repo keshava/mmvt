@@ -2864,12 +2864,12 @@ def check_stc_with_ply(stc, cond_name='', subject=''):
     return verts
 
 
-def get_pial_vertices(subject):
-    mmvt_surf_fol = op.join(MMVT_DIR, MRI_SUBJECT if subject == '' else subject, 'surf')
-    verts = {}
-    for hemi in HEMIS:
-        verts[hemi], _ = utils.read_ply_file(op.join(mmvt_surf_fol, '{}.pial.ply'.format(hemi)))
-    return verts
+# def get_pial_vertices(subject):
+#     mmvt_surf_fol = op.join(MMVT_DIR, MRI_SUBJECT if subject == '' else subject, 'surf')
+#     verts = {}
+#     for hemi in HEMIS:
+#         verts[hemi], _ = utils.read_ply_file(op.join(mmvt_surf_fol, '{}.pial.ply'.format(hemi)))
+#     return verts
 
 
 def save_activity_map(events, stat, stcs_conds=None, inverse_method='dSPM', smoothed_stc=True, morph_to_subject='',
@@ -4340,7 +4340,8 @@ def find_functional_rois_in_stc(
         min_cluster_max=0, min_cluster_size=0, clusters_label='', src=None,
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
         labels=None, verts_dict=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
-        save_func_labels=True, recreate_src_spacing='oct6', calc_cluster_contours=True, save_results=True, n_jobs=6):
+        save_func_labels=True, recreate_src_spacing='oct6', calc_cluster_contours=True, save_results=True,
+        n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, 'meg', 'clusters')
@@ -4379,7 +4380,7 @@ def find_functional_rois_in_stc(
     if connectivity is None:
         connectivity = load_connectivity(subject)
     if verts_dict is None:
-        verts_dict = get_pial_vertices(subject)
+        verts_dict = utils.get_pial_vertices(subject, MMVT_DIR)
     if threshold_is_precentile:
         threshold = np.percentile(stc_t_smooth.data, threshold)
     if threshold < 1e-4:
@@ -4547,8 +4548,7 @@ def calc_contours(subject, atlas_name, hemi, clusters_labels, clusters_labels_fo
     #     print('calc_contours: No annot file!')
     contours = anat.calc_labeles_contours(
         subject, atlas_name[:-3], hemi=hemi, overwrite=True, labels_dict=labels_dict, verts_dict=verts_dict,
-        verts_neighbors_dict=verts_neighbors_dict, check_unknown=False, save_lookup=False, return_contours=True,
-        verbose=False)
+        verts_neighbors_dict=verts_neighbors_dict, check_unknown=False, save_lookup=False, return_contours=True)
     return contours[hemi]
 
 
@@ -4910,39 +4910,41 @@ def get_digitization_points(subject, raw_fname):
     return op.isfile(output_fname)
 
 
-def stc_to_contours(subject, stc_name, pick_t, thresholds_min=None, thresholds_max=None, contours_num=10,
+def stc_to_contours(subject, stc_name, pick_t=0, thresholds_min=None, thresholds_max=None, thresholds_dx=1,
                     min_cluster_size=10, atlas='', clusters_label='', find_clusters_overlapped_labeles=False,
-                    mri_subject='', n_jobs=4):
+                    mri_subject='', stc_t_smooth=None, n_jobs=4):
     if mri_subject == '':
         mri_subject = subject
     clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
     output_fname = op.join(clusters_root_fol, '{}_contoures_{}.pkl'.format(stc_name, pick_t))
     connectivity = load_connectivity(subject)
-    stc_t_smooth_fname = op.join(clusters_root_fol, '{}_{}_smooth'.format(stc_name, pick_t))
-    stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
-    if not op.isfile(stc_fname):
-        raise Exception("Can't find the stc file! ({})".format(stc_name))
-    stc = mne.read_source_estimate(stc_fname)
-    if thresholds_min is None:
-        thresholds_min = utils.min_stc(stc)
-    if thresholds_max is None:
-        thresholds_max = utils.max_stc(stc)
-    thresholds_dx = (thresholds_max - thresholds_min) / contours_num
-    # todo: one to many
-    thresholds = np.arange(thresholds_min, thresholds_max + thresholds_dx, thresholds_dx)
-    print('threshold: {}'.format(thresholds))
-    if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_t_smooth_fname, '{hemi}')):
-        stc_t_smooth = mne.read_source_estimate(stc_t_smooth_fname)
-        verts = get_pial_vertices(subject)
-    else:
+    if stc_t_smooth is None:
+        stc_t_smooth_fname = op.join(clusters_root_fol, '{}_{}_smooth'.format(stc_name, pick_t))
         stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
         if not op.isfile(stc_fname):
             raise Exception("Can't find the stc file! ({})".format(stc_name))
-        stc = mne.read_source_estimate(stc_fname)
-        stc_t = create_stc_t(stc, pick_t, subject)
-        stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
-        stc_t_smooth.save(stc_t_smooth_fname)
-        verts = check_stc_with_ply(stc_t_smooth, subject=subject)
+        if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_t_smooth_fname, '{hemi}')):
+            stc_t_smooth = mne.read_source_estimate(stc_t_smooth_fname)
+            verts = utils.get_pial_vertices(subject, MMVT_DIR)
+        else:
+            stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
+            if not op.isfile(stc_fname):
+                raise Exception("Can't find the stc file! ({})".format(stc_name))
+            stc = mne.read_source_estimate(stc_fname)
+            stc_t = create_stc_t(stc, pick_t, subject)
+            stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
+            stc_t_smooth.save(stc_t_smooth_fname)
+            verts = check_stc_with_ply(stc_t_smooth, subject=subject)
+    else:
+        verts = utils.get_pial_vertices(subject, MMVT_DIR)
+
+    if thresholds_min is None:
+        thresholds_min = utils.min_stc(stc_t_smooth)
+    if thresholds_max is None:
+        thresholds_max = utils.max_stc(stc_t_smooth)
+    # thresholds_dx = (thresholds_max - thresholds_min) / contours_num
+    thresholds = np.arange(thresholds_min, thresholds_max + thresholds_dx, thresholds_dx)
+    print('threshold: {}'.format(thresholds))
 
     verts_neighbors_fname = op.join(MMVT_DIR, 'sample', 'verts_neighbors_{}.pkl')
     verts_neighbors_dict = {hemi: utils.load(verts_neighbors_fname.format(hemi)) for hemi in utils.HEMIS}
@@ -4956,7 +4958,7 @@ def stc_to_contours(subject, stc_name, pick_t, thresholds_min=None, thresholds_m
         flag, contours = find_functional_rois_in_stc(
             subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=False,
             min_cluster_size=min_cluster_size, time_index=pick_t, extract_time_series_for_clusters=False,
-            stc=stc, stc_t_smooth=stc_t_smooth, verts=verts, connectivity=connectivity, verts_dict=verts,
+            stc=stc_t_smooth, stc_t_smooth=stc_t_smooth, verts=verts, connectivity=connectivity, verts_dict=verts,
             find_clusters_overlapped_labeles=find_clusters_overlapped_labeles,
             verts_neighbors_dict=verts_neighbors_dict, save_results=False, clusters_label=clusters_label,
             n_jobs=n_jobs)
@@ -5193,7 +5195,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'stc_to_contours' in args.function:
         flags['stc_to_contours'], _ = stc_to_contours(
             subject, args.stc_name, args.peak_stc_time_index, args.thresholds_min, args.thresholds_max,
-            args.contours_num, args.mri_subject, args.n_jobs)
+            args.thresholds_dx, args.mri_subject, args.n_jobs)
 
     return flags
 
@@ -5362,7 +5364,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--calc_cluster_contours', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--thresholds_min', required=False, default=None, type=au.float_or_none)
     parser.add_argument('--thresholds_max', required=False, default=None, type=au.float_or_none)
-    parser.add_argument('--contours_num', required=False, default=10, type=int)
+    parser.add_argument('--thresholds_dx', required=False, default=1, type=int)
 
     # FieldTrip
     parser.add_argument('--fieldtrip_data_name', required=False, default='')

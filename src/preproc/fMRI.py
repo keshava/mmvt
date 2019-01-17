@@ -304,6 +304,34 @@ def find_clusters(subject, surf_template_fname, t_val, atlas, min_cluster_max=2,
     return op.isfile(clusters_labels_output_fname)
 
 
+def contrast_to_contours(subject, contrast_name, thresholds_min=None, thresholds_max=None, thresholds_dx=1,
+                    min_cluster_size=10, atlas='', clusters_label='', find_clusters_overlapped_labeles=False,
+                    mri_subject='', n_jobs=4):
+    from src.preproc import meg
+    if mri_subject == '':
+        mri_subject = subject
+    constrast = {hemi: np.load(op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}.{}.npy'.format(contrast_name, hemi)))
+                 for hemi in utils.HEMIS}
+    verts = utils.get_pial_vertices(subject, MMVT_DIR)
+    vertno = {hemi: range(len(verts[hemi])) for hemi in utils.HEMIS}
+    data = np.concatenate([constrast['lh'], constrast['rh']])
+    data = np.reshape(data, (len(data), 1))
+    vertices = [vertno['lh'], vertno['rh']]
+    stc = mne.SourceEstimate(data, vertices, 0, 1, subject=mri_subject)
+    meg.stc_to_contours(mri_subject, contrast_name, 0, thresholds_min, thresholds_max, thresholds_dx,
+                        min_cluster_size, atlas, clusters_label, find_clusters_overlapped_labeles,
+                        stc_t_smooth=stc, n_jobs=n_jobs)
+
+
+def load_connectivity(subject):
+    connectivity_fname = op.join(MMVT_DIR, subject, 'spatial_connectivity.pkl')
+    if not op.isfile(connectivity_fname):
+        from src.preproc import anatomy
+        anatomy.create_spatial_connectivity(subject)
+    connectivity_per_hemi = utils.load(connectivity_fname)
+    return connectivity_per_hemi
+
+
 # def find_clusters_tval_hist(subject, contrast_name, output_fol, input_fol='', n_jobs=1):
 #     contrast, connectivity, _ = init_clusters(subject, contrast_name, input_fol)
 #     clusters = {}

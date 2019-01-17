@@ -201,7 +201,7 @@ def _calc_pvals_fMRI_clusters(p):
             stc_name=stc_name,
             threshold=-np.log10(0.05), threshold_is_precentile=False,
             extract_time_series_for_clusters=False, save_func_labels=False,
-            calc_cluster_contours=False,
+            calc_cluster_contours=True,
             n_jobs=args.n_jobs
         ))
         try:
@@ -235,9 +235,19 @@ def meg_pvals_to_contours(args):
         stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
         _, pick_t = stc.get_peak(time_as_index=True)
         print('peak freq: {:.2f}Hz'.format(stc.times[pick_t]))
-        meg.stc_to_contours(subject, stc_name, pick_t, thresholds_min=1.3, thresholds_max=2, contours_num=2,
+        meg.stc_to_contours(subject, stc_name, pick_t, thresholds_min=1.3, thresholds_max=2, thresholds_dx=1,
                             min_cluster_size=5, clusters_label='caudalmiddlefrontal', find_clusters_overlapped_labeles=True,
                             atlas='MSIT_I-C', n_jobs=args.n_jobs)
+
+
+def fMRI_contours(args):
+    subjects = args.subject
+    contrast_name = 'msit_I-C.analysis-I-C-sig'
+    for subject in subjects:
+        fmri.contrast_to_contours(subject, contrast_name, thresholds_min=2, thresholds_max=2, thresholds_dx=2,
+                    min_cluster_size=10, clusters_label='caudalmiddlefrontal', find_clusters_overlapped_labeles=True,
+                    atlas='aparc.DKTatlas', n_jobs=args.n_jobs)
+
 
 
 # def find_meg_psd_clusters(args):

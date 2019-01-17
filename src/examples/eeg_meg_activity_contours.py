@@ -18,8 +18,8 @@ MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 def calc_sample_clusters(args):
     stc_name = 'sample_audvis-meg'
     pick_t = 10
-    thresholds_min, thresholds_max, contours_num = 2, 11, 10
-    meg.stc_to_contours(args.subject, stc_name, pick_t, thresholds_min, thresholds_max, contours_num)
+    thresholds_min, thresholds_max, thresholds_dx = 2, 11, 1
+    meg.stc_to_contours(args.subject, stc_name, pick_t, thresholds_min, thresholds_max, thresholds_dx)
 
 
 if __name__ == '__main__':
