@@ -81,7 +81,7 @@ def calc_source_ttest(args):
         fol = op.join(MMVT_DIR, subject, 'meg')
         output_fname = op.join(fol, 'dSPM_mean_flip_vertices_power_spectrum_stat')
         if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')):
-            print('{} already exist')
+            print('{} already exist'.format(output_fname))
             continue
         file_name = '{cond}_dSPM_mean_flip_vertices_power_spectrum.pkl'
         if not all([op.isfile(op.join(fol, file_name.format(cond=cond.lower())))
@@ -201,7 +201,7 @@ def _calc_pvals_fMRI_clusters(p):
             stc_name=stc_name,
             threshold=-np.log10(0.05), threshold_is_precentile=False,
             extract_time_series_for_clusters=False, save_func_labels=False,
-            calc_cluster_contours=True,
+            calc_cluster_contours=False,
             n_jobs=args.n_jobs
         ))
         try:
@@ -213,7 +213,7 @@ def _calc_pvals_fMRI_clusters(p):
             return False
     min_vertices_num = 50
     min_sig = 2
-    labels = ['superiorfrontal', 'caudalmiddlefrontal']
+    # labels = ['superiorfrontal', 'caudalmiddlefrontal']
     args.bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
     if op.isfile(res_fname):
         clusters_dict = utils.Bag(utils.load(res_fname))
@@ -221,8 +221,8 @@ def _calc_pvals_fMRI_clusters(p):
         cluster_freq = stc.times[clusters_dict['time']]
         if cluster_freq > 65:
             for cluster in clusters_dict.values:
-                intersects = [(c['name'].split('_')[0], (c['num'] / cluster['size'])) for c in cluster['intersects'] if c['num'] > min_vertices_num]
-                intersects = ['{} ({:.2f}%)'.format(l, num * 100) for l, num in intersects if l in labels]
+                intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size'])) for c in cluster['intersects'] if c['num'] > min_vertices_num]
+                intersects = ['{} ({}, {:.2f}%)'.format(l, num, prob * 100) for l, num, prob in intersects]# if l in labels]
                 if len(intersects) > 0 and cluster['max'] > min_sig:
                     print('*** {} ({:.2f}Hz): {}: (sig: {})'.format(subject, cluster_freq, intersects, cluster['max']))
 
