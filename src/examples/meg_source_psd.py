@@ -215,16 +215,23 @@ def _calc_pvals_fMRI_clusters(p):
     min_sig = 2
     # labels = ['superiorfrontal', 'caudalmiddlefrontal']
     args.bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    max_intersect = 0
+    max_info = ''
     if op.isfile(res_fname):
         clusters_dict = utils.Bag(utils.load(res_fname))
         stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
         cluster_freq = stc.times[clusters_dict['time']]
-        if cluster_freq > 65:
+        if 1 < cluster_freq < 120:
             for cluster in clusters_dict.values:
+                for c in cluster['intersects']:
+                    if c['num'] > max_intersect:
+                        max_intersect = c['num']
+                        max_info = cluster
                 intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size'])) for c in cluster['intersects'] if c['num'] > min_vertices_num]
                 intersects = ['{} ({}, {:.2f}%)'.format(l, num, prob * 100) for l, num, prob in intersects]# if l in labels]
                 if len(intersects) > 0 and cluster['max'] > min_sig:
                     print('*** {} ({:.2f}Hz): {}: (sig: {})'.format(subject, cluster_freq, intersects, cluster['max']))
+        print(' $$$ max: {} {}'.format(max_intersect, max_info))
 
 
 def meg_pvals_to_contours(args):
