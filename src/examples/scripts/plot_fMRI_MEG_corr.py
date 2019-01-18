@@ -1,6 +1,7 @@
 
 
 def run(mmvt):
+    # hc034
     mmvt.appearance.show_inflated()
     mmvt.show_hide.hide_hemi('rh')
     mmvt.show_hide.show_hemi('lh')
