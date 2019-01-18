@@ -111,19 +111,33 @@ def calc_source_ttest(args):
             if not np.all(vertices_inds[MSIT_CONDS[0]] == vertices_inds[MSIT_CONDS[1]]):
                 raise Exception('Not the same vertices!')
             vertno[hemi] = vertices_inds[MSIT_CONDS[0]]
-            vert_ind = 0
-            for vert in tqdm(vertices_data[MSIT_CONDS[0]][hemi].keys()):
-                for freq_ind in range(len(freqs)):
-                    x = [vertices_data[cond][hemi][vert][:, freq_ind] for cond in MSIT_CONDS]
-                    t, pval = scipy.stats.ttest_ind(x[0], x[1], equal_var=False)
-                    pvals[hemi][vert_ind, freq_ind] = -np.log10(pval)
-                vert_ind += 1
+            params = [(vert_ind, vertices_data[MSIT_CONDS[0]][hemi][vert], vertices_data[MSIT_CONDS[1]][hemi][vert], len(freqs)) \
+                for vert_ind, vert in enumerate(vertices_data[MSIT_CONDS[0]][hemi].keys())]
+            results = utils.run_parallel(calc_vert_pvals, params, args.n_jobs)
+            for vert_pvals, vert_ind in results:
+                pvals[hemi][vert_ind, :] = vert_pvals
+            # vert_ind = 0
+            # for vert in tqdm(vertices_data[MSIT_CONDS[0]][hemi].keys()):
+            #     for freq_ind in range(len(freqs)):
+            #         x = [vertices_data[cond][hemi][vert][:, freq_ind] for cond in MSIT_CONDS]
+            #         t, pval = scipy.stats.ttest_ind(x[0], x[1], equal_var=False)
+            #         pvals[hemi][vert_ind, freq_ind] = -np.log10(pval)
+            #     vert_ind += 1
 
         data = np.concatenate([pvals['lh'], pvals['rh']])
         vertices = [vertno['lh'], vertno['rh']]
         stc_pvals = mne.SourceEstimate(data, vertices, freqs[0], freqs[1] - freqs[0], subject=subject)
         print('Writing to {}'.format(output_fname))
         stc_pvals.save(output_fname)
+
+
+def calc_vert_pvals(p):
+    vert_ind, vert_data1, vert_data2, freqs_len = p
+    pvals = np.zeros((freqs_len))
+    for freq_ind in range(freqs_len):
+        t, pval = scipy.stats.ttest_ind(vert_data1[:, freq_ind], vert_data2[:, freq_ind], equal_var=False)
+        pvals[freq_ind] = -np.log10(pval)
+    return pvals, vert_ind
 
 
 def morph_stcs_pvals(args):
