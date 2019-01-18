@@ -87,12 +87,13 @@ def calc_source_ttest(args):
         args.subject = subject
         fol = op.join(MMVT_DIR, subject, 'meg')
         output_fname = op.join(fol, 'dSPM_mean_flip_vertices_power_spectrum_stat')
-        if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')):
+        if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
             print('{} already exist'.format(output_fname))
             continue
         file_name = '{cond}_dSPM_mean_flip_vertices_power_spectrum.pkl'
         if not all([op.isfile(op.join(fol, file_name.format(cond=cond.lower())))
                 for cond in MSIT_CONDS]):
+            print('No stc files for both conditions!')
             continue
         vertices_data = {}
         try:
