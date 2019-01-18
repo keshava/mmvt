@@ -187,11 +187,8 @@ def _calc_fMRI_rois(p):
 def calc_pvals_fMRI_clusters(args):
     # ret = utils.run_parallel(_calc_pvals_fMRI_clusters, [(s, args.overwrite) for s in args.subject], args.n_jobs)
     subjects = args.subject
-    max_intersect = 0
-    max_info = ''
-
+    max_intersect = []
     for subject in subjects:
-
 # def _calc_pvals_fMRI_clusters(p):
 #     subject, overwrite = p
         stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
@@ -234,14 +231,13 @@ def calc_pvals_fMRI_clusters(args):
             if 1 < cluster_freq < 120:
                 for cluster in clusters_dict.values:
                     for c in cluster['intersects']:
-                        if c['num'] > max_intersect:
-                            max_intersect = c['num']
-                            max_info = (subject, c['name'], cluster_freq)
+                        max_intersect.append((c['num'], subject, c['name'], '{:.2f}Hz'.format(cluster_freq)))
                     intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size'])) for c in cluster['intersects'] if c['num'] > min_vertices_num]
                     intersects = ['{} ({}, {:.2f}%)'.format(l, num, prob * 100) for l, num, prob in intersects]# if l in labels]
                     if len(intersects) > 0 and cluster['max'] > min_sig:
                         print('*** {} ({:.2f}Hz): {}: (sig: {})'.format(subject, cluster_freq, intersects, cluster['max']))
-    print(' $$$ max: {} {}'.format(max_intersect, max_info))
+    max_intersect = sorted(max_intersect)[::-1]
+    print(' $$$ {}'.format(max_intersect[:5]))
 
 
 def meg_pvals_to_contours(args):
