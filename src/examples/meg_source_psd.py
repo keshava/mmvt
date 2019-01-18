@@ -78,7 +78,7 @@ def calc_meg_source_psd(args):
             epochs = subject_epochs[indices[cond]]
             meg.calc_source_power_spectrum(
                 subject, cond.lower(), epochs=epochs, max_epochs_num=50, inv_fname=inv_fname,
-                overwrite_labels_power_spectrum=args.overwrite, n_jobs=args.n_jobs)
+                overwrite=args.overwrite, n_jobs=args.n_jobs)
 
 
 def calc_source_ttest(args):
