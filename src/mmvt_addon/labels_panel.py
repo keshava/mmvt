@@ -32,7 +32,7 @@ def contours_coloring_update(self, context):
 
 def labels_contours_filter_update(self, context):
     filter_re = re.compile(bpy.context.scene.labels_contours_filter)
-    labels_contours_filter = []
+    # labels_contours_filter = []
     # for hemi in mu.HEMIS:
     #     labels_contours_filter[hemi]
     items = []
@@ -128,10 +128,16 @@ def grow_a_label():
 
 
 def color_contours(specific_labels=[], specific_hemi='both', labels_contours=None, cumulate=False, change_colorbar=False,
-                   specific_colors=None, atlas='', move_cursor=True):
+                   specific_colors=None, atlas='', move_cursor=True, filter=''):
     if _addon() is None:
         return
-    if isinstance(specific_labels, str):
+    if filter != '':
+        bpy.context.scene.labels_contours_filter = filter
+        if isinstance(LabelsPanel.labels['rh'], np.ndarray):
+            specific_labels = LabelsPanel.labels['rh'].tolist() + LabelsPanel.labels['lh'].tolist()
+        else:
+            specific_labels = LabelsPanel.labels['rh'] + LabelsPanel.labels['lh']
+    elif isinstance(specific_labels, str):
         specific_labels = [specific_labels]
     if atlas != '' and atlas != bpy.context.scene.contours_coloring and atlas in LabelsPanel.existing_contoures:
         bpy.context.scene.contours_coloring = atlas

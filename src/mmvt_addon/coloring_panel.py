@@ -254,6 +254,16 @@ def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=
         return True
 
 
+def color_meg_peak():
+    if ColoringMakerPanel.stc is None:
+        ColoringMakerPanel.stc = mne.read_source_estimate(get_stc_full_fname())
+    max_vert, bpy.context.scene.frame_current = ColoringMakerPanel.stc.get_peak(
+        time_as_index=True, vert_as_index=True, mode=bpy.context.scene.meg_peak_mode)
+    print(max_vert, bpy.context.scene.frame_current)
+    plot_stc(ColoringMakerPanel.stc, bpy.context.scene.frame_current,
+             threshold=bpy.context.scene.coloring_lower_threshold, save_image=False)
+
+
 def set_lower_threshold(val):
     if not isinstance(val, float):
         val = float(val)
@@ -2104,7 +2114,6 @@ class ColorMeg(bpy.types.Operator):
         return {"FINISHED"}
 
 
-
 class ColorMegMax(bpy.types.Operator):
     bl_idname = "mmvt.meg_max_color"
     bl_label = "mmvt meg max color"
@@ -2114,13 +2123,7 @@ class ColorMegMax(bpy.types.Operator):
     @staticmethod
     def invoke(self, context, event=None):
         if ColoringMakerPanel.stc_file_chosen:
-            if ColoringMakerPanel.stc is None:
-                ColoringMakerPanel.stc = mne.read_source_estimate(get_stc_full_fname())
-            max_vert, bpy.context.scene.frame_current = ColoringMakerPanel.stc.get_peak(
-                time_as_index=True, vert_as_index=True, mode=bpy.context.scene.meg_peak_mode)
-            print(max_vert, bpy.context.scene.frame_current)
-            plot_stc(ColoringMakerPanel.stc, bpy.context.scene.frame_current,
-                     threshold=bpy.context.scene.coloring_lower_threshold, save_image=False)
+            color_meg_peak()
         elif ColoringMakerPanel.activity_map_chosen:
             #todo: implement
             pass
