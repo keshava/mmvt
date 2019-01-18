@@ -102,18 +102,22 @@ def calc_source_ttest(args):
         except:
             print('Can\'t read {}'.format(file_name.format(cond=cond.lower())))
             continue
-        pvals, vertno = defaultdict(list), {}
+        pvals, vertno = {}, {}
         for hemi in utils.HEMIS:
             vertices_inds = {}
+            pvals[hemi] = np.zeros((len(vertices_data[MSIT_CONDS[0]][hemi].keys()), len(freqs)))
             for cond in MSIT_CONDS:
-                vertices_inds[cond] = np.array(sorted(list(vertices_data[MSIT_CONDS[0]][hemi].keys())))
+                vertices_inds[cond] = np.array(sorted(list(vertices_data[cond][hemi].keys())))
             if not np.all(vertices_inds[MSIT_CONDS[0]] == vertices_inds[MSIT_CONDS[1]]):
                 raise Exception('Not the same vertices!')
             vertno[hemi] = vertices_inds[MSIT_CONDS[0]]
+            vert_ind = 0
             for vert in tqdm(vertices_data[MSIT_CONDS[0]][hemi].keys()):
-                x = [vertices_data[cond][hemi][vert] for cond in MSIT_CONDS]
-                t, pval = scipy.stats.ttest_ind(x[0], x[1], equal_var=False)
-                pvals[hemi].append(-np.log10(pval))
+                for freq_ind in range(len(freqs)):
+                    x = [vertices_data[cond][hemi][vert][:, freq_ind] for cond in MSIT_CONDS]
+                    t, pval = scipy.stats.ttest_ind(x[0], x[1], equal_var=False)
+                    pvals[hemi][vert_ind, freq_ind] = -np.log10(pval)
+                vert_ind += 1
 
         data = np.concatenate([pvals['lh'], pvals['rh']])
         vertices = [vertno['lh'], vertno['rh']]
