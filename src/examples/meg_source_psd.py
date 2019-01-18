@@ -30,6 +30,12 @@ def calc_meg_source_psd(args):
     for subject in subjects:
         if subject in bad_subjects:
             continue
+        fol = op.join(MMVT_DIR, subject, 'meg')
+        file_name = '{cond}_dSPM_mean_flip_vertices_power_spectrum.pkl'
+        if all([op.isfile(op.join(fol, file_name.format(cond=cond.lower())))
+                for cond in MSIT_CONDS]) and not args.overwrite:
+            print('{}: already has MSIT power stcs'.format(subject))
+            continue
         args.subject = subject
         local_raw_fname = op.join(MEG_DIR, args.task, subject, args.raw_template.format(
             subject=subject, task=args.task))
