@@ -187,6 +187,9 @@ def _calc_fMRI_rois(p):
 def calc_pvals_fMRI_clusters(args):
     # ret = utils.run_parallel(_calc_pvals_fMRI_clusters, [(s, args.overwrite) for s in args.subject], args.n_jobs)
     subjects = args.subject
+    max_intersect = 0
+    max_info = ''
+
     for subject in subjects:
 
 # def _calc_pvals_fMRI_clusters(p):
@@ -224,8 +227,6 @@ def calc_pvals_fMRI_clusters(args):
         min_sig = 2
         # labels = ['superiorfrontal', 'caudalmiddlefrontal']
         args.bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
-        max_intersect = 0
-        max_info = ''
         if op.isfile(res_fname):
             clusters_dict = utils.Bag(utils.load(res_fname))
             stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
