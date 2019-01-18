@@ -236,7 +236,7 @@ def calc_pvals_fMRI_clusters(args):
                     for c in cluster['intersects']:
                         if c['num'] > max_intersect:
                             max_intersect = c['num']
-                            max_info = (subject, c['name'])
+                            max_info = (subject, c['name'], cluster_freq)
                     intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size'])) for c in cluster['intersects'] if c['num'] > min_vertices_num]
                     intersects = ['{} ({}, {:.2f}%)'.format(l, num, prob * 100) for l, num, prob in intersects]# if l in labels]
                     if len(intersects) > 0 and cluster['max'] > min_sig:
