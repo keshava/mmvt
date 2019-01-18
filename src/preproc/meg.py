@@ -763,7 +763,8 @@ def calc_source_power_spectrum(
         mri_subject = subject
     if inv_fname == '':
         inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
-    epo_fname = get_epo_fname(epo_fname)
+    if epochs is None:
+        epo_fname = get_epo_fname(epo_fname)
     if isinstance(extract_modes, str):
         extract_modes = [extract_modes]
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']

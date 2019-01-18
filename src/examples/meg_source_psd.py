@@ -51,6 +51,11 @@ def calc_meg_source_psd(args):
             print('Can\'t create a link to the remote raw!')
             continue
         inv_fname = op.join(MEG_DIR, args.task, subject, args.inv_template.format(subject=subject, task=args.task))
+        if not op.isfile(inv_fname):
+            inv_fnames = glob.glob(op.join(MEG_DIR, args.task, subject, '*inv.fif'))
+            if len(inv_fnames) > 0:
+                inv_fname = utils.select_one_file(inv_fnames)
+                print('New inv fname: {}'.format(inv_fname))
 
         _args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
@@ -82,7 +87,14 @@ def calc_meg_source_psd(args):
 
 
 def calc_source_ttest(args):
-    utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
+    # utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
+    import time
+    subjects = args.subject
+    now = time.time()
+    for run, subject in enumerate(subjects):
+        utils.time_to_go(now, run, len(subjects), 1)
+        print('subject: {}'.format(subject))
+        _calc_source_ttest(subject)
 
 
 @utils.timeit
@@ -118,13 +130,6 @@ def _calc_source_ttest(subject):
         results = utils.run_parallel(calc_vert_pvals, params, args.n_jobs)
         for vert_pvals, vert_ind in results:
             pvals[hemi][vert_ind, :] = vert_pvals
-        # vert_ind = 0
-        # for vert in tqdm(vertices_data[MSIT_CONDS[0]][hemi].keys()):
-        #     for freq_ind in range(len(freqs)):
-        #         x = [vertices_data[cond][hemi][vert][:, freq_ind] for cond in MSIT_CONDS]
-        #         t, pval = scipy.stats.ttest_ind(x[0], x[1], equal_var=False)
-        #         pvals[hemi][vert_ind, freq_ind] = -np.log10(pval)
-        #     vert_ind += 1
 
     data = np.concatenate([pvals['lh'], pvals['rh']])
     vertices = [vertno['lh'], vertno['rh']]
@@ -142,44 +147,44 @@ def calc_vert_pvals(p):
     return pvals, vert_ind
 
 
-def morph_stcs_pvals(args):
-    utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
-
-
-def _morph_stcs_pvals(subject):
-    fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg', 'morphed'))
-    output_fname = op.join(fol, '{}_dSPM_mean_flip_power_spectrum_stat'.format(subject))
-    if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
-        return
-    stc_fname = op.join(MMVT_DIR, subject, 'meg', 'dSPM_mean_flip_vertices_power_spectrum_stat-{}.stc'.format('{hemi}'))
-    if not utils.both_hemi_files_exist(stc_fname):
-        return
-    stc = mne.read_source_estimate(stc_fname.format(hemi='lh'))
-    stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, n_jobs=args.n_jobs)
-    print('Saving {}'.format(output_fname))
-    stc_morphed.save(output_fname)
-
-
-def average_stc_pvals(args):
-    fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg'))
-    stc_mean = None
-    stcs_num = 0
-    pval_lower_limit = 5
-    stc_name = 'dSPM_mean_flip_power_spectrum_stat'
-    if utils.both_hemi_files_exist('{}-{}.stc'.format(op.join(fol, stc_name), '{hemi}')) and not args.overwrite:
-        print('{} already exist'.format(op.join(fol, stc_name)))
-        return
-    stcs_fnames = glob.glob(op.join(fol, 'morphed',  '*_{}-lh.stc'.format(stc_name)))
-    for stc_fname in tqdm(stcs_fnames):
-        stc = mne.read_source_estimate(stc_fname, args.morph_target)
-        stc_max = utils.max_stc(stc)
-        if stc_max > pval_lower_limit:
-            print('{}, max: {:.2f}'.format(stc_fname, stc_max))
-            stc_mean = stc if stc_mean is None else stc_mean + stc
-            stcs_num += 1
-    stc_mean /= stcs_num
-    print('Writing avg stc to {}'.format(op.join(fol, stc_name)))
-    stc_mean.save(op.join(fol, stc_name))
+# def morph_stcs_pvals(args):
+#     utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
+#
+#
+# def _morph_stcs_pvals(subject):
+#     fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg', 'morphed'))
+#     output_fname = op.join(fol, '{}_dSPM_mean_flip_power_spectrum_stat'.format(subject))
+#     if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not args.overwrite:
+#         return
+#     stc_fname = op.join(MMVT_DIR, subject, 'meg', 'dSPM_mean_flip_vertices_power_spectrum_stat-{}.stc'.format('{hemi}'))
+#     if not utils.both_hemi_files_exist(stc_fname):
+#         return
+#     stc = mne.read_source_estimate(stc_fname.format(hemi='lh'))
+#     stc_morphed = mne.morph_data(subject, args.morph_target, stc, grade=None, n_jobs=args.n_jobs)
+#     print('Saving {}'.format(output_fname))
+#     stc_morphed.save(output_fname)
+#
+#
+# def average_stc_pvals(args):
+#     fol = utils.make_dir(op.join(MMVT_DIR, args.morph_target, 'meg'))
+#     stc_mean = None
+#     stcs_num = 0
+#     pval_lower_limit = 5
+#     stc_name = 'dSPM_mean_flip_power_spectrum_stat'
+#     if utils.both_hemi_files_exist('{}-{}.stc'.format(op.join(fol, stc_name), '{hemi}')) and not args.overwrite:
+#         print('{} already exist'.format(op.join(fol, stc_name)))
+#         return
+#     stcs_fnames = glob.glob(op.join(fol, 'morphed',  '*_{}-lh.stc'.format(stc_name)))
+#     for stc_fname in tqdm(stcs_fnames):
+#         stc = mne.read_source_estimate(stc_fname, args.morph_target)
+#         stc_max = utils.max_stc(stc)
+#         if stc_max > pval_lower_limit:
+#             print('{}, max: {:.2f}'.format(stc_fname, stc_max))
+#             stc_mean = stc if stc_mean is None else stc_mean + stc
+#             stcs_num += 1
+#     stc_mean /= stcs_num
+#     print('Writing avg stc to {}'.format(op.join(fol, stc_name)))
+#     stc_mean.save(op.join(fol, stc_name))
 
 
 def calc_fMRI_rois(args):
@@ -207,57 +212,68 @@ def _calc_fMRI_rois(p):
 
 
 def calc_pvals_fMRI_clusters(args):
-    # ret = utils.run_parallel(_calc_pvals_fMRI_clusters, [(s, args.overwrite) for s in args.subject], args.n_jobs)
+    utils.run_parallel(_calc_pvals_fMRI_clusters, [(s, args.overwrite) for s in args.subject], args.n_jobs)
+
+
+def _calc_pvals_fMRI_clusters(p):
+    subject, overwrite = p
+    stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
+    if not utils.both_hemi_files_exist(
+            op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+        print('{}: Can\'t find {}!'.format(subject, stc_name))
+        return False
+    args.subject = subject
+    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
+    res_fname = op.join(clusters_root_fol, 'clusters_labels_dSPM_mean_flip_vertices_power_spectrum_stat.pkl')
+    if not op.isfile(res_fname) or args.overwrite:
+        utils.delete_folder_files(clusters_root_fol)
+        _args = meg.read_cmd_args(dict(
+            subject=subject, mri_subject=subject,
+            atlas = 'MSIT_I-C',
+            function='find_functional_rois_in_stc',
+            stc_name=stc_name,
+            threshold=-np.log10(0.05), threshold_is_precentile=False,
+            extract_time_series_for_clusters=False, save_func_labels=False,
+            calc_cluster_contours=True,
+            n_jobs=args.n_jobs
+        ))
+        try:
+            meg.call_main(_args)
+        except:
+            print(traceback.format_exc())
+        if not op.isfile(res_fname):
+            print('Cluster output can\'t be found!')
+            return False
+
+
+def filter_pvals_fMRI_clusters(args):
     subjects = args.subject
     max_intersect = []
+    stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
     for subject in subjects:
-# def _calc_pvals_fMRI_clusters(p):
-#     subject, overwrite = p
-        stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
-        if not utils.both_hemi_files_exist(
-                op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-            print('{}: Can\'t find {}!'.format(subject, stc_name))
-            # return False
-            continue
-        args.subject = subject
         clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
         res_fname = op.join(clusters_root_fol, 'clusters_labels_dSPM_mean_flip_vertices_power_spectrum_stat.pkl')
-        if not op.isfile(res_fname) or args.overwrite:
-            utils.delete_folder_files(clusters_root_fol)
-            _args = meg.read_cmd_args(dict(
-                subject=subject, mri_subject=subject,
-                atlas = 'MSIT_I-C',
-                function='find_functional_rois_in_stc',
-                stc_name=stc_name,
-                threshold=-np.log10(0.05), threshold_is_precentile=False,
-                extract_time_series_for_clusters=False, save_func_labels=False,
-                calc_cluster_contours=False,
-                n_jobs=args.n_jobs
-            ))
-            try:
-                meg.call_main(_args)
-            except:
-                print(traceback.format_exc())
-            if not op.isfile(res_fname):
-                print('Cluster output can\'t be found!')
-                # return False
-                continue
         min_vertices_num = 50
         min_sig = 2
         # labels = ['superiorfrontal', 'caudalmiddlefrontal']
-        args.bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
         if op.isfile(res_fname):
             clusters_dict = utils.Bag(utils.load(res_fname))
             stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
+            uniqueness = len(np.where(np.abs(stc.data[:, 0][1:] - stc.data[:, 0][:-1]) > 0.1)[0])/ stc.data.size
+            if uniqueness < 0.001:
+                print('{}: uniqueness < 0.001! ({})'.format(subject, uniqueness))
+                continue
             cluster_freq = stc.times[clusters_dict['time']]
             if 1 < cluster_freq < 120:
                 for cluster in clusters_dict.values:
                     for c in cluster['intersects']:
                         max_intersect.append((c['num'], subject, c['name'], '{:.2f}Hz'.format(cluster_freq)))
-                    intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size'])) for c in cluster['intersects'] if c['num'] > min_vertices_num]
+                    intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size']))
+                                  for c in cluster['intersects'] if c['num'] > min_vertices_num]
                     intersects = ['{} ({}, {:.2f}%)'.format(l, num, prob * 100) for l, num, prob in intersects]# if l in labels]
                     if len(intersects) > 0 and cluster['max'] > min_sig:
-                        print('*** {} ({:.2f}Hz): {}: (sig: {})'.format(subject, cluster_freq, intersects, cluster['max']))
+                        print('*** {} ({:.2f}Hz): {}: (sig: {})'.format(
+                            subject, cluster_freq, intersects, cluster['max']))
     max_intersect = sorted(max_intersect)[::-1]
     print(' $$$ {}'.format(max_intersect[:5]))
 

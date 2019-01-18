@@ -140,6 +140,9 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
     if labels_contours is None:
         labels_contours = LabelsPanel.labels_contours
     contour_max = max([labels_contours[hemi]['max'] for hemi in mu.HEMIS])
+    if contour_max == 0:
+        print('No contours!')
+        return False
     if not _addon().colorbar_values_are_locked() and change_colorbar:
         _addon().set_colormap('jet')
         _addon().set_colorbar_title('{} labels contours'.format(bpy.context.scene.contours_coloring))
