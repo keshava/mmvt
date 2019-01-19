@@ -233,8 +233,8 @@ def _calc_pvals_fMRI_clusters(p, extract_time_series_for_clusters=False):
             atlas = 'MSIT_I-C',
             function='find_functional_rois_in_stc',
             stc_name=stc_name,
-            threshold=-np.log10(0.05), threshold_is_precentile=False,
-            extract_time_series_for_clusters=extract_time_series_for_clusters, save_func_labels=False,
+            threshold=-np.log10(0.01), threshold_is_precentile=False,
+            extract_time_series_for_clusters=False, save_func_labels=True,
             calc_cluster_contours=True,
             n_jobs=args.n_jobs
         ))
@@ -245,12 +245,6 @@ def _calc_pvals_fMRI_clusters(p, extract_time_series_for_clusters=False):
         if not op.isfile(res_fname):
             print('Cluster output can\'t be found!')
             return False
-
-
-def extract_clusters_power_spectrum(args):
-    subjects = args.subject
-    for subject in subjects:
-        _calc_pvals_fMRI_clusters((subject, args.overwrite), True)
 
 
 def filter_pvals_fMRI_clusters(args):
