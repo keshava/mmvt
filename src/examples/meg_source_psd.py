@@ -250,7 +250,7 @@ def _calc_pvals_fMRI_clusters(p, extract_time_series_for_clusters=False):
 def extract_clusters_power_spectrum(args):
     subjects = args.subject
     for subject in subjects:
-        _calc_pvals_fMRI_clusters((args.subject, args.overwrite), True)
+        _calc_pvals_fMRI_clusters((subject, args.overwrite), True)
 
 
 def filter_pvals_fMRI_clusters(args):
