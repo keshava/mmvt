@@ -147,6 +147,7 @@ def calc_vert_pvals(p):
     return pvals, vert_ind
 
 
+
 # def morph_stcs_pvals(args):
 #     utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
 #
@@ -215,7 +216,7 @@ def calc_pvals_fMRI_clusters(args):
     utils.run_parallel(_calc_pvals_fMRI_clusters, [(s, args.overwrite) for s in args.subject], args.n_jobs)
 
 
-def _calc_pvals_fMRI_clusters(p):
+def _calc_pvals_fMRI_clusters(p, extract_time_series_for_clusters=False):
     subject, overwrite = p
     stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
     if not utils.both_hemi_files_exist(
@@ -233,7 +234,7 @@ def _calc_pvals_fMRI_clusters(p):
             function='find_functional_rois_in_stc',
             stc_name=stc_name,
             threshold=-np.log10(0.05), threshold_is_precentile=False,
-            extract_time_series_for_clusters=False, save_func_labels=False,
+            extract_time_series_for_clusters=extract_time_series_for_clusters, save_func_labels=False,
             calc_cluster_contours=True,
             n_jobs=args.n_jobs
         ))
@@ -244,6 +245,12 @@ def _calc_pvals_fMRI_clusters(p):
         if not op.isfile(res_fname):
             print('Cluster output can\'t be found!')
             return False
+
+
+def extract_clusters_power_spectrum(args):
+    subjects = args.subject
+    for subject in subjects:
+        _calc_pvals_fMRI_clusters((args.subject, args.overwrite), True)
 
 
 def filter_pvals_fMRI_clusters(args):

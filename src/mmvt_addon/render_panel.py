@@ -321,7 +321,7 @@ bpy.types.Scene.save_split_views = bpy.props.BoolProperty(default=False,
 bpy.types.Scene.view_distance = bpy.props.FloatProperty(default=20, update=view_distance_update,
     description='Changes the distance of the 3D brain modal from the front (changes the size of the brain).\nSame can be done by scrolling the MMB.'
     '\n\nScript: mmvt.render.get_view_distance() and set_view_distance(val)')
-bpy.types.Scene.save_views_with_cb = bpy.props.BoolProperty(default=True,
+bpy.types.Scene.save_views_with_cb = bpy.props.BoolProperty(default=False,
     description='Adds colorbar to the saved images (check this box before saving the images)')
 bpy.types.Scene.cb_ticks_num = bpy.props.IntProperty(min=2, default=2,
     description='Sets the number of ticks in the colorbar')
