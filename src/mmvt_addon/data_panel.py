@@ -782,43 +782,7 @@ def add_data_to_brain(source_files):
             obj_name = obj_name.astype(str)
             if not bpy.context.scene.import_unknown and 'unknown' in obj_name:
                 continue
-            cur_obj = bpy.data.objects.get(obj_name)
-            if not cur_obj:
-                print("Can't find {}!.".format(obj_name))
-                continue
-
-            clear_animation = False
-            fcurves_num = mu.count_fcurves(cur_obj)
-            if cur_obj.animation_data is not None:
-                if len(cur_obj.animation_data.action.fcurves[0].keyframe_points) != T + 2:
-                    clear_animation = True
-            if fcurves_num < len(f['conditions']):
-                clear_animation = True
-
-            # if fcurves_num != len(f['conditions']) or keyframe_points_num != data.shape[0]:
-            if clear_animation:
-                cur_obj.animation_data_clear()
-                print('keyframing {}'.format(obj_name))
-                for cond_ind, cond_str in enumerate(f['conditions']):
-                    cond_str = cond_str.astype(str)
-                    # Set the values to zeros in the first and last frame for current object(current label)
-                    mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, 1)
-                    mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, len(f['data'][0]) + 2)
-    
-                    # For every time point insert keyframe to current object
-                    for ind, t in enumerate(data[:, cond_ind]):
-                        mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, t, ind + 2)
-    
-                    # remove the orange keyframe sign in the fcurves window
-                    fcurves = bpy.data.objects[obj_name].animation_data.action.fcurves[cond_ind]
-                    mod = fcurves.modifiers.new(type='LIMITS')
-            elif bpy.context.scene.add_meg_labels_data_overwrite:
-                for fcurve_ind, fcurve in enumerate(cur_obj.animation_data.action.fcurves):
-                    fcurve.keyframe_points[0].co[1] = 0
-                    fcurve.keyframe_points[-1].co[1] = 0
-                    for t in range(T):
-                        fcurve.keyframe_points[t + 1].co[1] = data[t, fcurve_ind]
-
+            add_data_to_obj(obj_name, data, f['conditions'])
         conditions.extend(f['conditions'])
     try:
         bpy.ops.graph.previewrange_set()
@@ -832,6 +796,62 @@ def add_data_to_brain(source_files):
         bpy.context.scene.objects.active = bpy.data.objects[' ']
     selection_panel.set_conditions_enum(conditions)
     print('Finished keyframing!!')
+
+
+def add_data_to_obj(obj_name, data, conditions):
+    cur_obj = bpy.data.objects.get(obj_name, None)
+    if cur_obj is None:
+        print('add_data_to_obj: can\'t find {}!'.format(obj_name))
+        return
+    data = data.squeeze()
+    T = len(data)
+    clear_animation = False
+    fcurves_num = mu.count_fcurves(cur_obj)
+    if cur_obj.animation_data is not None:
+        if len(cur_obj.animation_data.action.fcurves[0].keyframe_points) != T + 2:
+            clear_animation = True
+    if fcurves_num < len(conditions):
+        clear_animation = True
+
+    # if fcurves_num != len(f['conditions']) or keyframe_points_num != data.shape[0]:
+    if clear_animation:
+        cur_obj.animation_data_clear()
+        print('keyframing {}'.format(obj_name))
+        for cond_ind, cond_str in enumerate(conditions):
+            cond_str = cond_str.astype(str)
+            # Set the values to zeros in the first and last frame for current object(current label)
+            mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, 1)
+            mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, len(data) + 2)
+
+            # For every time point insert keyframe to current object
+            cond_data = data[:, cond_ind] if data.ndim == 2 else np.reshape(data, (len(data), 1))
+            for ind, t in enumerate(cond_data):
+                mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, t, ind + 2)
+
+            # remove the orange keyframe sign in the fcurves window
+            fcurves = bpy.data.objects[obj_name].animation_data.action.fcurves[cond_ind]
+            mod = fcurves.modifiers.new(type='LIMITS')
+    elif bpy.context.scene.add_meg_labels_data_overwrite:
+        for fcurve_ind, fcurve in enumerate(cur_obj.animation_data.action.fcurves):
+            fcurve.keyframe_points[0].co[1] = 0
+            fcurve.keyframe_points[-1].co[1] = 0
+            cond_data = data[:, fcurve_ind] if data.ndim == 2 else np.reshape(data, (len(data), 1))
+            for t in range(T):
+                fcurve.keyframe_points[t + 1].co[1] = cond_data[t, fcurve_ind]
+
+
+def add_data_pool(parent_name, data, conditions):
+    root_name = 'data_pool'
+    root_obj = bpy.data.objects.get(root_name)
+    if root_obj is None:
+        layers_array = [False] * 20
+        create_empty_if_doesnt_exists(root_name, _addon().BRAIN_EMPTY_LAYER, layers_array, root_name)
+    data_obj = bpy.data.objects.get(parent_name)
+    if data_obj is None:
+        layers_array = [False] * 20
+        create_empty_if_doesnt_exists(parent_name, _addon().BRAIN_EMPTY_LAYER, layers_array, root_name)
+    add_data_to_obj(parent_name, data, conditions)
+
 
 
 # def add_data_to_parent_brain_obj(brain_sources, subcorticals_sources, stat=STAT_DIFF):

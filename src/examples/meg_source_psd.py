@@ -268,13 +268,13 @@ def filter_pvals_fMRI_clusters(args):
             if 1 < cluster_freq < 120:
                 for cluster in clusters_dict.values:
                     for c in cluster['intersects']:
-                        max_intersect.append((c['num'], subject, c['name'], '{:.2f}Hz'.format(cluster_freq)))
+                        max_intersect.append((c['num'], subject, c['name'], clusters_dict['time'], '{:.2f}Hz'.format(cluster_freq)))
                     intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size']))
                                   for c in cluster['intersects'] if c['num'] > min_vertices_num]
                     intersects = ['{} ({}, {:.2f}%)'.format(l, num, prob * 100) for l, num, prob in intersects]# if l in labels]
                     if len(intersects) > 0 and cluster['max'] > min_sig:
-                        print('*** {} ({:.2f}Hz): {}: (sig: {})'.format(
-                            subject, cluster_freq, intersects, cluster['max']))
+                        print('*** {} ({}={:.2f}Hz): {}: (sig: {})'.format(
+                            subject, clusters_dict['time'], cluster_freq, intersects, cluster['max']))
     max_intersect = sorted(max_intersect)[::-1]
     print(' $$$ {}'.format(max_intersect[:5]))
 
@@ -329,8 +329,8 @@ def average_power_spectrum_per_label(args):
             labels_names[label.hemi].append(label_data)
         for hemi in utils.HEMIS:
             if hemi in labels_data:
-                np.savez(labels_output_fname, data=np.array(labels_data[hemi]), names=labels_names[hemi],
-                         conditions=['power_ttest'])
+                np.savez(labels_output_fname.format(hemi=hemi), data=np.array(labels_data[hemi]),
+                         names=labels_names[hemi], conditions=['power_ttest'])
 
 
 # def find_meg_psd_clusters(args):
