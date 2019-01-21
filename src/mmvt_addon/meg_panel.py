@@ -585,6 +585,11 @@ def get_cluster_verts_co(cluster):
     return vertex_cos
 
 
+def change_cursor_on_selection():
+    # Add a checkbox
+    return False
+
+
 def _clusters_update():
     MEGPanel.current_cluster = cluster = MEGPanel.clusters_lookup[bpy.context.scene.meg_clusters]
     # set_cluster_time_series(cluster)

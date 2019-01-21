@@ -3004,6 +3004,13 @@ def set_prop(prop_name, prop_val):
 def get_cursor_location():
     return bpy.context.scene.cursor_location
 
+
+def add_marker(index, name):
+    bpy.context.scene.frame_current = index
+    bpy.ops.marker.add()
+    bpy.ops.marker.rename(name=name)
+
+
 # def mouse_coo_to_3d_loc(event, context):
 #     from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_location_3d
 #     try:
