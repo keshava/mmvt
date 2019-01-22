@@ -32,9 +32,6 @@ def contours_coloring_update(self, context):
 
 def labels_contours_filter_update(self, context):
     filter_re = re.compile(bpy.context.scene.labels_contours_filter)
-    # labels_contours_filter = []
-    # for hemi in mu.HEMIS:
-    #     labels_contours_filter[hemi]
     items = []
     labels_contours = LabelsPanel.labels_contours
     for hemi_ind, hemi in enumerate(mu.HEMIS):

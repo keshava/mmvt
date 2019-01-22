@@ -230,7 +230,7 @@ def _calc_pvals_fMRI_clusters(p, extract_time_series_for_clusters=False):
         utils.delete_folder_files(clusters_root_fol)
         _args = meg.read_cmd_args(dict(
             subject=subject, mri_subject=subject,
-            atlas = 'MSIT_I-C',
+            atlas='MSIT_I-C',
             function='find_functional_rois_in_stc',
             stc_name=stc_name,
             threshold=-np.log10(0.01), threshold_is_precentile=False,
@@ -268,13 +268,13 @@ def filter_pvals_fMRI_clusters(args):
             if 1 < cluster_freq < 120:
                 for cluster in clusters_dict.values:
                     for c in cluster['intersects']:
-                        max_intersect.append((c['num'], subject, c['name'], '{:.2f}Hz'.format(cluster_freq)))
+                        max_intersect.append((c['num'], subject, c['name'], clusters_dict['time'], '{:.2f}Hz'.format(cluster_freq)))
                     intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size']))
                                   for c in cluster['intersects'] if c['num'] > min_vertices_num]
                     intersects = ['{} ({}, {:.2f}%)'.format(l, num, prob * 100) for l, num, prob in intersects]# if l in labels]
                     if len(intersects) > 0 and cluster['max'] > min_sig:
-                        print('*** {} ({:.2f}Hz): {}: (sig: {})'.format(
-                            subject, cluster_freq, intersects, cluster['max']))
+                        print('*** {} ({}={:.2f}Hz): {}: (sig: {})'.format(
+                            subject, clusters_dict['time'], cluster_freq, intersects, cluster['max']))
     max_intersect = sorted(max_intersect)[::-1]
     print(' $$$ {}'.format(max_intersect[:5]))
 
@@ -288,7 +288,7 @@ def meg_pvals_to_contours(args):
         _, pick_t = stc.get_peak(time_as_index=True)
         print('peak freq: {:.2f}Hz'.format(stc.times[pick_t]))
         meg.stc_to_contours(subject, stc_name, pick_t, thresholds_min=1.3, thresholds_max=2, thresholds_dx=1,
-                            min_cluster_size=5, clusters_label='caudalmiddlefrontal', find_clusters_overlapped_labeles=True,
+                            min_cluster_size=5, clusters_label='superiorfrontal', find_clusters_overlapped_labeles=True,
                             atlas='MSIT_I-C', n_jobs=args.n_jobs)
 
 
@@ -297,9 +297,40 @@ def fMRI_contours(args):
     contrast_name = 'msit_I-C.analysis-I-C-sig'
     for subject in subjects:
         fmri.contrast_to_contours(subject, contrast_name, thresholds_min=2, thresholds_max=2, thresholds_dx=2,
-                    min_cluster_size=10, clusters_label='caudalmiddlefrontal', find_clusters_overlapped_labeles=True,
+                    min_cluster_size=10, clusters_label='superiorfrontal', find_clusters_overlapped_labeles=True,
                     atlas='aparc.DKTatlas', n_jobs=args.n_jobs)
 
+
+def average_power_spectrum_per_label(args):
+    import re
+    subjects = args.subject
+    filter = 'superiorfrontal'
+    filter_re = re.compile(filter)
+    for suject in subjects:
+        labels_output_fname = op.join(
+            MMVT_DIR, suject, 'meg', 'labels_data_{}_power_spectrum_stat_{}.npz'.format(args.task, '{hemi}'))
+        labels_data, labels_names = defaultdict(list), defaultdict(list)
+        fol = op.join(MMVT_DIR, suject, 'meg')
+        labels_fnames = glob.glob(op.join(fol, 'clusters', 'dSPM_mean_flip_vertices_power_spectrum_stat', '*.label'))
+        stc = mne.read_source_estimate(op.join(fol, 'dSPM_mean_flip_vertices_power_spectrum_stat'))
+        for label_fname in labels_fnames:
+            label = mne.read_label(label_fname, suject)
+            if not filter_re.search(label.name):
+                continue
+            vertno = stc.lh_vertno if label.hemi == 'lh' else stc.rh_vertno
+            this_vertno = np.intersect1d(vertno, label.vertices)
+            vertidx = np.searchsorted(vertno, this_vertno)
+            if len(vertidx) == 0:
+                print('No stc vertices in {}!'.format(label.name))
+                continue
+            data = stc.lh_data if label.hemi == 'lh' else stc.rh_data
+            label_data = data[vertidx].mean(axis=0)
+            labels_data[label.hemi].append(label_data)
+            labels_names[label.hemi].append(label_data)
+        for hemi in utils.HEMIS:
+            if hemi in labels_data:
+                np.savez(labels_output_fname.format(hemi=hemi), data=np.array(labels_data[hemi]),
+                         names=labels_names[hemi], conditions=['power_ttest'])
 
 
 # def find_meg_psd_clusters(args):

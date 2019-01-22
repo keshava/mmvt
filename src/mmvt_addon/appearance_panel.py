@@ -546,9 +546,10 @@ class SelectionListener(bpy.types.Operator):
                 return {'PASS_THROUGH'}
             if not click_inside_3d_view(event):
                 return {'PASS_THROUGH'}
-            cluster = _addon().select_meg_cluster(event, context, bpy.context.scene.cursor_location)
-            if cluster is not None:
-                return {'PASS_THROUGH'}
+            if _addon().meg.change_cursor_on_selection():
+                cluster = _addon().select_meg_cluster(event, context, bpy.context.scene.cursor_location)
+                if cluster is not None:
+                    return {'PASS_THROUGH'}
             cursor_moved = np.linalg.norm(SelectionListener.cursor_pos - bpy.context.scene.cursor_location) > 1e-3
             if cursor_moved and bpy.data.objects.get('inner_skull', None) is not None:
                 _addon().find_point_thickness()
