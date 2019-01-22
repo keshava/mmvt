@@ -2,7 +2,6 @@ import os.path as op
 import glob
 import numpy as np
 import scipy.interpolate
-from mne.filter import high_pass_filter
 import matplotlib.pyplot as plt
 import shutil
 import warnings
@@ -21,6 +20,17 @@ MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 
 def create_electrodes_labels(subject, bipolar=False, labels_fol_name='electrodes_labels',
         label_r=5, snap=False, sigma=1, overwrite=False, n_jobs=-1):
+    electrodes_names, pos = [], []
+    for elcs_group_fname in glob.glob(op.join(SUBJECTS_DIR, subject, 'electrodes', '*_snap_electrodes.npz')):
+        d = utils.Bag(np.load(elcs_group_fname))
+        group_name = utils.namebase(elcs_group_fname).split('_')[0]
+        electrodes_names.extend([
+            '{}{}'.format(group_name, str(k + 1).zfill(2)) for k in range(d.snapped_electrodes.shape[0])])
+        pos.append(d.snapped_electrodes)
+    pos = np.vstack(pos)
+    electrodes.create_labels_around_electrodes(
+        subject, bipolar, labels_fol_name, label_r, snap, sigma, overwrite=overwrite,
+        names=electrodes_names, pos=pos, n_jobs=n_jobs)
     return electrodes.create_labels_around_electrodes(
         subject, bipolar, labels_fol_name, label_r, snap, sigma, overwrite, n_jobs)
 
@@ -65,6 +75,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
         # if len(output_files) >= 1:
         #     print('Already calculated for {}'.format(epochs_fol))
         #     continue
+
         overwrite_source_bem = args.overwrite_source_bem if ind == 0 else False
 
         meg_args = meg.read_cmd_args(dict(
@@ -95,8 +106,8 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
 
         output_files = glob.glob(op.join(
             MMVT_DIR, subject, 'meg', 'labels_data_rest_electrodes_labels_dSPM_mean_flip_*.npz'))
-        for otuput_fname in output_files:
-            shutil.copyfile(otuput_fname, op.join(fol, utils.namebase_with_ext(otuput_fname)))
+        for output_fname in output_files:
+            shutil.copyfile(output_fname, op.join(fol, utils.namebase_with_ext(output_fname)))
 
 
 def meg_preproc(subject, inv_method='MNE', em='mean_flip', atlas='electrodes_labels', remote_subject_dir='',
@@ -180,6 +191,7 @@ def filter_meg_labels_ts(subject, inv_method='dSPM', em='mean_flip', atlas='elec
 
 
 def _filter_meg_label_ts_parallel(p):
+    from mne.filter import high_pass_filter
     label_data, label_ind, fs,  low_freq_cut_off, do_plot = p
     filter_label_data = np.empty(label_data.shape)
     E = label_data.shape[1]

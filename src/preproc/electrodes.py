@@ -1632,8 +1632,12 @@ def run_ela(subject, atlas, bipolar, overwrite=False, elc_r=3, elc_len=4, electr
 
 
 def create_labels_around_electrodes(subject, bipolar=False, labels_fol_name='electrodes_labels',
-        label_r=5, snap=False, sigma=1, electrodes_type=None, overwrite=False, n_jobs=4):
-    names, pos = read_electrodes_file(subject, bipolar, snap=snap, electrodes_type=electrodes_type)
+        label_r=5, snap=False, sigma=1, electrodes_type=None, overwrite=False, names=None, pos=None,
+        n_jobs=4):
+    if names is None or pos is None:
+        names, pos = read_electrodes_file(subject, bipolar, snap=snap, electrodes_type=electrodes_type)
+    if len(names) == 0:
+        return False
     labels_fol = utils.make_dir(op.join(SUBJECTS_DIR, subject, 'label', labels_fol_name))
     if op.isdir(labels_fol) and overwrite:
         shutil.rmtree(labels_fol)
@@ -1736,7 +1740,7 @@ def main(subject, remote_subject_dir, args, flags):
     if 'create_labels_around_electrodes' in args.function:
         flags['create_labels_around_electrodes'] = create_labels_around_electrodes(
             subject, args.bipolar, args.electrodes_labels_fol_name, args.electrodes_label_r, args.snap,
-            args.electrodes_types, args.overwrite_electrodes_labels, args.n_jobs)
+            args.electrodes_types, args.overwrite_electrodes_labels, n_jobs=args.n_jobs)
 
     if 'calc_epochs_power_spectrum' in args.function:
         flags['calc_epochs_power_spectrum'] = calc_epochs_power_spectrum(
