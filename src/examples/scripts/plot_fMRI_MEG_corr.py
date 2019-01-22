@@ -8,10 +8,9 @@ def run(mmvt):
     mu = mmvt.utils
 
     # Appearance
-    mmvt.appearance.set_inflated_ratio(-0.38) # show_inflated()
+    mmvt.appearance.set_inflated_ratio(-0.38)
     mmvt.show_hide.hide_hemi('rh')
     mmvt.show_hide.show_hemi('lh')
-    # mu.show_only_render(True)
 
     # Plot MEG
     mmvt.coloring.clear_colors()
@@ -26,7 +25,7 @@ def run(mmvt):
     mmvt.labels.color_contours(
         specific_hemi='lh', filter='superiorfrontal', specific_colors=[0, 0, 1], atlas='MSIT_I-C', move_cursor=True)
 
-    # Add data
+    # Add the power-spectrum data to the graph panel
     input_fname = op.join(mu.get_user_fol(), 'meg', 'labels_data_MSIT_power_spectrum_stat_lh.npz')
     if not op.isfile(input_fname):
         print('No data file! {}'.format(input_fname))
