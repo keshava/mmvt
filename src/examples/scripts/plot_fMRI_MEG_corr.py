@@ -16,9 +16,9 @@ def run(mmvt):
     # Plot MEG
     mmvt.coloring.clear_colors()
     mmvt.coloring.set_meg_files('dSPM_mean_flip_vertices_power_spectrum_stat')
-    mmvt.coloring.set_lower_threshold(2)
+    mmvt.coloring.set_lower_threshold(1.7)
     mmvt.coloring.color_meg_peak()
-    mmvt.colorbar.set_colorbar_max_min(2.15, 2)
+    mmvt.colorbar.set_colorbar_max_min(2.15, 1.7)
     mmvt.colorbar.set_colormap('RdOrYl')
     mmvt.colorbar.set_colorbar_title('MEG power -log10(pval)')
 

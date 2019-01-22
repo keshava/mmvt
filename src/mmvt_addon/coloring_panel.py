@@ -12,6 +12,8 @@ from functools import partial
 import re
 import shutil
 import math
+
+from matplotlib.rcsetup import validate_nseq_float
 from tqdm import tqdm
 
 try:
@@ -836,6 +838,7 @@ def labels_coloring_hemi(labels_data, faces_verts, hemi, threshold=0, labels_col
 def color_hemi_data(hemi, data, data_min=None, colors_ratio=None, threshold=0, override_current_mat=True,
                     save_prev_colors=False, coloring_layer='Col', use_abs=None, check_valid_verts=True,
                     color_even_if_hide=False):
+    org_hemi = hemi
     if use_abs is None:
         use_abs = bpy.context.scene.coloring_use_abs
     if hemi in mu.HEMIS:
@@ -852,7 +855,7 @@ def color_hemi_data(hemi, data, data_min=None, colors_ratio=None, threshold=0, o
     cur_obj = bpy.data.objects[hemi]
     activity_map_obj_coloring(cur_obj, data, faces_verts, threshold, override_current_mat, data_min,
                               colors_ratio, use_abs, save_prev_colors=save_prev_colors, coloring_layer=coloring_layer,
-                              check_valid_verts=check_valid_verts)
+                              check_valid_verts=check_valid_verts, hemi=org_hemi)
 
 
 @mu.timeit
@@ -1046,8 +1049,10 @@ def calc_colors(vert_values, min_data=None, colors_ratio=None, cm=None):
         colors_ratio = 256 / (max_data - min_data)
     return mu.calc_colors_from_cm(vert_values, min_data, colors_ratio, cm)
 
+
 def sym_gauss_2D(x0,y0,sigma):
     return lambda x,y: (1./(2*math.pi*sigma**2))*math.exp(-((x-x0)**2+(y-y0)**2)/(2*sigma**2))
+
 
 def find_valid_verts(values, threshold, use_abs, bigger_or_equall):
     if use_abs is None:
@@ -1082,7 +1087,7 @@ def set_activity_values(cur_obj, values):
 # @mu.timeit
 def activity_map_obj_coloring(cur_obj, vert_values, lookup=None, threshold=0, override_current_mat=True, data_min=None,
                               colors_ratio=None, use_abs=None, bigger_or_equall=False, save_prev_colors=False,
-                              coloring_layer='Col', check_valid_verts=True, uv_size = 300):
+                              coloring_layer='Col', check_valid_verts=True, uv_size=300, remove_unknown=False, hemi=''):
     if isinstance(cur_obj, str):
         cur_obj = bpy.data.objects[cur_obj]
     if lookup is None:
@@ -1107,6 +1112,14 @@ def activity_map_obj_coloring(cur_obj, vert_values, lookup=None, threshold=0, ov
     if len(valid_verts) == 0 and check_valid_verts:
         print('No vertices values are above the threhold {} ({} to {})'.format(threshold, np.min(values), np.max(values)))
         return
+
+    if remove_unknown and hemi != '':
+        vertices_labels_lookup_fname = op.join(mu.get_user_fol(), 'aparc.DKTatlas40_vertices_labels_lookup.pkl')
+        if op.isfile(vertices_labels_lookup_fname):
+            vertices_labels_lookup = mu.load(vertices_labels_lookup_fname)
+            valid_verts = [v for v in valid_verts if 'unknown' not in vertices_labels_lookup[hemi][v]]
+
+
     colors_picked_from_cm = False
     # cm = _addon().get_cm()
     if vert_values.ndim > 1 and vert_values.squeeze().ndim == 1:
