@@ -1113,12 +1113,12 @@ def activity_map_obj_coloring(cur_obj, vert_values, lookup=None, threshold=0, ov
         print('No vertices values are above the threhold {} ({} to {})'.format(threshold, np.min(values), np.max(values)))
         return
 
+    # Remove coloring from unknown labels
     if remove_unknown and hemi != '':
-        vertices_labels_lookup_fname = op.join(mu.get_user_fol(), 'aparc.DKTatlas40_vertices_labels_lookup.pkl')
-        if op.isfile(vertices_labels_lookup_fname):
-            vertices_labels_lookup = mu.load(vertices_labels_lookup_fname)
+        vertices_labels_lookup_fname = glob.glob(op.join(mu.get_user_fol(), '*_vertices_labels_lookup.pkl'))
+        if len(vertices_labels_lookup_fname) > 0:
+            vertices_labels_lookup = mu.load(vertices_labels_lookup_fname[0])
             valid_verts = [v for v in valid_verts if 'unknown' not in vertices_labels_lookup[hemi][v]]
-
 
     colors_picked_from_cm = False
     # cm = _addon().get_cm()
