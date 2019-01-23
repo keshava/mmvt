@@ -61,6 +61,14 @@ def calc_sample_eeg_data():
     eeg.call_main(args)
 
 
+def create_meg_contours():
+    stc_name = 'sample_audvis-meg'
+    pick_t = None #10
+    thresholds_min, thresholds_max, thresholds_dx = 2, 11, 1
+    meg.stc_to_contours('subject', stc_name)#, pick_t, thresholds_min, thresholds_max, thresholds_dx)
+
+
 if __name__ == '__main__':
-    calc_sample_eeg_data()
-    calc_sample_meg_data()
+    # calc_sample_eeg_data()
+    # calc_sample_meg_data()
+    create_meg_contours()
