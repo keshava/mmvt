@@ -3445,14 +3445,13 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
     if all_exist and not overwrite_sensors:
         return True
 
-
     if pick_eeg and pick_meg or (not pick_meg and not pick_eeg):
         raise Exception('read_sensors_layout: You should pick only meg or eeg!')
     try:
-        if not op.isfile(trans_file):
+        if isinstance(trans_file, str) and not op.isfile(trans_file):
             trans_file = find_trans_file(trans_file, args.remote_subject_dir, mri_subject, SUBJECTS_MRI_DIR)
         else:
-            ok_trans_files = filter_trans_files([trans_file])
+            ok_trans_files = filter_trans_files([trans_file] if isinstance(trans_file, str) else trans_file)
             if len(ok_trans_files) == 1:
                 trans_file = ok_trans_files[0]
             else:

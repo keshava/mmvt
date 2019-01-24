@@ -163,7 +163,7 @@ def _electrodes_update():
     update_cursor()
     # color_electrodes(current_electrode, prev_elect)
     # todo: fix electrodes_selection_coloring!
-    # electrodes_selection_coloring()
+    electrodes_selection_coloring()
     if not ElecsPanel.lookup is None:
         loc = ElecsPanel.lookup.get(current_electrode, None)
         if loc is None:

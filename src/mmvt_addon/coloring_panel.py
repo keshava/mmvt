@@ -1749,6 +1749,8 @@ def _fmri_files_update(fmri_file_name):
     if not mu.both_hemi_files_exist(fname_template):
         fname_template = op.join(user_fol, 'fmri', 'fmri_*{}*{}.npy'.format(fmri_file_name, '{hemi}'))
     if not mu.both_hemi_files_exist(fname_template):
+        fname_template = op.join(user_fol, 'fmri', 'fmri_*{}_{}.npy'.format(fmri_file_name, '{hemi}'))
+    if not mu.both_hemi_files_exist(fname_template):
         print('fmri_files_update: {} does not exist!'.format(fname_template))
         ColoringMakerPanel.fMRI['rh'] = None
         ColoringMakerPanel.fMRI['lh'] = None
@@ -2734,6 +2736,10 @@ def init_fmri_files(current_fmri_file=''):
         else:
             bpy.context.scene.fmri_files = current_fmri_file
     ColoringMakerPanel.fMRI_constrasts_exist = len(ColoringMakerPanel.fMRI_contrasts_names) > 0
+
+
+def set_fmri_file(file_name):
+    bpy.context.scene.fmri_files = file_name
 
 
 def init_static_conn():

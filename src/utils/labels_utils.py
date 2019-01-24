@@ -225,7 +225,7 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
     def check_loopup_is_ok(lookup):
         unique_values_num = sum([len(set(lookup[hemi].values())) for hemi in hemis])
         # check it's not only the unknowns
-        lookup_ok = not all([len(set(lookup[hemi].values())) == 1 for hemi in hemis])
+        lookup_ok = not all([len(set(lookup[hemi].values())) == 1 and 'unknown' in lookup[hemi].values() for hemi in hemis])
         err = ''
         if not lookup_ok:
             err = 'unique_values_num = {}\n'.format(unique_values_num)
@@ -386,7 +386,7 @@ def morph_annot(subject, template_brain, atlas, overwrite_subject_vertices_label
                 overwrite_labels=False, overwrite_annot=False, n_jobs=4):
     vertices_labels_lookup = calc_subject_vertices_labels_lookup_from_template(
         subject, template_brain, atlas, overwrite_subject_vertices_labels_lookup)
-    create_atlas_coloring(subject, atlas, vertices_labels_lookup)
+    create_atlas_coloring(subject, atlas, n_jobs)
     save_labels_from_vertices_lookup(
         subject, atlas, SUBJECTS_DIR, MMVT_DIR, overwrite_labels=overwrite_labels,
         lookup=vertices_labels_lookup, n_jobs=n_jobs)

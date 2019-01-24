@@ -86,14 +86,21 @@ def _curves_sep_update(force=False):
     data = data.squeeze()
     if data.ndim == 3:
         N, T, C = data.shape
-    else:
+        get_data = lambda ind, t, c: data[data_ind, t, c]
+    elif data.ndim == 2:
         N, T = data.shape
         if N - 10 < len(fcurves[0].keyframe_points) < N + 10:
             N, T = T, N
             # switch dims
             data = data.T
         C = 1
-    get_data = lambda ind, t, c : data[data_ind, t, c] if data.ndim == 3 else data[data_ind, t]
+        get_data = lambda ind, t, c: data[data_ind, t]
+    elif data.ndim == 1:
+        T = len(data)
+        N, C = 1, 1
+        get_data = lambda ind, t, c: data[t]
+    else:
+        print('_curves_sep_update: Wrong number dims!')
     sep_inds = np.tile(np.arange(0, N), (C, 1)).T.ravel()
     for data_ind in range(N):
         fcurve_ind = 0

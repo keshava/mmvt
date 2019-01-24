@@ -32,9 +32,9 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--function', help='function name', required=False, default='calc_sample_clusters')
     parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=-1)
-    # args = utils.Bag(au.parse_parser(parser))
-    # args.n_jobs = utils.get_n_jobs(args.n_jobs)
-    # if args.mri_subject == '':
-    #     args.mri_subject = args.subject
-    # locals()[args.function](args)
-    # print('Done!')
+    args = utils.Bag(au.parse_parser(parser))
+    args.n_jobs = utils.get_n_jobs(args.n_jobs)
+    if args.mri_subject == '':
+        args.mri_subject = args.subject
+    locals()[args.function](args)
+    print('Done!')

@@ -65,7 +65,20 @@ def create_meg_contours():
     stc_name = 'sample_audvis-meg'
     pick_t = None #10
     thresholds_min, thresholds_max, thresholds_dx = 2, 11, 1
-    meg.stc_to_contours('subject', stc_name)#, pick_t, thresholds_min, thresholds_max, thresholds_dx)
+    stc_fname = op.join(MMVT_DIR, 'sample', 'meg', '{}-lh.stc'.format(stc_name))
+    meg.stc_to_contours('sample', stc_name)#, pick_t, thresholds_min, thresholds_max, thresholds_dx)
+
+
+def norm_stc(subject, stc_name):
+    norm_stc_template = op.join(MMVT_DIR, subject, 'meg', '{}-norm-{}.stc'.format(stc_name, '{hemi}'))
+    if utils.both_hemi_files_exist(norm_stc_template):
+        return norm_stc_template.format(hemi='lh')
+    stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
+    stc = mne.read_source_estimate(stc_fname)
+    stc_max = utils.max_stc(stc)
+    norm_data = stc.data / stc_max
+    stc_norm = mne.SourceEstimate(norm_data, stc.vertices, 0, 0, subject=subject)
+    stc_norm.save(op.join(MMVT_DIR, subject, 'meg', '{}-norm'.format(stc_name)))
 
 
 if __name__ == '__main__':

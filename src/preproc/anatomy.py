@@ -429,7 +429,7 @@ def check_ply_files(subject):
 def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_subject_dir='',
         overwrite_annotation=False, overwrite_morphing=False, do_solve_labels_collisions=False,
         morph_labels_from_fsaverage=True, fs_labels_fol='', save_annot_file=True, surf_type='inflated',
-        overwrite_vertices_labels_lookup=False, morph_annot=False, n_jobs=6):
+        overwrite_vertices_labels_lookup=False, morph_annot=True, n_jobs=6):
     annotation_fname_template = op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
     annotations_exist = utils.both_hemi_files_exist(annotation_fname_template)
     if annotations_exist and not overwrite_annotation:
@@ -1647,7 +1647,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--overwrite_subcorticals', help='overwrite', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_annotation', help='overwrite_annotation', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_vertices_labels_lookup', required=False, default=0, type=au.is_true)
-    parser.add_argument('--morph_annot', required=False, default=0, type=au.is_true)
+    parser.add_argument('--morph_annot', required=False, default=1, type=au.is_true)
     parser.add_argument('--overwrite_morphing_labels', help='overwrite_morphing_labels', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_hemis_ply', help='overwrite_hemis_ply', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_labels_ply_files', help='overwrite_labels_ply_files', required=False, default=0, type=au.is_true)
