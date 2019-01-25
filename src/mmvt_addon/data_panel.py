@@ -1126,6 +1126,8 @@ def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None
             continue
         cur_obj = bpy.data.objects[obj_name]
         fcurves_num = mu.count_fcurves(cur_obj)
+        if data.ndim == 1:
+            data = data.reshape((-1, 1))
         if fcurves_num == len(conditions):
             fcurve_len = len(cur_obj.animation_data.action.fcurves[0].keyframe_points)
         else:
@@ -1373,7 +1375,7 @@ def data_draw(self, context):
             col.operator(ImportMEGSensors.bl_idname, text="Import MEG sensors", icon='COLOR_GREEN')
         else:
             col.operator(ImportMEGSensors.bl_idname, text="Export MEG sensors", icon='LAMP_AREA')
-            if _addon().meg.eeg_sensors_exist():
+            if _addon().meg.meg_sensors_exist():
                 col.prop(context.scene, 'meg_sensors_files', text="")
                 col.operator(AddDataToMEGSensors.bl_idname, text="Add data to MEG sensors", icon='FCURVE')
 

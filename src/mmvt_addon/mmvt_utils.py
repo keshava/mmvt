@@ -1415,10 +1415,13 @@ def change_fcurve_color(fcurve, color, exclude=[]):
 
 
 def get_animation_conditions(obj, take_my_first_child=False):
-    if take_my_first_child:
-        return [get_fcurve_name(f).split('_')[-1] for f in obj.children[0].animation_data.action.fcurves]
-    else:
-        return [get_fcurve_name(f).split('_')[-1] for f in obj.animation_data.action.fcurves]
+    try:
+        if take_my_first_child:
+            return [get_fcurve_name(f).split('_')[-1] for f in obj.children[0].animation_data.action.fcurves]
+        else:
+            return [get_fcurve_name(f).split('_')[-1] for f in obj.animation_data.action.fcurves]
+    except:
+        return []
 
 
 def count_fcurves(objs, recursive=False):

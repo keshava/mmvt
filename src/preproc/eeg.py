@@ -25,10 +25,17 @@ calc_fwd_inv = meg.calc_fwd_inv_wrapper
 calc_stc_per_condition = meg.calc_stc_per_condition_wrapper
 
 
-def read_sensors_layout(mri_subject, args):
+def read_sensors_layout_args(mri_subject, args):
     return meg.read_sensors_layout(
         mri_subject, args, pick_meg=False, pick_eeg=True, overwrite_sensors=args.overwrite_sensors,
         trans_file=args.trans_fname, info_fname=args.info_fname, read_info_file=args.read_info_file)
+
+
+def read_sensors_layout(mri_subject, args=None, overwrite_sensors=False, trans_file='', info_fname='',
+                        info=None, read_info_file=True):
+    return meg.read_sensors_layout(
+        mri_subject, args, overwrite_sensors=overwrite_sensors, pick_meg=False, pick_eeg=True,
+        trans_file=trans_file, info=info, info_fname=info_fname, read_info_file=read_info_file)
 
 
 def save_evoked_to_blender(mri_subject, events, args, evoked=None):
@@ -135,7 +142,7 @@ def main(tup, remote_subject_dir, args, flags):
     conditions, stat = init(subject, args, mri_subject, remote_subject_dir)
 
     if utils.should_run(args, 'read_sensors_layout'):
-        flags['read_sensors_layout'] = read_sensors_layout(mri_subject, args)
+        flags['read_sensors_layout'] = read_sensors_layout_args(mri_subject, args)
 
     flags, evoked, epochs = meg.calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)
 

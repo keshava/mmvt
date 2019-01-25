@@ -262,15 +262,23 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
                  power_line_freq=60, epo_fname='', task='', windows_length=1000, windows_shift=500,
                  windows_num=0, overwrite_epochs=False, eve_template='*eve.fif', raw_fname='',
                  using_auto_reject=True, ar_compute_thresholds_method='random_search', ar_consensus_percs=None,
-                 ar_n_interpolates=None, bad_ar_threshold = 0.5, use_demi_events=False, notch_widths=None, n_jobs=6):
-    epo_fname = get_epo_fname(epo_fname, overwrite=overwrite_epochs)
-    if op.isfile(epo_fname) and not overwrite_epochs:
-        epochs = mne.read_epochs(epo_fname)
-        return epochs
-
-    events, tmaxs = read_events(
-        task, events, raw, tmax, read_events_from_file, stim_channels, windows_length, windows_shift, windows_num,
-        eve_template, use_demi_events)
+                 ar_n_interpolates=None, bad_ar_threshold = 0.5, use_demi_events=False, notch_widths=None,
+                 read_from_raw=False, n_jobs=6):
+    if not read_from_raw:
+        epo_fname = get_epo_fname(epo_fname, overwrite=overwrite_epochs)
+        if op.isfile(epo_fname) and not overwrite_epochs:
+            epochs = mne.read_epochs(epo_fname)
+            return epochs
+    try:
+        events, _ = read_events(
+            task, events, raw, tmax, read_events_from_file, stim_channels, windows_length, windows_shift, windows_num,
+            eve_template, use_demi_events)
+    except:
+        # ret = input('No events, should create one epoch from raw (y/n)? ')
+        # if not au.is_true(ret):
+        #     raise Exception('No events!')
+        events = np.array([0, len(raw.times), 1]).reshape((1, 3))
+        conditions = {'all':1}
     if tmax - tmin <= 0:
         raise Exception('tmax-tmin must be greater than zero!')
     unique_events = np.unique(events[:, 2])
@@ -502,16 +510,18 @@ def calc_epochs_wrapper(
                 if op.isfile(epo_fname):
                     epochs = mne.read_epochs(epo_fname)
         if not epo_exist or overwrite_epochs:
+            read_from_raw = False
             if raw is None:
                 if raw_fname == '':
                     raw_fname = get_raw_fname(raw_fname)
                 raw = load_raw(raw_fname, bad_channels, l_freq, h_freq)
+                read_from_raw = True
             epochs = calc_epoches(
                 raw, conditions, tmin, tmax, baseline, read_events_from_file, events_mat, stim_channels, pick_meg,
                 pick_eeg, pick_eog, reject, reject_grad, reject_mag, reject_eog, remove_power_line_noise,
                 power_line_freq, epo_fname, task, windows_length, windows_shift, windows_num, overwrite_epochs,
                 eve_template, raw_fname, using_auto_reject, ar_compute_thresholds_method, ar_consensus_percs,
-                ar_n_interpolates, bad_ar_threshold, use_demi_events, notch_widths, n_jobs)
+                ar_n_interpolates, bad_ar_threshold, use_demi_events, notch_widths, read_from_raw, n_jobs)
         # if task != 'rest':
         #     all_evoked = calc_evoked_from_epochs(epochs, conditions)
         # else:
@@ -1241,11 +1251,12 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
                         bad_channels=[]):
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, modality))
     first_evokes = evokes if isinstance(evokes, mne.evoked.EvokedArray) else evokes[0]
-    info = evokes[0].info
+    info = first_evokes.info
     for c in bad_channels:
         if c not in info['bads'] and c in info['ch_names']:
             info['bads'].append(c)
-    picks, sensors_picks, ch_names, channels_sensors_dict = get_sensros_info(modality, info, first_evokes.ch_names)
+    picks, sensors_picks, ch_names, channels_sensors_dict = get_sensros_info(
+        mri_subject, modality, info, first_evokes.ch_names)
 
     task_str = '{}_'.format(task) if task != '' else 'all_'
     # sensors_meta = utils.Bag(np.load(op.join(fol, '{}_sensors_positions.npz'.format(modality))))
@@ -1281,14 +1292,14 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
         [-max_abs, max_abs])
 
 
-def get_sensros_info(modality, info, all_ch_names):
+def get_sensros_info(subject, modality, info, all_ch_names):
     if modality == 'meg':
         sensors_picks, channels_sensors_dict = {}, {}
         picks = mne.pick_types(info, meg=True, eeg=False, exclude='bads')
         for sensor_type in ['mag', 'planar1', 'planar2']:
             # Load sensors info
             input_fname = op.join(op.join(
-                MMVT_DIR, SUBJECT, modality, 'meg_{}_sensors_positions.npz'.format(sensor_type)))
+                MMVT_DIR, subject, modality, 'meg_{}_sensors_positions.npz'.format(sensor_type)))
             if not op.isfile(input_fname):
                 print('Can\'t find the sensors info! Please run the create_helmet_mesh function first')
                 return False
@@ -1299,7 +1310,7 @@ def get_sensros_info(modality, info, all_ch_names):
             channels_sensors_dict[sensor_type] = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
     elif modality == 'eeg':
         # Load sensors info
-        input_fname = op.join(op.join(MMVT_DIR, SUBJECT, modality, 'eeg_sensors_positions.npz'))
+        input_fname = op.join(op.join(MMVT_DIR, subject, modality, 'eeg_sensors_positions.npz'))
         if not op.isfile(input_fname):
             print('Can\'t find the sensors info! Please run the create_helmet_mesh function first')
             return False
@@ -3449,7 +3460,8 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
         raise Exception('read_sensors_layout: You should pick only meg or eeg!')
     try:
         if isinstance(trans_file, str) and not op.isfile(trans_file):
-            trans_file = find_trans_file(trans_file, args.remote_subject_dir, mri_subject, SUBJECTS_MRI_DIR)
+            remote_subject_dir = args.remote_subject_dir if args is not None else ''
+            trans_file = find_trans_file(trans_file, remote_subject_dir, mri_subject, SUBJECTS_MRI_DIR)
         else:
             ok_trans_files = filter_trans_files([trans_file] if isinstance(trans_file, str) else trans_file)
             if len(ok_trans_files) == 1:
@@ -3458,6 +3470,7 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
                 print('Wrong trans file!')
                 return False
     except:
+        utils.print_last_error_line()
         return False
     if not op.isfile(trans_file):
         print('read_sensors_layout: No trans files!')
@@ -3529,6 +3542,7 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
         head_mri_t = mne.transforms._ensure_trans(trans, 'head', 'mri')
 
         sensors_pos *= 1000
+        print('Saving sensors pos in {}'.format(output_fname))
         np.savez(output_fname, pos=sensors_pos, names=sensors_names, picks=picks)
     return True
 
