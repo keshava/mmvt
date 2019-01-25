@@ -897,8 +897,8 @@ def add_data_to_meg_sensors(stat=STAT_DIFF):
         animation_conditions = mu.get_animation_conditions(parent_obj, take_my_first_child=True)
         data_conditions = meta['conditions']
         clear_animation = set(animation_conditions) != set(data_conditions)
-        add_data_to_electrodes(data, meta, clear_animation=clear_animation)
         add_data_to_electrodes_parent_obj(parent_obj, data, meta, stat, clear_animation=clear_animation)
+        add_data_to_electrodes(data, meta, clear_animation=clear_animation)
         extra_objs = set([o.name for o in parent_obj.children]) - set(meta['names'])
         for extra_obj in extra_objs:
             mu.delete_object(extra_obj)
@@ -1173,6 +1173,8 @@ def add_data_to_electrodes_parent_obj(parent_obj, all_data, meta, stat=STAT_DIFF
     T = all_data.shape[1] if window_len is None or 'dt' not in meta else int(window_len / meta['dt'])
     for obj_name, data, data_stat in zip(meta['names'], all_data, all_data_stat):
         obj_name = mu.to_str(parent_obj).replace(' ', '')
+        if data.ndim == 1:
+            data = data.reshape((-1, 1))
         if data_stat is None:
             if condition_ind is not None:
                 data_stat = data[:, condition_ind]
