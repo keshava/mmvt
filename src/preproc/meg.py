@@ -1872,7 +1872,7 @@ def calc_inverse_operator(
                 noise_cov = read_noise_cov(noise_cov_fname)
             if noise_cov is None:
                 if use_empty_room_for_noise_cov:
-                    raw_empty_room = mne.io.read_raw_fif(empty_fname, add_eeg_ref=False)
+                    raw_empty_room = mne.io.read_raw_fif(empty_fname) #, add_eeg_ref=False)
                     noise_cov = mne.compute_raw_covariance(raw_empty_room, tmin=0, tmax=None)
                     noise_cov.save(noise_cov_fname)
                 elif use_raw_for_noise_cov:
@@ -2067,7 +2067,7 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
             return False, stcs, stcs_num
         inverse_operator = read_inverse_operator(inv_fname)
         global_inverse_operator = True
-    if calc_stc_for_all:
+    if calc_stc_for_all or len(events_keys) == 0:
         events_keys.append('all')
     flag = False
     for cond_name in events_keys:

@@ -1137,7 +1137,7 @@ def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None
         else:
             fcurve_len = T
         if not clear_animation:
-            clear_animation = fcurves_num < len(conditions) or fcurve_len < T
+            clear_animation = fcurves_num != len(conditions) or fcurve_len < T
         if clear_animation:
             cur_obj.animation_data_clear()
             for cond_ind, cond_str in enumerate(conditions):
@@ -1304,7 +1304,7 @@ def add_data_to_electrodes_and_parent():
     # self.current_root_path = bpy.path.abspath(bpy.context.scene.conf_path)
     parent_obj = bpy.data.objects['Deep_electrodes']
     base_path = mu.get_user_fol()
-    source_file = glob.glob(op.join(base_path, 'electrodes', 'electrodes{}_data*.npz'.format(
+    source_file = glob.glob(op.join(base_path, 'electrodes', 'electrodes{}_data*.npy'.format(
         '_bipolar' if bpy.context.scene.bipolar else '')))[0]
     # 'avg' if bpy.context.scene.selection_type == 'conds' else 'diff'))
     data, meta = DataMakerPanel.electrodes_data, DataMakerPanel.electrodes_meta_data
