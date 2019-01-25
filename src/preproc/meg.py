@@ -1293,6 +1293,7 @@ def save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all=None, norma
 
 
 def get_sensros_info(subject, modality, info, all_ch_names):
+    sensors_ch_names = []
     if modality == 'meg':
         sensors_picks, channels_sensors_dict = {}, {}
         picks = mne.pick_types(info, meg=True, eeg=False, exclude='bads')
@@ -1307,6 +1308,7 @@ def get_sensros_info(subject, modality, info, all_ch_names):
             sensors_names = sensors_info['names']
             sensors_picks[sensor_type] = mne.pick_types(info, meg=sensor_type, exclude='bads')
             ch_names = [all_ch_names[k].replace(' ', '') for k in sensors_picks[sensor_type]]
+            sensors_ch_names.extend(ch_names)
             channels_sensors_dict[sensor_type] = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
     elif modality == 'eeg':
         # Load sensors info
@@ -1318,6 +1320,7 @@ def get_sensros_info(subject, modality, info, all_ch_names):
         sensors_names = sensors_info['names']
         picks = mne.pick_types(info, meg=False, eeg=True, exclude='bads')
         ch_names = [all_ch_names[k].replace(' ', '') for k in picks]
+        sensors_ch_names.extend(ch_names)
         channels_sensors_dict = np.array([ch_names.index(s) for s in sensors_names if s in ch_names])
         sensors_picks = {
             sensor_type: mne.pick_types(info, meg=False, eeg=True, exclude='bads')
@@ -1325,7 +1328,7 @@ def get_sensros_info(subject, modality, info, all_ch_names):
     else:
         raise Exception('The modality {} is not supported! (only eeg/meg)'.format(modality))
 
-    return picks, sensors_picks, ch_names, channels_sensors_dict
+    return picks, sensors_picks, sensors_ch_names, channels_sensors_dict
 
 
 def equalize_epoch_counts(events, method='mintime'):

@@ -886,6 +886,10 @@ def add_data_to_meg_sensors(stat=STAT_DIFF):
 
     # data_fname = op.join(mu.get_user_fol(), 'meg', '{}.npy'.format(bpy.context.scene.meg_sensors_data_files))
     # meta_fname = op.join(mu.get_user_fol(), 'meg', '{}_meta.npz'.format(bpy.context.scene.meg_sensors_data_files))
+    # pos_files = glob.glob(op.join(mu.get_user_fol(), 'meg', 'meg_*_sensors_positions.npz'))
+    # sensors_types = [mu.namebase(f).split('_')[1] for f in pos_files]
+    # for bpy.context.scene.meg_sensors_types in sensors_types:
+    #     print('sensors types: {}'.format(bpy.context.scene.meg_sensors_types))
     data, meta = _addon().meg.get_meg_sensors_data()
     # if not op.isfile(data_fname) or not op.isfile(meta_fname):
     if data is None or meta is None:
@@ -896,12 +900,12 @@ def add_data_to_meg_sensors(stat=STAT_DIFF):
         # meta = DataMakerPanel.meg_meta = np.load(meta_fname)
         animation_conditions = mu.get_animation_conditions(parent_obj, take_my_first_child=True)
         data_conditions = meta['conditions']
-        clear_animation = set(animation_conditions) != set(data_conditions)
-        add_data_to_electrodes_parent_obj(parent_obj, data, meta, stat, clear_animation=clear_animation)
+        clear_animation = False # set(animation_conditions) != set(data_conditions)
+        # add_data_to_electrodes_parent_obj(parent_obj, data, meta, stat, clear_animation=clear_animation)
         add_data_to_electrodes(data, meta, clear_animation=clear_animation)
-        extra_objs = set([o.name for o in parent_obj.children]) - set(meta['names'])
-        for extra_obj in extra_objs:
-            mu.delete_object(extra_obj)
+        # extra_objs = set([o.name for o in parent_obj.children]) - set(meta['names'])
+        # for extra_obj in extra_objs:
+        #     mu.delete_object(extra_obj)
         bpy.types.Scene.eeg_data_exist = True
     if bpy.data.objects.get(' '):
         bpy.context.scene.objects.active = bpy.data.objects[' ']
@@ -1133,7 +1137,7 @@ def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None
         else:
             fcurve_len = T
         if not clear_animation:
-            clear_animation = fcurves_num < len(conditions) or fcurve_len != T
+            clear_animation = fcurves_num < len(conditions) or fcurve_len < T
         if clear_animation:
             cur_obj.animation_data_clear()
             for cond_ind, cond_str in enumerate(conditions):

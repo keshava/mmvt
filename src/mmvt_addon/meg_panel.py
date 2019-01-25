@@ -427,10 +427,12 @@ def color_meg_sensors(threshold=None):
     #     op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
     # inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
     indices = meta.picks.item()[bpy.context.scene.meg_sensors_types]
-    data = data[indices, :, :]
+    data = data[indices, :, :] if data.ndim == 3 else data[indices, :]
     # names = np.array(meta.names)[indices]
 
-    if bpy.context.scene.meg_sensors_conditions != 'diff':
+    if data.ndim == 2:
+        _addon().set_colorbar_title('MEG sensors')
+    elif bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
         _addon().set_colorbar_title('MEG sensors {} condition'.format(meta['conditions'][cond_ind]))
