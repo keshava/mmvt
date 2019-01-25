@@ -341,7 +341,10 @@ def color_eeg_helmet(use_abs=None, threshold=None):
     # data = data[indices]
     # names = np.array(meta.names)[indices]
 
-    if bpy.context.scene.eeg_sensors_conditions != 'diff':
+    if data.ndim == 2:
+        if not _addon().colorbar_values_are_locked():
+            _addon().set_colorbar_title('EEG sensors')
+    elif bpy.context.scene.eeg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.eeg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
         if not _addon().colorbar_values_are_locked():
@@ -383,7 +386,10 @@ def color_meg_helmet(use_abs=None, threshold=None):
     indices = meta.picks.item()[bpy.context.scene.meg_sensors_types]
     data = data[indices]
 
-    if bpy.context.scene.meg_sensors_conditions != 'diff':
+    if data.ndim == 2:
+        if not _addon().colorbar_values_are_locked():
+            _addon().set_colorbar_title('MEG sensors')
+    elif bpy.context.scene.meg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.meg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
         if not _addon().colorbar_values_are_locked():
@@ -479,7 +485,10 @@ def color_eeg_sensors(threshold=None):
     # data = data[indices]
     # names = np.array(meta.names)[indices]
 
-    if bpy.context.scene.eeg_sensors_conditions != 'diff':
+    if data.ndim == 2:
+        if not _addon().colorbar_values_are_locked():
+            _addon().set_colorbar_title('EEG sensors')
+    elif bpy.context.scene.eeg_sensors_conditions != 'diff':
         cond_ind = np.where(meta['conditions'] == bpy.context.scene.eeg_sensors_conditions)[0][0]
         data = data[:, :, cond_ind]
         if not _addon().colorbar_values_are_locked():
