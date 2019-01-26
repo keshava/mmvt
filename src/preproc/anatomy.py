@@ -448,6 +448,10 @@ def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_s
 
     # morph annot
     if morph_annot:
+        fsaverage = lu.find_template_brain_with_annot_file(atlas, fsaverage, SUBJECTS_DIR)
+        if fsaverage == '':
+            print('Can\'t find a tempalte brain which has the atlas {}!'.format(atlas))
+            return False
         annot_exist = lu.morph_annot(
             subject, fsaverage, atlas, overwrite_vertices_labels_lookup, overwrite_morphing, overwrite_annotation,
             n_jobs=n_jobs)

@@ -31,7 +31,7 @@ HEMIS = ['rh', 'lh']
 
 
 def find_template_brain_with_annot_file(aparc_name, fsaverage, subjects_dir, find_in_all=True):
-    fs_found = False
+    optional_templates = []
     if find_in_all:
         fsaverage = [utils.namebase(d) for d in glob.glob(op.join(subjects_dir, 'fs*'))]
     elif isinstance(fsaverage, str):
@@ -41,14 +41,12 @@ def find_template_brain_with_annot_file(aparc_name, fsaverage, subjects_dir, fin
             subjects_dir, fsav, 'label', '{}.{}.annot'.format('{hemi}', aparc_name)))
         fsaverage_labels_exist = len(glob.glob(op.join(subjects_dir, fsav, 'label', aparc_name, '*.label'))) > 0
         if fsaverage_annot_files_exist or fsaverage_labels_exist:
-            fsaverage = fsav
-            fs_found = True
-            break
-    if not fs_found:
+            optional_templates.append(fsav)
+    if len(optional_templates) == 0:
         print("Can't find the annot file for any of the templates brain!")
         return ''
     else:
-        return fsaverage
+        return utils.select_one_file(optional_templates)
 
 
 def morph_labels_from_fsaverage(subject, subjects_dir, mmvt_dir, aparc_name='aparc250', fs_labels_fol='',
