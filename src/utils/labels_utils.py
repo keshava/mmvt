@@ -46,7 +46,10 @@ def find_template_brain_with_annot_file(aparc_name, fsaverage, subjects_dir, fin
         print("Can't find the annot file for any of the templates brain!")
         return ''
     else:
-        return utils.select_one_file(optional_templates)
+        if 'fsaverage' in optional_templates and all([t.startswith('fsaverage') for t in optional_templates]):
+            return 'fsaverage'
+        else:
+            return utils.select_one_file(optional_templates)
 
 
 def morph_labels_from_fsaverage(subject, subjects_dir, mmvt_dir, aparc_name='aparc250', fs_labels_fol='',
@@ -290,7 +293,7 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
             elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
                 verts, _ = utils.read_pial(subject, SUBJECTS_DIR, hemi)
             else:
-                raise Exception('Can\'t find {} pial surfaces!'.fomat(subject))
+                raise Exception('Can\'t find {} pial surfaces!'.format(subject))
         else:
             verts = verts_dict[hemi]
         if len([l for l in labels_names if 'unknown' in l.lower()]) > 0 and \
@@ -404,7 +407,7 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
         return subject_vertices_labels_lookup
     template_vertices_labels_lookup = create_vertices_labels_lookup(template_brain, atlas)
     for morph_maps_root in [MMVT_DIR, SUBJECTS_DIR]:
-        morph_maps_fol = op.join(MMVT_DIR, 'morph_maps')
+        morph_maps_fol = op.join(morph_maps_root, 'morph_maps')
         if op.isfile(op.join(morph_maps_fol, '{}-{}-morph.fif'.format(subject, template_brain))) and \
                 op.isfile(op.join(morph_maps_fol, '{}-{}-morph.fif'.format(template_brain, subject))):
             break
@@ -420,7 +423,7 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
             raise Exception('Wrong number of vertices!')
         if not (len(template_vertices) == morph_maps[hemi_ind].shape[1] ==
                 len(template_vertices_labels_lookup[hemi].keys())):
-            raise Exception('Wrong number of vertices!')
+            raise Exception('Wrong number of vertices in the morphing map!')
 
         for subject_vert in tqdm(range(len(subject_vertices))):
             template_verts_inds = morph_maps[hemi_ind][subject_vert].nonzero()[1]
