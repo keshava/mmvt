@@ -233,12 +233,15 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
             err = 'unique_values_num = {}\n'.format(unique_values_num)
         for hemi in hemis:
             if verts_dict is None:
-                if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
+                if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial')):
+                    verts, _ = nib.freesurfer.read_geometry(
+                        op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
+                elif utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
                     verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
                 elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
                     verts, _ = utils.read_pial(subject, SUBJECTS_DIR, hemi)
                 else:
-                    raise Exception('Can\'t find {} pial surfaces!'.fomat(subject))
+                    raise Exception('Can\'t find {} pial surfaces!'.format(subject))
             else:
                 verts = verts_dict[hemi]
             lookup_ok = lookup_ok and len(lookup[hemi].keys()) == len(verts)
@@ -289,12 +292,12 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
         if check_unknown and len([l for l in labels_names if 'unknown' in l.lower()]) == 0:
             raise Exception('No unknown label in {}'.format(annot_fname))
         if verts_dict is None:
-            if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
+            if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial')):
+                verts, _ = nib.freesurfer.read_geometry(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
+            elif utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
                 verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
             elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
                 verts, _ = utils.read_pial(subject, SUBJECTS_DIR, hemi)
-            elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial')):
-                verts, _ = nib.freesurfer.read_geometry(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
             else:
                 raise Exception('Can\'t find {} pial surfaces!'.format(subject))
         else:
@@ -453,7 +456,9 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
 
 
 def read_pial(subject, hemi):
-    if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
+    if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial')):
+        return nib.freesurfer.read_geometry(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
+    elif utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
         return utils.read_pial(subject, MMVT_DIR, hemi)
     elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
         return utils.read_pial(subject, SUBJECTS_DIR, hemi)
