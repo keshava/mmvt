@@ -9,6 +9,7 @@ import traceback
 import functools
 from collections import defaultdict, Counter
 from tqdm import tqdm
+import nibabel as nib
 
 from src.mmvt_addon import mmvt_utils as mu
 from src.utils import freesurfer_utils as fu
@@ -292,6 +293,8 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
                 verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
             elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
                 verts, _ = utils.read_pial(subject, SUBJECTS_DIR, hemi)
+            elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial')):
+                verts, _ = nib.freesurfer.read_geometry(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
             else:
                 raise Exception('Can\'t find {} pial surfaces!'.format(subject))
         else:
