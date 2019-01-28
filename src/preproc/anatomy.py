@@ -1195,13 +1195,14 @@ def create_new_subject_blend_file(subject, atlas, overwrite_blend=False, ask_if_
     #     shutil.copy(empty_subject_fname, new_fname)
 
 
-def check_bem(subject, remote_subject_dir, recreate_src_spacing, recreate_bem_solution=False, args={}):
+def check_bem(subject, remote_subject_dir, recreate_src_spacing, recreate_bem_solution=False, bem_ico=4, args={}):
     from src.preproc import meg
     meg_args = meg.read_cmd_args(dict(subject=subject))
     meg_args.update(args)
     meg.init(subject, meg_args, remote_subject_dir=remote_subject_dir)
     # args.remote_subject_dir = remote_subject_dir
-    bem_exist, _ = meg.check_bem(subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution, meg_args)
+    bem_exist, _ = meg.check_bem(subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution,
+                                 bem_ico, meg_args)
     return bem_exist
 
 
@@ -1602,7 +1603,7 @@ def main(subject, remote_subject_dir, org_args, flags):
 
     if 'check_bem' in args.function:
         flags['check_bem'] = check_bem(
-            subject, remote_subject_dir, args.recreate_src_spacing, args.recreate_bem_solution, args)
+            subject, remote_subject_dir, args.recreate_src_spacing, args.recreate_bem_solution, args.bem_ico, args)
 
     if 'create_outer_skin_surface' in args.function:
         flags['create_outer_skin_surface'] = create_outer_skin_surface(
@@ -1685,6 +1686,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--slices_modality', help='', required=False, default='mri')
     parser.add_argument('--skull_surfaces_fol_name', help='', required=False, default='bem')
     parser.add_argument('--recreate_bem_solution', help='', required=False, default=0, type=au.is_true)
+    parser.add_argument('--bem_ico', help='', required=False, default=4, type=int)
     parser.add_argument('--recreate_src_spacing', help='', required=False, default='oct6')
 
 

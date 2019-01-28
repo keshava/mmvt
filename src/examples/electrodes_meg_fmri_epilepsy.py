@@ -42,17 +42,15 @@ def analyze_meg(seizure_time, seizure_len):
         meg.read_sensors_layout(subject, info=raw.info, overwrite_sensors=False)
         eeg.read_sensors_layout(subject, info=raw.info, overwrite_sensors=False)
 
-    if True: # not op.isfile(meg_evoked_fname):
+    if not op.isfile(meg_evoked_fname) or not op.isfile(eeg_evoked_fname):
         if raw is None:
             raw = mne.io.read_raw_fif(meg_raw_fname_seizure)
-        eeg_sensors_picks = mne.io.pick.pick_types(raw.info, meg=True, eeg=True, exclude=[])
-        eeg_evoked = mne.EvokedArray(raw.get_data(), raw.info, comment='seizure')
-        eeg_evoked = eeg_evoked.pick_types(meg=False, eeg=True)
+        evoked = mne.EvokedArray(raw.get_data(), raw.info, comment='seizure')
+        eeg_evoked = evoked.pick_types(meg=False, eeg=True)
         mne.write_evokeds(eeg_evoked_fname, eeg_evoked)
         meg.save_evokes_to_mmvt(eeg_evoked, [1], subject, modality='eeg')
 
-        meg_sensors_picks = mne.io.pick.pick_types(raw.info, meg=True, eeg=False, exclude=[])
-        meg_evoked = mne.EvokedArray(raw.get_data(picks=meg_sensors_picks), raw.info, comment='seizure')
+        meg_evoked = evoked.pick_types(meg=True, eeg=False)
         mne.write_evokeds(meg_evoked_fname, meg_evoked)
         meg.save_evokes_to_mmvt(evoked, [1], subject,  modality='meg')
 
@@ -64,18 +62,23 @@ def analyze_meg(seizure_time, seizure_len):
         times = d.times[electrodes_from_t:electrodes_to_t]
         np.savez(electrodes_meta_fname, names=d.names, conditions=d.conditions, times=times)
 
-    # meg.create_helmet_mesh(subject, overwrite_faces_verts=True)
+    meg.create_helmet_mesh(subject, overwrite_faces_verts=True)
     eeg.create_helmet_mesh(subject, overwrite_faces_verts=True)
 
+    overwrite_source_bem = True
     args = meg.read_cmd_args(dict(
         subject=subject,
         function='make_forward_solution,calc_inverse_operator,calc_stc',
+        recreate_src_spacing='ico5',
+        fwd_recreate_source_space=overwrite_source_bem,
+        recreate_bem_solution=overwrite_source_bem,
         contrast='seizure', task='seizure',
         raw_fname=meg_raw_fname_seizure,
         use_empty_room_for_noise_cov=True,
         empty_fname='empty_room_raw.fif',
-        pick_meg=True, pick_eeg=False,
-        fwd_usingMEG=True, fwd_usingEEG=False,
+        overwrite_fwd=True,
+        # pick_meg=True, pick_eeg=False,
+        # fwd_usingMEG=True, fwd_usingEEG=False,
     ))
     meg.call_main(args)
 

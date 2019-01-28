@@ -77,7 +77,7 @@ def run_on_subjects(args, main_func, subjects_itr=None, subject_func=None):
             # if utils.should_run(args, 'prepare_subject_folder'):
             # I think we always want to run this
             # *) Prepare the local subject's folder
-            flags['prepare_subject_folder'] = prepare_subject_folder(
+            flags['prepare_subject_folder'], password = prepare_subject_folder(
                 subject, remote_subject_dir, args)
             if not flags['prepare_subject_folder'] and not args.ignore_missing:
                 ans = input('Do you wish to continue (y/n)? ')

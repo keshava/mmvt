@@ -985,7 +985,7 @@ def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_s
     if sftp:
         return all_files_exists, password
     else:
-        return all_files_exists
+        return all_files_exists, ''
 
 
 def check_if_all_necessary_files_exist(subject, necessary_files, local_subject_dir, trace=True):

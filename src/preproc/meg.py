@@ -1430,7 +1430,7 @@ def check_src(mri_subject, recreate_the_source_space=False, recreate_src_spacing
     return src
 
 
-def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution=False, args={}):
+def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution=False, bem_ico=4, args={}):
     bem_sol = None
     if len(args) == 0:
         args = utils.Bag(
@@ -1445,7 +1445,7 @@ def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_be
     if not op.isfile(bem_fname) or recreate_bem_solution:
         # todo: check if the bem and src has same ico
         prepare_bem_surfaces(mri_subject, remote_subject_dir, args)
-        model = mne.make_bem_model(mri_subject, subjects_dir=SUBJECTS_MRI_DIR, ico=int(recreate_src_spacing[3:]))
+        model = mne.make_bem_model(mri_subject, subjects_dir=SUBJECTS_MRI_DIR, ico=int(bem_ico))
         bem_sol = mne.make_bem_solution(model)
         save_bem_solution(bem_sol, bem_fname)
     if bem_sol is None and op.isfile(bem_fname):
@@ -1517,7 +1517,7 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
 def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', fwd_fname='', cor_fname='',
                           sub_corticals_codes_file='', usingMEG=True, usingEEG=True, calc_corticals=True,
                           calc_subcorticals=True, recreate_the_source_space=False, recreate_bem_solution=False,
-                          recreate_src_spacing='oct6', recreate_src_surface='white', overwrite_fwd=False,
+                          bem_ico=4, recreate_src_spacing='oct6', recreate_src_surface='white', overwrite_fwd=False,
                           remote_subject_dir='', n_jobs=4, args={}):
     fwd, fwd_with_subcortical = None, None
     raw_fname = get_raw_fname(raw_fname)
@@ -1530,7 +1530,7 @@ def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', 
                         remote_subject_dir, n_jobs)
         check_src_ply_vertices_num(src)
         bem_exist, bem = check_bem(
-            mri_subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution, args)
+            mri_subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution, bem_ico, args)
         sub_corticals = utils.read_sub_corticals_code_file(sub_corticals_codes_file)
         if '{cond}' not in evo_fname:
             if calc_corticals:
@@ -3550,16 +3550,20 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
     return True
 
 
-def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True, sensors_type='mag', modality='meg'):
+def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True, sensors_type='mag', modality='meg',
+                       overwrite=False):
     try:
         from scipy.spatial import Delaunay
         from src.utils import trig_utils
+        mesh_ply_fname = op.join(MMVT_DIR, subject, modality, '{}_helmet.ply'.format(modality))
+        if op.isfile(mesh_ply_fname) and not overwrite:
+            print('{} mesh already exist!'.format(modality))
+            return True
         input_file = op.join(MMVT_DIR, subject, modality, '{}_{}sensors_positions.npz'.format(
             modality, '{}_'.format(sensors_type) if modality == 'meg' else ''))
         if not op.isfile(input_file):
             print('Can\'t find {}! Run the read_sensors_layout function first'.format(input_file))
             return False
-        mesh_ply_fname = op.join(MMVT_DIR, subject, modality, '{}_helmet.ply'.format(modality))
         faces_verts_out_fname = op.join(MMVT_DIR, subject, modality, '{}_faces_verts.npy'.format(modality))
         f = np.load(input_file)
         verts = f['pos']
@@ -3847,7 +3851,7 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
             flags['make_forward_solution'], fwd, fwd_subs = make_forward_solution(
                 mri_subject, conditions, raw_fname, evo_fname, fwd_fname, args.cor_fname, sub_corticals_codes_file,
                 args.fwd_usingMEG, args.fwd_usingEEG, args.fwd_calc_corticals, args.fwd_calc_subcorticals,
-                args.fwd_recreate_source_space, args.recreate_bem_solution, args.recreate_src_spacing,
+                args.fwd_recreate_source_space, args.recreate_bem_solution, args.bem_ico, args.recreate_src_spacing,
                 args.recreate_src_surface, args.overwrite_fwd, args.remote_subject_dir, args.n_jobs, args)
 
         if utils.should_run(args, 'calc_inverse_operator') and flags.get('make_forward_solution', True):
@@ -3901,7 +3905,7 @@ def calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, fl
         stc_exist = all([utils.both_hemi_files_exist(stc_hemi_template.format(
             cond=cond, method=im, hemi='{hemi}')) for (im, cond) in product(args.inverse_method, conditions)])
         if stc_exist and not args.overwrite_stc:
-            return True, None, {}
+            return flags, None, {}
         if isinstance(inverse_method, Iterable) and not isinstance(inverse_method, str):
             inverse_method = inverse_method[0]
         inv_fname = get_inv_fname(args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG)
@@ -5308,6 +5312,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--fwd_calc_subcorticals', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--fwd_recreate_source_space', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--recreate_bem_solution', help='', required=False, default=0, type=au.is_true)
+    parser.add_argument('--bem_ico', help='', required=False, default=4, type=int)
     parser.add_argument('--recreate_src_spacing', help='', required=False, default='oct6')
     parser.add_argument('--recreate_src_surface', help='', required=False, default='white')
     parser.add_argument('--surf_name', help='', required=False, default='pial')
