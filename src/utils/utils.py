@@ -421,11 +421,11 @@ def read_freesurfer_lookup_table(get_colors=False, return_dict=False, reverse_di
     if not op.isfile(lut_fname):
         resources_lut_fname = op.join(get_resources_fol(), lut_name)
         if op.isfile(resources_lut_fname):
-            shutil.copy(resources_lut_fname, lut_fname)
+            copy_file(resources_lut_fname, lut_fname)
         else:
             freesurfer_lut_fname = op.join(freesurfer_fol(), lut_name)
             if op.isfile(freesurfer_lut_fname):
-                shutil.copy(freesurfer_lut_fname, lut_fname)
+                copy_file(freesurfer_lut_fname, lut_fname)
             else:
                 print("Can't find FreeSurfer Color LUT!")
                 return None
@@ -947,7 +947,7 @@ def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_s
                         fs53_fname = file_name.replace('DKTatlas', 'DKTatlas40')
                         fs53_remote_fname = op.join(remote_subject_dir, fol, fs53_fname)
                         if op.isfile(fs53_remote_fname):
-                            shutil.copyfile(fs53_remote_fname, remote_fname)
+                            copy_file(fs53_remote_fname, remote_fname)
                     if len(local_files) == 0 or overwrite_files:
                         remote_files = glob.glob(remote_fname)
                         if len(remote_files) > 0:
@@ -971,7 +971,7 @@ def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_s
                                 if not op.isfile(local_fname):
                                     print('coping {} to {}'.format(remote_fname, local_fname))
                                     make_dir(get_parent_fol(local_fname))
-                                    shutil.copyfile(remote_fname, local_fname)
+                                    copy_file(remote_fname, local_fname)
                                 if op.isfile(local_fname) and op.getsize(remote_fname) != op.getsize(remote_fname):
                                     os.remove(local_fname)
                                     print('Local file and remote file have different sizes!')
@@ -2283,3 +2283,8 @@ def find_hemi_using_vertices_num(subject, fname, subjects_dir):
 
 def extract_numpy_values_with_zero_dimensions(x):
     return x.item()
+
+
+def copy_file(src, dst):
+    if src != dst:
+        shutil.copyfile(src, dst)

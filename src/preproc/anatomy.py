@@ -185,7 +185,7 @@ def convert_and_rename_subcortical_files(fol, new_fol, lookup):
 #     blender_fol = op.join(MMVT_DIR, subject, mmvt_subcorticals_fol_name)
 #     if op.isdir(blender_fol):
 #         shutil.rmtree(blender_fol)
-#     shutil.copytree(subcorticals_fol, blender_fol)
+#     utils.copy_filetree(subcorticals_fol, blender_fol)
 
 
 def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', overwrite=False):
@@ -250,7 +250,7 @@ def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', o
 #             if not op.isfile(mmvt_hemi_ply_fname) or overwrite:
 #                 if op.isfile(mmvt_hemi_ply_fname):
 #                     os.remove(mmvt_hemi_ply_fname)
-#                 shutil.copy(hemi_ply_fname, mmvt_hemi_ply_fname)
+#                 utils.copy_file(hemi_ply_fname, mmvt_hemi_ply_fname)
 #             if not op.isfile(mmvt_hemi_npz_fname) or overwrite:
 #                 if op.isfile(mmvt_hemi_npz_fname):
 #                     os.remove(mmvt_hemi_npz_fname)
@@ -271,7 +271,7 @@ def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', o
 #         ply_file = utils.srf2ply(op.join(SUBJECTS_DIR, subject, 'surf', '{}.{}.srf'.format(hemi, surf_type)),
 #                                  op.join(SUBJECTS_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
 #         # utils.make_dir(op.join(MMVT_DIR, subject))
-#         # shutil.copyfile(ply_file, op.join(MMVT_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
+#         # utils.copy_filefile(ply_file, op.join(MMVT_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
 
 
 def save_hemis_curv(subject, atlas):
@@ -420,7 +420,7 @@ def check_ply_files(subject):
 #         #         verts[:, 0] = verts[:, 0] + verts_offset
 #         #         utils.write_ply_file(verts, faces, ply_fname)
 #         # utils.rmtree(blender_fol)
-#         # shutil.copytree(ply_fol, blender_fol)
+#         # utils.copy_filetree(ply_fol, blender_fol)
 #         # utils.rmtree(mat_fol)
 #         # utils.rmtree(ply_fol)
 #     return lookup
@@ -478,7 +478,7 @@ def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_s
             remote_fname = op.join(remote_subject_dir, 'label', '{}.{}.annot'.format(hemi, atlas))
             local_fname = op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format(hemi, atlas))
             if remote_fname != local_fname:
-                shutil.copy(remote_fname, local_fname)
+                utils.copy_file(remote_fname, local_fname)
         return True
 
     if fu.is_fs_atlas(atlas):
@@ -1002,7 +1002,7 @@ def calc_labels_center_of_mass(subject, atlas, overwrite=False):
                 writer.writerow([label.name, *center_of_mass[label.name]])
         blend_fname = op.join(MMVT_DIR, subject, '{}_center_of_mass.pkl'.format(atlas))
         utils.save(center_of_mass, com_fname)
-        shutil.copyfile(com_fname, blend_fname)
+        utils.copy_filefile(com_fname, blend_fname)
     return len(labels) > 0 and op.isfile(com_fname) and op.isfile(blend_fname)
 
 
@@ -1044,7 +1044,7 @@ def save_cerebellum_coloring(subject):
     if not op.isfile(lut_fname):
         lut_resources_fname = op.join(utils.get_resources_fol(), lut_name)
         if op.isfile(lut_resources_fname):
-            shutil.copy(lut_resources_fname, lut_fname)
+            utils.copy_file(lut_resources_fname, lut_fname)
         else:
             print("The Buckner2011 17Networks Color LUT is missing! ({})".format(lut_fname))
             return False
@@ -1184,15 +1184,15 @@ def create_new_subject_blend_file(subject, atlas, overwrite_blend=False, ask_if_
     # empty_subject_fname = op.join(MMVT_DIR, 'empty_subject.blend')
     # if not op.isfile(empty_subject_fname):
     #     resources_dir = op.join(utils.get_parent_fol(levels=2), 'resources')
-    #     shutil.copy(op.join(resources_dir, 'empty_subject.blend'), empty_subject_fname)
+    #     utils.copy_file(op.join(resources_dir, 'empty_subject.blend'), empty_subject_fname)
     # if op.isfile(new_fname) and not overwrite_blend:
     #     if ask_if_overwrite_blend:
     #         overwrite = input('The file {} already exist, do you want to overwrite? '.format(new_fname))
     #         if au.is_true(overwrite):
     #            os.remove(new_fname)
-    #            shutil.copy(op.join(MMVT_DIR, 'empty_subject.blend'), new_fname)
+    #            utils.copy_file(op.join(MMVT_DIR, 'empty_subject.blend'), new_fname)
     # else:
-    #     shutil.copy(empty_subject_fname, new_fname)
+    #     utils.copy_file(empty_subject_fname, new_fname)
 
 
 def check_bem(subject, remote_subject_dir, recreate_src_spacing, recreate_bem_solution=False, bem_ico=4, args={}):
@@ -1235,7 +1235,7 @@ def create_slices(subject, xyz, modality='mri', header=None, data=None):
         if not op.isfile(fname):
             subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', 'T1.mgz')
             if op.isfile(subjects_fname):
-                shutil.copy(subjects_fname, fname)
+                utils.copy_file(subjects_fname, fname)
             else:
                 print("Can't find subject's T1.mgz!")
                 return False
@@ -1244,7 +1244,7 @@ def create_slices(subject, xyz, modality='mri', header=None, data=None):
         if not op.isfile(fname):
             subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', 'ct.mgz')
             if op.isfile(subjects_fname):
-                shutil.copy(subjects_fname, fname)
+                utils.copy_file(subjects_fname, fname)
             else:
                 print("Can't find subject's CT! ({})".format(fname))
                 return False
@@ -1398,7 +1398,7 @@ def get_data_and_header(subject, image_name):
     # if not op.isfile(fname):
     subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', image_name)
     if not op.isfile(subjects_fname):
-        # shutil.copy(subjects_fname, fname)
+        # utils.copy_file(subjects_fname, fname)
     # else:
         print("Can't find subject's {}!".format(image_name))
         return None, None
@@ -1497,7 +1497,7 @@ def copy_sphere_reg_files(subject):
             mmvt_fname = op.join(MMVT_DIR, subject, 'surf', '{}.sphere.reg'.format(hemi))
             utils.make_dir(op.join(MMVT_DIR, subject, 'surf'))
             if not op.isfile(mmvt_fname):
-                shutil.copy(tempalte.format(hemi=hemi), mmvt_fname)
+                utils.copy_file(tempalte.format(hemi=hemi), mmvt_fname)
     else:
         print("No ?h.sphere.reg files! You won't be able to plot stc files")
 

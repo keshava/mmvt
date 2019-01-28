@@ -174,7 +174,7 @@ def solve_labels_collision(subject, atlas, subjects_dir, mmvt_dir, backup_atlas,
         labels_fol = op.join(subjects_dir, subject, 'label', atlas)
         if op.isdir(backup_labels_fol):
             shutil.rmtree(backup_labels_fol)
-        shutil.copytree(labels_fol, backup_labels_fol)
+        utils.copy_filetree(labels_fol, backup_labels_fol)
     return save_labels_from_vertices_lookup(
         subject, atlas, subjects_dir, mmvt_dir, surf_type='pial', read_labels_from_fol=backup_labels_fol,
         overwrite_vertices_labels_lookup=overwrite_vertices_labels_lookup, n_jobs=n_jobs)
@@ -278,7 +278,7 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
             annot_fname = get_annot_fnames(subject, SUBJECTS_DIR, atlas, hemi=hemi)[0]
             if op.isfile(annot_fname):
                 backup_fname = utils.add_str_to_file_name(annot_fname, '_backup')
-                shutil.copy(annot_fname, backup_fname)
+                utils.copy_file(annot_fname, backup_fname)
             try:
                 mne.write_labels_to_annot(subject=subject, hemi=hemi, labels=labels, parc=atlas, overwrite=True,
                                           subjects_dir=SUBJECTS_DIR)
@@ -481,7 +481,7 @@ def backup_annotation_files(subject, subjects_dic, aparc_name, backup_str='backu
     for hemi in HEMIS:
         annot_fname = op.join(subjects_dic, subject, 'label', '{}.{}.annot'.format(hemi, aparc_name))
         if op.isfile(annot_fname):
-            shutil.copyfile(op.join(subjects_dic, subject, 'label', '{}.{}.annot'.format(hemi, aparc_name)),
+            utils.copy_filefile(op.join(subjects_dic, subject, 'label', '{}.{}.annot'.format(hemi, aparc_name)),
                             op.join(subjects_dic, subject, 'label', '{}.{}.{}.annot'.format(hemi, aparc_name, backup_str)),)
 
 

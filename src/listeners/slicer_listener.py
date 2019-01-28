@@ -19,7 +19,7 @@ def get_data_and_header(subject, modality):
         if not op.isfile(fname):
             subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', 'T1.mgz')
             if op.isfile(subjects_fname):
-                shutil.copy(subjects_fname, fname)
+                utils.copy_file(subjects_fname, fname)
             else:
                 print("Can't find subject's T1.mgz!")
                 return False
@@ -28,7 +28,7 @@ def get_data_and_header(subject, modality):
         if not op.isfile(fname):
             subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', 'ct.mgz')
             if op.isfile(subjects_fname):
-                shutil.copy(subjects_fname, fname)
+                utils.copy_file(subjects_fname, fname)
             else:
                 print("Can't find subject's CT! ({})".format(fname))
                 return False

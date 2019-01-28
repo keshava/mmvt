@@ -248,7 +248,7 @@ def get_subjects_files(args):
                 # output_fname = op.join(subject_fol, 'rest.sm6.fsaverage6.{}.mgz'.format(hemi))
                 output_fname = op.join(subject_fol, 'rest.nii')
                 if not op.isfile(output_fname):
-                    shutil.copy(fname, output_fname)
+                    utils.copy_file(fname, output_fname)
                 else:
                     print('{} already exist!'.format(output_fname))
         else:

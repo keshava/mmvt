@@ -1404,7 +1404,7 @@ def check_src(mri_subject, recreate_the_source_space=False, recreate_src_spacing
                 src_fname = utils.select_one_file(src_files, '', 'source files')
     if op.isfile(src_fname) and utils.get_parent_fol(src_fname, 3) != SUBJECTS_MRI_DIR:
         fol = utils.make_dir(op.join(SUBJECTS_MRI_DIR, mri_subject, 'bem'))
-        shutil.copy(src_fname, op.join(fol, utils.namebase_with_ext(src_fname)))
+        utils.copy_file(src_fname, op.join(fol, utils.namebase_with_ext(src_fname)))
     if not recreate_the_source_space and op.isfile(src_fname):
         src = mne.read_source_spaces(src_fname)
     else:
@@ -1509,7 +1509,7 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
     if not bem_files_exist and watershed_files_exist:
         for bem_file, watershed_file in zip(bem_files, watershed_files):
             utils.remove_file(op.join(bem_fol, bem_file))
-            shutil.copy(op.join(bem_fol, 'watershed', watershed_file.format(mri_subject)),
+            utils.copy_file(op.join(bem_fol, 'watershed', watershed_file.format(mri_subject)),
                         op.join(bem_fol, bem_file))
     return [op.join(bem_fol, 'watershed', watershed_fname.format(mri_subject)) for watershed_fname in watershed_files]
 
@@ -1620,7 +1620,7 @@ def _make_forward_solution(src, raw_fname, epo_fname, cor_fname, usingMEG=True, 
             bem_fname = utils.select_one_file(op.join(
                 SUBJECTS_MRI_DIR, MRI_SUBJECT, 'bem', '*-bem-sol.fif'), '', 'bem files')
             if op.isfile(bem_fname):
-                shutil.copy(bem_fname, BEM)
+                utils.copy_file(bem_fname, BEM)
             else:
                 raise Exception("Can't find the BEM file!")
 
@@ -3206,7 +3206,7 @@ def calc_labels_avg_per_cluster(subject, atlas, events, inverse_method, stc_name
         lables_mmvt_fname = op.join(MMVT_DIR, MRI_SUBJECT, 'meg', op.basename(labels_output_fname))
         np.savez(labels_output_fname, data=labels_data[hemi][extract_method],
                  names=labels_names, conditions=conditions)
-        shutil.copy(labels_output_fname, lables_mmvt_fname)
+        utils.copy_file(labels_output_fname, lables_mmvt_fname)
 
 
 def calc_labels_avg_per_condition(
@@ -3830,9 +3830,9 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
                 local_cor_fname = op.join(trans_fol, utils.namebase_with_ext(trans_file))
                 if not op.isfile(local_cor_fname) and utils.get_parent_fol(trans_file) != trans_fol:
                     # if trans_file != trans_fol:
-                    #     shutil.copy(trans_file, trans_fol)
+                    #     utils.copy_file(trans_file, trans_fol)
                     if trans_file != COR:
-                        shutil.copy(trans_file, local_cor_fname)
+                        utils.copy_file(trans_file, local_cor_fname)
                 args.cor_fname = local_cor_fname
             src_dic = dict(bem=['*-{}-{}*-src.fif'.format(
                 args.recreate_src_spacing[:3], args.recreate_src_spacing[-1])])
@@ -4196,7 +4196,7 @@ def calc_stc_diff(stc1_fname, stc2_fname, output_name):
     utils.make_dir(utils.get_parent_fol(output_name))
     for hemi in utils.HEMIS:
         if output_name != mmvt_fname:
-            shutil.copy('{}-{}.stc'.format(output_name, hemi),
+            utils.copy_file('{}-{}.stc'.format(output_name, hemi),
                         '{}-{}.stc'.format(mmvt_fname, hemi))
             print('Saving to {}'.format('{}-{}.stc'.format(mmvt_fname, hemi)))
 
@@ -4564,7 +4564,7 @@ def calc_contours(subject, atlas_name, hemi, clusters_labels, clusters_labels_fo
     #     dest_annot_fname = op.join(clusters_labels_fol, utils.namebase_with_ext(annot_fname))
     #     if op.isfile(dest_annot_fname):
     #         os.remove(dest_annot_fname)
-    #     shutil.copy(annot_fname, dest_annot_fname)
+    #     utils.copy_file(annot_fname, dest_annot_fname)
     # else:
     #     print('calc_contours: No annot file!')
     contours = anat.calc_labeles_contours(

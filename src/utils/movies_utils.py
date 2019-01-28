@@ -274,7 +274,7 @@ def change_frames_names(fol, images_prefix, images_type, images_format_len, new_
         num_str = images_formats[images_format_len].format(num + 1)
         new_image_fname = op.join(new_fol, '{}{}.{}'.format(images_prefix, num_str, images_type))
         print('{} -> {}'.format(image_fname, new_image_fname))
-        shutil.copy(image_fname, new_image_fname)
+        utils.copy_file(image_fname, new_image_fname)
     return new_fol
 
 

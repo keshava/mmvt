@@ -106,7 +106,7 @@ def get_data_and_header(subject, mmvt_dir, subjects_dir, ct_name='ct_reg_to_mr.m
     if not op.isfile(fname):
         subjects_fname = op.join(subjects_dir, subject, 'mri', ct_name)
         if op.isfile(subjects_fname):
-            shutil.copy(subjects_fname, fname)
+            utils.copy_file(subjects_fname, fname)
         else:
             print("Can't find subject's CT! ({})".format(fname))
             return None, None

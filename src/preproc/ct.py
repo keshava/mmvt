@@ -66,7 +66,7 @@ def convert_ct_to_mgz(subject, ct_raw_input_fol, ct_fol='', output_name='ct_org.
 def register_to_mr(subject, ct_fol='', ct_name='', nnv_ct_name='', register_ct_name='', threshold=-200,
                    cost_function='nmi', overwrite=False, print_only=False):
     if op.isfile(op.join(SUBJECTS_DIR, subject, 'ct', ct_name)):
-        shutil.copy(op.join(SUBJECTS_DIR, subject, 'ct', ct_name), op.join(MMVT_DIR, subject, 'ct', ct_name))
+        utils.copy_file(op.join(SUBJECTS_DIR, subject, 'ct', ct_name), op.join(MMVT_DIR, subject, 'ct', ct_name))
     if not op.isdir(ct_fol):
         ct_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'ct'))
     ct_mmvt_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'ct'))

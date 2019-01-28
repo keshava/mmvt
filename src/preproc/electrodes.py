@@ -261,12 +261,12 @@ def convert_electrodes_pos(
         subjects_elecs_fname = op.join(SUBJECTS_DIR, subject, 'electrodes', elc_file_name)
         if not op.isfile(csv_file):
             if op.isfile(subjects_elecs_fname):
-                shutil.copy(subjects_elecs_fname, op.join(electrodes_folder, elc_file_name))
+                utils.copy_file(subjects_elecs_fname, op.join(electrodes_folder, elc_file_name))
             else:
                 print("Can't find {}!".format(elc_file_name))
                 continue
         elif op.isfile(subjects_elecs_fname) and utils.file_is_newer(subjects_elecs_fname, csv_file):
-            shutil.copy(subjects_elecs_fname, op.join(electrodes_folder, elc_file_name))
+            utils.copy_file(subjects_elecs_fname, op.join(electrodes_folder, elc_file_name))
         file_found = True
         output_file_name = 'electrodes{}_{}positions.npz'.format('_bipolar' if bipolar else '', 'snap_' if snap else '')
         output_file = op.join(MMVT_DIR, subject, 'electrodes', output_file_name)
@@ -275,7 +275,7 @@ def convert_electrodes_pos(
             return False, None, None
         # if copy_to_blender:
         #     blender_file = op.join(MMVT_DIR, subject, 'electrodes', output_file_name)
-        #     shutil.copyfile(output_file, blender_file)
+        #     utils.copy_filefile(output_file, blender_file)
     if not file_found:
         print('No electrodes coordinates file!')
         return False, None, None
@@ -1111,7 +1111,7 @@ def create_electrodes_labeling_coloring(subject, bipolar, atlas, good_channels=N
         return False
     if electrode_labeling_fname != op.join(MMVT_DIR, subject, 'electrodes',
             op.basename(electrode_labeling_fname)):
-        shutil.copy(electrode_labeling_fname, op.join(MMVT_DIR, subject, 'electrodes',
+        utils.copy_file(electrode_labeling_fname, op.join(MMVT_DIR, subject, 'electrodes',
             op.basename(electrode_labeling_fname)))
     most_probable_rois = get_most_probable_rois(elecs_probs, p_threshold, good_channels)
     rois_colors_rgbs, rois_colors_names = get_rois_colors(subject, atlas, most_probable_rois)
@@ -1262,7 +1262,7 @@ def save_electrodes_coords(subject, elecs_names, elecs_coords, good_channels=Non
         output_file_name = op.split(electrodes_fname)[1]
         utils.make_dir(op.join(MMVT_DIR, 'colin27', 'electrodes'))
         blender_file = op.join(MMVT_DIR, 'colin27', 'electrodes', output_file_name.replace(fname_postfix, ''))
-        shutil.copyfile(electrodes_fname, blender_file)
+        utils.copy_filefile(electrodes_fname, blender_file)
     return electrodes_fname
 
 
@@ -1592,7 +1592,7 @@ def get_ras_file(subject, args):
         remote_fname = utils.select_one_file(remote_fnames)
         # remote_fname = op.join(remote_ras_fol, '{}_RAS.xlsx'.format(subject))
         if op.isfile(remote_fname):
-            shutil.copyfile(remote_fname, local_fname)
+            utils.copy_filefile(remote_fname, local_fname)
     return op.isfile(local_fname)
 
 
@@ -1609,7 +1609,7 @@ def run_ela(subject, atlas, bipolar, overwrite=False, elc_r=3, elc_len=4, electr
     mmvt_ela_fname = op.join(MMVT_DIR, subject, 'electrodes', output_name)
     if (op.isfile(output_fname) or op.isfile(mmvt_ela_fname)) and not overwrite:
         if not op.isfile(mmvt_ela_fname) and op.isfile(output_fname):
-            shutil.copyfile(output_fname, mmvt_ela_fname)
+            utils.copy_filefile(output_fname, mmvt_ela_fname)
         print('The model for {}, {} is already exist ({})'.format(subject, atlas, mmvt_ela_fname))
         return True
 
@@ -1627,7 +1627,7 @@ def run_ela(subject, atlas, bipolar, overwrite=False, elc_r=3, elc_len=4, electr
     if not op.isfile(output_fname):
         return False
     else:
-        shutil.copyfile(output_fname, mmvt_ela_fname)
+        utils.copy_filefile(output_fname, mmvt_ela_fname)
         return True
 
 

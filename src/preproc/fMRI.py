@@ -297,7 +297,7 @@ def find_clusters(subject, surf_template_fname, t_val, atlas, min_cluster_max=2,
                     annot_fname = annot_files_template.format(hemi=hemi)
                     dest_annot_fname = op.join(clusters_fol, utils.namebase_with_ext(annot_fname))
                     if not op.isfile(dest_annot_fname):
-                        shutil.copy(annot_fname, dest_annot_fname)
+                        utils.copy_file(annot_fname, dest_annot_fname)
             from src.preproc import anatomy as anat
             anat.calc_labeles_contours(subject, new_atlas_name, overwrite=True, verbose=False)
 
@@ -771,7 +771,7 @@ def copy_volume_to_blender(subject, volume_fname_template, contrast='', overwrit
     volume_fname = volume_fname_template.format(format=format)
     blender_volume_fname = op.basename(volume_fname) if contrast=='' else '{}.{}'.format(contrast, format)
     utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
-    shutil.copyfile(volume_fname, op.join(MMVT_DIR, subject, 'freeview', blender_volume_fname))
+    utils.copy_filefile(volume_fname, op.join(MMVT_DIR, subject, 'freeview', blender_volume_fname))
     return volume_fname
 
 
@@ -801,7 +801,7 @@ def project_volume_to_surface(subject, volume_fname_template, overwrite_surf_dat
                        target_subject, overwrite_surf_data=overwrite_surf_data, is_pet=is_pet)
     freeview_volume_fname = op.join(MMVT_DIR, subject, 'freeview', op.basename(volume_fname))
     if not op.isfile(freeview_volume_fname):
-        shutil.copy(volume_fname, freeview_volume_fname)
+        utils.copy_file(volume_fname, freeview_volume_fname)
     return utils.both_hemi_files_exist(npy_surf_fname) and op.isfile(freeview_volume_fname), npy_surf_fname
 
 
@@ -841,7 +841,7 @@ def get_volume_fname(subject, volume_fname_template, remote_fmri_dir='', task=''
         fol = utils.make_dir(op.join(FMRI_DIR, subject)) if task == '' else utils.make_dir(op.join(FMRI_DIR, task, subject))
         local_fname = op.join(fol, utils.namebase_with_ext(volume_fname))
         if not op.isfile(local_fname) and local_fname != volume_fname:
-            shutil.copy(volume_fname, local_fname)
+            utils.copy_file(volume_fname, local_fname)
         volume_fname = local_fname
     return volume_fname
 
@@ -885,7 +885,7 @@ def copy_volumes(subject, contrast_file_template, contrast, volume_fol, volume_n
     blender_volume_fname = op.join(MMVT_DIR, subject, 'freeview', '{}.{}'.format(contrast, contrast_format))
     if not op.isfile(blender_volume_fname):
         print('copy {} to {}'.format(subject_volume_fname, blender_volume_fname))
-        shutil.copyfile(subject_volume_fname, blender_volume_fname)
+        utils.copy_filefile(subject_volume_fname, blender_volume_fname)
 
 
 def analyze_4d_data(subject, atlas, input_fname_template='rest.sm6.{subject}.{hemi}.mgz', measures=['mean'],
@@ -1122,7 +1122,7 @@ def save_labels_data(
         output_fname = output_fname_hemi.format(hemi=hemi)
         if backup_existing_files and op.isfile(output_fname):
             backup_fname = utils.add_str_to_file_name(output_fname, '_backup')
-            shutil.copy(output_fname, backup_fname.format(hemi=hemi))
+            utils.copy_file(output_fname, backup_fname.format(hemi=hemi))
         labels_data_hemi = labels_data[indices[hemi]]
         labels_names_hemi = labels[indices[hemi]]
         np.savez(output_fname, data=labels_data_hemi, names=labels_names_hemi)
@@ -1395,7 +1395,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         if files_num == 1:
             fmri_fname = op.join(FMRI_DIR, subject, files[0].split(op.sep)[-1])
             utils.make_dir(op.join(FMRI_DIR, subject))
-            shutil.copy(files[0], fmri_fname)
+            utils.copy_file(files[0], fmri_fname)
         else:
             print("Can't find any file in {}!".format(fmri_file_template))
             return ''
@@ -1407,7 +1407,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         if not op.isfile(op.join(fol, 'f.nii.gz')):
             if utils.file_type(fmri_fname) == 'mgz':
                 fmri_fname = fu.mgz_to_nii_gz(fmri_fname)
-            shutil.copy(fmri_fname, op.join(fol, 'f.nii.gz'))
+            utils.copy_file(fmri_fname, op.join(fol, 'f.nii.gz'))
         if not op.isfile(op.join(FMRI_DIR, subject, 'subjectname')):
             with open(op.join(FMRI_DIR, subject, 'subjectname'), 'w') as sub_file:
                 sub_file.write(subject)
@@ -1437,7 +1437,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
                 if op.isfile(res_fname):
                     fu.nii_gz_to_mgz(res_fname)
                     res_fname = utils.change_fname_extension(res_fname, 'mgz')
-                    shutil.copy(res_fname, new_fname)
+                    utils.copy_file(res_fname, new_fname)
         for hemi in utils.HEMIS:
             utils.make_link(new_fname_template.format(hemi=hemi), op.join(
                 MMVT_DIR, subject, 'fmri', utils.namebase_with_ext(new_fname_template.format(hemi=hemi))))
@@ -1612,7 +1612,7 @@ def fmri_pipeline(subject, atlas, contrast_file_template, task='', contrast='', 
         volume_files, hemis_files_templates = contrast_dict['volume_files'], contrast_dict['hemis_files']
         for volume_file in volume_files:
             fu.mri_convert_to(volume_file, 'mgz')
-            shutil.copyfile(volume_file, op.join(MMVT_DIR, subject, 'freeview', '{}.{}'.format(contrast, format)))
+            utils.copy_filefile(volume_file, op.join(MMVT_DIR, subject, 'freeview', '{}.{}'.format(contrast, format)))
         hemis_files_templates = [t for t in hemis_files_templates if not t.endswith('_morphed_to_{}.mgz'.format(subject))]
         for hemis_files_teamplate in hemis_files_templates:
             new_hemis_fname, new_hemis_org_subject_fname = {}, {}

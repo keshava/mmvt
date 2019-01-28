@@ -26,7 +26,7 @@ def convert_darpa_ct(args):
             for fname in files:
                 output_fname = op.join(local_ct_fol, utils.namebase_with_ext(fname))
                 print('Coping {} to {}'.format(fname, output_fname))
-                shutil.copy(fname, output_fname)
+                utils.copy_file(fname, output_fname)
             goods.append(subject)
             continue
         fols = glob.glob(op.join('/space/huygens/1/users/kara', f'{darpa_subject}_CT*'))

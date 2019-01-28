@@ -255,7 +255,7 @@ def backup_folder(subject, folder_name, backup_suffix='_backup'):
         print('{} already exist!'.format(target_dir))
         return
     print('backup {} to {}'.format(source_dir, target_dir))
-    shutil.copytree(source_dir, target_dir)
+    utils.copy_filetree(source_dir, target_dir)
 
 
 def check_func_output(ret):

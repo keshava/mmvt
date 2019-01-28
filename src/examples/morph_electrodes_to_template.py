@@ -381,7 +381,7 @@ def export_into_csv(template_system, mmvt_dir, bipolar=False, prefix=''):
     fol = utils.make_dir(op.join(MMVT_DIR, template, 'electrodes'))
     csv_fname2 = op.join(fol, utils.namebase_with_ext(csv_fname))
     if csv_fname != csv_fname2:
-        shutil.copy(csv_fname, csv_fname2)
+        utils.copy_file(csv_fname, csv_fname2)
     print('export_into_csv: {}'.format(op.isfile(csv_fname) and op.isfile(csv_fname2)))
 
 

@@ -35,7 +35,7 @@ def create_pdf(html_fname, pdf_fname):
 def main(html_template_fname, scan_fol, patient_name, task_name, mrn, scan_date, img_prefix=None,
          report_name_suffix='', output_fname=''):
     if utils.get_parent_fol(html_template_fname) != scan_fol:
-        shutil.copy(html_template_fname, scan_fol)
+        utils.copy_file(html_template_fname, scan_fol)
     if output_fname == '':
         output_fname = op.join(scan_fol, '{}{}.pdf'.format(mrn, '_{}'.format(report_name_suffix) \
             if report_name_suffix != '' else ''))

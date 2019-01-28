@@ -215,7 +215,7 @@ def meg_preproc_evoked(args):
             # join_res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr', subject))
             # for res_fname in glob.glob(op.join(output_fol, '{}_labels_{}_{}_*_power.npz'.format(
             #         task.lower(), inv_method, em))):
-            #     shutil.copyfile(res_fname, op.join(join_res_fol, utils.namebase_with_ext(res_fname)))
+            #     utils.copy_filefile(res_fname, op.join(join_res_fol, utils.namebase_with_ext(res_fname)))
             if not ret:
                 if args.throw:
                     raise Exception("errors!")
@@ -379,7 +379,7 @@ def meg_preproc_power(args):
             join_res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr', subject))
             for res_fname in glob.glob(op.join(output_fol, '{}_labels_{}_{}_*_power.npz'.format(
                     task.lower(), inv_method, em))):
-                shutil.copyfile(res_fname, op.join(join_res_fol, utils.namebase_with_ext(res_fname)))
+                utils.copy_filefile(res_fname, op.join(join_res_fol, utils.namebase_with_ext(res_fname)))
             if not ret:
                 if args.throw:
                     raise Exception("errors!")
