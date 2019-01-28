@@ -24,13 +24,14 @@ def analyze_meg(seizure_time, seizure_len):
     meg_raw_fname_seizure = op.join(MEG_DIR, subject, '{}_meg_seizure-raw.fif'.format(subject))
     meg_evoked_fname = op.join(MEG_DIR, subject, '{}_meg_seizure-ave.fif'.format(subject))
     eeg_evoked_fname = op.join(MEG_DIR, subject, '{}_eeg_seizure-ave.fif'.format(subject))
+    meeg_evoked_fname = op.join(MEG_DIR, subject, '{}_meeg_seizure-ave.fif'.format(subject))
 
     electrodes_all_data_fname = op.join(MMVT_DIR, subject, 'electrodes', 'all', 'electrodes_data_all.npy')
     electrodes_all_meta_fname = op.join(MMVT_DIR, subject, 'electrodes', 'all', 'electrodes_all_meta_data.npz')
     electrodes_data_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_data.npy')
     electrodes_meta_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_meta_data.npz')
     electrodes_from_t, electrodes_to_t = 630000, 645000
-
+    #
     # if not op.isfile(meg_raw_fname_seizure):
     #     raw = mne.io.read_raw_fif(meg_raw_fname)
     #     raw.set_eeg_reference('average', projection=True)  # set EEG average reference
@@ -41,10 +42,14 @@ def analyze_meg(seizure_time, seizure_len):
     #     meg.read_sensors_layout(subject, info=raw.info, overwrite_sensors=False)
     #     eeg.read_sensors_layout(subject, info=raw.info, overwrite_sensors=False)
     #
-    # if not op.isfile(meg_evoked_fname) or not op.isfile(eeg_evoked_fname):
+    # if not op.isfile(meg_evoked_fname) or not op.isfile(eeg_evoked_fname) or not op.isfile(meeg_evoked_fname):
     #     if raw is None:
     #         raw = mne.io.read_raw_fif(meg_raw_fname_seizure)
     #     evoked = mne.EvokedArray(raw.get_data(), raw.info, comment='seizure')
+    #
+    #     meeg_evoked = evoked.pick_types(meg=True, eeg=True)
+    #     mne.write_evokeds(meeg_evoked_fname, meeg_evoked)
+    #
     #     eeg_evoked = evoked.pick_types(meg=False, eeg=True)
     #     mne.write_evokeds(eeg_evoked_fname, eeg_evoked)
     #     meg.save_evokes_to_mmvt(eeg_evoked, [1], subject, modality='eeg')
@@ -64,18 +69,18 @@ def analyze_meg(seizure_time, seizure_len):
     # meg.create_helmet_mesh(subject, overwrite_faces_verts=True)
     # eeg.create_helmet_mesh(subject, overwrite_faces_verts=True)
 
-    overwrite_source_bem = True
+    # overwrite_source_bem = True
     args = meg.read_cmd_args(dict(
         subject=subject,
         function='make_forward_solution,calc_inverse_operator,calc_stc',
-        recreate_src_spacing='ico5',
-        fwd_recreate_source_space=overwrite_source_bem,
-        recreate_bem_solution=overwrite_source_bem,
+        # recreate_src_spacing='ico5',
+        # fwd_recreate_source_space=overwrite_source_bem,
+        # recreate_bem_solution=overwrite_source_bem,
         contrast='seizure', task='seizure',
         raw_fname=meg_raw_fname_seizure,
         use_empty_room_for_noise_cov=True,
         empty_fname='empty_room_raw.fif',
-        overwrite_fwd=True,
+        overwrite_fwd=True
         # pick_meg=True, pick_eeg=False,
         # fwd_usingMEG=True, fwd_usingEEG=False,
     ))
