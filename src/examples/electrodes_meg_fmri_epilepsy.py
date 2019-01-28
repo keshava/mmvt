@@ -21,10 +21,9 @@ def analyze_meg(seizure_time, seizure_len):
                   op.join(MEG_DIR, subject, 'nmr01209_6213848_07_Resting_eeg_meg_ica-raw.fif')]
     meg_raw_fname = [f for f in meg_raw_fnames if op.isfile(f)][0]
     # empty_room_fname = '/space/megraid/77/MEG/noise/no_name/'
-    meg_raw_fname_seizure = op.join(MMVT_DIR, subject, 'meg', '{}_meg_seizure-raw.fif'.format(subject))
-    meg_evoked_fname = op.join(MMVT_DIR, subject, 'meg', '{}_meg_seizure-ave.fif'.format(subject))
-    eeg_evoked_fname = op.join(MMVT_DIR, subject, 'meg', '{}_eeg_seizure-ave.fif'.format(subject))
-    noise_cov_fname = op.join(MMVT_DIR, subject, 'meg', '{}_meg_seizure-noise-cov.fif'.format(subject))
+    meg_raw_fname_seizure = op.join(MEG_DIR, subject, 'meg', '{}_meg_seizure-raw.fif'.format(subject))
+    meg_evoked_fname = op.join(MEG_DIR, subject, 'meg', '{}_meg_seizure-ave.fif'.format(subject))
+    eeg_evoked_fname = op.join(MEG_DIR, subject, 'meg', '{}_eeg_seizure-ave.fif'.format(subject))
 
     electrodes_all_data_fname = op.join(MMVT_DIR, subject, 'electrodes', 'all', 'electrodes_data_all.npy')
     electrodes_all_meta_fname = op.join(MMVT_DIR, subject, 'electrodes', 'all', 'electrodes_all_meta_data.npz')
