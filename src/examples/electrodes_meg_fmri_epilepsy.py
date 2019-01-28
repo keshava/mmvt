@@ -31,38 +31,38 @@ def analyze_meg(seizure_time, seizure_len):
     electrodes_meta_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_meta_data.npz')
     electrodes_from_t, electrodes_to_t = 630000, 645000
 
-    if not op.isfile(meg_raw_fname_seizure):
-        raw = mne.io.read_raw_fif(meg_raw_fname)
-        raw.set_eeg_reference('average', projection=True)  # set EEG average reference
-        raw = raw.crop(seizure_time-2, seizure_time+seizure_len)
-        raw.save(meg_raw_fname_seizure)
-        # raw.plot(block=True)
-        # raw.plot(butterfly=True, group_by='position')
-        meg.read_sensors_layout(subject, info=raw.info, overwrite_sensors=False)
-        eeg.read_sensors_layout(subject, info=raw.info, overwrite_sensors=False)
-
-    if not op.isfile(meg_evoked_fname) or not op.isfile(eeg_evoked_fname):
-        if raw is None:
-            raw = mne.io.read_raw_fif(meg_raw_fname_seizure)
-        evoked = mne.EvokedArray(raw.get_data(), raw.info, comment='seizure')
-        eeg_evoked = evoked.pick_types(meg=False, eeg=True)
-        mne.write_evokeds(eeg_evoked_fname, eeg_evoked)
-        meg.save_evokes_to_mmvt(eeg_evoked, [1], subject, modality='eeg')
-
-        meg_evoked = evoked.pick_types(meg=True, eeg=False)
-        mne.write_evokeds(meg_evoked_fname, meg_evoked)
-        meg.save_evokes_to_mmvt(evoked, [1], subject,  modality='meg')
-
-    if not op.isfile(electrodes_data_fname):
-        x = np.load(electrodes_all_data_fname)
-        x = x[:, electrodes_from_t:electrodes_to_t, :]
-        np.save(electrodes_data_fname, x)
-        d = utils.Bag(np.load(electrodes_all_meta_fname))
-        times = d.times[electrodes_from_t:electrodes_to_t]
-        np.savez(electrodes_meta_fname, names=d.names, conditions=d.conditions, times=times)
-
-    meg.create_helmet_mesh(subject, overwrite_faces_verts=True)
-    eeg.create_helmet_mesh(subject, overwrite_faces_verts=True)
+    # if not op.isfile(meg_raw_fname_seizure):
+    #     raw = mne.io.read_raw_fif(meg_raw_fname)
+    #     raw.set_eeg_reference('average', projection=True)  # set EEG average reference
+    #     raw = raw.crop(seizure_time-2, seizure_time+seizure_len)
+    #     raw.save(meg_raw_fname_seizure)
+    #     # raw.plot(block=True)
+    #     # raw.plot(butterfly=True, group_by='position')
+    #     meg.read_sensors_layout(subject, info=raw.info, overwrite_sensors=False)
+    #     eeg.read_sensors_layout(subject, info=raw.info, overwrite_sensors=False)
+    #
+    # if not op.isfile(meg_evoked_fname) or not op.isfile(eeg_evoked_fname):
+    #     if raw is None:
+    #         raw = mne.io.read_raw_fif(meg_raw_fname_seizure)
+    #     evoked = mne.EvokedArray(raw.get_data(), raw.info, comment='seizure')
+    #     eeg_evoked = evoked.pick_types(meg=False, eeg=True)
+    #     mne.write_evokeds(eeg_evoked_fname, eeg_evoked)
+    #     meg.save_evokes_to_mmvt(eeg_evoked, [1], subject, modality='eeg')
+    #
+    #     meg_evoked = evoked.pick_types(meg=True, eeg=False)
+    #     mne.write_evokeds(meg_evoked_fname, meg_evoked)
+    #     meg.save_evokes_to_mmvt(evoked, [1], subject,  modality='meg')
+    #
+    # if not op.isfile(electrodes_data_fname):
+    #     x = np.load(electrodes_all_data_fname)
+    #     x = x[:, electrodes_from_t:electrodes_to_t, :]
+    #     np.save(electrodes_data_fname, x)
+    #     d = utils.Bag(np.load(electrodes_all_meta_fname))
+    #     times = d.times[electrodes_from_t:electrodes_to_t]
+    #     np.savez(electrodes_meta_fname, names=d.names, conditions=d.conditions, times=times)
+    #
+    # meg.create_helmet_mesh(subject, overwrite_faces_verts=True)
+    # eeg.create_helmet_mesh(subject, overwrite_faces_verts=True)
 
     overwrite_source_bem = True
     args = meg.read_cmd_args(dict(
