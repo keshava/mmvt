@@ -1537,6 +1537,7 @@ def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', 
                 if overwrite_fwd or not op.isfile(fwd_fname):
                     fwd = _make_forward_solution(
                         src, raw_fname, evo_fname, cor_fname, usingMEG, usingEEG, n_jobs, bem=bem)
+                    print('Writing fwd solution to {}'.format(fwd_fname))
                     mne.write_forward_solution(fwd_fname, fwd, overwrite=True)
             if calc_subcorticals and len(sub_corticals) > 0:
                 # add a subcortical volumes
@@ -3233,7 +3234,7 @@ def calc_labels_avg_per_condition(
 
         inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
         global_inverse_operator = False
-        if events is None:
+        if events is None or len(events) == 0:
             events = dict(all=0)
         if '{cond}' not in inv_fname:
             if not op.isfile(inv_fname):
@@ -3247,8 +3248,9 @@ def calc_labels_avg_per_condition(
         if do_plot:
             utils.make_dir(op.join(SUBJECT_MEG_FOLDER, 'figures'))
 
-        # if stcs is None:
-        #     stcs = get_stc_conds(events, hemi, inverse_method)
+        # todo: check why those lines were removed
+        # if stcs is None or len(stcs) == 0:
+        #     stcs = get_stc_conds(events, hemi, inverse_method, stc_hemi_template)
         conds_incdices = {cond_id:ind for ind, cond_id in zip(range(len(stcs)), events.values())}
         conditions = []
         labels_data = {}
@@ -3589,7 +3591,7 @@ def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True, sensors
 def find_trans_file(trans_file='', remote_subject_dir='', subject='', subjects_dir=''):
     subject = MRI_SUBJECT if subject == '' else subject
     subject_dir = SUBJECTS_MRI_DIR if subjects_dir == '' else subjects_dir
-    trans_file = COR if trans_file == '' else trans_file
+    # trans_file = COR if trans_file == '' else trans_file
     if not op.isfile(trans_file):
         # trans_files = glob.glob(op.join(subject_dir, subject, '**', '*COR*.fif'), recursive=True)
         trans_files = utils.find_recursive(op.join(subject_dir, subject), '*COR*.fif')
@@ -3819,7 +3821,7 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
             # prepare_subject_folder(
             #     mri_subject, args.remote_subject_dir, SUBJECTS_MRI_DIR,
             #     {op.join('mri', 'T1-neuromag', 'sets'): ['COR.fif']}, args)
-            cor_fname = get_cor_fname(args.cor_fname)
+            cor_fname = get_cor_fname(args.cor_fname) if args.cor_fname != '' else ''
             trans_file = find_trans_file(cor_fname, args.remote_subject_dir)
             if trans_file is None:
                 flags['make_forward_solution'] = False
@@ -4088,7 +4090,9 @@ def calc_labels_avg_per_condition_wrapper(
                     args.overwrite_labels_data)
             return flags
 
-        conditions_keys = conditions.keys() if conditions is not None else ['all']
+        if conditions is None or len(conditions) == 0:
+            conditions = {1: 'all'}
+        conditions_keys = conditions.keys()
         if isinstance(inverse_method, Iterable) and not isinstance(inverse_method, str):
             inverse_method = inverse_method[0]
         args.inv_fname = get_inv_fname(args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG)
@@ -4098,7 +4102,9 @@ def calc_labels_avg_per_condition_wrapper(
         get_meg_files(subject, stc_fnames + [args.inv_fname], args, conditions)
         if stcs_conds is None or len(stcs_conds) == 0:
             stcs_conds = get_stc_conds(conditions, inverse_method, args.stc_hemi_template)
-            if stcs_conds is None:
+            if stcs_conds is None or len(stcs_conds) == 0:
+                print('Can\'t find the STCs files! template: {}, conditions: {}'.format(
+                    args.stc_hemi_template, conditions))
                 flags['calc_labels_avg_per_condition'] = False
                 return flags
         factor = 6 if modality == 'eeg' else 12  # micro V for EEG, fT (Magnetometers) and fT/cm (Gradiometers) for MEG
@@ -5341,7 +5347,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--calc_source_band_induced_power', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--apply_on_raw', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--extract_mode', help='', required=False, default='mean_flip', type=au.str_arr_type)
-    parser.add_argument('--read_only_from_annot', help='', required=False, default=1, type=au.is_true)
+    parser.add_argument('--read_only_from_annot', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--colors_map', help='', required=False, default='OrRd')
     parser.add_argument('--save_smoothed_activity', help='', required=False, default=True, type=au.is_true)
     parser.add_argument('--normalize_data', help='', required=False, default=0, type=au.is_true)

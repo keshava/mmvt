@@ -28,6 +28,7 @@ import traceback
 import multiprocessing
 import getpass
 import copy
+import inspect
 
 try:
     import scipy.io as sio
@@ -1873,6 +1874,7 @@ def locating_file(default_fname, glob_pattern, parent_fol, raise_exception=False
                 fname = files[0]
             else:
                 files = sorted(files)
+                print('{}:'.format(inspect.stack()[1][3]))
                 for ind, fname in enumerate(files):
                     print('{}) {}'.format(ind+1, fname))
                 ind = int(input('There are more than one {} files. Please choose the one you want to use: '.format(
