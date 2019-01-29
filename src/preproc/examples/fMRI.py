@@ -255,6 +255,13 @@ def get_subjects_files(args):
             print("Couldn't find the files for {}!".format(subject))
 
 
+def project_all_fmri_files(args):
+    subjects = pu.decode_subjects(args.subject)
+    for subject in subjects:
+        for fmri_fname in glob.glob(op.join(FMRI_DIR, subject, '*.nii.gz')):
+            fmri.project_volume_to_surface(subject, fmri_fname)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MMVT')
     parser.add_argument('-s', '--subject', help='subject name', required=False, type=au.str_arr_type, default='colin27')

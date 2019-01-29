@@ -4,11 +4,12 @@ import os.path as op
 
 def run(mmvt):
     mu = mmvt.utils
-    mmvt.appearance.show_inflated()
+    # mmvt.appearance.show_inflated()
+    mmvt.appearance.show_pial()
     mmvt.coloring.set_lower_threshold(0.95)
-    mmvt.colorbar.set_colormap('RdOrYl')
+    # mmvt.colorbar.set_colormap('RdOrYl')
     mmvt.render.save_views_with_cb(True)
-    mmvt.render.set_view_distance(22)
+    # mmvt.render.set_view_distance(22)
     files = glob.glob(op.join(mu.get_user_fol(), 'fmri', 'fmri_*_lh.npy'))
     for fname in files:
         file_name = mu.namebase(fname)[len('fmri_'):-len('_lh')]

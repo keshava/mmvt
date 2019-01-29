@@ -127,6 +127,11 @@ get_parent_fol = su.get_parent_fol
 select_one_file = su.select_one_file
 is_true = su.is_true
 
+
+def get_fmri_dir():
+    return get_link_dir(get_links_dir(), 'fMRI')
+
+
 floats_const_pattern = r"""
      [-+]?
      (?: \d* \. \d+ )

@@ -791,8 +791,11 @@ def project_volume_to_surface(subject, volume_fname_template, overwrite_surf_dat
     if target_subject == '':
         target_subject = subject
     utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
-    volume_fname = get_volume_fname(
-        subject, volume_fname_template, remote_fmri_dir)
+    if op.isfile(volume_fname_template):
+        volume_fname = volume_fname_template
+    else:
+        volume_fname = get_volume_fname(
+            subject, volume_fname_template, remote_fmri_dir)
     surf_output_fname, npy_surf_fname = get_surf_fnames(subject, volume_fname, target_subject)
     if volume_fname == '':
         return False, ''
