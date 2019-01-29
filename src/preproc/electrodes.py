@@ -275,7 +275,7 @@ def convert_electrodes_pos(
             return False, None, None
         # if copy_to_blender:
         #     blender_file = op.join(MMVT_DIR, subject, 'electrodes', output_file_name)
-        #     utils.copy_filefile(output_file, blender_file)
+        #     utils.copy_file(output_file, blender_file)
     if not file_found:
         print('No electrodes coordinates file!')
         return False, None, None
@@ -1262,7 +1262,7 @@ def save_electrodes_coords(subject, elecs_names, elecs_coords, good_channels=Non
         output_file_name = op.split(electrodes_fname)[1]
         utils.make_dir(op.join(MMVT_DIR, 'colin27', 'electrodes'))
         blender_file = op.join(MMVT_DIR, 'colin27', 'electrodes', output_file_name.replace(fname_postfix, ''))
-        utils.copy_filefile(electrodes_fname, blender_file)
+        utils.copy_file(electrodes_fname, blender_file)
     return electrodes_fname
 
 
@@ -1592,7 +1592,7 @@ def get_ras_file(subject, args):
         remote_fname = utils.select_one_file(remote_fnames)
         # remote_fname = op.join(remote_ras_fol, '{}_RAS.xlsx'.format(subject))
         if op.isfile(remote_fname):
-            utils.copy_filefile(remote_fname, local_fname)
+            utils.copy_file(remote_fname, local_fname)
     return op.isfile(local_fname)
 
 
@@ -1609,7 +1609,7 @@ def run_ela(subject, atlas, bipolar, overwrite=False, elc_r=3, elc_len=4, electr
     mmvt_ela_fname = op.join(MMVT_DIR, subject, 'electrodes', output_name)
     if (op.isfile(output_fname) or op.isfile(mmvt_ela_fname)) and not overwrite:
         if not op.isfile(mmvt_ela_fname) and op.isfile(output_fname):
-            utils.copy_filefile(output_fname, mmvt_ela_fname)
+            utils.copy_file(output_fname, mmvt_ela_fname)
         print('The model for {}, {} is already exist ({})'.format(subject, atlas, mmvt_ela_fname))
         return True
 
@@ -1627,7 +1627,7 @@ def run_ela(subject, atlas, bipolar, overwrite=False, elc_r=3, elc_len=4, electr
     if not op.isfile(output_fname):
         return False
     else:
-        utils.copy_filefile(output_fname, mmvt_ela_fname)
+        utils.copy_file(output_fname, mmvt_ela_fname)
         return True
 
 

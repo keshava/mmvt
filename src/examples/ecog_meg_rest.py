@@ -107,7 +107,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
         output_files = glob.glob(op.join(
             MMVT_DIR, subject, 'meg', 'labels_data_rest_electrodes_labels_dSPM_mean_flip_*.npz'))
         for output_fname in output_files:
-            utils.copy_filefile(output_fname, op.join(fol, utils.namebase_with_ext(output_fname)))
+            utils.copy_file(output_fname, op.join(fol, utils.namebase_with_ext(output_fname)))
 
 
 def meg_preproc(subject, inv_method='MNE', em='mean_flip', atlas='electrodes_labels', remote_subject_dir='',

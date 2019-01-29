@@ -481,7 +481,7 @@ def backup_annotation_files(subject, subjects_dic, aparc_name, backup_str='backu
     for hemi in HEMIS:
         annot_fname = op.join(subjects_dic, subject, 'label', '{}.{}.annot'.format(hemi, aparc_name))
         if op.isfile(annot_fname):
-            utils.copy_filefile(op.join(subjects_dic, subject, 'label', '{}.{}.annot'.format(hemi, aparc_name)),
+            utils.copy_file(op.join(subjects_dic, subject, 'label', '{}.{}.annot'.format(hemi, aparc_name)),
                             op.join(subjects_dic, subject, 'label', '{}.{}.{}.annot'.format(hemi, aparc_name, backup_str)),)
 
 

@@ -66,7 +66,7 @@ def create_lut_file_for_atlas(subject, atlas):
         csv_writer.writerows(lut_new)
     # np.savetxt(new_lut_fname, lut_new, delimiter='\t', fmt="%s")
     utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
-    utils.copy_filefile(new_lut_fname, mmvt_lut_fname)
+    utils.copy_file(new_lut_fname, mmvt_lut_fname)
     lut_npz_fname = utils.change_fname_extension(mmvt_lut_fname, 'npz')
     x = np.genfromtxt(mmvt_lut_fname, dtype=np.str)
     np.savez(lut_npz_fname, names=x[:, 1], ids=x[:, 0].astype(int))
@@ -92,7 +92,7 @@ def create_aparc_aseg_file(subject, atlas, overwrite_aseg_file=False, print_only
     utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
     blender_file = op.join(MMVT_DIR, subject, 'freeview', aparc_aseg_file)
     utils.remove_file(blender_file)
-    utils.copy_filefile(aparc_aseg_fname, blender_file)
+    utils.copy_file(aparc_aseg_fname, blender_file)
     atlas_mat_fname = utils.change_fname_extension(blender_file, 'npy')
     if not op.isfile(atlas_mat_fname) or overwrite_aseg_file:
         d = nib.load(blender_file)
@@ -159,7 +159,7 @@ def copy_T1(subject):
         blender_brain_file = op.join(MMVT_DIR, subject, 'freeview', brain_file)
         subject_brain_file = op.join(SUBJECTS_DIR, subject, 'mri', brain_file)
         if not op.isfile(blender_brain_file):
-            utils.copy_filefile(subject_brain_file, blender_brain_file)
+            utils.copy_file(subject_brain_file, blender_brain_file)
         files_exist = files_exist and op.isfile(blender_brain_file)
     return files_exist
 

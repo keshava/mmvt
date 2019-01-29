@@ -299,7 +299,7 @@ def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', o
 #         ply_file = utils.srf2ply(op.join(SUBJECTS_DIR, subject, 'surf', '{}.{}.srf'.format(hemi, surf_type)),
 #                                  op.join(SUBJECTS_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
 #         # utils.make_dir(op.join(MMVT_DIR, subject))
-#         # utils.copy_filefile(ply_file, op.join(MMVT_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
+#         # utils.copy_file(ply_file, op.join(MMVT_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
 
 
 def save_hemis_curv(subject, atlas):
@@ -1037,7 +1037,7 @@ def calc_labels_center_of_mass(subject, atlas, overwrite=False):
                 writer.writerow([label.name, *center_of_mass[label.name]])
         blend_fname = op.join(MMVT_DIR, subject, '{}_center_of_mass.pkl'.format(atlas))
         utils.save(center_of_mass, com_fname)
-        utils.copy_filefile(com_fname, blend_fname)
+        utils.copy_file(com_fname, blend_fname)
     return len(labels) > 0 and op.isfile(com_fname) and op.isfile(blend_fname)
 
 

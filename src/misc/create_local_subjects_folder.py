@@ -12,7 +12,7 @@ def prepare_subject_folder(neccesary_files, subject, remote_subject_dir, local_s
         for file_name in files:
             try:
                 if not os.path.isfile(os.path.join(local_subject_dir, fol, file_name)):
-                    utils.copy_filefile(os.path.join(remote_subject_dir, fol, file_name),
+                    utils.copy_file(os.path.join(remote_subject_dir, fol, file_name),
                                 os.path.join(local_subject_dir, fol, file_name))
             except:
                 if print_traceback:

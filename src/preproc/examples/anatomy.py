@@ -65,7 +65,7 @@ def create_annot_from_mad(args):
             local_temp_annot_fname = op.join(local_annot_fol, '{}.aparc.DKTatlas.annot'.format(hemi))
             if not op.isfile(remote_annot_fname):
                 if op.isfile(local_annot_fname):
-                    utils.copy_filefile(local_annot_fname, local_temp_annot_fname)
+                    utils.copy_file(local_annot_fname, local_temp_annot_fname)
                 else:
                     print('Can\'t copy {} for {}, it doesn\'t exist!'.format(local_annot_fname, subject))
 

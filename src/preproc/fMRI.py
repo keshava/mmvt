@@ -771,7 +771,7 @@ def copy_volume_to_blender(subject, volume_fname_template, contrast='', overwrit
     volume_fname = volume_fname_template.format(format=format)
     blender_volume_fname = op.basename(volume_fname) if contrast=='' else '{}.{}'.format(contrast, format)
     utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
-    utils.copy_filefile(volume_fname, op.join(MMVT_DIR, subject, 'freeview', blender_volume_fname))
+    utils.copy_file(volume_fname, op.join(MMVT_DIR, subject, 'freeview', blender_volume_fname))
     return volume_fname
 
 
@@ -885,7 +885,7 @@ def copy_volumes(subject, contrast_file_template, contrast, volume_fol, volume_n
     blender_volume_fname = op.join(MMVT_DIR, subject, 'freeview', '{}.{}'.format(contrast, contrast_format))
     if not op.isfile(blender_volume_fname):
         print('copy {} to {}'.format(subject_volume_fname, blender_volume_fname))
-        utils.copy_filefile(subject_volume_fname, blender_volume_fname)
+        utils.copy_file(subject_volume_fname, blender_volume_fname)
 
 
 def analyze_4d_data(subject, atlas, input_fname_template='rest.sm6.{subject}.{hemi}.mgz', measures=['mean'],
@@ -1612,7 +1612,7 @@ def fmri_pipeline(subject, atlas, contrast_file_template, task='', contrast='', 
         volume_files, hemis_files_templates = contrast_dict['volume_files'], contrast_dict['hemis_files']
         for volume_file in volume_files:
             fu.mri_convert_to(volume_file, 'mgz')
-            utils.copy_filefile(volume_file, op.join(MMVT_DIR, subject, 'freeview', '{}.{}'.format(contrast, format)))
+            utils.copy_file(volume_file, op.join(MMVT_DIR, subject, 'freeview', '{}.{}'.format(contrast, format)))
         hemis_files_templates = [t for t in hemis_files_templates if not t.endswith('_morphed_to_{}.mgz'.format(subject))]
         for hemis_files_teamplate in hemis_files_templates:
             new_hemis_fname, new_hemis_org_subject_fname = {}, {}
