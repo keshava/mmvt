@@ -137,7 +137,7 @@ def calc_electrodes_types(labels, pos, electrodes_type=None):
             for group in dists.keys():
                 man_group_type = None
                 while man_group_type not in [0, 1]:
-                    man_group_type = input('{} is depth (0) or grid/strip (1)? ')
+                    man_group_type = input('{} is depth (0) or grid/strip (1)? '.format(group))
                     group_type[group] = man_group_type
     for index in range(len(labels)):
         elc_group, _ = utils.elec_group_number(labels[index])
