@@ -39,7 +39,8 @@ def copy_resources_files(mmvt_root_dir, overwrite=True, only_verbose=False):
                 if op.isfile(op.join(resource_dir, file_name)):
                     shutil.copy(local_fname, op.join(mmvt_root_dir, file_name))
                 else:
-                    print('{} is missing, please update your code from github (git pull)')
+                    print('{} is missing, please update your code from github (git pull)'.format(
+                        op.join(resource_dir, file_name)))
     return utils.all([op.isfile(op.join(mmvt_root_dir, file_name)) for file_name in files])
 
 
