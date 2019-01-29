@@ -11,14 +11,18 @@ def read_xls(xls_fname, subject_to='colin27'):
     template_system = 'mni'
     bipolar = True
     subjects_electrodes = defaultdict(list)
+    electrodes_colors = defaultdict(list)
     for line in utils.xlsx_reader(xls_fname, skip_rows=1):
-        subject, _, elec_name = line
+        subject, _, elec_name, _, anat_group = line
         subject = subject.replace('\'', '')
+        if subject == '':
+            break
         electrodes_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_morph_to_{}.txt'.format(subject_to))
         if op.isfile(electrodes_fname):
             elec_group, num1, num2 = utils.elec_group_number(elec_name, bipolar)
             for num in [num1, num2]:
                 subjects_electrodes[subject].append('{}{}'.format(elec_group, num))
+            electrodes_colors[subject].append((elec_name, int(anat_group)))
     subjects = list(subjects_electrodes.keys())
     electrodes = morph_electrodes_to_template.read_all_electrodes(subjects, False)
     template_electrodes = morph_electrodes_to_template.read_morphed_electrodes(
@@ -26,7 +30,7 @@ def read_xls(xls_fname, subject_to='colin27'):
     morph_electrodes_to_template.save_template_electrodes_to_template(
         template_electrodes, bipolar, MMVT_DIR, template_system)
     morph_electrodes_to_template.export_into_csv(template_system, MMVT_DIR, bipolar)
-    morph_electrodes_to_template.create_mmvt_coloring_file(template_system, template_electrodes)
+    morph_electrodes_to_template.create_mmvt_coloring_file(template_system, template_electrodes, electrodes_colors)
 
 
 if __name__ == '__main__':
