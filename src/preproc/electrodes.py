@@ -1631,6 +1631,25 @@ def run_ela(subject, atlas, bipolar, overwrite=False, elc_r=3, elc_len=4, electr
         return True
 
 
+def join_groups_and_create_electrodes_labels(subject, bipolar=False, labels_fol_name='electrodes_labels',
+        label_r=5, snap=True, sigma=1, overwrite=False, n_jobs=4):
+    electrodes_names, pos = [], []
+    for elcs_group_fname in glob.glob(op.join(SUBJECTS_DIR, subject, 'electrodes', '*{}_electrodes.npz'.format(
+            '_snap' if snap else ''))):
+        d = utils.Bag(np.load(elcs_group_fname))
+        group_name = utils.namebase(elcs_group_fname).split('_')[0]
+        electrodes_names.extend([
+            '{}{}'.format(group_name, str(k + 1).zfill(2)) for k in range(d.snapped_electrodes.shape[0])])
+        pos.append(d.snapped_electrodes)
+    if len(pos) == 0:
+        _, pos, electrodes_names = convert_electrodes_pos(subject, snaps=[True] if snap else [False])
+    else:
+        pos = np.vstack(pos)
+    return create_labels_around_electrodes(
+        subject, bipolar, labels_fol_name, label_r, snap, sigma, overwrite=overwrite,
+        names=electrodes_names, pos=pos, n_jobs=n_jobs)
+
+
 def create_labels_around_electrodes(subject, bipolar=False, labels_fol_name='electrodes_labels',
         label_r=5, snap=False, sigma=1, electrodes_type=None, overwrite=False, names=None, pos=None,
         n_jobs=4):
