@@ -26,6 +26,34 @@ SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 HEMIS = ['rh', 'lh']
 
 
+def convert_dicoms_to_nifti(subject, dicoms_fol, output_fname='', seq='T1', overwrite=False, print_only=False,
+                      ask_before=False):
+    dicom_files = glob.glob(op.join(dicoms_fol, '*.dcm'))
+    if len(dicom_files) == 0:
+        print('No dicom files in {}!'.format(dicoms_fol))
+        return False
+    output_fname = op.join(utils.get_parent_fol(dicoms_fol), '{}_{}.mgz'.format(subject, seq)) \
+        if output_fname == '' else output_fname
+    if op.isfile(output_fname):
+        if not overwrite:
+            print('{} already exist'.format(output_fname))
+            print('You can examine the result:')
+            print('freeview -v {}'.format(output_fname))
+            return True
+        else:
+            os.remove(output_fname)
+    dicom_files.sort(key=op.getmtime)
+    if ask_before:
+        ret = input('convert dicom files in {} to {} (y/n)? '.format(dicoms_fol, output_fname))
+        if not au.is_true(ret):
+            return False
+    fu.mri_convert(dicom_files[0], output_fname, print_only=print_only)
+    if op.isfile(output_fname):
+        print('You can examine the result:')
+        print('freeview -v {}'.format(output_fname))
+    return True if print_only else op.isfile(output_fname)
+
+
 def cerebellum_segmentation(subject, remote_subject_dir, args, subregions_num=7, model='Buckner2011_7Networks'):
     # For cerebellum parcellation
     # http://www.freesurfer.net/fswiki/CerebellumParcellation_Buckner2011
@@ -447,16 +475,23 @@ def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_s
             return True
 
     # morph annot
+    utils.make_dir(op.join(SUBJECTS_DIR, subject, 'label'))
     if morph_annot:
-        fsaverage = lu.find_template_brain_with_annot_file(atlas, fsaverage, SUBJECTS_DIR)
-        if fsaverage == '':
-            print('Can\'t find a tempalte brain which has the atlas {}!'.format(atlas))
-            return False
-        annot_exist = lu.morph_annot(
-            subject, fsaverage, atlas, overwrite_vertices_labels_lookup, overwrite_morphing, overwrite_annotation,
-            n_jobs=n_jobs)
+        if fu.is_fs_atlas(atlas) and not utils.both_hemi_files_exist(annotation_fname_template):  # or overwrite_annotation:
+            annot_exist = fu.create_annotation_file(
+                subject, atlas, subjects_dir=SUBJECTS_DIR, freesurfer_home=FREESURFER_HOME)
+        else:
+            fsaverage = lu.find_template_brain_with_annot_file(atlas, fsaverage, SUBJECTS_DIR)
+            if fsaverage == '':
+                print('Can\'t find a tempalte brain which has the atlas {}!'.format(atlas))
+                return False
+            annot_exist = lu.morph_annot(
+                subject, fsaverage, atlas, overwrite_vertices_labels_lookup, overwrite_morphing, overwrite_annotation,
+                n_jobs=n_jobs)
         if annot_exist:
             return True
+
+
 
     labels_files = glob.glob(op.join(SUBJECTS_DIR, subject, 'label', atlas, '*.label'))
     # If there are only 2 files, most likely it's the unknowns
@@ -1637,6 +1672,11 @@ def main(subject, remote_subject_dir, org_args, flags):
             subject, args.atlas, args.solve_labels_collision_surf_type, args.overwrite_vertices_labels_lookup,
             args.n_jobs)
 
+    if 'convert_dicoms_to_nifti' in args.function:
+        flags['convert_dicoms_to_nifti'] = convert_dicoms_to_nifti(
+            subject, args.dicoms_fol, args.nifti_fname, args.seq, args.overwrite_nifti, args.print_only,
+                args.ask_before)
+
     return flags
 
 
@@ -1689,6 +1729,11 @@ def read_cmd_args(argv=None):
     parser.add_argument('--bem_ico', help='', required=False, default=4, type=int)
     parser.add_argument('--recreate_src_spacing', help='', required=False, default='oct6')
 
+    parser.add_argument('--dicoms_fol', help='', required=False, default='')
+    parser.add_argument('--nifti_fname', help='', required=False, default='')
+    parser.add_argument('--seq', help='', required=False, default='T1')
+    parser.add_argument('--overwrite_nifti', help='', required=False, default=False, type=au.is_true)
+    parser.add_argument('--ask_before', help='', required=False, default=False, type=au.is_true)
 
     pu.add_common_args(parser)
     args = utils.Bag(au.parse_parser(parser, argv))
@@ -1714,8 +1759,14 @@ def read_cmd_args(argv=None):
     if 'create_dural' in args.function and len(args.function) == 1:
         args.function = ['create_surfaces', 'create_pial_volume_mask', 'create_spatial_connectivity']
         args.surf_name = 'dural'
-    # python -m src.preproc.anatomy -s nmr00479 -f create_surfaces,create_pial_volume_mask,create_spatial_connectivity --surf_name dural
-    # print(args)
+
+    if args.function == ['convert_dicoms_to_nifti']:
+        args.ignore_missing = True
+
+    # Should be every fol arg
+    for key in ['dicoms_fol']:
+        args[key] = op.expanduser(args[key])
+
     return args
 
 
