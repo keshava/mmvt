@@ -139,7 +139,8 @@ def calc_electrodes_types(labels, pos, electrodes_type=None):
                 while man_group_type not in [0, 1]:
                     man_group_type = input('{} is depth (0) or grid/strip (1)? '.format(group))
                     if utils.is_int(man_group_type):
-                        group_type[group] = type(man_group_type)
+                        man_group_type = int(man_group_type)
+                        group_type[group] = man_group_type
     for index in range(len(labels)):
         elc_group, _ = utils.elec_group_number(labels[index])
         electrodes_group_type[index] = group_type.get(elc_group, DEPTH)
