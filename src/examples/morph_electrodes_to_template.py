@@ -597,6 +597,7 @@ def prepare_files_for_subjects(subjects, remote_subject_templates, sftp=False,  
     good_subjects = []
     for subject in subjects:
         for remote_subject_template in remote_subject_templates:
+            remote_subject_template = remote_subject_template.replace('{hosp}', subject[:2])
             remote_subject_dir = utils.build_remote_subject_dir(remote_subject_template, subject)
             all_files_exist = utils.prepare_subject_folder(
                 necessary_files, subject, remote_subject_dir, SUBJECTS_DIR, overwrite_files=overwrite,
@@ -652,9 +653,9 @@ if __name__ == '__main__':
     cny_goods = ['mg96']
 
     print('{} subject to preproc'.format(len(subjects)))
-    remote_subject_template1 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
-    remote_subject_template2 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
-    remote_subject_template3 = '/mnt/cashlab/projects/DARPA/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput_REDONE'
+    remote_subject_template1 = '/mnt/cashlab/Original Data/{hosp}/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
+    remote_subject_template2 = '/mnt/cashlab/Original Data/{hosp}/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
+    remote_subject_template3 = '/mnt/cashlab/projects/DARPA/{hosp}/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput_REDONE'
     remote_subject_template4 = '/usr/local/freesurfer/dev/subjects/{subject}'
     remote_subject_templates = (remote_subject_template1, remote_subject_template2, remote_subject_template3, remote_subject_template4)
 
