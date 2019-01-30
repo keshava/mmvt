@@ -592,6 +592,7 @@ def prepare_files_for_subjects(subjects, remote_subject_templates, sftp=False,  
     necessary_files = {'surf': ['lh.inflated', 'rh.inflated', 'lh.pial', 'rh.pial', 'rh.white', 'lh.white',
                                 'lh.smoothwm', 'rh.smoothwm', 'rh.sulc', 'lh.sulc', 'lh.sphere', 'rh.sphere',
                                 'lh.inflated.K', 'rh.inflated.K', 'lh.inflated.H', 'rh.inflated.H'],
+                       'mri': ['aseg.mgz', 'norm.mgz', 'ribbon.mgz', 'T1.mgz', 'orig.mgz', 'brain.mgz'],
                        'label': ['lh.aparc.annot', 'rh.aparc.annot']}
 
     # subjects = pu.decode_subjects(['MG*'], remote_subject_template)
