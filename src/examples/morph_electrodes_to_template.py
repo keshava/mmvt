@@ -7,13 +7,15 @@ import glob
 from src.utils import trans_utils as tut
 import csv
 import shutil
-
+import warnings
+import os
 from src.utils import utils
 from src.utils import preproc_utils as pu
 from src.utils import freesurfer_utils as fu
 
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
+os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
 
 mri_robust_register = 'mri_robust_register --mov {subjects_dir}/{subject_from}/mri/T1.mgz --dst {subjects_dir}/{subject_to}/mri/T1.mgz --lta {subjects_dir}/{subject_from}/mri/{lta_name}.lta --satit --mapmov {subjects_dir}/{subject_from}/mri/T1_to_{subject_to}.mgz --cost nmi'
 mri_cvs_register = 'mri_cvs_register --mov {subject_from} --template {subject_to} ' + \
@@ -86,6 +88,7 @@ def cvs_register_to_template(electrodes, template_system, subjects_dir, overwrit
 def _mri_cvs_register_parallel(p):
     subjects, subject_to, subjects_dir, overwrite, print_only = p
     for subject_from in subjects:
+        print('********************* {} ***********************'.format(subject_from))
         # output_fname = op.join(SUBJECTS_DIR, subject_from, 'mri_cvs_register_to_colin27', 'combined_tocolin27_elreg_afteraseg-norm.tm3d')
         # if op.isfile(output_fname) and not overwrite:
         #     print('Already done for {}'.format(subject_from))
@@ -622,9 +625,9 @@ def get_all_subjects(remote_subject_template):
 def main(subjects, template_system, remote_subject_templates=(), bipolar=False, save_as_bipolar=False, prefix='', print_only=False, n_jobs=4):
     good_subjects = prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=False)
     electrodes = read_all_electrodes(good_subjects, bipolar)
-    #subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=False, overwrite=False)
-    create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
-    morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True, n_jobs=n_jobs, print_only=True)
+    subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=False)
+    # create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
+    # morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True, n_jobs=n_jobs, print_only=print_only)
     # read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
     # save_template_electrodes_to_template(None, save_as_bipolar, MMVT_DIR, template_system, prefix)
     # export_into_csv(template_system, MMVT_DIR, prefix)
@@ -639,11 +642,12 @@ if __name__ == '__main__':
     use_apply_morph = True
     prefix, postfix = '', '' # 'stim_'
     overwrite=False
-    print_only=False
-    n_jobs=1
     remote_subject_template = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
-    badsubjects= ['MG98', 'MG96', 'BW38', 'BW39', 'BW40', 'MG100', 'MG122', 'MG106', 'BW37']
+    badsubjects= ['MG98', 'BW38', 'BW39', 'BW40', 'MG100', 'MG122', 'MG106', 'BW37']
+    file_missings=['MG96']
+    core_dump=['BW40']
+
     print('{} subject to preproc'.format(len(subjects)))
     remote_subject_template1 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     remote_subject_template2 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
@@ -651,7 +655,21 @@ if __name__ == '__main__':
     remote_subject_template4 = '/usr/local/freesurfer/dev/subjects/{subject}'
     remote_subject_templates = (remote_subject_template1, remote_subject_template2, remote_subject_template3, remote_subject_template4)
 
-    subjects_to_morph = main(subjects, template_system, remote_subject_templates, bipolar, save_as_bipolar, prefix, print_only, n_jobs)
-    #print('Should copy from CNY: {}'.format(cny_goods.intersection(set(subjects_to_morph))))
+    import argparse
+    from src.utils import args_utils as au
+    parser = argparse.ArgumentParser(description='MMVT')
+    parser.add_argument('-s', '--subject', help='subject name', required=False, default='', type=au.str_arr_type)
+    parser.add_argument('-f', '--function', help='function name', required=False, default='')
+    parser.add_argument('--print_only', required=False, default=False, type=au.is_true)
+    parser.add_argument('--n_jobs', help='cpu num', required=False, default=1)
+
+    args = utils.Bag(au.parse_parser(parser))
+    args.n_jobs = utils.get_n_jobs(args.n_jobs)
+    if len(args.subject) == 0:
+        args.subject = subjects
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        main(args.subject, template_system, remote_subject_templates, bipolar, save_as_bipolar, prefix, args.print_only, args.n_jobs)
+    print('Done!')
 
     print('finish')
