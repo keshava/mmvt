@@ -1943,8 +1943,6 @@ def direct_project_volume_to_surf(subject, vol_fname, overwrite=False):
         np.save(output_fname, vertices_data)
 
 
-
-
 def call_main(args):
     return pu.run_on_subjects(args, main)
 

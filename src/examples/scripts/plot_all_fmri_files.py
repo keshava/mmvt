@@ -6,8 +6,9 @@ def run(mmvt):
     mu = mmvt.utils
     # mmvt.appearance.show_inflated()
     mmvt.appearance.show_pial()
+    mmvt.show_hide.hide_subcorticals()
     mmvt.coloring.set_lower_threshold(0.95)
-    mmvt.colorbar.set_colormap('Pubu-RdOrYl')
+    mmvt.colorbar.set_colormap('YlOrRd')
     mmvt.colorbar.set_colorbar_title('p-vals')
     # mmvt.render.save_views_with_cb(True)
     # mmvt.render.set_view_distrecibnance(22)
