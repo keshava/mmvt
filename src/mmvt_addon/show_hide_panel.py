@@ -110,12 +110,29 @@ def rotate_brain(dx=None, dy=None, dz=None, keep_rotating=False, save_image=Fals
     rv3d.view_rotation.rotate(mathutils.Euler((math.radians(d) for d in (dx, dy, dz))))
     if bpy.context.scene.rotate_and_save or save_image:
         _addon().save_image('rotation', view_selected=bpy.context.scene.save_selected_view)
-    if bpy.context.scene.rotate_and_render or render_image:
-        _addon().render_image('rotation')
+    # if bpy.context.scene.rotate_and_render or render_image:
+    #     _addon().render_image('rotation')
     if bpy.context.scene.rotate_360 and any([ShowHideObjectsPanel.rotate_dxyz[k] >= 360 for k in range(3)]):
         stop_rotating()
     elif keep_rotating:
         start_rotating()
+
+
+def render_movie(dx=None, dy=None, dz=None):
+    dx = bpy.context.scene.rotate_dx if dx is None else dx
+    dy = bpy.context.scene.rotate_dy if dy is None else dy
+    dz = bpy.context.scene.rotate_dz if dz is None else dz
+    stop = False
+    rotate_dxyz = np.array([0., 0., 0.])
+    run = 0
+    while not stop:
+        _addon().render.render_image('rotation')
+        _addon().render.camera_mode('ORTHO')
+        _addon().show_hide.rotate_brain(dx, dy, dz)
+        _addon().render.camera_mode('CAMERA')
+        rotate_dxyz += np.array([dx, dy, dz])
+        run += 1
+        stop = any([ShowHideObjectsPanel.rotate_dxyz[k] >= 360 for k in range(3)]) or run > 360
 
 
 def set_rotate_brain(dx=0, dy=0, dz=0):
@@ -622,6 +639,17 @@ class ShowHideHead(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class ShowHideRenderRot(bpy.types.Operator):
+    bl_idname = "mmvt.show_hide_render_rot"
+    bl_label = "mmvt show_hide_render_rot"
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        render_movie()
+        return {"FINISHED"}
+
+
 class ShowHideSubCerebellum(bpy.types.Operator):
     bl_idname = "mmvt.show_hide_cerebellum"
     bl_label = "mmvt show_hide_cerebellum"
@@ -722,6 +750,7 @@ class ShowHideObjectsPanel(bpy.types.Panel):
             col.prop(context.scene, 'rotate_360')
             col.prop(context.scene, 'rotate_and_save')
             # col.prop(context.scene, 'rotate_and_render')
+            col.operator(ShowHideRenderRot.bl_idname, text="Render full rotation", icon='CLIP')
 
         # views_options = ['Camera', 'Ortho']
         # next_view = views_options[int(bpy.context.scene.in_camera_view)]
@@ -846,6 +875,7 @@ def register():
         bpy.utils.register_class(ShowHideRHSubs)
         bpy.utils.register_class(ShowHideSubCerebellum)
         bpy.utils.register_class(ShowHideHead)
+        bpy.utils.register_class(ShowHideRenderRot)
         # print('Show Hide Panel was registered!')
     except:
         print("Can't register Show Hide Panel!")
@@ -867,6 +897,7 @@ def unregister():
         bpy.utils.unregister_class(ShowHideRHSubs)
         bpy.utils.unregister_class(ShowHideSubCerebellum)
         bpy.utils.unregister_class(ShowHideHead)
+        bpy.utils.unregister_class(ShowHideRenderRot)
     except:
         pass
         # print("Can't unregister Freeview Panel!")
