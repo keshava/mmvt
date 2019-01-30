@@ -201,9 +201,9 @@ def create_real_folder(real_fol):
 
 def install_reqs(do_upgrade=False, only_verbose=False):
     try:
-        return install_reqs_loop(do_upgrade, only_verbose)
-    except:
         return utils.run_script('pip install --user -r requirements.txt')
+    except:
+        return install_reqs_loop(do_upgrade, only_verbose)
 
 
 def install_reqs_loop(do_upgrade=False, only_verbose=False):
