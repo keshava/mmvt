@@ -601,7 +601,7 @@ def prepare_files_for_subjects(subjects, remote_subject_templates, sftp=False,  
         for remote_subject_template in remote_subject_templates:
             remote_subject_template = remote_subject_template.replace('{hosp}', subject[:2])
             remote_subject_dir = utils.build_remote_subject_dir(remote_subject_template, subject)
-            all_files_exist = utils.prepare_subject_folder(
+            all_files_exist, _ = utils.prepare_subject_folder(
                 necessary_files, subject, remote_subject_dir, SUBJECTS_DIR, overwrite_files=overwrite,
                 sftp=sftp, sftp_username=sftp_username, sftp_domain=sftp_domain, print_missing_files=False)
             if all_files_exist:
@@ -650,16 +650,17 @@ if __name__ == '__main__':
     overwrite=False
     remote_subject_template = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
-    subjects = ['MG98', 'MG100', 'MG122', 'MG106', 'BW37', 'BW38', 'BW39', 'BW40'] # bad
+    subjects = ['MG96', 'MG98', 'MG100', 'MG122', 'MG106', 'BW37', 'BW38', 'BW39', 'BW40'] # bad
     file_missings=[]
-    cny_goods = ['mg96']
 
     print('{} subject to preproc'.format(len(subjects)))
     remote_subject_template1 = '/mnt/cashlab/Original Data/{hosp}/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     remote_subject_template2 = '/mnt/cashlab/Original Data/{hosp}/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
-    remote_subject_template3 = '/mnt/cashlab/projects/DARPA/{hosp}/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput_REDONE'
-    remote_subject_template4 = '/usr/local/freesurfer/dev/subjects/{subject}'
-    remote_subject_templates = (remote_subject_template1, remote_subject_template2, remote_subject_template3, remote_subject_template4)
+    remote_subject_template3 = '/mnt/cashlab/Original Data/{hosp}/{subject}/{subject}_SurferOutput'
+    remote_subject_template4 = '/mnt/cashlab/projects/DARPA/{hosp}/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput_REDONE'
+    remote_subject_template5 = '/usr/local/freesurfer/dev/subjects/{subject}'
+    remote_subject_templates = (remote_subject_template1, remote_subject_template2, remote_subject_template3,
+                                remote_subject_template4, remote_subject_template5)
 
     import argparse
     from src.utils import args_utils as au

@@ -1902,6 +1902,49 @@ def build_local_fname(nii_fname, user_fol):
     return op.join(user_fol, 'fmri', local_fname)
 
 
+def surf_files_exist(subject, fmri_fname):
+    return utils.both_hemi_files_exist(surf_files_tempalte(subject, fmri_fname))
+
+
+def surf_files_tempalte(subject, fmri_fname):
+    return op.join(
+        MMVT_DIR, subject, 'fmri', 'fmri_{}_{}.npy'.format(utils.namebase(fmri_fname), '{hemi}'))
+
+
+def get_surf_files(subject, fmri_fname):
+    template = surf_files_tempalte(subject, fmri_fname)
+    return [template.format(hemi=hemi) for hemi in utils.HEMIS]
+
+
+def calc_surf_files_min_max(surf_files, min_val=1e-3):
+    data = [np.load(surf_fname) for surf_fname in surf_files]
+    try:
+        data_max = max([np.max(d[d > min_val]) for d in data])
+        data_min = min([np.min(d[d > min_val]) for d in data])
+    except:
+        data_max = max([np.max(d) for d in data])
+        data_min = min([np.min(d) for d in data])
+    return data_min, data_max
+
+
+def direct_project_volume_to_surf(subject, vol_fname, overwrite=False):
+    surf_template = surf_files_tempalte(subject, vol_fname)
+    for hemi in utils.HEMIS:
+        output_fname = surf_template.format(hemi=hemi)
+        if op.isfile(output_fname) and not overwrite:
+            print('{} already exists'.format(output_fname))
+            continue
+        vertices, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+        vol = nib.load(vol_fname)
+        data = vol.get_data()
+        tkreg2vox = np.linalg.inv(vol.header.get_vox2ras_tkr())
+        vertices_vox = np.rint(utils.apply_trans(tkreg2vox, vertices)).astype(int)
+        vertices_data = data[tuple([vertices_vox[:, k] for k in range(3)])]
+        np.save(output_fname, vertices_data)
+
+
+
+
 def call_main(args):
     return pu.run_on_subjects(args, main)
 
