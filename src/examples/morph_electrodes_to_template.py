@@ -19,7 +19,7 @@ os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
 
 mri_robust_register = 'mri_robust_register --mov {subjects_dir}/{subject_from}/mri/T1.mgz --dst {subjects_dir}/{subject_to}/mri/T1.mgz --lta {subjects_dir}/{subject_from}/mri/{lta_name}.lta --satit --mapmov {subjects_dir}/{subject_from}/mri/T1_to_{subject_to}.mgz --cost nmi'
 mri_cvs_register = 'mri_cvs_register --mov {subject_from} --template {subject_to} ' + \
-                   '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_{subject_to} --nocleanup' # --step3'
+                   '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_{subject_to} --nocleanup --openmp {openmp}' # --step3'
 mri_cvs_register_mni = 'mri_cvs_register --mov {subject_from} --mni ' + \
                    '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_mni --nocleanup' # --step3'
 mri_vol2vol = 'mri_vol2vol --mov {subjects_dir}/{subject}/mri/T1.mgz ' + \
@@ -54,7 +54,8 @@ apply_morph_mni = 'applyMorph --template {subjects_dir}/{subject_to}/mri/orig.mg
 #         rs(cmd)
 
 
-def cvs_register_to_template(electrodes, template_system, subjects_dir, overwrite=False, print_only=False, n_jobs=1):
+def cvs_register_to_template(electrodes, template_system, subjects_dir, overwrite=False, print_only=False, n_jobs=1,
+                             openmp=8):
     subject_to = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
     if subject_to == 'fsaverage':
         output_fname = op.join(subjects_dir, '{subject}', 'mri_cvs_register_to_mni',
@@ -79,14 +80,14 @@ def cvs_register_to_template(electrodes, template_system, subjects_dir, overwrit
     print(subjects)
 
     indices = np.array_split(np.arange(len(subjects)), n_jobs)
-    chunks = [([subjects[ind] for ind in chunk_indices], subject_to, subjects_dir, overwrite, print_only)
+    chunks = [([subjects[ind] for ind in chunk_indices], subject_to, subjects_dir, overwrite, print_only, openmp)
               for chunk_indices in indices]
     utils.run_parallel(_mri_cvs_register_parallel, chunks, n_jobs)
     return subjects
 
 
 def _mri_cvs_register_parallel(p):
-    subjects, subject_to, subjects_dir, overwrite, print_only = p
+    subjects, subject_to, subjects_dir, overwrite, print_only, openmp = p
     for subject_from in subjects:
         print('********************* {} ***********************'.format(subject_from))
         # output_fname = op.join(SUBJECTS_DIR, subject_from, 'mri_cvs_register_to_colin27', 'combined_tocolin27_elreg_afteraseg-norm.tm3d')
