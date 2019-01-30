@@ -647,9 +647,8 @@ if __name__ == '__main__':
     overwrite=False
     remote_subject_template = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
-    subjects = ['MG98', 'BW38', 'BW39', 'BW40', 'MG100', 'MG122', 'MG106', 'BW37'] # bad
-    file_missings=['MG96']
-    core_dump=['BW40']
+    subjects = ['MG96', 'MG98', 'MG100', 'MG122', 'MG106', 'BW37'] # bad
+    file_missings=['BW38', 'BW39', 'BW40']
 
     print('{} subject to preproc'.format(len(subjects)))
     remote_subject_template1 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
