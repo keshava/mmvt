@@ -586,7 +586,8 @@ def get_output_using_sftp(subjects, subject_to):
             password = password_temp
 
 
-def prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=False):
+def prepare_files_for_subjects(subjects, remote_subject_templates, sftp=False,  sftp_username='', sftp_domain='',
+                               overwrite=False):
     necessary_files = {'surf': ['lh.inflated', 'rh.inflated', 'lh.pial', 'rh.pial', 'rh.white', 'lh.white',
                                 'lh.smoothwm', 'rh.smoothwm', 'rh.sulc', 'lh.sulc', 'lh.sphere', 'rh.sphere',
                                 'lh.inflated.K', 'rh.inflated.K', 'lh.inflated.H', 'rh.inflated.H'],
@@ -599,7 +600,7 @@ def prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=Fal
             remote_subject_dir = utils.build_remote_subject_dir(remote_subject_template, subject)
             all_files_exist = utils.prepare_subject_folder(
                 necessary_files, subject, remote_subject_dir, SUBJECTS_DIR, overwrite_files=overwrite,
-                print_missing_files=False)
+                sftp=sftp, sftp_username=sftp_username, sftp_domain=sftp_domain, print_missing_files=False)
             if all_files_exist:
                 good_subjects.append(subject)
                 break
@@ -622,8 +623,10 @@ def get_all_subjects(remote_subject_template):
     return subjects
 
 
-def main(subjects, template_system, remote_subject_templates=(), bipolar=False, save_as_bipolar=False, prefix='', print_only=False, n_jobs=4):
-    good_subjects = prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=False)
+def main(subjects, template_system, remote_subject_templates=(), bipolar=False, save_as_bipolar=False, prefix='',
+         sftp=False, sftp_username='', sftp_domain='', print_only=False, n_jobs=4):
+    good_subjects = prepare_files_for_subjects(
+        subjects, remote_subject_templates, sftp, sftp_username, sftp_domain, overwrite=False)
     electrodes = read_all_electrodes(good_subjects, bipolar)
     subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=False)
     # create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
@@ -644,7 +647,7 @@ if __name__ == '__main__':
     overwrite=False
     remote_subject_template = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
-    badsubjects= ['MG98', 'BW38', 'BW39', 'BW40', 'MG100', 'MG122', 'MG106', 'BW37']
+    subjects = ['MG98', 'BW38', 'BW39', 'BW40', 'MG100', 'MG122', 'MG106', 'BW37'] # bad
     file_missings=['MG96']
     core_dump=['BW40']
 
@@ -661,6 +664,9 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--subject', help='subject name', required=False, default='', type=au.str_arr_type)
     parser.add_argument('-f', '--function', help='function name', required=False, default='')
     parser.add_argument('--print_only', required=False, default=False, type=au.is_true)
+    parser.add_argument('--sftp', required=False, default=False, type=au.is_true)
+    parser.add_argument('--sftp_username', help='sftp username', required=False, default='npeled')
+    parser.add_argument('--sftp_domain', help='sftp domain', required=False, default='door.nmr.mgh.harvard.edu')
     parser.add_argument('--n_jobs', help='cpu num', required=False, default=1)
 
     args = utils.Bag(au.parse_parser(parser))
@@ -669,7 +675,8 @@ if __name__ == '__main__':
         args.subject = subjects
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        main(args.subject, template_system, remote_subject_templates, bipolar, save_as_bipolar, prefix, args.print_only, args.n_jobs)
+        main(args.subject, template_system, remote_subject_templates, bipolar, save_as_bipolar, prefix,
+             args.sftp, args.sftp_username, args.sftp_domain, args.print_only, args.n_jobs)
     print('Done!')
 
     print('finish')
