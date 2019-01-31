@@ -318,18 +318,10 @@ def contrast_to_contours(subject, contrast_name, thresholds_min=None, thresholds
     data = np.reshape(data, (len(data), 1))
     vertices = [vertno['lh'], vertno['rh']]
     stc = mne.SourceEstimate(data, vertices, 0, 1, subject=mri_subject)
-    meg.stc_to_contours(mri_subject, contrast_name, 0, thresholds_min, thresholds_max, thresholds_dx,
-                        min_cluster_size, atlas, clusters_label, find_clusters_overlapped_labeles,
-                        stc_t_smooth=stc, n_jobs=n_jobs)
-
-
-def load_connectivity(subject):
-    connectivity_fname = op.join(MMVT_DIR, subject, 'spatial_connectivity.pkl')
-    if not op.isfile(connectivity_fname):
-        from src.preproc import anatomy
-        anatomy.create_spatial_connectivity(subject)
-    connectivity_per_hemi = utils.load(connectivity_fname)
-    return connectivity_per_hemi
+    return meg.stc_to_contours(
+        mri_subject, contrast_name, 0, thresholds_min, thresholds_max, thresholds_dx,
+        min_cluster_size, atlas, clusters_label, find_clusters_overlapped_labeles,
+        stc_t_smooth=stc, n_jobs=n_jobs)
 
 
 # def find_clusters_tval_hist(subject, contrast_name, output_fol, input_fol='', n_jobs=1):

@@ -632,9 +632,9 @@ def main(subjects, template_system, remote_subject_templates=(), bipolar=False, 
         subjects, remote_subject_templates, sftp, sftp_username, sftp_domain, overwrite=False)
     electrodes = read_all_electrodes(good_subjects, bipolar)
     subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=False)
-    # create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
-    # morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True, n_jobs=n_jobs, print_only=print_only)
-    # read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
+    create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
+    morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True, n_jobs=n_jobs, print_only=print_only)
+    read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
     # save_template_electrodes_to_template(None, save_as_bipolar, MMVT_DIR, template_system, prefix)
     # export_into_csv(template_system, MMVT_DIR, prefix)
     # create_mmvt_coloring_file(template_system, electrodes)sss

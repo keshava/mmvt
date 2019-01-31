@@ -675,6 +675,14 @@ def create_spatial_connectivity(subject, surf_types=('pial', 'dural'), overwrite
     return ret
 
 
+def load_connectivity(subject):
+    connectivity_fname = op.join(MMVT_DIR, subject, 'spatial_connectivity.pkl')
+    if not op.isfile(connectivity_fname):
+        create_spatial_connectivity(subject)
+    connectivity_per_hemi = utils.load(connectivity_fname)
+    return connectivity_per_hemi
+
+
 def calc_three_rois_intersection(subject, rois, output_fol='', model_name='', atlas='aparc.DKTatlas', debug=False,
                                  overwrite=False):
 

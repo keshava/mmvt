@@ -4405,7 +4405,7 @@ def find_functional_rois_in_stc(
         stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
         verts = check_stc_with_ply(stc_t_smooth, subject=subject)
     if connectivity is None:
-        connectivity = load_connectivity(subject)
+        connectivity = anat.load_connectivity(subject)
     if verts_dict is None:
         verts_dict = utils.get_pial_vertices(subject, MMVT_DIR)
     if threshold_is_precentile:
@@ -4499,15 +4499,6 @@ def find_pick_activity(subject, stc, atlas, label_name_template='', hemi='both',
 
 def get_stc_data_and_vertices(stc, hemi):
     return (stc.lh_data, stc.lh_vertno) if hemi == 'lh' else (stc.rh_data, stc.rh_vertno)
-
-
-def load_connectivity(subject):
-    connectivity_fname = op.join(MMVT_DIR, subject, 'spatial_connectivity.pkl')
-    if not op.isfile(connectivity_fname):
-        from src.preproc import anatomy
-        anatomy.create_spatial_connectivity(subject)
-    connectivity_per_hemi = utils.load(connectivity_fname)
-    return connectivity_per_hemi
 
 
 def calc_cluster_labels(
@@ -4944,7 +4935,7 @@ def stc_to_contours(subject, stc_name, pick_t=0, thresholds_min=None, thresholds
         mri_subject = subject
     clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
     output_fname = op.join(clusters_root_fol, '{}_contoures_{}.pkl'.format(stc_name, pick_t))
-    connectivity = load_connectivity(subject)
+    connectivity = anat.load_connectivity(subject)
     if stc_t_smooth is None:
         stc_t_smooth_fname = op.join(clusters_root_fol, '{}_{}_smooth'.format(stc_name, pick_t))
         stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))

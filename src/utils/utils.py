@@ -1852,10 +1852,11 @@ def add_str_to_file_name(fname, txt, suf=''):
 def locating_file(default_fname, glob_pattern, parent_fol, raise_exception=False, exclude_pattern=''):
     if op.isfile(default_fname):
         return default_fname, True
-    if op.isfile(glob_pattern):
-        return glob_pattern, True
     if isinstance(glob_pattern, str):
         glob_pattern = [glob_pattern]
+    for gp in glob_pattern:
+        if op.isfile(gp):
+            return gp, True
     glob_pattern_print = ','.join(glob_pattern)
     fname = op.join(parent_fol, default_fname)
     if '{cond}' in fname:
