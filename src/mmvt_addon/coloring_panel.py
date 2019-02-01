@@ -13,7 +13,6 @@ import re
 import shutil
 import math
 
-# from matplotlib.rcsetup import validate_nseq_float
 from tqdm import tqdm
 
 try:

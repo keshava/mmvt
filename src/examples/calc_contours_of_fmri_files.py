@@ -22,12 +22,16 @@ def calc_contoures(subject, fmri_names, thresholds_min=2, thresholds_max=None, t
 
 def merge_contours(subject, fmri_names):
     for fmri_name in fmri_names:
-        pass
-        pass
+        contoures_fname = op.join(MMVT_DIR, subject, 'fmri', 'clusters', '{}_contoures_0.pkl'.format(fmri_name))
+        contoures = utils.Bag(utils.load(contoures_fname))
+        print("sdf")
+
 
 if __name__ == '__main__':
+    subject = 'hbs'
     fmri_names = ['QT_MAP_1_tfce_corrp_tstat1_1mm_insulaopercula',
                   'Inf_MAP_3_tfce_corrp_tstat1_1mm_insulaopercula',
                   'Troponin_MAP_1_tfce_corrp_tstat1_1mm_insulaopercula',
                   'ASH_MAP_3_tfce_corrp_tstat1_1mm_insulaopercula']
-    calc_contoures('hbs', fmri_names, 0.95)
+    calc_contoures(subject, fmri_names, 0.95)
+    # merge_contours(subject, fmri_names)
