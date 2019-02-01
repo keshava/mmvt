@@ -310,8 +310,8 @@ def contrast_to_contours(subject, contrast_name, thresholds_min=None, thresholds
     from src.preproc import meg
     if mri_subject == '':
         mri_subject = subject
-    constrast = {hemi: np.load(op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}.{}.npy'.format(contrast_name, hemi)))
-                 for hemi in utils.HEMIS}
+    constrast = glob.glob(op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}??h.npy'.format(contrast_name)))
+    constrast = {lu.get_hemi_from_name(utils.namebase(f)): f for f in constrast}
     verts = utils.get_pial_vertices(subject, MMVT_DIR)
     vertno = {hemi: range(len(verts[hemi])) for hemi in utils.HEMIS}
     data = np.concatenate([constrast['lh'], constrast['rh']])
