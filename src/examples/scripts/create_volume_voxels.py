@@ -1,5 +1,4 @@
 import bpy
-import bpy_extras
 
 import os.path as op
 import nibabel as nib
