@@ -4930,10 +4930,10 @@ def get_digitization_points(subject, raw_fname):
 
 def stc_to_contours(subject, stc_name, pick_t=0, thresholds_min=None, thresholds_max=None, thresholds_dx=1,
                     min_cluster_size=10, atlas='', clusters_label='', find_clusters_overlapped_labeles=False,
-                    mri_subject='', stc_t_smooth=None, n_jobs=4):
+                    mri_subject='', stc_t_smooth=None, modality='meg', n_jobs=4):
     if mri_subject == '':
         mri_subject = subject
-    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
+    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality, 'clusters'))
     output_fname = op.join(clusters_root_fol, '{}_contoures_{}.pkl'.format(stc_name, pick_t))
     connectivity = anat.load_connectivity(subject)
     if stc_t_smooth is None:
@@ -5213,7 +5213,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'stc_to_contours' in args.function:
         flags['stc_to_contours'], _ = stc_to_contours(
             subject, args.stc_name, args.peak_stc_time_index, args.thresholds_min, args.thresholds_max,
-            args.thresholds_dx, args.mri_subject, args.n_jobs)
+            args.thresholds_dx, args.mri_subject, 'meg', args.n_jobs)
 
     return flags
 

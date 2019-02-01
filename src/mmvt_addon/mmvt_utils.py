@@ -402,7 +402,6 @@ def create_cubes(values, vol_tkreg, indices, data_min, data_max, name, parent='F
     delete_current_obj()
 
 
-
 def create_cube(layer, radius=0.1):
     layers = [False] * 20
     layers[layer] = True

@@ -72,7 +72,7 @@ def init(mmvt):
         items=files_items, description="Volume file names", update=plot_volume_fname_update)
     bpy.context.scene.plot_volume_fname = files[0]
 
-    bpy.context.scene.plot_volume_colorbar_min = 0.95
+    bpy.context.scene.plot_volume_colorbar_min = 0.99
     bpy.context.scene.plot_volume_colorbar_max = 1
 
 
