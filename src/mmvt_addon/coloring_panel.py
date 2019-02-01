@@ -1039,6 +1039,10 @@ def get_obj_color_data(obj, color, val=1):
     return data
 
 
+def calc_color(value, min_data=None, colors_ratio=None, cm=None):
+    return calc_colors([value], min_data=None, colors_ratio=None, cm=None)[0]
+
+
 def calc_colors(vert_values, min_data=None, colors_ratio=None, cm=None):
     if cm is None:
         cm = _addon().get_cm()

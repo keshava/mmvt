@@ -268,6 +268,14 @@ def insert_keyframe_to_custom_prop(obj, prop_name, value, keyframe):
     obj.keyframe_insert(data_path='[' + '"' + prop_name + '"' + ']', frame=keyframe)
 
 
+def get_object(obj_name, default=None):
+    return bpy.data.objects.get(obj_name, default)
+
+
+def delete_current_obj():
+    bpy.ops.object.delete()
+
+
 def create_and_set_material(obj):
     # curMat = bpy.data.materials['OrigPatchesMat'].copy()
     if obj.active_material is None or obj.active_material.name != obj.name + '_Mat':
@@ -373,6 +381,33 @@ def hook_curves(o1, o2, co1, co2, bevel_depth=0.1, resolution_u=5):
     p1.select_control_point = True
     bpy.ops.object.hook_assign(modifier="beta")
     bpy.ops.object.mode_set(mode='OBJECT')
+
+
+def create_cube(layer, radius=0.1):
+    layers = [False] * 20
+    layers[layer] = True
+    bpy.ops.mesh.primitive_cube_add(radius=radius)
+    bpy.ops.object.move_to_layer(layers=layers)
+    return bpy.context.active_object
+
+
+def copy_cube(orig_cube, pos, cube_name, vol_name, color=(1, 1, 1), material='Deep_electrode_mat'):
+    m = orig_cube.data.copy()
+    cur_obj = bpy.data.objects.new('cube', m)
+    cur_obj.name = cube_name
+    cur_mat = bpy.data.materials[material].copy()
+    cur_mat.name = cur_obj.name + '_Mat'
+    cur_obj.active_material = cur_mat
+    cur_obj.location = mathutils.Vector(tuple(pos))
+    cur_obj.parent = bpy.data.objects[vol_name]
+    color_obj(cur_mat, color)
+    bpy.context.scene.objects.link(cur_obj)
+    return cur_obj
+
+
+def color_obj(cur_mat, color):
+    cur_mat.node_tree.nodes["RGB"].outputs[0].default_value = (color[0], color[1], color[2], 1)
+    cur_mat.diffuse_color = color[:3]
 
 
 def create_empty_if_doesnt_exists(name, brain_layer, layers_array=None, root_fol='Brain'):
