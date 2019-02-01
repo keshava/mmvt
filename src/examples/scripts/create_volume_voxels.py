@@ -20,26 +20,8 @@ def run(mmvt):
     indices = np.where(data >= mmvt.coloring.get_lower_threshold())
     indices = np.array([indices[0], indices[1], indices[2]]).T
     vol_threg = mu.apply_trans(vox2tkreg, indices)
-    create_cubes(mmvt, values, vol_threg, indices, data_min, data_max, vol_name)
+    mu.create_cubes(values, vol_threg, indices, data_min, data_max, vol_name)
 
-
-def create_cubes(mmvt, values, vol_threg, indices, data_min, data_max, vol_name):
-    # https://stackoverflow.com/questions/48818274/quickly-adding-large-numbers-of-mesh-primitives-in-blender
-    mu = mmvt.utils
-    mmvt.data.create_empty_if_doesnt_exists(vol_name, mmvt.BRAIN_EMPTY_LAYER, None, 'Functional maps')
-    orig_cube = mu.create_cube(mmvt.ACTIVITY_LAYER, radius=0.1)
-    colors_ratio = 256 / (data_max - data_min)
-    colors = mmvt.coloring.calc_colors(values, data_min, colors_ratio)
-    now, N = time.time(), len(indices)
-    for run, (voxel, ind, color) in enumerate((zip(vol_threg, indices, colors))):
-        mu.time_to_go(now, run, N, 100)
-        cube_name = 'cube_{}_{}_{}_{}'.format(vol_name[:3], voxel[0], voxel[1], voxel[2])
-        cur_obj = mu.get_object(cube_name)
-        if cur_obj is not None:
-            mu.color_obj(cur_obj.active_material, color)
-        else:
-            mu.copy_cube(orig_cube, voxel * 0.1, cube_name, vol_name, color)
-    mu.delete_current_obj()
 
 
 

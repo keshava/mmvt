@@ -383,6 +383,25 @@ def hook_curves(o1, o2, co1, co2, bevel_depth=0.1, resolution_u=5):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
+def create_cubes(values, vol_tkreg, indices, data_min, data_max, name, parent='Functional maps'):
+    # https://stackoverflow.com/questions/48818274/quickly-adding-large-numbers-of-mesh-primitives-in-blender
+    _addon.data.create_empty_if_doesnt_exists(name, _addon.BRAIN_EMPTY_LAYER, None, parent)
+    orig_cube = create_cube(_addon.ACTIVITY_LAYER, radius=0.1)
+    colors_ratio = 256 / (data_max - data_min)
+    colors = _addon.coloring.calc_colors(values, data_min, colors_ratio)
+    now, N = time.time(), len(indices)
+    for run, (voxel, ind, color) in enumerate((zip(vol_tkreg, indices, colors))):
+        time_to_go(now, run, N, 100)
+        cube_name = 'cube_{}_{}_{}_{}'.format(name[:3], voxel[0], voxel[1], voxel[2])
+        cur_obj = get_object(cube_name)
+        if cur_obj is not None:
+            color_obj(cur_obj.active_material, color)
+        else:
+            copy_cube(orig_cube, voxel * 0.1, cube_name, name, color)
+    delete_current_obj()
+
+
+
 def create_cube(layer, radius=0.1):
     layers = [False] * 20
     layers[layer] = True
@@ -391,7 +410,7 @@ def create_cube(layer, radius=0.1):
     return bpy.context.active_object
 
 
-def copy_cube(orig_cube, pos, cube_name, vol_name, color=(1, 1, 1), material='Deep_electrode_mat'):
+def copy_cube(orig_cube, pos, cube_name, name, color=(1, 1, 1), material='Deep_electrode_mat'):
     m = orig_cube.data.copy()
     cur_obj = bpy.data.objects.new('cube', m)
     cur_obj.name = cube_name
@@ -399,7 +418,7 @@ def copy_cube(orig_cube, pos, cube_name, vol_name, color=(1, 1, 1), material='De
     cur_mat.name = cur_obj.name + '_Mat'
     cur_obj.active_material = cur_mat
     cur_obj.location = mathutils.Vector(tuple(pos))
-    cur_obj.parent = bpy.data.objects[vol_name]
+    cur_obj.parent = bpy.data.objects[name]
     color_obj(cur_mat, color)
     bpy.context.scene.objects.link(cur_obj)
     return cur_obj
