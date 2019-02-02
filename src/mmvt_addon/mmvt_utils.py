@@ -383,21 +383,27 @@ def hook_curves(o1, o2, co1, co2, bevel_depth=0.1, resolution_u=5):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
-def create_cubes(values, vol_tkreg, indices, data_min, data_max, name, parent='Functional maps'):
+def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, parent='Functional maps'):
     # https://stackoverflow.com/questions/48818274/quickly-adding-large-numbers-of-mesh-primitives-in-blender
     _addon.data.create_empty_if_doesnt_exists(name, _addon.BRAIN_EMPTY_LAYER, None, parent)
     orig_cube = create_cube(_addon.ACTIVITY_LAYER, radius=0.1)
     colors_ratio = 256 / (data_max - data_min)
     colors = _addon.coloring.calc_colors(values, data_min, colors_ratio)
     now, N = time.time(), len(indices)
+    dxyzs = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
+    inner_cubes = 0
     for run, (voxel, ind, color) in enumerate((zip(vol_tkreg, indices, colors))):
         time_to_go(now, run, N, 100)
-        cube_name = 'cube_{}_{}_{}_{}'.format(name[:3], voxel[0], voxel[1], voxel[2])
+        if all([data[tuple(ind + dxyz)] >= data_min for dxyz in dxyzs]):
+            inner_cubes += 1
+            continue
+        cube_name = 'cube_{}_{}_{}_{}'.format(name[:3], ind[0], ind[1], ind[2])
         cur_obj = get_object(cube_name)
         if cur_obj is not None:
             color_obj(cur_obj.active_material, color)
         else:
             copy_cube(orig_cube, voxel * 0.1, cube_name, name, color)
+    print('{} inner cubes out of {} ({:.f}%)'.format(inner_cubes, N, inner_cubes / N))
     delete_current_obj()
 
 

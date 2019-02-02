@@ -17,11 +17,11 @@ def run(mmvt):
     vol_name = mu.namebase(vol_fname)
     vol = nib.load(vol_fname)
     data = vol.get_data()
-    values = data[np.where(data >= mmvt.coloring.get_lower_threshold())]
-    indices = np.where(data >= mmvt.coloring.get_lower_threshold())
+    values = data[np.where(data >= data_min)]
+    indices = np.where(data >= data_min)
     indices = np.array([indices[0], indices[1], indices[2]]).T
     vol_tkreg = mu.apply_trans(vol.header.get_vox2ras_tkr(), indices)
-    mu.create_cubes(values, vol_tkreg, indices, data_min, data_max, vol_name)
+    mu.create_cubes(data, values, vol_tkreg, indices, data_min, data_max, vol_name)
 
 
 bpy.types.Scene.plot_volume_colormap_name = bpy.props.EnumProperty(items=[])
@@ -45,7 +45,7 @@ def init(mmvt):
     cm_items = [(c, c, '', ind) for ind, c in enumerate(colormaps_names)]
     bpy.types.Scene.plot_volume_colormap_name = bpy.props.EnumProperty(
         items=cm_items, description="colormaps names")
-    bpy.context.scene.plot_volume_colormap_name = colormaps_names[0]
+    bpy.context.scene.plot_volume_colormap_name = 'RdOrYl'
 
     files = [mu.namebase(f) for f in glob.glob(op.join(mu.get_fmri_dir(), mu.get_user(), '*.mgz'))]
     files_items = [(c, c, '', ind) for ind, c in enumerate(files)]
