@@ -20,6 +20,10 @@ def read_xls(xls_fname, subject_to='colin27'):
         electrodes_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_morph_to_{}.txt'.format(subject_to))
         if op.isfile(electrodes_fname):
             elec_group, num1, num2 = utils.elec_group_number(elec_name, bipolar)
+            if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
+                num1, num2 = str(num1).zfill(2), str(num2).zfill(2)
+            if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
+                raise Exception('Wrong group or numbers!')
             for num in [num1, num2]:
                 subjects_electrodes[subject].append('{}{}'.format(elec_group, num))
             electrodes_colors[subject].append((elec_name, int(anat_group)))

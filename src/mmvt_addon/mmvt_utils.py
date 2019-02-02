@@ -122,6 +122,7 @@ get_links_dir = su.get_links_dir
 get_resources_dir = su.get_resources_dir
 get_mmvt_dir = su.get_mmvt_dir
 get_subjects_dir = su.get_subjects_dir
+get_fmri_dir = su.get_fmri_dir
 get_real_atlas_name = su.get_real_atlas_name
 get_parent_fol = su.get_parent_fol
 select_one_file = su.select_one_file
@@ -405,7 +406,6 @@ def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, par
             copy_cube(orig_cube, voxel * 0.1, cube_name, name, color)
     print('{} inner cubes out of {} ({:.f}%)'.format(inner_cubes, N, inner_cubes / N))
     delete_current_obj()
-
 
 
 def create_cube(layer, radius=0.1):
@@ -789,6 +789,8 @@ def split_bipolar_name(elec_name):
     splits = elec_name.split('-')
     if len(splits) == 2:
         elec_name2, elec_name1 = splits
+    elif len(splits) == 3:
+        elec_name2, elec_name1 = '-'.join(splits[:2]), '-'.join(splits[2:3])
     elif len(splits) == 4:
         elec_name2, elec_name1 = '-'.join(splits[:2]), '-'.join(splits[2:4])
     return elec_name1, elec_name2

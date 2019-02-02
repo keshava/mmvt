@@ -109,12 +109,11 @@ def morph_electrodes(electrodes, template_system, subjects_dir, mmvt_dir, overwr
     subject_to = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
     output_fname = op.join(mmvt_dir, '{subject}', 'electrodes', 'electrodes_morph_to_{}.txt'.format(subject_to))
     subjects = [s for s in list(electrodes.keys()) if overwrite or not op.isfile(output_fname.format(subject=s))]
-    if len(subjects) == 0:
-        return True
-    indices = np.array_split(np.arange(len(subjects)), n_jobs)
-    chunks = [([subjects[ind] for ind in chunk_indices], subject_to, subjects_dir, mmvt_dir, output_fname, overwrite, print_only)
-              for chunk_indices in indices]
-    utils.run_parallel(_morph_electrodes_parallel, chunks, n_jobs)
+    if len(subjects) > 0:
+        indices = np.array_split(np.arange(len(subjects)), n_jobs)
+        chunks = [([subjects[ind] for ind in chunk_indices], subject_to, subjects_dir, mmvt_dir, output_fname, overwrite, print_only)
+                  for chunk_indices in indices]
+        utils.run_parallel(_morph_electrodes_parallel, chunks, n_jobs)
     bad_subjects, good_subjects = [], []
     for subject_from in list(electrodes.keys()):
         ret = op.isfile(output_fname.format(subject=subject_from))
@@ -122,6 +121,7 @@ def morph_electrodes(electrodes, template_system, subjects_dir, mmvt_dir, overwr
             bad_subjects.append(subject_from)
         else:
             good_subjects.append(subject_from)
+    print('morph_electrodes:')
     print('good subjects: {}'.format(good_subjects))
     print('bad subjects: {}'.format(bad_subjects))
     print('{}/{} good subjects'.format(len(good_subjects), len(list(electrodes.keys()))))
@@ -184,17 +184,18 @@ def read_morphed_electrodes(electrodes, template_system, subjects_dir, mmvt_dir,
             for pair in pairs:
                 # todo: check that the pair is actually two nei electrodes
                 new_bipolar_pos = np.mean([pair[0][1], pair[1][1]], axis=0)
-                group1, num1 = utils.elec_group_number(pair[0][0].split('_')[1], False)
-                group2, num2 = utils.elec_group_number(pair[1][0].split('_')[1], False)
-                if group1 != group2 or abs(num1-num2) != 1:
+                group1, num1 = utils.elec_group_number('_'.join(pair[0][0].split('_')[1:]), False, False)
+                group2, num2 = utils.elec_group_number('_'.join(pair[1][0].split('_')[1:]), False, False)
+                if group1 != group2 or abs(int(num1)-int(num2)) != 1:
                     print('Wrong pair! {} {} {}'.format(group1, num1, num2))
                 else:
-                    num1, num2 = (num1, num2) if num2 > num1 else (num2, num1)
+                    num1, num2 = (num1, num2) if int(num2) > int(num1) else (num2, num1)
                     bipolar_template_electrodes[subject].append(
                         ('{}_{}{}-{}'.format(subject, group1, num1, num2), new_bipolar_pos))
 
     utils.save(template_electrodes, output_fname)
     print('read_morphed_electrodes: {}'.format(op.isfile(output_fname)))
+    print('{}/{} good subjects'.format(len(good_subjects), len(electrodes)))
     print('good subjects: {}'.format(good_subjects))
     print('bad subjects: {}'.format(bad_subjects))
     return bipolar_template_electrodes if convert_to_bipolar else template_electrodes
@@ -212,16 +213,23 @@ def trans_morphed_electrodes_to_tkreg(subject, subject_to, electrodes, trans, br
     electrodes_names = [elc_name for (elc_name, _) in electrodes[subject]]
     if subject_to == 'fsaverage':
         voxels = tut.mni152_mni305(voxels)
-    check_if_electrodes_inside_the_brain(subject, voxels, electrodes_names, brain_mask)
+    #check_if_electrodes_inside_the_brain(subject, voxels, electrodes_names, brain_mask)
     write_morphed_electrodes_vox_into_csv(subject, subject_to, voxels, electrodes_names)
     tkregs = apply_trans(trans, voxels)
     if subjects_electrodes is not None:
         elecs = [elc_name for elc_name, _ in electrodes[subject] if elc_name in subjects_electrodes[subject]]
         if len(elecs) == 0:
             print('No electrodes for {}! ({})'.format(subject, subjects_electrodes[subject]))
-    for tkreg, (elc_name, _) in zip(tkregs, electrodes[subject]):
+    for tkreg, vox, (elc_name, _) in zip(tkregs, voxels, electrodes[subject]):
         if subjects_electrodes is not None and elc_name in subjects_electrodes[subject]:
-            template_electrodes.append(('{}_{}'.format(subject, elc_name), tkreg))
+            try:
+                vox = np.rint(vox).astype(int)
+                if brain_mask[vox[0], vox[1], vox[2]] == 0:
+                    print('{}: {} is outside the brain!'.format(subject, elc_name))
+                template_electrodes.append(('{}_{}'.format(subject, elc_name), tkreg))
+            except:
+                print('Error with {}, {}, voxels={}'.format(subject, elc_name, vox))
+
     return template_electrodes
 
 
@@ -357,6 +365,7 @@ def read_all_electrodes(subjects, bipolar):
             goods.append(subject)
         for elec_name, coords in zip(names, pos):
             electrodes[subject].append((elec_name, coords))
+    print('read_all_eletrodes:')
     print('bads: {}'.format(bads))
     print('goods: {}'.format(goods))
     return electrodes
@@ -558,7 +567,7 @@ def create_mmvt_coloring_file(template_system, template_electrodes, electodes_co
         for subject_ind, subject in enumerate(subjects):
             for elc_name, _ in template_electrodes[subject]:
                 if len(electodes_colors) != 0:
-                    real_elc_name = elc_name.split('_')[1]
+                    real_elc_name = '_'.join(elc_name.split('_')[1:])
                     elec_id = [tup for tup in electodes_colors[subject] if tup[0] == real_elc_name][0][1]
                     color = colors[elec_id - min_elc_ind_val]
                 else:
@@ -608,6 +617,9 @@ def prepare_files_for_subjects(subjects, remote_subject_templates, sftp=False,  
                 good_subjects.append(subject)
                 break
     bad_subjects = list(set(subjects) - set(good_subjects))
+    print('prepare_files: {}/{} good subjects'.format(len(good_subjects), len(subjects)))
+    print('Good: {}'.format(good_subjects))
+    print('Bad: {}'.format(bad_subjects))
     # if len(bad_subjects) > 0:
         # from src.preproc import anatomy as anat
         # for subject in bad_subjects:
@@ -631,10 +643,10 @@ def main(subjects, template_system, remote_subject_templates=(), bipolar=False, 
     good_subjects = prepare_files_for_subjects(
         subjects, remote_subject_templates, sftp, sftp_username, sftp_domain, overwrite=False)
     electrodes = read_all_electrodes(good_subjects, bipolar)
-    subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=False)
-    create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
+    # subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=False)
+    #create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
     morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True, n_jobs=n_jobs, print_only=print_only)
-    read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
+    # read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
     # save_template_electrodes_to_template(None, save_as_bipolar, MMVT_DIR, template_system, prefix)
     # export_into_csv(template_system, MMVT_DIR, prefix)
     # create_mmvt_coloring_file(template_system, electrodes)sss
@@ -650,7 +662,8 @@ if __name__ == '__main__':
     overwrite=False
     remote_subject_template = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
     subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
-    subjects = ['MG96', 'MG98', 'MG100', 'MG122', 'MG106', 'BW37', 'BW38', 'BW39', 'BW40'] # bad
+    #subjects = ['MG96', 'MG98', 'MG100', 'MG122', 'MG106', 'BW37', 'BW38', 'BW39', 'BW40'] # bad
+    subjects = ['MG100', 'MG106', 'BW40', 'MG105', 'BW39', 'BW38', 'MG98', 'BW37']
     file_missings=[]
 
     print('{} subject to preproc'.format(len(subjects)))
