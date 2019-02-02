@@ -310,18 +310,18 @@ def contrast_to_contours(subject, contrast_name, thresholds_min=None, thresholds
     from src.preproc import meg
     if mri_subject == '':
         mri_subject = subject
-    constrast = {hemi: np.load(op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}.{}.npy'.format(contrast_name, hemi)))
-                 for hemi in utils.HEMIS}
+    constrast = glob.glob(op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}??h.npy'.format(contrast_name)))
+    constrast = {lu.get_hemi_from_name(utils.namebase(f)): f for f in constrast}
     verts = utils.get_pial_vertices(subject, MMVT_DIR)
     vertno = {hemi: range(len(verts[hemi])) for hemi in utils.HEMIS}
-    data = np.concatenate([constrast['lh'], constrast['rh']])
+    data = np.concatenate([np.load(constrast['lh']), np.load(constrast['rh'])])
     data = np.reshape(data, (len(data), 1))
     vertices = [vertno['lh'], vertno['rh']]
     stc = mne.SourceEstimate(data, vertices, 0, 1, subject=mri_subject)
     return meg.stc_to_contours(
         mri_subject, contrast_name, 0, thresholds_min, thresholds_max, thresholds_dx,
         min_cluster_size, atlas, clusters_label, find_clusters_overlapped_labeles,
-        stc_t_smooth=stc, n_jobs=n_jobs)
+        stc_t_smooth=stc, modality='fmri', n_jobs=n_jobs)
 
 
 # def find_clusters_tval_hist(subject, contrast_name, output_fol, input_fol='', n_jobs=1):
