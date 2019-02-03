@@ -57,10 +57,10 @@ def labels_contours_update(self, context):
     if not _addon().coloring_panel_initialized or _addon().get_no_plotting():
         return
     if bpy.context.scene.labels_contours == 'all labels':
-        color_contours(cumulate=False)
+        color_contours(cumulate=bpy.context.scene.cumulate_contours)
     else:
         hemi = 'rh' if bpy.context.scene.labels_contours in LabelsPanel.labels['rh'] else 'lh'
-        color_contours(bpy.context.scene.labels_contours, hemi, cumulate=False)
+        color_contours(bpy.context.scene.labels_contours, hemi, cumulate=bpy.context.scene.cumulate_contours)
 
 
 def clear_contours():
@@ -402,6 +402,7 @@ def labels_draw(self, context):
         row = col.row(align=True)
         row.prop(context.scene, 'labels_contours_filter', 'Filter')
         row.operator(ResetContoursFilter.bl_idname, text="", icon='PANEL_CLOSE')
+        # col.prop(context.scene, 'cumulate_contours', 'Cumulate')
 
     col = layout.box().column()
     row = col.row(align=True)
@@ -594,6 +595,7 @@ bpy.types.Scene.labels_contours = bpy.props.EnumProperty(items=[],
 bpy.types.Scene.plot_label_contour = bpy.props.BoolProperty(default=False, description='Plots the labels as contours only')
 bpy.types.Scene.labels_contours_filter = bpy.props.StringProperty(update=labels_contours_filter_update,
     description='Filters the labels list by a regular expression')
+bpy.types.Scene.cumulate_contours = bpy.props.BoolProperty(default=False, description='cumulate contours')
 
 
 class LabelsPanel(bpy.types.Panel):
@@ -638,6 +640,7 @@ def init_contours_coloring():
         bpy.types.Scene.contours_coloring = bpy.props.EnumProperty(items=items, update=contours_coloring_update,
             description='Selects the atlas to plot the labels contour\n\nCurrent atlas')
         bpy.context.scene.contours_coloring = files_names[0]
+    bpy.context.scene.cumulate_contours = False
 
 
 def init_labels_data_files():

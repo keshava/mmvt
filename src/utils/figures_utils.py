@@ -163,8 +163,9 @@ def get_brain_perspectives_figures(fol, inflated=False, facecolor='black', clust
 
 
 def combine_four_brain_perspectives(fol, inflated=False, dpi=100, facecolor='black', clusters_name='', inflated_ratio=1,
-                                    crop=True, overwrite=True, **kargs):
-    figs = get_brain_perspectives_figures(fol, inflated, facecolor, clusters_name, inflated_ratio)
+                                    crop=True, figs=[], overwrite=True, **kargs):
+    if figs == []:
+        figs = get_brain_perspectives_figures(fol, inflated, facecolor, clusters_name, inflated_ratio)
     if len(figs) == 4:
         fig_name = combine_four_brain_perspectives_output_fname(fol, inflated, facecolor, clusters_name)
         if overwrite or not op.isfile(fig_name):

@@ -4368,10 +4368,10 @@ def find_functional_rois_in_stc(
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
         labels=None, verts_dict=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
         save_func_labels=True, recreate_src_spacing='oct6', calc_cluster_contours=True, save_results=True,
-        n_jobs=6):
+        modality='meg', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
-    clusters_root_fol = op.join(MMVT_DIR, subject, 'meg', 'clusters')
+    clusters_root_fol = op.join(MMVT_DIR, subject, modality, 'clusters')
     # todo: Should check for an overwrite flag. Not sure why, if the folder isn't being deleted, the code doesn't work
     # utils.delete_folder_files(clusters_root_fol)
     utils.make_dir(clusters_root_fol)
@@ -4977,7 +4977,7 @@ def stc_to_contours(subject, stc_name, pick_t=0, thresholds_min=None, thresholds
             subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=False,
             min_cluster_size=min_cluster_size, time_index=pick_t, extract_time_series_for_clusters=False,
             stc=stc_t_smooth, stc_t_smooth=stc_t_smooth, verts=verts, connectivity=connectivity, verts_dict=verts,
-            find_clusters_overlapped_labeles=find_clusters_overlapped_labeles,
+            find_clusters_overlapped_labeles=find_clusters_overlapped_labeles, modality=modality,
             verts_neighbors_dict=verts_neighbors_dict, save_results=False, clusters_label=clusters_label,
             n_jobs=n_jobs)
         for hemi in utils.HEMIS:

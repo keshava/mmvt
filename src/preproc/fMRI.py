@@ -1919,19 +1919,29 @@ def calc_surf_files_min_max(surf_files, min_val=1e-3):
     return data_min, data_max
 
 
-def direct_project_volume_to_surf(subject, vol_fname, overwrite=False):
+def direct_project_volume_to_surf(subject, vol_fname, flip_x=False, flip_y=False, flip_z=False, overwrite=False):
     surf_template = surf_files_tempalte(subject, vol_fname)
+    vol = nib.load(vol_fname)
+    data = vol.get_data()
+    if flip_x:
+        print('direct_project_volume_to_surf: flip x!')
+        data = np.flip(data, 0)
+    if flip_y:
+        print('direct_project_volume_to_surf: flip y!')
+        data = np.flip(data, 1)
+    if flip_z:
+        print('direct_project_volume_to_surf: flip z!')
+        data = np.flip(data, 2)
+    tkreg2vox = np.linalg.inv(vol.header.get_vox2ras_tkr())
     for hemi in utils.HEMIS:
         output_fname = surf_template.format(hemi=hemi)
         if op.isfile(output_fname) and not overwrite:
             print('{} already exists'.format(output_fname))
             continue
         vertices, _ = utils.read_pial(subject, MMVT_DIR, hemi)
-        vol = nib.load(vol_fname)
-        data = vol.get_data()
-        tkreg2vox = np.linalg.inv(vol.header.get_vox2ras_tkr())
         vertices_vox = np.rint(utils.apply_trans(tkreg2vox, vertices)).astype(int)
         vertices_data = data[tuple([vertices_vox[:, k] for k in range(3)])]
+        print('direct_project_volume_to_surf: Saving results in {}'.format(output_fname))
         np.save(output_fname, vertices_data)
 
 
