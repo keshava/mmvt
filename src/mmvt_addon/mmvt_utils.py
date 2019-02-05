@@ -404,7 +404,7 @@ def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, par
             color_obj(cur_obj.active_material, color)
         else:
             copy_cube(orig_cube, voxel * 0.1, cube_name, name, color)
-    print('{} inner cubes out of {} ({:.f}%)'.format(inner_cubes, N, inner_cubes / N))
+    print('{} inner cubes out of {} ({:.2f}%)'.format(inner_cubes, N, inner_cubes / N))
     delete_current_obj()
 
 

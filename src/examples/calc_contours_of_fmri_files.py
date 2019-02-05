@@ -45,7 +45,7 @@ def merge_labels(subject, fmri_names):
             vertices, _ = utils.read_pial(subject, MMVT_DIR, hemi)
             for vert_ind in tqdm(vertices_indices):
                 vert_label = vertices_labels_lookup[hemi][vert_ind]
-                if vert_label.startswith('parsopercularis') or vert_label.startswith('insula'):
+                if vert_label.startswith('insula'): # or vert_label.startswith('parsopercularis')
                     insulaopercula_vertices.append(vert_ind)
             label = mne.Label(
                 insulaopercula_vertices, vertices[insulaopercula_vertices], hemi=hemi, name=fmri_name, subject=subject)
@@ -61,6 +61,6 @@ if __name__ == '__main__':
                   'Inf_MAP_3_tfce_corrp_tstat1_1mm', #_insulaopercula',
                   'Troponin_MAP_1_tfce_corrp_tstat1_1mm', #_insulaopercula',
                   'ASH_MAP_3_tfce_corrp_tstat1_1mm'] #_insulaopercula']
-    project_all_fmri_files(subject, fmri_names)
+    # project_all_fmri_files(subject, fmri_names)
     # calc_contoures(subject, fmri_names, 0.95)
     merge_labels(subject, fmri_names)

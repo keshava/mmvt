@@ -20,13 +20,16 @@ def run(mmvt):
     vol_name = mu.namebase(vol_fname)
     vol = nib.load(vol_fname)
     data = vol.get_data()
-    data = np.flip(data, 0)
     values = data[np.where(data >= threshold)]
     print('{}: {} values above the threshold ({})'.format(vol_name, len(values), threshold))
     indices = np.where(data >= threshold)
     indices = np.array([indices[0], indices[1], indices[2]]).T
-    vol_tkreg = mu.apply_trans(vol.header.get_vox2ras_tkr(), indices)
-    mu.create_cubes(values, vol_tkreg, indices, data_min, data_max, vol_name)
+
+    t1 = nib.load(op.join(mu.get_subjects_dir(), mu.get_user(), 'mri', 'T1.mgz'))
+    vol_ras = mu.apply_trans(vol.header.get_vox2ras(), indices)
+    t1_vox = mu.apply_trans(np.linalg.inv(t1.header.get_vox2ras()), vol_ras)
+    t1_tkreg = mu.apply_trans(t1.header.get_vox2ras_tkr(), t1_vox)
+    mu.create_cubes(data, values, t1_tkreg, indices, data_min, data_max, vol_name)
 
 
 def plot_volume_fname_update(self, context):
@@ -72,7 +75,7 @@ def init(mmvt):
         items=files_items, description="Volume file names", update=plot_volume_fname_update)
     bpy.context.scene.plot_volume_fname = files[0]
 
-    bpy.context.scene.plot_volume_colorbar_min = 0.99
+    bpy.context.scene.plot_volume_colorbar_min = 0.95
     bpy.context.scene.plot_volume_colorbar_max = 1
 
 

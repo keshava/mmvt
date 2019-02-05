@@ -1919,19 +1919,10 @@ def calc_surf_files_min_max(surf_files, min_val=1e-3):
     return data_min, data_max
 
 
-def direct_project_volume_to_surf(subject, vol_fname, flip_x=False, flip_y=False, flip_z=False, overwrite=False):
+def direct_project_volume_to_surf(subject, vol_fname, overwrite=False):
     surf_template = surf_files_tempalte(subject, vol_fname)
     vol = nib.load(vol_fname)
     data = vol.get_data()
-    if flip_x:
-        print('direct_project_volume_to_surf: flip x!')
-        data = np.flip(data, 0)
-    if flip_y:
-        print('direct_project_volume_to_surf: flip y!')
-        data = np.flip(data, 1)
-    if flip_z:
-        print('direct_project_volume_to_surf: flip z!')
-        data = np.flip(data, 2)
     tkreg2vox = np.linalg.inv(vol.header.get_vox2ras_tkr())
     for hemi in utils.HEMIS:
         output_fname = surf_template.format(hemi=hemi)
