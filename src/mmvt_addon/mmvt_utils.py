@@ -413,7 +413,7 @@ def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, cm,
             color_obj(materials[curr_material_name], color)
         else:
             copy_cube(orig_cube, voxel * 0.1, cube_name, name, materials[curr_material_name], color)
-    print('{} inner cubes out of {} ({:.2f}%)'.format(inner_cubes, N, inner_cubes / N))
+    print('{} inner cubes out of {} ({:.2f}%)'.format(inner_cubes, N, (inner_cubes / N) * 100))
     delete_current_obj()
 
 
