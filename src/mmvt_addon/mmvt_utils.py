@@ -409,7 +409,9 @@ def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, cm,
         cur_obj = get_object(cube_name)
         curr_material_name = 'cube_{}'.format(color_ind)
         if curr_material_name not in materials:
+            print('New material was created for color ind {}'.format(color_ind))
             materials[curr_material_name] = orig_mat.copy()
+            materials[curr_material_name].name = curr_material_name
         if cur_obj is not None:
             color_obj(materials[curr_material_name], color)
         else:
