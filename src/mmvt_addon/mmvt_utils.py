@@ -399,7 +399,9 @@ def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, cm,
     inner_cubes = 0
     for run, (voxel, ind, color, color_ind) in enumerate((zip(vol_tkreg, indices, colors, colors_indices))):
         time_to_go(now, run, N, 100)
-        if all([data[tuple(ind + dxyz)] >= data_min for dxyz in dxyzs]):
+        # Don't create inner or lonely cubes
+        if all([data[tuple(ind + dxyz)] >= data_min for dxyz in dxyzs]) or \
+                all([data[tuple(ind + dxyz)] < data_min for dxyz in dxyzs]):
             inner_cubes += 1
             continue
         cube_name = 'cube_{}_{}_{}_{}'.format(name[:3], ind[0], ind[1], ind[2])
