@@ -419,7 +419,7 @@ def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, cm,
     bpy.ops.object.select_all(action='DESELECT')
     bpy.data.objects[orig_cube.name].select = True
     bpy.ops.object.delete()
-    print('Finish!')
+    print('create_cubes: Finish!')
 
 
 def create_cube(layer, radius=0.1):
