@@ -1923,15 +1923,18 @@ def direct_project_volume_to_surf(subject, vol_fname, overwrite=False):
     surf_template = surf_files_tempalte(subject, vol_fname)
     vol = nib.load(vol_fname)
     data = vol.get_data()
-    tkreg2vox = np.linalg.inv(vol.header.get_vox2ras_tkr())
+
+    t1 = nib.load(op.join(SUBJECTS_DIR, subject, 'mri', 'T1.mgz'))
     for hemi in utils.HEMIS:
         output_fname = surf_template.format(hemi=hemi)
         if op.isfile(output_fname) and not overwrite:
             print('{} already exists'.format(output_fname))
             continue
         vertices, _ = utils.read_pial(subject, MMVT_DIR, hemi)
-        vertices_vox = np.rint(utils.apply_trans(tkreg2vox, vertices)).astype(int)
-        vertices_data = data[tuple([vertices_vox[:, k] for k in range(3)])]
+        t1_vox = utils.apply_trans(np.linalg.inv(t1.header.get_vox2ras_tkr()), vertices)
+        ras = utils.apply_trans(t1.header.get_vox2ras(), t1_vox)
+        vol_vox = np.rint(utils.apply_trans(np.linalg.inv(vol.header.get_vox2ras()), ras)).astype(int)
+        vertices_data = data[tuple([vol_vox[:, k] for k in range(3)])]
         print('direct_project_volume_to_surf: Saving results in {}'.format(output_fname))
         np.save(output_fname, vertices_data)
 
