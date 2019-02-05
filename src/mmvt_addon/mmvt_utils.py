@@ -389,6 +389,7 @@ def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, cm,
     # https://stackoverflow.com/questions/48818274/quickly-adding-large-numbers-of-mesh-primitives-in-blender
     _addon.data.create_empty_if_doesnt_exists(name, _addon.BRAIN_EMPTY_LAYER, None, parent)
     orig_cube = create_cube(_addon.ACTIVITY_LAYER, radius=0.1)
+    orig_cube.name = 'original_cube'
     orig_mat = bpy.data.materials[material_name]
     materials = {}
     colors_ratio = 256 / (data_max - data_min)
@@ -414,7 +415,11 @@ def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, cm,
         else:
             copy_cube(orig_cube, voxel * 0.1, cube_name, name, materials[curr_material_name], color)
     print('{} inner cubes out of {} ({:.2f}%)'.format(inner_cubes, N, (inner_cubes / N) * 100))
-    delete_current_obj()
+    # Deleting the original cube
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.data.objects[orig_cube.name].select = True
+    bpy.ops.object.delete()
+    print('Finish!')
 
 
 def create_cube(layer, radius=0.1):
@@ -484,8 +489,6 @@ def create_material(name, diffuseColors, transparency, copy_material=True):
     curMat.node_tree.nodes['MyColor1'].inputs[0].default_value = diffuseColors
     curMat.node_tree.nodes['MyTransparency'].inputs['Fac'].default_value = transparency
     bpy.context.active_object.active_material.diffuse_color = diffuseColors[:3]
-
-
 
 
 def delete_hierarchy(parent_obj_name, exceptions=(), delete_only_animation=False):
