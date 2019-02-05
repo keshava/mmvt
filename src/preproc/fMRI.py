@@ -1920,7 +1920,8 @@ def calc_surf_files_min_max(surf_files, min_val=1e-3):
     return data_min, data_max
 
 
-def direct_project_volume_to_surf(subject, vol_fname, labels_restrict=None, atlas='aparc.DKTatlas40', overwrite=False):
+def direct_project_volume_to_surf(subject, vol_fname, r=1, labels_restrict=None, atlas='aparc.DKTatlas40',
+                                  overwrite=False):
     surf_template = surf_files_tempalte(subject, vol_fname)
     vol = nib.load(vol_fname)
     data = vol.get_data()
@@ -1939,7 +1940,7 @@ def direct_project_volume_to_surf(subject, vol_fname, labels_restrict=None, atla
         t1_vox = utils.apply_trans(np.linalg.inv(t1.header.get_vox2ras_tkr()), vertices)
         ras = utils.apply_trans(t1.header.get_vox2ras(), t1_vox)
         vol_vox = np.rint(utils.apply_trans(np.linalg.inv(vol.header.get_vox2ras()), ras)).astype(int)
-        vertices_data = calc_vox_avg(data, vol_vox, 3, labels_restrict, vertices_labels_lookup[hemi])
+        vertices_data = calc_vox_avg(data, vol_vox, r, labels_restrict, vertices_labels_lookup[hemi])
         print('direct_project_volume_to_surf: Saving results in {}'.format(output_fname))
         np.save(output_fname, vertices_data)
 
