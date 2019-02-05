@@ -434,12 +434,10 @@ def copy_cube(orig_cube, pos, cube_name, name, material, color=(1, 1, 1)):
     m = orig_cube.data.copy()
     cur_obj = bpy.data.objects.new('cube', m)
     cur_obj.name = cube_name
-    cur_mat = material
-    cur_mat.name = cur_obj.name + '_Mat'
-    cur_obj.active_material = cur_mat
+    cur_obj.active_material = material
     cur_obj.location = mathutils.Vector(tuple(pos))
     cur_obj.parent = bpy.data.objects[name]
-    color_obj(cur_mat, color)
+    color_obj(material, color)
     bpy.context.scene.objects.link(cur_obj)
     return cur_obj
 
