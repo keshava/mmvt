@@ -29,7 +29,8 @@ def run(mmvt):
     vol_ras = mu.apply_trans(vol.header.get_vox2ras(), indices)
     t1_vox = mu.apply_trans(np.linalg.inv(t1.header.get_vox2ras()), vol_ras)
     t1_tkreg = mu.apply_trans(t1.header.get_vox2ras_tkr(), t1_vox)
-    mu.create_cubes(data, values, t1_tkreg, indices, data_min, data_max, vol_name)
+    cm = mmvt.colorbar.get_cm()
+    mu.create_cubes(data, values, t1_tkreg, indices, data_min, data_max, vol_name, cm)
 
 
 def plot_volume_fname_update(self, context):

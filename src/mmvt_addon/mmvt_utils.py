@@ -384,26 +384,33 @@ def hook_curves(o1, o2, co1, co2, bevel_depth=0.1, resolution_u=5):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
-def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, parent='Functional maps'):
+def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, cm, radius=0.1,
+                 parent='Functional maps', material_name='Deep_electrode_mat'):
     # https://stackoverflow.com/questions/48818274/quickly-adding-large-numbers-of-mesh-primitives-in-blender
     _addon.data.create_empty_if_doesnt_exists(name, _addon.BRAIN_EMPTY_LAYER, None, parent)
     orig_cube = create_cube(_addon.ACTIVITY_LAYER, radius=0.1)
+    orig_mat = bpy.data.materials[material_name]
+    materials = {}
     colors_ratio = 256 / (data_max - data_min)
-    colors = _addon.coloring.calc_colors(values, data_min, colors_ratio)
+    colors_indices = calc_colors_indices(values, data_min, colors_ratio)
+    colors = calc_colors_from_indices_cm(colors_indices, cm)
     now, N = time.time(), len(indices)
     dxyzs = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
     inner_cubes = 0
-    for run, (voxel, ind, color) in enumerate((zip(vol_tkreg, indices, colors))):
+    for run, (voxel, ind, color, color_ind) in enumerate((zip(vol_tkreg, indices, colors, colors_indices))):
         time_to_go(now, run, N, 100)
         if all([data[tuple(ind + dxyz)] >= data_min for dxyz in dxyzs]):
             inner_cubes += 1
             continue
         cube_name = 'cube_{}_{}_{}_{}'.format(name[:3], ind[0], ind[1], ind[2])
         cur_obj = get_object(cube_name)
+        curr_material_name = 'cube_{}'.format(color_ind)
+        if curr_material_name not in materials:
+            materials[curr_material_name] = orig_mat.copy()
         if cur_obj is not None:
-            color_obj(cur_obj.active_material, color)
+            color_obj(materials[curr_material_name], color)
         else:
-            copy_cube(orig_cube, voxel * 0.1, cube_name, name, color)
+            copy_cube(orig_cube, voxel * 0.1, cube_name, name, materials[curr_material_name], color)
     print('{} inner cubes out of {} ({:.2f}%)'.format(inner_cubes, N, inner_cubes / N))
     delete_current_obj()
 
@@ -416,11 +423,11 @@ def create_cube(layer, radius=0.1):
     return bpy.context.active_object
 
 
-def copy_cube(orig_cube, pos, cube_name, name, color=(1, 1, 1), material='Deep_electrode_mat'):
+def copy_cube(orig_cube, pos, cube_name, name, material, color=(1, 1, 1)):
     m = orig_cube.data.copy()
     cur_obj = bpy.data.objects.new('cube', m)
     cur_obj.name = cube_name
-    cur_mat = bpy.data.materials[material].copy()
+    cur_mat = material
     cur_mat.name = cur_obj.name + '_Mat'
     cur_obj.active_material = cur_mat
     cur_obj.location = mathutils.Vector(tuple(pos))
@@ -2745,7 +2752,15 @@ def get_distinct_colors(colors_num=1):
 
 
 def calc_colors_from_cm(vert_values, data_min, colors_ratio, cm):
-    colors_indices = np.rint(((np.array(vert_values) - data_min) * colors_ratio)).astype(int)
+    colors_indices = calc_colors_indices(vert_values, data_min, colors_ratio)
+    return calc_colors_from_indices_cm(colors_indices, cm)
+
+
+def calc_colors_indices(vert_values, data_min, colors_ratio):
+    return np.rint(((np.array(vert_values) - data_min) * colors_ratio)).astype(int)
+
+
+def calc_colors_from_indices_cm(colors_indices, cm):
     # take care about values that are higher or smaller than the min and max values that were calculated (maybe using precentiles)
     colors_indices[colors_indices < 0] = 0
     colors_indices[colors_indices > 255] = 255
