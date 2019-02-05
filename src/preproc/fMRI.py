@@ -9,6 +9,7 @@ import glob
 import traceback
 from collections import defaultdict
 import functools
+from tqdm import tqdm
 
 try:
     from sklearn.neighbors import BallTree
@@ -1919,11 +1920,15 @@ def calc_surf_files_min_max(surf_files, min_val=1e-3):
     return data_min, data_max
 
 
-def direct_project_volume_to_surf(subject, vol_fname, overwrite=False):
+def direct_project_volume_to_surf(subject, vol_fname, labels_restrict=None, atlas='aparc.DKTatlas40', overwrite=False):
     surf_template = surf_files_tempalte(subject, vol_fname)
     vol = nib.load(vol_fname)
     data = vol.get_data()
 
+    if labels_restrict is not None:
+        vertices_labels_lookup = utils.load(op.join(MMVT_DIR, subject, '{}_vertices_labels_lookup.pkl'.format(atlas)))
+    else:
+        vertices_labels_lookup = {hemi: None for hemi in utils.HEMIS}
     t1 = nib.load(op.join(SUBJECTS_DIR, subject, 'mri', 'T1.mgz'))
     for hemi in utils.HEMIS:
         output_fname = surf_template.format(hemi=hemi)
@@ -1934,9 +1939,25 @@ def direct_project_volume_to_surf(subject, vol_fname, overwrite=False):
         t1_vox = utils.apply_trans(np.linalg.inv(t1.header.get_vox2ras_tkr()), vertices)
         ras = utils.apply_trans(t1.header.get_vox2ras(), t1_vox)
         vol_vox = np.rint(utils.apply_trans(np.linalg.inv(vol.header.get_vox2ras()), ras)).astype(int)
-        vertices_data = data[tuple([vol_vox[:, k] for k in range(3)])]
+        vertices_data = calc_vox_avg(data, vol_vox, 3, labels_restrict, vertices_labels_lookup[hemi])
         print('direct_project_volume_to_surf: Saving results in {}'.format(output_fname))
         np.save(output_fname, vertices_data)
+
+
+def calc_vox_avg(data, voxels, r=1, labels_restrict=None, vertices_labels_lookup=None):
+    if r == 1 and vertices_labels_lookup is None:
+        return data[tuple([voxels[:, k] for k in range(3)])]
+
+    vertices_data = np.zeros(len(voxels))
+    vertices_indices = range(len(vertices_data))
+    for vertice_ind, vox in zip(vertices_indices, voxels):
+        if vertices_labels_lookup is not None:
+            vert_label = vertices_labels_lookup[vertice_ind]
+            if all([not vert_label.startswith(l) for l in labels_restrict]):
+                continue
+        vertices_data[vertice_ind] = \
+            np.max(data[vox[0] - r: vox[0] + r + 1, vox[1] - r: vox[1] + r + 1, vox[2] - r: vox[2] + r + 1])
+    return vertices_data
 
 
 def call_main(args):

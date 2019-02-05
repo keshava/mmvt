@@ -17,10 +17,11 @@ MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 def project_all_fmri_files(subject, fmri_names):
     for fmri_name in fmri_names:
         fmri_fname = op.join(FMRI_DIR, subject, 'volume', '{}.mgz'.format(fmri_name))
-        fmri.direct_project_volume_to_surf(subject, fmri_fname, flip_x=True, overwrite=True)
+        fmri.direct_project_volume_to_surf(subject, fmri_fname, labels_restrict=['insula'], overwrite=True)
 
 
 def calc_contoures(subject, fmri_names, thresholds_min=2, thresholds_max=None, thresholds_dx=2, n_jobs=4):
+    utils.delete_folder_files(op.join(MMVT_DIR, subject, 'fmri', 'clusters'))
     if thresholds_max is None:
         thresholds_max = thresholds_min
     for fmri_name in fmri_names:
@@ -31,6 +32,7 @@ def calc_contoures(subject, fmri_names, thresholds_min=2, thresholds_max=None, t
 
 
 def merge_labels(subject, fmri_names):
+    utils.delete_folder_files(op.join(MMVT_DIR, subject, 'fmri', 'labels'))
     vertices_labels_lookup = utils.load(op.join(MMVT_DIR, subject, 'aparc.DKTatlas40_vertices_labels_lookup.pkl'))
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'fmri', 'labels'))
     for fmri_name in fmri_names:
@@ -57,10 +59,10 @@ def merge_labels(subject, fmri_names):
 
 if __name__ == '__main__':
     subject = 'hbs'
-    fmri_names = ['QT_MAP_1_tfce_corrp_tstat1_1mm', #_insulaopercula',
-                  'Inf_MAP_3_tfce_corrp_tstat1_1mm', #_insulaopercula',
-                  'Troponin_MAP_1_tfce_corrp_tstat1_1mm', #_insulaopercula',
-                  'ASH_MAP_3_tfce_corrp_tstat1_1mm'] #_insulaopercula']
-    # project_all_fmri_files(subject, fmri_names)
+    fmri_names = ['QT_MAP_1_tfce_corrp_tstat1_1mm_insulaopercula',
+                  'Inf_MAP_3_tfce_corrp_tstat1_1mm_insulaopercula',
+                  'Troponin_MAP_1_tfce_corrp_tstat1_1mm_insulaopercula',
+                  'ASH_MAP_3_tfce_corrp_tstat1_1mm_insulaopercula']
+    project_all_fmri_files(subject, fmri_names)
     # calc_contoures(subject, fmri_names, 0.95)
-    merge_labels(subject, fmri_names)
+    # merge_labels(subject, fmri_names)
