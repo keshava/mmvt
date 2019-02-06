@@ -17,4 +17,4 @@ def change_figures_names(name, fol, file_type='jpeg'):
 
 
 if __name__ == '__main__':
-    change_figures_names('rotation', '/home/npeled/mmvt/hbs/figures/QT1_rot/')
+    change_figures_names('rotation', '/autofs/space/thibault_001/users/npeled/mmvt/hbs/figures/Inf3_rotation/')

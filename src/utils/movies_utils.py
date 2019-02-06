@@ -188,7 +188,10 @@ def combine_images(fol, movie_name, frame_rate=10, start_number=-1, images_prefi
                    images_type='', ffmpeg_cmd='', movie_name_full_path=False, debug=False,
                    copy_files=False, add_reverse_frames=False, **kwargs):
     if ffmpeg_cmd == '':
-        ffmpeg_cmd = FFMPEG_CMD
+        ffmpeg_dir = utils.get_link_dir(utils.get_links_dir(), 'ffmpeg')
+        ffmpeg_dir = op.join(ffmpeg_dir, 'bin') if utils.is_windows() else ffmpeg_dir
+        ffmpeg_cmd = op.join(ffmpeg_dir, 'ffmpeg') if op.isdir(ffmpeg_dir) else 'ffmpeg'
+    print('ffmpeg_cmd: {}'.format(ffmpeg_cmd))
     images_type, images_prefix, images_format, images_format_len, start_number = find_images_props(
         fol, start_number, images_prefix, images_format, images_type)
     if movie_name == '' and images_prefix != '':
