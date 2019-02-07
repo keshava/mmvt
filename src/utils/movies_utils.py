@@ -250,8 +250,14 @@ def find_images_props(fol, start_number=-1, images_prefix='', images_format='', 
         if images_type == '':
             raise Exception("Can't find the images type!")
     images = glob.glob(op.join(fol, '{}*.{}'.format(images_prefix, images_type)))
-    image_nb = utils.namebase(images[0])
-    number = utils.read_numbers_rx(image_nb)[0]
+    for image in images:
+        image_nb = utils.namebase(image)
+        numbers = utils.read_numbers_rx(image_nb)
+        if len(numbers) > 0:
+            number = numbers[0]
+            break
+    else:
+        raise Exception('No number was found! images_prefix={}, images_type={}'.format(images_prefix, images_type))
     if images_prefix == '':
         images_prefix = image_nb[:-len(number)]
     if images_format == '':
