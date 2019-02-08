@@ -643,7 +643,7 @@ def main(subjects, template_system, remote_subject_templates=(), bipolar=False, 
     good_subjects = prepare_files_for_subjects(
         subjects, remote_subject_templates, sftp, sftp_username, sftp_domain, overwrite=False)
     electrodes = read_all_electrodes(good_subjects, bipolar)
-    # subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=False)
+    subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=True)
     #create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
     morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True, n_jobs=n_jobs, print_only=print_only)
     # read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)

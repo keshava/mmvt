@@ -63,6 +63,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
         utils.remove_file(output_fname)
 
     for ind, epochs_fol in enumerate(epochs_folders):
+        # Remove  '/autofs/space/karima_002/users/Machine_Learning_Clinical_MEG_EEG_Resting/epochs/nmr00479_4994627_vef',
         epo_fnames = glob.glob(op.join(epochs_fol, '*.fif'))
         if len(epo_fnames) != 1:
             print('********* No fif files in {}!!!'.format(epochs_fol))
@@ -92,6 +93,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
             cor_fname=cor_fname,
             function=functions,
             use_demi_events=use_demi_events,
+            stc_template=utils.namebase(epo_fname)[:-4],
             # windows_length=10000,
             # windows_shift=5000,
             # overwrite_fwd=True,
