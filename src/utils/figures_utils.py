@@ -5,6 +5,7 @@ import os.path as op
 import os
 import glob
 import numpy as np
+from tqdm import tqdm
 
 from src.utils import utils
 from src.utils import color_maps_utils as cmu
@@ -235,6 +236,15 @@ def combine_nine_images(figs, new_image_fname, dpi=100, facecolor='black', **kar
     plt.savefig(new_image_fname, facecolor=fig.get_facecolor(), transparent=True, bbox_inches='tight')
     plt.close()
     return new_image_fname
+
+
+def add_colorbar_to_images(figures_fol, data_max, data_min, colors_map, images_type='jpeg', background_color='black',
+                          cb_ticks=[], cb_ticks_font_size=10, cb_title='', set_cb_max_min_using_ticks=True,
+                          cb_ticks_perc=2, **kargs):
+    for figure_fname in tqdm(glob.glob(op.join(figures_fol, '*.{}'.format(images_type)))):
+        add_colorbar_to_image(figure_fname, data_max, data_min, colors_map, background_color,
+                              cb_ticks, cb_ticks_font_size, cb_title, set_cb_max_min_using_ticks,
+                              cb_ticks_perc)
 
 
 def add_colorbar_to_image(figure_fname, data_max, data_min, colors_map, background_color='black',

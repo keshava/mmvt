@@ -93,8 +93,12 @@ def find_how_many_electrodes_above_threshold():
     print('{} local maxima after removing neighbors'.format(len(ct_voxels)))
     print('mask_voxels_outside_brain...')
     ct_electrodes, _ = fect.mask_voxels_outside_brain(
-        ct_voxels, DellPanel.ct.header, DellPanel.brain, mu.get_user_fol(), bpy.context.scene.dell_brain_mask_sigma)
+        ct_voxels, DellPanel.ct.header, DellPanel.brain, mu.get_user_fol(), mu.get_subject_dir(),
+        bpy.context.scene.dell_brain_mask_sigma)
     print('{} voxels in the brain were found'.format(len(ct_electrodes)))
+    if len(ct_electrodes) == 0:
+        bpy.context.scene.dell_how_many_electrodes_above_threshold = '0'
+        return
     DellPanel.pos = fect.ct_voxels_to_t1_ras_tkr(ct_electrodes, DellPanel.ct.header, DellPanel.brain.header)
     DellPanel.hemis = fect.find_electrodes_hemis(
         mu.get_user_fol(), DellPanel.pos, groups=None, sigma=bpy.context.scene.dell_brain_mask_sigma)
@@ -1475,30 +1479,12 @@ def init(addon, ct_name='ct_reg_to_mr.mgz', brain_mask_name='brain.mgz', aseg_na
         if DellPanel.ct_found:
             # init_electrodes()
             DellPanel.colors = cycle(mu.get_distinct_colors(10))
-            # intput_files = glob.glob(op.join(DellPanel.output_fol, '*_electrodes.pkl'))
-            # if len(intput_files) == 1:
-            #     input_fname = intput_files[0]
-            # else:
-            #     # todo: let the user choose which one
-            #     input_fname = op.join(
-            #         DellPanel.output_fol, '{}_electrodes.pkl'.format(int(bpy.context.scene.dell_ct_threshold)))
-            # # files = glob.glob(op.join(DellPanel.output_fol, '*_electrodes.pkl'))
-            # # if len(files) > 0:
-            # if op.isfile(input_fname):
-            #     try:
-            #         (DellPanel.pos, DellPanel.names, DellPanel.hemis, DellPanel.groups, DellPanel.noise,
-            #          bpy.context.scene.dell_ct_threshold) = mu.load(input_fname)
-            #         print('{} groups were loaded from {}'.format(len(DellPanel.groups), input_fname))
-            #     except:
-            #         # support old files
-            #         (DellPanel.pos, DellPanel.names, DellPanel.hemis,
-            #          bpy.context.scene.dell_ct_threshold) = mu.load(input_fname)
-                # (DellPanel.pos, DellPanel.names, DellPanel.hemis, bpy.context.scene.dell_ct_threshold) = mu.load(files[0])
-            parent = bpy.data.objects.get('Deep_electrodes')
-            if parent is None:
-                parent = _addon().create_empty_if_doesnt_exists(
-                    'Deep_electrodes', _addon().BRAIN_EMPTY_LAYER, [False] * 20, 'Deep_electrodes')
-            loaded = load_electrodes_from_file()
+            # parent = bpy.data.objects.get('Deep_electrodes')
+            # if parent is None:
+            #     parent = _addon().create_empty_if_doesnt_exists(
+            #         'Deep_electrodes', _addon().BRAIN_EMPTY_LAYER, [False] * 20, 'Deep_electrodes')
+            # Load electrode from file should have its own button
+            loaded = False # load_electrodes_from_file()
             if not loaded:
                 bpy.context.scene.dell_ct_threshold_percentile = 99.9
                 bpy.context.scene.dell_ct_threshold = np.percentile(
@@ -1559,10 +1545,11 @@ def init_ct(ct_name='ct_reg_to_mr.mgz', brain_mask_name='brain.mgz', aseg_name='
 def init_dural():
     try:
         user_fol = mu.get_user_fol()
+        subject_fol = mu.get_subject_dir()
         verts_dural_neighbors_fname = op.join(user_fol, 'verts_neighbors_dural_{hemi}.pkl')
         DellPanel.verts_dural_nei = {hemi:mu.load(verts_dural_neighbors_fname.format(hemi=hemi)) \
             if op.isfile(verts_dural_neighbors_fname.format(hemi=hemi)) else None for hemi in mu.HEMIS}
-        DellPanel.verts_dural, DellPanel.faces_dural = fect.read_surf_verts(user_fol, 'dural', True)
+        DellPanel.verts_dural, DellPanel.faces_dural = fect.read_surf_verts(user_fol, subject_fol, 'dural', True)
         if DellPanel.verts_dural['rh'] is None or DellPanel.faces_dural['rh'] is None:
             return False
         DellPanel.normals_dural = {hemi:fect.calc_normals(DellPanel.verts_dural[hemi], DellPanel.faces_dural[hemi])

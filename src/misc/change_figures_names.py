@@ -3,6 +3,8 @@ import os
 import glob
 
 from src.utils import utils
+from src.utils import figures_utils as fu
+from src.utils import movies_utils as mu
 
 
 def change_figures_names(name, fol, file_type='jpeg'):
@@ -16,5 +18,17 @@ def change_figures_names(name, fol, file_type='jpeg'):
         os.rename(op.join(fol, '{}.{}'.format(name, file_type)), op.join(fol, '{}_new_1.{}'.format(name, file_type)))
 
 
+def add_colorbar(fol, name):
+    fu.add_colorbar_to_images(fol, 1, 0.95, 'RdOrYl', cb_ticks_font_size=10, cb_title=name)
+
+
+def create_movie(fol, name):
+    mu.combine_images(fol, name, 10, images_prefix='rotation_new_', copy_files=True)
+
+
 if __name__ == '__main__':
-    change_figures_names('rotation', '/autofs/space/thibault_001/users/npeled/mmvt/hbs/figures/Inf3_rotation/')
+    fol = '/home/npeled/mmvt/hbs/figures/ASH3_rotation/'
+    name = 'p-vals'
+    # change_figures_names('rotation', fol)
+    add_colorbar(fol, name)
+    create_movie(fol, name)

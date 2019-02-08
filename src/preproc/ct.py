@@ -93,10 +93,13 @@ def register_to_mr(subject, ct_fol='', ct_name='', nnv_ct_name='', register_ct_n
 
 
 def save_subject_ct_trans(subject, ct_name='ct_reg_to_mr.mgz', overwrite=False):
-    output_fname = op.join(MMVT_DIR, subject, 'ct', 'ct_trans.npz')
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'ct'))
+    output_fname = op.join(fol, 'ct_trans.npz')
     if op.isfile(output_fname) and not overwrite:
         return True
-    ct_fname, ct_exist = utils.locating_file(ct_name, ['*.mgz', '*.nii', '*.nii.gz'], op.join(MMVT_DIR, subject, 'ct'))
+    ct_fname, ct_exist = utils.locating_file(
+        ct_name, ['*.mgz', '*.nii', '*.nii.gz'],
+        [op.join(MMVT_DIR, subject, 'ct'), op.join(SUBJECTS_DIR, subject, 'ct')])
     # ct_fname = op.join(MMVT_DIR, subject, 'ct', ct_name)
     if not ct_exist:# op.isfile(ct_fname):
         # subjects_ct_fname = op.join(SUBJECTS_DIR, subject, 'mri', ct_name)
@@ -108,6 +111,8 @@ def save_subject_ct_trans(subject, ct_name='ct_reg_to_mr.mgz', overwrite=False):
         else:
             print("Can't find subject's CT! ({})".format(ct_fname))
             return False
+    if utils.file_type(ct_fname) != 'mgz':
+        ct_fname = fu.mri_convert_to(ct_fname, 'mgz')
     if ct_fname != op.join(MMVT_DIR, subject, 'ct', ct_name):
         utils.make_link(ct_fname, op.join(MMVT_DIR, subject, 'ct', ct_name))
     print('save_subject_ct_trans: loading {}'.format(ct_fname))

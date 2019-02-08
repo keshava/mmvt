@@ -84,9 +84,11 @@ def open_freeview():
     if not op.isfile(T1):
         print('No T1 / orig files in freeview folder. Running preproc.freeview')
         bpy.context.scene.freeview_messages = 'Preparing... Try to run again'
-        cmd = '{} -m src.preproc.freeview -s {} -a {} -b {} --ignore_missing 1'.format(
-            bpy.context.scene.python_cmd, mu.get_user(), bpy.context.scene.atlas, bpy.context.scene.bipolar)
-        mu.run_command_in_new_thread(cmd, False)
+        # cmd = '{} -m src.preproc.freeview -s {} -a {} -b {} --ignore_missing 1'.format(
+        #     bpy.context.scene.python_cmd, mu.get_user(), bpy.context.scene.atlas, bpy.context.scene.bipolar)
+        # mu.run_command_in_new_thread(cmd, False)
+        flags = '-a {} -b {}'.format(bpy.context.scene.atlas, bpy.context.scene.bipolar)
+        mu.run_mmvt_func('src.preproc.freeview', flags=flags)
         return {'RUNNING_MODAL'}
     bpy.context.scene.freeview_messages = ''
     aseg = op.join(root, 'freeview', '{}+aseg.mgz'.format(bpy.context.scene.atlas))

@@ -175,6 +175,10 @@ def get_subjects_dir():
     return get_link_dir(get_links_dir(), 'subjects', 'SUBJECTS_DIR')
 
 
+def get_subject_dir():
+    return op.join(get_subjects_dir(), get_user())
+
+
 def get_fmri_dir():
     return get_link_dir(get_links_dir(), 'fMRI')
 
