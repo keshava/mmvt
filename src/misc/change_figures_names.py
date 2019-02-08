@@ -27,8 +27,8 @@ def create_movie(fol, name):
 
 
 if __name__ == '__main__':
-    fol = '/home/npeled/mmvt/hbs/figures/Trop1_rotation/'
-    name = 'Troponin'
+    fol = '/home/npeled/mmvt/hbs/figures/ASH3_rotation/'
+    name = 'p-vals'
     # change_figures_names('rotation', fol)
     add_colorbar(fol, name)
     create_movie(fol, name)

@@ -122,6 +122,7 @@ get_links_dir = su.get_links_dir
 get_resources_dir = su.get_resources_dir
 get_mmvt_dir = su.get_mmvt_dir
 get_subjects_dir = su.get_subjects_dir
+get_subject_dir = su.get_subject_dir
 get_fmri_dir = su.get_fmri_dir
 get_real_atlas_name = su.get_real_atlas_name
 get_parent_fol = su.get_parent_fol

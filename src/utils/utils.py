@@ -1849,7 +1849,7 @@ def add_str_to_file_name(fname, txt, suf=''):
     return op.join(get_parent_fol(fname), '{}{}.{}'.format(namebase(fname), txt, suf))
 
 
-def locating_file(default_fname, glob_pattern, parent_fol, raise_exception=False, exclude_pattern=''):
+def locating_file(default_fname, glob_pattern, parent_fols, raise_exception=False, exclude_pattern=''):
     if op.isfile(default_fname):
         return default_fname, True
     if isinstance(glob_pattern, str):
@@ -1858,11 +1858,16 @@ def locating_file(default_fname, glob_pattern, parent_fol, raise_exception=False
         if op.isfile(gp):
             return gp, True
     glob_pattern_print = ','.join(glob_pattern)
-    fname = op.join(parent_fol, default_fname)
-    if '{cond}' in fname:
-        exist = len(glob.glob(fname.replace('{cond}', '*'))) > 1
-    else:
-        exist = op.isfile(fname)
+    if isinstance(parent_fols, str):
+        parent_fols = [parent_fols]
+    for parent_fol in parent_fols:
+        fname = op.join(parent_fol, default_fname)
+        if '{cond}' in fname:
+            exist = len(glob.glob(fname.replace('{cond}', '*'))) > 1
+        else:
+            exist = op.isfile(fname)
+        if exist:
+            break
     if not exist:
         glob_pattern = [op.join(parent_fol, g) if get_parent_fol(g) == '' else g for g in glob_pattern]
         lists = [glob.glob(op.join(parent_fol, '**', namebase_with_ext(gb)), recursive=True) for gb in glob_pattern]
