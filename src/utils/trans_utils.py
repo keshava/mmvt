@@ -8,6 +8,10 @@ SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
 FREESURFER_HOME = utils.get_link_dir(LINKS_DIR, 'freesurfer', 'FREESURFER_HOME')
 
 
+# Check this out:
+# https://github.com/ThomasYeoLab/CBIG/tree/master/stable_projects/registration/Wu2017_RegistrationFusion
+
+
 def get_vox2ras(fname):
     output = utils.run_script('mri_info --vox2ras {}'.format(fname))
     return read_transform_matrix_from_output(output)
