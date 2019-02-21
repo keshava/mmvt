@@ -193,9 +193,9 @@ def main():
     parser.add_argument('-d', '--sftp_domain', help='sftp domain', required=False, default='door.nmr.mgh.harvard.edu')
     parser.add_argument('--remote_subject_dir', help='remote_subjects_dir', required=False,
                         default='/space/thibault/1/users/npeled/subjects/{subject}')
-    parser.add_argument('-f', '--function', help='function name', required=True,
-                        choices=[f_name for f_name, f in globals().items() if isinstance(f, collections.Callable)
-                                 if f_name not in ['Gooey', 'main']])
+    parser.add_argument('-f', '--function', help='function name', required=True)
+    # choices=[f_name for f_name, f in globals().items() if isinstance(f, collections.Callable)
+    #                                  if f_name not in ['Gooey', 'main']]
     args = utils.Bag(au.parse_parser(parser))
     # for subject in args.subject:
     globals()[args.function](args)

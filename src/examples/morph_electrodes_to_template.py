@@ -256,7 +256,6 @@ def write_morphed_electrodes_vox_into_csv(subject, subject_to, voxels, electrode
             wr.writerow([elc_name, *elc_coords.squeeze()])
 
 
-
 def apply_trans(trans, points):
     if isinstance(points, list):
         points = np.array(points)
@@ -407,48 +406,48 @@ def export_into_csv(template_system, mmvt_dir, bipolar=False, prefix=''):
     print('export_into_csv: {}'.format(op.isfile(csv_fname) and op.isfile(csv_fname2)))
 
 
-def compare_electrodes_labeling(electrodes, template_system, atlas='aparc.DKTatlas'):
-    template = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
-    template_elab_files = glob.glob(op.join(
-        MMVT_DIR, template, 'electrodes', '{}_{}_electrodes_cigar_r_3_l_4.pkl'.format(template, atlas)))
-    if len(template_elab_files) == 0:
-        print('No electrodes labeling file for {}!'.format(template))
-        return
-    elab_template = utils.load(template_elab_files[0])
-    errors = ''
-    for subject in electrodes.keys():
-        elab_files = glob.glob(op.join(
-            MMVT_DIR, subject, 'electrodes', '{}_{}_electrodes_cigar_r_3_l_4.pkl'.format(subject, atlas)))
-        if len(elab_files) == 0:
-            print('No electrodes labeling file for {}!'.format(subject))
-            continue
-        electrodes_names = [e[0] for e in electrodes[subject]]
-        elab = utils.load(elab_files[0])
-        elab = [e for e in elab if e['name'] in electrodes_names]
-        for elc in electrodes_names:
-            no_errors = True
-            elc_labeling = [e for e in elab if e['name'] == elc][0]
-            elc_labeling_template = [e for e in elab_template if e['name'] == '{}_{}'.format(subject, elc)][0]
-            for roi, prob in zip(elc_labeling['cortical_rois'], elc_labeling['cortical_probs']):
-                no_err, err = compare_rois_and_probs(
-                    subject, template, elc, roi, prob, elc_labeling['cortical_rois'],
-                    elc_labeling_template['cortical_rois'], elc_labeling_template['cortical_probs'])
-                no_errors = no_errors and no_err
-                if err != '':
-                    errors += err + '\n'
-            for roi, prob in zip(elc_labeling['subcortical_rois'], elc_labeling['subcortical_probs']):
-                no_err, err = compare_rois_and_probs(
-                    subject, template, elc, roi, prob, elc_labeling['subcortical_rois'],
-                    elc_labeling_template['subcortical_rois'], elc_labeling_template['subcortical_probs'])
-                no_errors = no_errors and no_err
-                if err != '':
-                    errors += err + '\n'
-            if no_errors:
-                print('{},{},Good!'.format(subject, elc))
-                errors += '{},{},Good!\n'.format(subject, elc)
-    with open(op.join(MMVT_DIR, template, 'electrodes', 'trans_errors.txt'), "w") as text_file:
-        print(errors, file=text_file)
-    # print(errors)
+# def compare_electrodes_labeling(electrodes, template_system, atlas='aparc.DKTatlas'):
+#     template = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
+#     template_elab_files = glob.glob(op.join(
+#         MMVT_DIR, template, 'electrodes', '{}_{}_electrodes_cigar_r_3_l_4.pkl'.format(template, atlas)))
+#     if len(template_elab_files) == 0:
+#         print('No electrodes labeling file for {}!'.format(template))
+#         return
+#     elab_template = utils.load(template_elab_files[0])
+#     errors = ''
+#     for subject in electrodes.keys():
+#         elab_files = glob.glob(op.join(
+#             MMVT_DIR, subject, 'electrodes', '{}_{}_electrodes_cigar_r_3_l_4.pkl'.format(subject, atlas)))
+#         if len(elab_files) == 0:
+#             print('No electrodes labeling file for {}!'.format(subject))
+#             continue
+#         electrodes_names = [e[0] for e in electrodes[subject]]
+#         elab = utils.load(elab_files[0])
+#         elab = [e for e in elab if e['name'] in electrodes_names]
+#         for elc in electrodes_names:
+#             no_errors = True
+#             elc_labeling = [e for e in elab if e['name'] == elc][0]
+#             elc_labeling_template = [e for e in elab_template if e['name'] == '{}_{}'.format(subject, elc)][0]
+#             for roi, prob in zip(elc_labeling['cortical_rois'], elc_labeling['cortical_probs']):
+#                 no_err, err = compare_rois_and_probs(
+#                     subject, template, elc, roi, prob, elc_labeling['cortical_rois'],
+#                     elc_labeling_template['cortical_rois'], elc_labeling_template['cortical_probs'])
+#                 no_errors = no_errors and no_err
+#                 if err != '':
+#                     errors += err + '\n'
+#             for roi, prob in zip(elc_labeling['subcortical_rois'], elc_labeling['subcortical_probs']):
+#                 no_err, err = compare_rois_and_probs(
+#                     subject, template, elc, roi, prob, elc_labeling['subcortical_rois'],
+#                     elc_labeling_template['subcortical_rois'], elc_labeling_template['subcortical_probs'])
+#                 no_errors = no_errors and no_err
+#                 if err != '':
+#                     errors += err + '\n'
+#             if no_errors:
+#                 print('{},{},Good!'.format(subject, elc))
+#                 errors += '{},{},Good!\n'.format(subject, elc)
+#     with open(op.join(MMVT_DIR, template, 'electrodes', 'trans_errors.txt'), "w") as text_file:
+#         print(errors, file=text_file)
+#     # print(errors)
 
 
 # def compare_rois_and_probs(subject, template, elc, roi, prob, elc_labeling_rois, elc_labeling_template_rois,
