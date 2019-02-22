@@ -20,7 +20,7 @@ The users can also reprocess raw data using wrappers for FaFast and MNE-python (
 [![Waffle.io - Columns and their card count](https://badge.waffle.io/pelednoam/mmvt.svg?columns=all)](https://waffle.io/pelednoam/mmvt)
 
 ## New Website
-Please visit our new website: <a href:"http://mmvt.org"></a>
+Please visit our new website: (mmvt.org)[http://mmvt.org]
 
 ## Videos & Figures
 * The [aparc.DKTatlas](https://surfer.nmr.mgh.harvard.edu/fswiki/CorticalParcellation) FreeSurfer atlas:
