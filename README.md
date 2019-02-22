@@ -100,6 +100,6 @@ N. Peled and O.Felsenstein et al. (2017). MMVT - Multi-Modality Visualization To
 
 ## Licensing
 
-MMVT is [**GNU-GPL-license**](https://github.com/pelednoam/mmvt/blob/master/LICENSE):
+MMVT is [**GNU GPL v3.0 license**](https://github.com/pelednoam/mmvt/blob/master/LICENSE):
 
  
