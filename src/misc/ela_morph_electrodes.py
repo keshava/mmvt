@@ -68,7 +68,7 @@ def calc_subcorticals_pos(subject, aseg_data, lut):
 
 @utils.timeit
 def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=False,  atlas='aparc.DKTatlas',
-              error_radius=3, elc_length=4, overwrite=False, n_jobs=1):
+              error_radius=3, elc_length=4, print_warnings=False, overwrite=False, n_jobs=1):
     fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     cmd_args = ['-s', subject, '-a', atlas, '-b', str(bipolar), '--n_jobs', str(n_jobs)]
     args = find_rois.get_args(cmd_args)
@@ -90,7 +90,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
     for elec_name, elec_pos, elec_dist, elec_type, elec_ori in elecs_info:
         elec_labeling = calc_ela(
             subject, bipolar, elec_name, elec_pos, elec_type, elec_ori, elec_dist, labels_vertices, aseg_data, lut,
-            pia_verts, len_lh_pia, args.excludes, error_radius, elc_length, overwrite, n_jobs)
+            pia_verts, len_lh_pia, args.excludes, error_radius, elc_length, print_warnings, overwrite, n_jobs)
         elec_labeling_no_whites = calc_elec_labeling_no_white(elec_labeling)
         template_elec_pos = calc_prob_pos(elec_labeling_no_whites, template_regions_center_of_mass, template_regions_names)
         subject_prob_pos = calc_prob_pos(elec_labeling_no_whites, regions_center_of_mass, regions_names)
@@ -99,7 +99,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
 
         elec_labeling_template = calc_ela(
             template, bipolar, elec_name, template_elec_pos, elec_type, elec_ori, elec_dist, template_labels_vertices, template_aseg_data, lut,
-            template_pia_verts, template_len_lh_pia, args.excludes, error_radius, elc_length, overwrite, n_jobs)
+            template_pia_verts, template_len_lh_pia, args.excludes, error_radius, elc_length, print_warnings, overwrite, n_jobs)
         err = comp_elecs_labeling(elec_labeling_no_whites, elec_labeling_template, regions_center_of_mass,
             regions_names, template_regions_center_of_mass, template_regions_names, subject_prob_pos)
         run_num = 0
@@ -120,7 +120,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                 ind = np.argmin(errs)
                 new_template_pos = new_template_elec_pos_arr[ind]
                 min_err = errs[ind]
-                if min_err == err:
+                if min_err >= err:
                     stop_gradient = True
                 else:
                     err = min_err
@@ -131,7 +131,8 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                     elec_labeling_template = calc_ela(
                         template, bipolar, elec_name, new_template_elec_pos, elec_type, elec_ori, elec_dist,
                         template_labels_vertices, template_aseg_data, lut,
-                        template_pia_verts, template_len_lh_pia, args.excludes, error_radius, elc_length, overwrite, n_jobs)
+                        template_pia_verts, template_len_lh_pia, args.excludes, error_radius, elc_length,
+                        print_warnings, overwrite, n_jobs)
                     new_err = comp_elecs_labeling(elec_labeling_no_whites, elec_labeling_template, regions_center_of_mass,
                                               regions_names, template_regions_center_of_mass, template_regions_names,
                                               subject_prob_pos)
@@ -148,7 +149,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                 utils.apply_trans(np.linalg.inv(template_header.get_vox2ras_tkr()), new_template_pos).astype(int))
             if stop_gradient:
                 print('Stop gradient!!!')
-        np.save(op.join(fol, '{}_ela_morphed.npy'.format(elec_name)), new_template_pos)
+        np.save(op.join(fol, '{}_ela_morphed.npz'.format(elec_name)), pos=new_template_pos, err=err)
 
 
 def _parallel_calc_ela_err(p):
@@ -207,13 +208,13 @@ def comp_elecs_labeling(elec_labeling_no_whites, elec_labeling_template, subject
 
 
 def calc_ela(subject, bipolar, elec_name, elec_pos, elec_type, elec_ori, elec_dist, labels, aseg_data, lut, pia_verts,
-             len_lh_pia, excludes, error_radius=3, elc_length=4, overwrite=False, n_jobs=1):
+             len_lh_pia, excludes, error_radius=3, elc_length=4, print_warnings=False, overwrite=False, n_jobs=1):
     enlarge_if_no_hit, hit_min_three, strech_to_dist = True, True, False
     nei_dimensions = None
     ret_val = find_rois.identify_roi_from_atlas_per_electrode(
         labels, elec_pos, pia_verts, len_lh_pia, lut,
         aseg_data, elec_name, error_radius, elc_length, nei_dimensions, elec_ori, elec_dist, elec_type, strech_to_dist,
-        enlarge_if_no_hit, hit_min_three, bipolar, SUBJECTS_DIR, subject, excludes, n_jobs=1)
+        enlarge_if_no_hit, hit_min_three, bipolar, SUBJECTS_DIR, subject, excludes, print_warnings, n_jobs=1)
 
     (regions, regions_hits, subcortical_regions, subcortical_hits, approx_after_strech, elc_length, elec_hemi_vertices,
      elec_hemi_vertices_dists, hemi) = ret_val
@@ -315,4 +316,4 @@ if __name__ == '__main__':
     atlas = 'aparc.DKTatlas40'
     template_header = nib.load(op.join(SUBJECTS_DIR, template, 'mri', 'T1.mgz')).header
 
-    calc_elas(subject, elec_name, template, template_header, bipolar=False, atlas=atlas, n_jobs=1)
+    calc_elas(subject, elec_name, template, template_header, bipolar=False, atlas=atlas, print_warnings=False, n_jobs=1)
