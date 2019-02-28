@@ -91,9 +91,12 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
         elec_labeling = calc_ela(
             subject, bipolar, elec_name, elec_pos, elec_type, elec_ori, elec_dist, labels_vertices, aseg_data, lut,
             pia_verts, len_lh_pia, args.excludes, error_radius, elc_length, print_warnings, overwrite, n_jobs)
+        print('subject_ela:')
+        print_ela(elec_labeling)
+
         elec_labeling_no_whites = calc_elec_labeling_no_white(elec_labeling)
         template_elec_pos = calc_prob_pos(elec_labeling_no_whites, template_regions_center_of_mass, template_regions_names)
-        subject_prob_pos = calc_prob_pos(elec_labeling_no_whites, regions_center_of_mass, regions_names)
+        subject_prob_pos_in_template_space = calc_prob_pos(elec_labeling_no_whites, template_regions_center_of_mass, template_regions_names)
         template_elec_vox = np.rint(
             utils.apply_trans(np.linalg.inv(template_header.get_vox2ras_tkr()), template_elec_pos).astype(int))
 
@@ -101,7 +104,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
             template, bipolar, elec_name, template_elec_pos, elec_type, elec_ori, elec_dist, template_labels_vertices, template_aseg_data, lut,
             template_pia_verts, template_len_lh_pia, args.excludes, error_radius, elc_length, print_warnings, overwrite, n_jobs)
         err = comp_elecs_labeling(elec_labeling_no_whites, elec_labeling_template, regions_center_of_mass,
-            regions_names, template_regions_center_of_mass, template_regions_names, subject_prob_pos)
+            regions_names, template_regions_center_of_mass, template_regions_names, subject_prob_pos_in_template_space)
         run_num = 0
         stop_gradient = False
         print(err)
@@ -114,7 +117,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                 params = [(template, bipolar, elec_name, new_template_elec_pos, elec_type, elec_ori, elec_dist,
                            template_labels_vertices, template_aseg_data, lut, template_pia_verts, template_len_lh_pia,
                            elec_labeling_no_whites, regions_center_of_mass, regions_names,
-                           template_regions_center_of_mass, template_regions_names, subject_prob_pos, args.excludes,
+                           template_regions_center_of_mass, template_regions_names, subject_prob_pos_in_template_space, args.excludes,
                            error_radius, elc_length, overwrite) for new_template_elec_pos in new_template_elec_pos_arr]
                 errs = utils.run_parallel(_parallel_calc_ela_err, params, len(dxyzs))
                 ind = np.argmin(errs)
@@ -135,7 +138,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                         print_warnings, overwrite, n_jobs)
                     new_err = comp_elecs_labeling(elec_labeling_no_whites, elec_labeling_template, regions_center_of_mass,
                                               regions_names, template_regions_center_of_mass, template_regions_names,
-                                              subject_prob_pos)
+                                              subject_prob_pos_in_template_space)
                     if new_err < err:
                         new_template_pos = new_template_elec_pos
                         err = new_err
@@ -143,7 +146,8 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                 else:
                     stop_gradient = True
 
-            print('*** {}){} ***'.format(run_num, err))
+            print('*** {}){} ***'.format(run_num + 1, err))
+            print_ela(elec_labeling_template)
             run_num += 1
             template_elec_vox = np.rint(
                 utils.apply_trans(np.linalg.inv(template_header.get_vox2ras_tkr()), new_template_pos).astype(int))
