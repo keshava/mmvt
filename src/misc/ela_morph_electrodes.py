@@ -69,6 +69,7 @@ def calc_subcorticals_pos(subject, aseg_data, lut):
 @utils.timeit
 def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=False,  atlas='aparc.DKTatlas',
               error_radius=3, elc_length=4, overwrite=False, n_jobs=1):
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     cmd_args = ['-s', subject, '-a', atlas, '-b', str(bipolar), '--n_jobs', str(n_jobs)]
     args = find_rois.get_args(cmd_args)
     elecs_names, elecs_pos, elecs_dists, elecs_types, _ = find_rois.get_electrodes(subject, bipolar, args)
@@ -143,9 +144,11 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
 
             print('*** {}){} ***'.format(run_num, err))
             run_num += 1
+            template_elec_vox = np.rint(
+                utils.apply_trans(np.linalg.inv(template_header.get_vox2ras_tkr()), new_template_pos).astype(int))
             if stop_gradient:
                 print('Stop gradient!!!')
-        np.save(op.join(MMVT_DIR, subject, 'electrodes', '{}_ela_morphed.npy'.format(elec_name)), new_template_pos)
+        np.save(op.join(fol, '{}_ela_morphed.npy'.format(elec_name)), new_template_pos)
 
 
 def _parallel_calc_ela_err(p):
