@@ -66,6 +66,7 @@ def calc_subcorticals_pos(subject, aseg_data, lut):
     return subs_pos, names
 
 
+@utils.timeit
 def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=False,  atlas='aparc.DKTatlas',
               error_radius=3, elc_length=4, overwrite=False, n_jobs=1):
     cmd_args = ['-s', subject, '-a', atlas, '-b', str(bipolar), '--n_jobs', str(n_jobs)]
