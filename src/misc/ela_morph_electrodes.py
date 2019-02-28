@@ -96,7 +96,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
 
         elec_labeling_no_whites = calc_elec_labeling_no_white(elec_labeling)
         template_elec_pos = calc_prob_pos(elec_labeling_no_whites, template_regions_center_of_mass, template_regions_names)
-        subject_prob_pos_in_template_space = calc_prob_pos(elec_labeling_no_whites, template_regions_center_of_mass, template_regions_names)
+        subject_prob_pos_in_template_space = template_elec_pos.copy()
         template_elec_vox = np.rint(
             utils.apply_trans(np.linalg.inv(template_header.get_vox2ras_tkr()), template_elec_pos).astype(int))
 
@@ -319,6 +319,7 @@ def robust_register_to_template(subject, subject_to, subjects_dir, vox2vox=False
         lta_name += '_vox2vox'
     rs = utils.partial_run_script(locals(), print_only=print_only)
     rs(cmd)
+
 
 
 if __name__ == '__main__':
