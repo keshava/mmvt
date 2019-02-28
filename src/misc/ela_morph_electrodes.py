@@ -149,7 +149,11 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                 utils.apply_trans(np.linalg.inv(template_header.get_vox2ras_tkr()), new_template_pos).astype(int))
             if stop_gradient:
                 print('Stop gradient!!!')
-        np.save(op.join(fol, '{}_ela_morphed.npz'.format(elec_name)), pos=new_template_pos, err=err)
+            print('subject_ela:')
+            print(elec_labeling)
+            print('template ela:')
+            print(elec_labeling_template)
+        np.savez(op.join(fol, '{}_ela_morphed.npz'.format(elec_name)), pos=new_template_pos, err=err)
 
 
 def _parallel_calc_ela_err(p):
