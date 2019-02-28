@@ -305,13 +305,10 @@ def robust_register_to_template(subject, subject_to, subjects_dir, vox2vox=False
 
 
 if __name__ == '__main__':
-    pass
-    #
-    # subject = 'mg112'
-    # elec_name = ['RPT1']
-    # template = 'colin27'
-    # atlas = 'aparc.DKTatlas40'
-    # template_header = nib.load(op.join(SUBJECTS_DIR, template, 'mri', 'T1.mgz')).header
-    #
-    # calc_elas(subject, elec_name, template, template_header, bipolar=False, atlas=atlas, n_jobs=1)
-    # # compare_electrodes_labeling(subject, electrodes_names, template, atlas)
+    subject = 'mg112'
+    elec_name = ['RPT1']
+    template = 'colin27'
+    atlas = 'aparc.DKTatlas40'
+    template_header = nib.load(op.join(SUBJECTS_DIR, template, 'mri', 'T1.mgz')).header
+
+    calc_elas(subject, elec_name, template, template_header, bipolar=False, atlas=atlas, n_jobs=1)
