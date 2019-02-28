@@ -149,10 +149,10 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                 utils.apply_trans(np.linalg.inv(template_header.get_vox2ras_tkr()), new_template_pos).astype(int))
             if stop_gradient:
                 print('Stop gradient!!!')
-            print('subject_ela:')
-            print(elec_labeling)
-            print('template ela:')
-            print(elec_labeling_template)
+                print('subject_ela:')
+                print([(region, prob) for region, prob in zip(elec_labeling['regions'], elec_labeling['regions_probs'])])
+                print('template ela:')
+                print([(region, prob) for region, prob in zip(elec_labeling_template['regions'], elec_labeling_template['regions_probs'])])
         np.savez(op.join(fol, '{}_ela_morphed.npz'.format(elec_name)), pos=new_template_pos, err=err)
 
 
