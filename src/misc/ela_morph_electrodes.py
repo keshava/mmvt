@@ -150,10 +150,14 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
             if stop_gradient:
                 print('Stop gradient!!!')
                 print('subject_ela:')
-                print([(region, prob) for region, prob in zip(elec_labeling['regions'], elec_labeling['regions_probs'])])
+                print_ela(elec_labeling)
                 print('template ela:')
-                print([(region, prob) for region, prob in zip(elec_labeling_template['regions'], elec_labeling_template['regions_probs'])])
+                print_ela(elec_labeling_template)
         np.savez(op.join(fol, '{}_ela_morphed.npz'.format(elec_name)), pos=new_template_pos, err=err)
+
+
+def print_ela(ela):
+    print(','.join(['{}:{:.2f}'.format(region, prob) for region, prob in zip(ela['regions'], ela['regions_probs'])]))
 
 
 def _parallel_calc_ela_err(p):
