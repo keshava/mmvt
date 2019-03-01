@@ -565,7 +565,8 @@ def create_mmvt_coloring_file(template_system, template_electrodes, electodes_co
     with open(csv_fname, 'w') as csv_file:
         wr = csv.writer(csv_file, quoting=csv.QUOTE_NONE)
         for subject_ind, subject in enumerate(subjects):
-            for elc_name, _ in template_electrodes[subject]:
+            # for elc_name, _ in template_electrodes[subject]:
+            for elc_name in template_electrodes[subject]:
                 if len(electodes_colors) != 0:
                     real_elc_name = '_'.join(elc_name.split('_')[1:])
                     elec_id = [tup for tup in electodes_colors[subject] if tup[0] == real_elc_name][0][1]
