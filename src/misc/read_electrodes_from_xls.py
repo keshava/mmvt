@@ -49,8 +49,9 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', check_morp
             continue
 
 
-def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True):
-    subjects_electrodes = defaultdict(list)
+def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefix='', postfix=''):
+    output_fname = '{}electrodes{}_positions.npz'.format(prefix, '_bipolar' if bipolar else '', postfix)
+    template_electrodes = defaultdict(list)
     for line in utils.xlsx_reader(xls_fname, skip_rows=1):
         subject, _, elec_name, _, anat_group = line
         subject = subject.replace('\'', '')
@@ -67,8 +68,16 @@ def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True):
             d = np.load(elec_input_fname)
             elecs_pos.append(d['pos'])
         bipolar_ele_pos = np.mean(elecs_pos, axis=0)
-        subjects_electrodes[subject].append()
-        print('sdf')
+        template_electrodes[subject].append('{}_{}{}-{}'.format(subject, elec_group, num1, num2), bipolar_ele_pos)
+
+    fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
+    output_fname = op.join(fol, output_fname)
+    elecs_coordinates = np.array(utils.flat_list_of_lists(
+        [[e[1] for e in template_electrodes[subject]] for subject in template_electrodes.keys()]))
+    elecs_names = utils.flat_list_of_lists(
+        [[e[0] for e in template_electrodes[subject]] for subject in template_electrodes.keys()])
+    np.savez(output_fname, pos=elecs_coordinates, names=elecs_names, pos_org=[])
+
 
 def morph_csv():
     electrodes = morph_electrodes_to_template.read_all_electrodes(subjects, False)
