@@ -46,7 +46,7 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', check_morp
                 continue
         try:
             ela_morph_electrodes.calc_elas(
-                subject,  subjects_electrodes[subject], subject_to, template_header, bipolar=False, atlas=atlas)
+                subject, subjects_electrodes[subject], subject_to, template_header, bipolar=False, atlas=atlas)
         except:
             err = utils.print_last_error_line()
             bad_subjects.append((subject, err))
