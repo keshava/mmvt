@@ -99,6 +99,11 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
     parallel = True
 
     for elec_name, elec_pos, elec_dist, elec_type, elec_ori in elecs_info:
+        elec_output_fname = op.join(fol, '{}_ela_morphed.npz'.format(elec_name))
+        if op.isfile(elec_output_fname):
+            d = np.load(elec_output_fname)
+            print('{}: err: {}, new_pos={}'.format(elec_name, d['err'], d['pos']))
+            continue
         elec_labeling = calc_ela(
             subject, bipolar, elec_name, elec_pos, elec_type, elec_ori, elec_dist, labels_vertices, aseg_data, lut,
             pia_verts, len_lh_pia, args.excludes, error_radius, elc_length, print_warnings, overwrite, n_jobs)
@@ -169,7 +174,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                 print_ela(elec_labeling)
                 print('template ela:')
                 print_ela(elec_labeling_template)
-        np.savez(op.join(fol, '{}_ela_morphed.npz'.format(elec_name)), pos=new_template_pos, err=err)
+        np.savez(elec_output_fname, pos=new_template_pos, err=err)
 
 
 def print_ela(ela):
