@@ -74,7 +74,7 @@ def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefi
             else:
                 d = np.load(elec_input_fname)
                 elecs_pos.append(d['pos'])
-        num1, num2 = num1, num2 if num2 > num1 else num2, num1
+        num1, num2 = (num1, num2 )if num2 > num1 else (num2, num1)
         if len(elecs_pos) == 2:
             bipolar_ele_pos = np.mean(elecs_pos, axis=0)
             elec_name = '{}_{}{}-{}'.format(subject, elec_group, num1, num2)
@@ -108,12 +108,15 @@ def morph_csv():
 def write_electrode_colors(electrodes_colors):
     import csv
     csv_fname = op.join(fol, 'morphed_electrodes.csv')
+    unique_colors = np.unique(utils.flat_list(([[k[1] for k in elecs] for elecs in electrodes_colors.values()])))
+    colors = utils.get_distinct_colors(len(unique_colors))
     print('Writing csv file to {}'.format(csv_fname))
     with open(csv_fname, 'w') as csv_file:
         wr = csv.writer(csv_file, quoting=csv.QUOTE_NONE)
         for subject in electrodes_colors.keys():
             # for elc_name, _ in template_electrodes[subject]:
-            for elc_name, color in electrodes_colors[subject]:
+            for elc_name, color_id in electrodes_colors[subject]:
+                color = colors[color_id - 1]
                 wr.writerow([elc_name, *color])
 
 
@@ -128,6 +131,6 @@ if __name__ == '__main__':
 
     # read_xls(xls_fname)
     subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
-    morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
+    #morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # csv_fname = elecs_preproc.electrodes_csv_to_npy(to_subject, csv_fname)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)
