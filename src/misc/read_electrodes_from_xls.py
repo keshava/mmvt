@@ -6,6 +6,7 @@ from src.utils import utils
 from src.utils import preproc_utils as pu
 from src.examples import morph_electrodes_to_template
 from src.examples import ela_morph_electrodes
+from src.preproc import anatomy as anat
 
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
@@ -33,21 +34,25 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', check_morp
             subjects_electrodes[subject].append('{}{}'.format(elec_group, num))
         electrodes_colors[subject].append((elec_name, int(anat_group)))
     subjects = list(subjects_electrodes.keys())
+    bad_subjects = []
     for subject in subjects:
-        if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{hemi}.aparc.DKTatlas.annot')):
-            atlas = 'aparc.DKTatlas'
-        elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{hemi}.aparc.DKTatlas40.annot')):
-            atlas = 'aparc.DKTatlas40'
-        else:
-            print('No atlas for {}!'.format(atlas))
-            continue
+        atlas = utils.fix_atlas_name(subject, atlas, SUBJECTS_DIR)
+        if not utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
+            anat.create_annotation(subject, atlas)
+            if not utils.both_hemi_files_exist(
+                    op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
+                print('No atlas for {}!'.format(atlas))
+                bad_subjects.append((subject, 'No atlas'))
+                continue
         try:
             ela_morph_electrodes.calc_elas(
                 subject,  subjects_electrodes[subject], subject_to, template_header, bipolar=False, atlas=atlas)
         except:
-            utils.print_last_error_line()
+            err = utils.print_last_error_line()
+            bad_subjects.append((subject, err))
             continue
 
+    print(bad_subjects)
 
 def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefix='', postfix=''):
     output_fname = '{}electrodes{}_positions.npz'.format(prefix, '_bipolar' if bipolar else '', postfix)
@@ -130,8 +135,8 @@ if __name__ == '__main__':
     to_subject = 'colin27'
 
 
-    # read_xls(xls_fname)
-    subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
+    read_xls(xls_fname)
+    #subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
     #morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # csv_fname = elecs_preproc.electrodes_csv_to_npy(to_subject, csv_fname)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)

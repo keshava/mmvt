@@ -1163,9 +1163,11 @@ def tryit(except_retval=False, throw_exception=False, print_only_last_error_line
 
 def print_last_error_line():
     try:
-        print([l for l in traceback.format_exc().split('\n') if len(l) > 0][-1])
+        last_err_line = [l for l in traceback.format_exc().split('\n') if len(l) > 0][-1]
+        print(last_err_line)
+        return last_err_line
     except:
-        pass
+        return ''
 
 
 def get_all_children(parents):
