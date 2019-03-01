@@ -67,7 +67,6 @@ def calc_subcorticals_pos(subject, aseg_data, lut):
 
 
 @utils.timeit
-@utils.tryit()
 def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=False,  atlas='aparc.DKTatlas',
               error_radius=3, elc_length=4, print_warnings=False, overwrite=False, n_jobs=1):
     fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
