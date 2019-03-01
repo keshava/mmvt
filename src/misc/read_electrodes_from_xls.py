@@ -1,5 +1,6 @@
 import os.path as op
 import nibabel as nib
+import numpy as np
 from collections import defaultdict
 from src.utils import utils
 from src.utils import preproc_utils as pu
@@ -9,7 +10,7 @@ from src.examples import ela_morph_electrodes
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 
-def read_xls(xls_fname, subject_to='colin27',atlas='aparc.DKTatlas', check_morph_file=False):
+def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', check_morph_file=False):
     bipolar = True
     template_header = nib.load(op.join(SUBJECTS_DIR, subject_to, 'mri', 'T1.mgz')).header
     subjects_electrodes = defaultdict(list)
@@ -47,6 +48,25 @@ def read_xls(xls_fname, subject_to='colin27',atlas='aparc.DKTatlas', check_morph
             utils.print_last_error_line()
             continue
 
+
+def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True):
+    for line in utils.xlsx_reader(xls_fname, skip_rows=1):
+        subject, _, elec_name, _, anat_group = line
+        subject = subject.replace('\'', '')
+        if subject == '':
+            break
+        elec_group, num1, num2 = utils.elec_group_number(elec_name, bipolar)
+        if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
+            num1, num2 = str(num1).zfill(2), str(num2).zfill(2)
+        if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
+            raise Exception('Wrong group or numbers!')
+        elec_pos = []
+        for num in num1, num2:
+            elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', '{}{}_ela_morphed.npz'.format(elec_group, num))
+            d = np.load(elec_input_fname)
+            elec_pos.append(d['pos'])
+        print('sdf')
+
 def morph_csv():
     electrodes = morph_electrodes_to_template.read_all_electrodes(subjects, False)
     template_electrodes = morph_electrodes_to_template.read_morphed_electrodes(
@@ -58,8 +78,9 @@ def morph_csv():
 
 
 if __name__ == '__main__':
-    fols = ['C:\\Users\\peled\\Documents\\Pariya', '/home/cashlab/Documents/noam/']
+    fols = ['C:\\Users\\peled\\Documents\\Pariya', '/home/cashlab/Documents/noam/', '/home/npeled/Documents/pyraya']
     fol = [f for f in fols if op.isdir(f)][0]
     xls_fname = op.join(fol, 'Onset_regions_for_illustration.xlsx')
 
-    read_xls(xls_fname)
+    # read_xls(xls_fname)
+    read_morphed_electrodes(xls_fname, subject_to='colin27')
