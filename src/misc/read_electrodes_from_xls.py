@@ -50,6 +50,7 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', check_morp
 
 
 def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True):
+    subjects_electrodes = defaultdict(list)
     for line in utils.xlsx_reader(xls_fname, skip_rows=1):
         subject, _, elec_name, _, anat_group = line
         subject = subject.replace('\'', '')
@@ -60,11 +61,13 @@ def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True):
             num1, num2 = str(num1).zfill(2), str(num2).zfill(2)
         if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
             raise Exception('Wrong group or numbers!')
-        elec_pos = []
+        elecs_pos = []
         for num in num1, num2:
             elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', '{}{}_ela_morphed.npz'.format(elec_group, num))
             d = np.load(elec_input_fname)
-            elec_pos.append(d['pos'])
+            elecs_pos.append(d['pos'])
+        bipolar_ele_pos = np.mean(elecs_pos, axis=0)
+        subjects_electrodes[subject].append()
         print('sdf')
 
 def morph_csv():
