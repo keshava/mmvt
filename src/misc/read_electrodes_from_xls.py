@@ -9,7 +9,7 @@ from src.examples import ela_morph_electrodes
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 
-def read_xls(xls_fname, subject_to='colin27',atlas='aparc.DKTatlas40', check_morph_file=False):
+def read_xls(xls_fname, subject_to='colin27',atlas='aparc.DKTatlas', check_morph_file=False):
     bipolar = True
     template_header = nib.load(op.join(SUBJECTS_DIR, subject_to, 'mri', 'T1.mgz')).header
     subjects_electrodes = defaultdict(list)
@@ -33,9 +33,19 @@ def read_xls(xls_fname, subject_to='colin27',atlas='aparc.DKTatlas40', check_mor
         electrodes_colors[subject].append((elec_name, int(anat_group)))
     subjects = list(subjects_electrodes.keys())
     for subject in subjects:
-        ela_morph_electrodes.calc_elas(
-            subject, elec_name, subject_to, template_header, bipolar=False, atlas=atlas)
-
+        if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{hemi}.aparc.DKTatlas.annot')):
+            atlas = 'aparc.DKTatlas'
+        elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{hemi}.aparc.DKTatlas40.annot')):
+            atlas = 'aparc.DKTatlas40'
+        else:
+            print('No atlas for {}!'.format(atlas))
+            continue
+        try:
+            ela_morph_electrodes.calc_elas(
+                subject,  subjects_electrodes[subject], subject_to, template_header, bipolar=False, atlas=atlas)
+        except:
+            utils.print_last_error_line()
+            continue
 
 def morph_csv():
     electrodes = morph_electrodes_to_template.read_all_electrodes(subjects, False)

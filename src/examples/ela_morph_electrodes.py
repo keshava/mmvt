@@ -80,8 +80,18 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
                   if elec_name in specific_elecs_names]
     (labels_vertices, regions_center_of_mass, regions_names, aseg_data, lut, pia_verts) = init(
         subject, atlas, n_jobs)
+    if 'aparc.DKTatlas' in atlas:
+        if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, template, 'label', '{hemi}.aparc.DKTatlas.annot')):
+            template_atlas = 'aparc.DKTatlas'
+        elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{hemi}.aparc.DKTatlas40.annot')):
+            template_atlas = 'aparc.DKTatlas40'
+        else:
+            raise Exception('No DKT atlas for {}!'.formaT(template))
+    else:
+        template_atlas = atlas
+
     (template_labels_vertices, template_regions_center_of_mass, template_regions_names, template_aseg_data, lut,
-     template_pia_verts) = init(template, atlas, n_jobs)
+     template_pia_verts) = init(template, template_atlas, n_jobs)
     len_lh_pia = len(pia_verts['lh'])
     template_len_lh_pia = len(template_pia_verts['lh'])
     epsilon = 0
