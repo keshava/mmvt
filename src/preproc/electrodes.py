@@ -39,7 +39,11 @@ def montage_to_npy(montage_file, output_file):
     np.savez(output_file, pos=np.array(sfp.pos), names=sfp.ch_names)
 
 
-def electrodes_csv_to_npy(ras_file, output_file, bipolar=False, delimiter=',', electrodes_type=None):
+def electrodes_csv_to_npy(subject, ras_file, output_file='', bipolar=False, delimiter=',', electrodes_type=None,
+                          snap=False):
+    if output_file == '':
+        output_file_name = 'electrodes{}_{}positions.npz'.format('_bipolar' if bipolar else '', 'snap_' if snap else '')
+        output_file = op.join(MMVT_DIR, subject, 'electrodes', output_file_name)
     data = np.genfromtxt(ras_file, dtype=str, delimiter=delimiter)
     if data.shape[1] == 5 and np.all(data[:, 4] == ''):
         data = np.delete(data, (4), axis=1)
@@ -272,7 +276,7 @@ def convert_electrodes_pos(
         file_found = True
         output_file_name = 'electrodes{}_{}positions.npz'.format('_bipolar' if bipolar else '', 'snap_' if snap else '')
         output_file = op.join(MMVT_DIR, subject, 'electrodes', output_file_name)
-        pos, names = electrodes_csv_to_npy(csv_file, output_file, bipolar, electrodes_type=electrodes_type)
+        pos, names = electrodes_csv_to_npy(subject, csv_file, output_file, bipolar, electrodes_type=electrodes_type)
         if pos is None or names is None:
             return False, None, None
         # if copy_to_blender:

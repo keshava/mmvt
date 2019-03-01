@@ -51,6 +51,7 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', check_morp
 
 def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefix='', postfix=''):
     output_fname = '{}electrodes{}_positions.npz'.format(prefix, '_bipolar' if bipolar else '', postfix)
+    bad_electrodes = []
     template_electrodes = defaultdict(list)
     for line in utils.xlsx_reader(xls_fname, skip_rows=1):
         subject, _, elec_name, _, anat_group = line
@@ -65,10 +66,15 @@ def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefi
         elecs_pos = []
         for num in num1, num2:
             elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', '{}{}_ela_morphed.npz'.format(elec_group, num))
-            d = np.load(elec_input_fname)
-            elecs_pos.append(d['pos'])
-        bipolar_ele_pos = np.mean(elecs_pos, axis=0)
-        template_electrodes[subject].append('{}_{}{}-{}'.format(subject, elec_group, num1, num2), bipolar_ele_pos)
+            if not op.isfile(elec_input_fname):
+                print('{} not found!'.format(elec_input_fname))
+                bad_electrodes.append('{}_{}{}'.format(subject, elec_group, num))
+            else:
+                d = np.load(elec_input_fname)
+                elecs_pos.append(d['pos'])
+        if len(elecs_pos) == 2:
+            bipolar_ele_pos = np.mean(elecs_pos, axis=0)
+            template_electrodes[subject].append(('{}_{}{}-{}'.format(subject, elec_group, num1, num2), bipolar_ele_pos))
 
     fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
     output_fname = op.join(fol, output_fname)
@@ -77,13 +83,15 @@ def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefi
     elecs_names = utils.flat_list_of_lists(
         [[e[0] for e in template_electrodes[subject]] for subject in template_electrodes.keys()])
     np.savez(output_fname, pos=elecs_coordinates, names=elecs_names, pos_org=[])
+    print('Bad electrodes:')
+    print(bad_electrodes)
 
 
 def morph_csv():
     electrodes = morph_electrodes_to_template.read_all_electrodes(subjects, False)
     template_electrodes = morph_electrodes_to_template.read_morphed_electrodes(
         electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, True, subjects_electrodes, convert_to_bipolar=bipolar)
-    morph_electrodes_to_template.save_template_electrodes_to_template(
+    morph_electrodes_to_template.save_template_electrodes_to_temelectrodes_csv_to_npy(subject, ras_fileplate(
         template_electrodes, bipolar, MMVT_DIR, template_system)
     morph_electrodes_to_template.export_into_csv(template_system, MMVT_DIR, bipolar)
     morph_electrodes_to_template.create_mmvt_coloring_file(template_system, template_electrodes, electrodes_colors)
@@ -93,6 +101,13 @@ if __name__ == '__main__':
     fols = ['C:\\Users\\peled\\Documents\\Pariya', '/home/cashlab/Documents/noam/', '/home/npeled/Documents/pyraya']
     fol = [f for f in fols if op.isdir(f)][0]
     xls_fname = op.join(fol, 'Onset_regions_for_illustration.xlsx')
+    template_system = 'mni'
+    bipolar = True
+    to_subject = 'colin27'
+
 
     # read_xls(xls_fname)
     read_morphed_electrodes(xls_fname, subject_to='colin27')
+    morph_electrodes_to_template.export_into_csv(template_system, MMVT_DIR, bipolar)
+    csv_fname = elecs_preproc.electrodes_csv_to_npy(to_subject, csv_fname)
+    #morph_electrodes_to_template.create_mmvt_coloring_file(template_system, template_electrodes, electrodes_colors)

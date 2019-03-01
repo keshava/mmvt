@@ -404,6 +404,7 @@ def export_into_csv(template_system, mmvt_dir, bipolar=False, prefix=''):
     if csv_fname != csv_fname2:
         utils.copy_file(csv_fname, csv_fname2)
     print('export_into_csv: {}'.format(op.isfile(csv_fname) and op.isfile(csv_fname2)))
+    return csv_fname
 
 
 # def compare_electrodes_labeling(electrodes, template_system, atlas='aparc.DKTatlas'):
