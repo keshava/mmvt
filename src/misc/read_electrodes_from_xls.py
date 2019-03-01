@@ -81,7 +81,7 @@ def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefi
             template_electrodes[subject].append((elec_name, bipolar_ele_pos))
             electrodes_colors[subject].append((elec_name, int(anat_group)))
 
-    write_electrode_colors(electrodes_colors)
+    write_electrode_colors(subject_to, electrodes_colors)
     fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
     output_fname = op.join(fol, output_fname)
     elecs_coordinates = np.array(utils.flat_list_of_lists(
@@ -105,8 +105,9 @@ def morph_csv():
     morph_electrodes_to_template.create_mmvt_coloring_file(template_system, template_electrodes, electrodes_colors)
 
 
-def write_electrode_colors(electrodes_colors):
+def write_electrode_colors(template, electrodes_colors):
     import csv
+    fol = utils.make_dir(op.join(MMVT_DIR, template, 'coloring'))
     csv_fname = op.join(fol, 'morphed_electrodes.csv')
     unique_colors = np.unique(utils.flat_list(([[k[1] for k in elecs] for elecs in electrodes_colors.values()])))
     colors = utils.get_distinct_colors(len(unique_colors))
