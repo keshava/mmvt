@@ -39,10 +39,15 @@ def init(subject, atlas, n_jobs):
     subs_center_of_mass, subs_names = calc_subcorticals_pos(subject, aseg_data, lut)
     labels_center_of_mass = lu.calc_center_of_mass(labels, ret_mat=True)
     regions_center_of_mass = np.concatenate((labels_center_of_mass, subs_center_of_mass))
-    # regions_dists = cdist(regions_center_of_mass, regions_center_of_mass)
     regions_names = labels_names + subs_names
-    # assert(len(regions_names) == regions_dists.shape[0])
+    save_com_as_elecs(subject, regions_center_of_mass, regions_names, atlas)
     return labels_vertices, regions_center_of_mass, regions_names, aseg_data, lut, pia_verts,
+
+
+def save_com_as_elecs(subject, regions_center_of_mass, regions_names, atlas):
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
+    output_fname = op.join(fol, 'electrodes_positions_com_{}.npz'.format(atlas))
+    np.savez(output_fname, pos=regions_center_of_mass, names=regions_names, pos_org=[])
 
 
 def calc_subcorticals_pos(subject, aseg_data, lut):
@@ -67,7 +72,7 @@ def calc_subcorticals_pos(subject, aseg_data, lut):
 
 
 @utils.timeit
-def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=False,  atlas='aparc.DKTatlas',
+def calc_elas(subject, specific_elecs_names, template, bipolar=False,  atlas='aparc.DKTatlas',
               error_radius=3, elc_length=4, print_warnings=False, overwrite=False, n_jobs=1):
     fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     cmd_args = ['-s', subject, '-a', atlas, '-b', str(bipolar), '--n_jobs', str(n_jobs)]
@@ -90,13 +95,14 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
      template_pia_verts) = init(template, template_atlas, n_jobs)
     len_lh_pia = len(pia_verts['lh'])
     template_len_lh_pia = len(template_pia_verts['lh'])
+    template_header = nib.load(op.join(SUBJECTS_DIR, template, 'mri', 'T1.mgz')).header
     epsilon = 0
     max_run_num = 1000
     parallel = True
 
     for elec_name, elec_pos, elec_dist, elec_type, elec_ori in elecs_info:
         elec_output_fname = op.join(fol, '{}_ela_morphed.npz'.format(elec_name))
-        if op.isfile(elec_output_fname):
+        if op.isfile(elec_output_fname) and not overwrite:
             d = np.load(elec_output_fname)
             print('{}: err: {}, new_pos={}'.format(elec_name, d['err'], d['pos']))
             continue
@@ -234,10 +240,12 @@ def calc_ela(subject, bipolar, elec_name, elec_pos, elec_type, elec_ori, elec_di
 
 
 if __name__ == '__main__':
-    subject = 'mg112'
-    elec_name = ['RPT1']
+    subject = 'mg114'
+    elec_name = ['RPT10']
     template = 'colin27'
-    atlas = 'aparc.DKTatlas40'
-    template_header = nib.load(op.join(SUBJECTS_DIR, template, 'mri', 'T1.mgz')).header
+    # atlas = 'aparc.DKTatlas40'
+    atlas = 'laus125'
+    overwrite = True
 
-    calc_elas(subject, elec_name, template, template_header, bipolar=False, atlas=atlas, print_warnings=False, n_jobs=1)
+    calc_elas(subject, elec_name, template, bipolar=False, atlas=atlas, print_warnings=False, overwrite=overwrite,
+              n_jobs=1)
