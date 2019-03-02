@@ -95,7 +95,7 @@ def calc_elas(subject, specific_elecs_names, template, template_header, bipolar=
     parallel = True
 
     for elec_name, elec_pos, elec_dist, elec_type, elec_ori in elecs_info:
-        elec_output_fname = op.join(fol, '{}_ela_morphed.npz'.format(elec_name))
+        elec_output_fname = op.join(fol, '{}_{}_ela_morphed.npz'.format(elec_name, atlas))
         if op.isfile(elec_output_fname):
             d = np.load(elec_output_fname)
             print('{}: err: {}, new_pos={}'.format(elec_name, d['err'], d['pos']))
