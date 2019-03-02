@@ -488,10 +488,7 @@ def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_s
             annot_exist = lu.morph_annot(
                 subject, fsaverage, atlas, overwrite_vertices_labels_lookup, overwrite_morphing, overwrite_annotation,
                 n_jobs=n_jobs)
-        if annot_exist:
-            return True
-
-
+        return annot_exist
 
     labels_files = glob.glob(op.join(SUBJECTS_DIR, subject, 'label', atlas, '*.label'))
     # If there are only 2 files, most likely it's the unknowns
