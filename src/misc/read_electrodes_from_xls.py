@@ -11,7 +11,7 @@ from src.preproc import anatomy as anat
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 
-def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', check_morph_file=False):
+def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', overwrite=False, check_morph_file=False):
     bipolar = True
     template_header = nib.load(op.join(SUBJECTS_DIR, subject_to, 'mri', 'T1.mgz')).header
     subjects_electrodes = defaultdict(list)
@@ -46,7 +46,8 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', check_morp
                 continue
         try:
             ela_morph_electrodes.calc_elas(
-                subject, subjects_electrodes[subject], subject_to, template_header, bipolar=False, atlas=atlas)
+                subject, subjects_electrodes[subject], subject_to, template_header, bipolar=False, atlas=atlas,
+                overwrite=overwrite)
         except:
             err = utils.print_last_error_line()
             bad_subjects.append((subject, err))
@@ -135,8 +136,9 @@ if __name__ == '__main__':
     bipolar = True
     to_subject = 'colin27'
     atlas = 'laus125'
+    overwrite = True
 
-    read_xls(xls_fname, to_subject, atlas)
+    read_xls(xls_fname, to_subject, atlas, overwrite=overwrite)
     #subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
     #morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # csv_fname = elecs_preproc.electrodes_csv_to_npy(to_subject, csv_fname)
