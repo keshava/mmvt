@@ -87,6 +87,7 @@ def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefi
             template_electrodes[subject].append((elec_name, bipolar_ele_pos))
             electrodes_colors[subject].append((elec_name, int(anat_group)))
 
+    utils.save((template_electrodes, electrodes_colors), op.join(MMVT_DIR, subject_to, 'electrodes', 'morphed_electrodes.pkl'))
     write_electrode_colors(subject_to, electrodes_colors)
     fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
     output_fname = op.join(fol, output_fname)
@@ -137,8 +138,8 @@ if __name__ == '__main__':
     atlas = 'laus125'
     overwrite = True
 
-    read_xls(xls_fname, to_subject, atlas, overwrite=overwrite)
-    #subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
+    # read_xls(xls_fname, to_subject, atlas, overwrite=overwrite)
+    subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
     #morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # csv_fname = elecs_preproc.electrodes_csv_to_npy(to_subject, csv_fname)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)
