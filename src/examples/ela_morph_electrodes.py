@@ -37,16 +37,18 @@ def init(subject, atlas, n_jobs):
         pia_verts[hemi], _ = nib.freesurfer.read_geometry(
             op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
     subs_center_of_mass, subs_names = calc_subcorticals_pos(subject, aseg_data, lut)
-    labels_center_of_mass = lu.calc_center_of_mass(labels, ret_mat=True)
+    labels_center_of_mass = lu.calc_center_of_mass(labels, ret_mat=True) * 1000
     regions_center_of_mass = np.concatenate((labels_center_of_mass, subs_center_of_mass))
     regions_names = labels_names + subs_names
     save_com_as_elecs(subject, regions_center_of_mass, regions_names, atlas)
+    # save_com_as_elecs(subject, subs_center_of_mass, subs_names, atlas)
     return labels_vertices, regions_center_of_mass, regions_names, aseg_data, lut, pia_verts,
 
 
 def save_com_as_elecs(subject, regions_center_of_mass, regions_names, atlas):
     fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     output_fname = op.join(fol, 'electrodes_positions_com_{}.npz'.format(atlas))
+    regions_names = ['{}_com'.format(c) for c in regions_names]
     np.savez(output_fname, pos=regions_center_of_mass, names=regions_names, pos_org=[])
 
 
@@ -180,7 +182,8 @@ def calc_elas(subject, specific_elecs_names, template, bipolar=False,  atlas='ap
 
 
 def print_ela(ela):
-    print(','.join(['{}:{:.2f}'.format(region, prob) for region, prob in zip(ela['regions'], ela['regions_probs'])]))
+    print(','.join(sorted(['{}:{:.2f}'.format(region, prob) for region, prob in zip(
+        ela['regions'], ela['regions_probs'])])))
 
 
 def _parallel_calc_ela_err(p):
@@ -239,6 +242,19 @@ def calc_ela(subject, bipolar, elec_name, elec_pos, elec_type, elec_ori, elec_di
     return ret
 
 
+def write_electrodes_pos(subject, subject_to, elecs):
+    names, pos = [], []
+    for elec_name in elecs:
+        elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', '{}_ela_morphed.npz'.format(elec_name))
+        d = np.load(elec_input_fname)
+        elec_name = '{}_{}'.format(subject, elec_name)
+        names.append(elec_name)
+        pos.append(d['pos'])
+    fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
+    output_fname = op.join(fol, 'electrodes_positions_from_{}.npz'.format(subject))
+    np.savez(output_fname, pos=pos, names=names, pos_org=[])
+
+
 if __name__ == '__main__':
     subject = 'mg114'
     elec_name = ['RPT10']
@@ -249,3 +265,4 @@ if __name__ == '__main__':
 
     calc_elas(subject, elec_name, template, bipolar=False, atlas=atlas, print_warnings=False, overwrite=overwrite,
               n_jobs=1)
+    write_electrodes_pos(subject, template, elec_name)
