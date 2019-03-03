@@ -46,8 +46,7 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', overwrite=
                 continue
         try:
             ela_morph_electrodes.calc_elas(
-                subject, subjects_electrodes[subject], subject_to, template_header, bipolar=False, atlas=atlas,
-                overwrite=overwrite)
+                subject, subjects_electrodes[subject], subject_to, bipolar=False, atlas=atlas,overwrite=overwrite)
         except:
             err = utils.print_last_error_line()
             bad_subjects.append((subject, err))
