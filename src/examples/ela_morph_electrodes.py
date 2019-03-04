@@ -9,6 +9,7 @@ from scipy.spatial.distance import pdist, cdist
 from src.utils import utils
 from src.utils import preproc_utils as pu
 from src.utils import labels_utils as lu
+from src.preproc import anatomy as anat
 
 mmvt_code_fol = utils.get_mmvt_code_root()
 ela_code_fol = op.join(utils.get_parent_fol(mmvt_code_fol), 'electrodes_rois')
@@ -26,6 +27,11 @@ mri_robust_register = 'mri_robust_register --mov {subjects_dir}/{subject_from}/m
 
 
 def init(subject, atlas, n_jobs):
+    if not utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
+        anat.create_annotation(subject, atlas)
+        if not utils.both_hemi_files_exist(
+                op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
+            raise Exception('Can\'t find the cortical atlas {} for subject {}'.format(atlas, subject))
     labels_vertices = find_rois.read_labels_vertices(SUBJECTS_DIR, subject, atlas, n_jobs)
     labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
     labels_names = [l.name for l in labels]

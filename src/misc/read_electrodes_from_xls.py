@@ -60,34 +60,38 @@ def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefi
     electrodes_colors = defaultdict(list)
     bad_electrodes = []
     template_electrodes = defaultdict(list)
-    for line in utils.xlsx_reader(xls_fname, skip_rows=1):
-        subject, _, elec_name, _, anat_group = line
-        subject = subject.replace('\'', '')
-        if subject == '':
-            break
-        elec_group, num1, num2 = utils.elec_group_number(elec_name, bipolar)
-        if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
-            num1, num2 = str(num1).zfill(2), str(num2).zfill(2)
-        if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
-            raise Exception('Wrong group or numbers!')
+    morphed_electrodes_fname = op.join(MMVT_DIR, subject_to, 'electrodes', 'morphed_electrodes.pkl')
+    if op.isfile(morphed_electrodes_fname):
+        template_electrodes, electrodes_colors = utils.load(morphed_electrodes_fname)
+    else:
+        for line in utils.xlsx_reader(xls_fname, skip_rows=1):
+            subject, _, elec_name, _, anat_group = line
+            subject = subject.replace('\'', '')
+            if subject == '':
+                break
+            elec_group, num1, num2 = utils.elec_group_number(elec_name, bipolar)
+            if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
+                num1, num2 = str(num1).zfill(2), str(num2).zfill(2)
+            if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
+                raise Exception('Wrong group or numbers!')
 
-        elecs_pos = []
-        for num in num1, num2:
-            elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', '{}{}_ela_morphed.npz'.format(elec_group, num))
-            if not op.isfile(elec_input_fname):
-                print('{} not found!'.format(elec_input_fname))
-                bad_electrodes.append('{}_{}{}'.format(subject, elec_group, num))
-            else:
-                d = np.load(elec_input_fname)
-                elecs_pos.append(d['pos'])
-        num1, num2 = (num1, num2 )if num2 > num1 else (num2, num1)
-        if len(elecs_pos) == 2:
-            bipolar_ele_pos = np.mean(elecs_pos, axis=0)
-            elec_name = '{}_{}{}-{}'.format(subject, elec_group, num1, num2)
-            template_electrodes[subject].append((elec_name, bipolar_ele_pos))
-            electrodes_colors[subject].append((elec_name, int(anat_group)))
+            elecs_pos = []
+            for num in num1, num2:
+                elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', '{}{}_ela_morphed.npz'.format(elec_group, num))
+                if not op.isfile(elec_input_fname):
+                    print('{} not found!'.format(elec_input_fname))
+                    bad_electrodes.append('{}_{}{}'.format(subject, elec_group, num))
+                else:
+                    d = np.load(elec_input_fname)
+                    elecs_pos.append(d['pos'])
+            num1, num2 = (num1, num2 )if num2 > num1 else (num2, num1)
+            if len(elecs_pos) == 2:
+                bipolar_ele_pos = np.mean(elecs_pos, axis=0)
+                elec_name = '{}_{}{}-{}'.format(subject, elec_group, num1, num2)
+                template_electrodes[subject].append((elec_name, bipolar_ele_pos))
+                electrodes_colors[subject].append((elec_name, int(anat_group)))
+        utils.save((template_electrodes, electrodes_colors), morphed_electrodes_fname)
 
-    utils.save((template_electrodes, electrodes_colors), op.join(MMVT_DIR, subject_to, 'electrodes', 'morphed_electrodes.pkl'))
     write_electrode_colors(subject_to, electrodes_colors)
     fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
     output_fname = op.join(fol, output_fname)
@@ -116,8 +120,10 @@ def write_electrode_colors(template, electrodes_colors):
     import csv
     fol = utils.make_dir(op.join(MMVT_DIR, template, 'coloring'))
     csv_fname = op.join(fol, 'morphed_electrodes.csv')
-    unique_colors = np.unique(utils.flat_list(([[k[1] for k in elecs] for elecs in electrodes_colors.values()])))
-    colors = utils.get_distinct_colors(len(unique_colors))
+    # unique_colors = np.unique(utils.flat_list(([[k[1] for k in elecs] for elecs in electrodes_colors.values()])))
+    # colors = utils.get_distinct_colors(len(unique_colors))
+    from src.mmvt_addon import colors_utils as cu
+    colors = [cu.name_to_rgb(c) for c in ['blue', 'green', 'purple', 'red', 'brown', 'yellow']]
     print('Writing csv file to {}'.format(csv_fname))
     with open(csv_fname, 'w') as csv_file:
         wr = csv.writer(csv_file, quoting=csv.QUOTE_NONE)
