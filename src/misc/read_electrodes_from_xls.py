@@ -99,7 +99,10 @@ def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefi
         [[e[1] for e in template_electrodes[subject]] for subject in template_electrodes.keys()]))
     elecs_names = utils.flat_list_of_lists(
         [[e[0] for e in template_electrodes[subject]] for subject in template_electrodes.keys()])
+    print('Saving {} electrodes in {}:'.format(subject_to, output_fname))
+    print(elecs_names)
     np.savez(output_fname, pos=elecs_coordinates, names=elecs_names, pos_org=[])
+
     print('Bad electrodes:')
     print(bad_electrodes)
 

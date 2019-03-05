@@ -146,9 +146,13 @@ def calc_elas(subject, specific_elecs_names, template, bipolar=False,  atlas='ap
                            elec_labeling_no_whites, regions_center_of_mass, regions_names,
                            template_regions_center_of_mass, template_regions_names, subject_prob_pos_in_template_space, args.excludes,
                            error_radius, elc_length, overwrite) for new_template_elec_pos in new_template_elec_pos_arr]
-                errs = utils.run_parallel(_parallel_calc_ela_err, params, len(dxyzs))
+                results = utils.run_parallel(_parallel_calc_ela_err, params, len(dxyzs))
+                errs = [res[1] for res in results]
                 ind = np.argmin(errs)
                 new_template_pos = new_template_elec_pos_arr[ind]
+                best_ela = results[ind][0]
+                regions, new_probs = norm_probs(calc_elec_labeling_no_white(best_ela))
+                print(['{} ({}) '.format(r, p) for r, p in zip(regions, new_probs)])
                 min_err = errs[ind]
                 if min_err >= err:
                     stop_gradient = True
@@ -204,7 +208,7 @@ def _parallel_calc_ela_err(p):
     err = comp_elecs_labeling(
         elec_labeling_template, template_regions_center_of_mass, template_regions_names,
         subject_prob_pos)
-    return err
+    return elec_labeling_template, err
 
 
 def calc_elec_labeling_no_white(elec_labeling):
@@ -213,11 +217,19 @@ def calc_elec_labeling_no_white(elec_labeling):
 
 
 def calc_prob_pos(elec_labeling_no_whites, regions_center_of_mass, regions_names):
-    norm = 1 / sum([p for _, p in elec_labeling_no_whites])
-    new_probs = [p * norm for _, p in elec_labeling_no_whites]
-    regions = [r for r, _ in elec_labeling_no_whites]
+    # norm = 1 / sum([p for _, p in elec_labeling_no_whites])
+    # new_probs = [p * norm for _, p in elec_labeling_no_whites]
+    # regions = [r for r, _ in elec_labeling_no_whites]
+    regions, new_probs = norm_probs(elec_labeling_no_whites)
     elec_prob_dist = [p * regions_center_of_mass[regions_names.index(r)] for p, r in zip(new_probs, regions)]
     return np.sum(elec_prob_dist, axis=0)
+
+
+def norm_probs(elec_labeling):
+    norm = 1 / sum([p for _, p in elec_labeling])
+    new_probs = [p * norm for _, p in elec_labeling]
+    regions = [r for r, _ in elec_labeling]
+    return regions, new_probs
 
 
 def comp_elecs_labeling(elec_labeling_template, template_regions_center_of_mass, template_regions_names,
