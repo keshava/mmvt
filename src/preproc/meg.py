@@ -83,7 +83,7 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
             SUBJECT_MEG_FOLDER = op.join(subjects_meg_dir, SUBJECT)
     else:
         SUBJECT_MEG_FOLDER = op.join(subjects_meg_dir, SUBJECT)
-    locating_meg_file = partial(utils.locating_file, parent_fol=SUBJECT_MEG_FOLDER)
+    locating_meg_file = partial(utils.locating_file, parent_fols=[SUBJECT_MEG_FOLDER])
     # if not op.isdir(SUBJECT_MEG_FOLDER):
     #     SUBJECT_MEG_FOLDER = op.join(subjects_meg_dir)
     # if not op.isdir(SUBJECT_MEG_FOLDER):
@@ -91,7 +91,7 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
     utils.make_dir(SUBJECT_MEG_FOLDER)
     print('Subject meg dir: {}'.format(SUBJECT_MEG_FOLDER))
     SUBJECT_MRI_FOLDER = op.join(subjects_mri_dir, MRI_SUBJECT)
-    locating_subject_file = partial(utils.locating_file, parent_fol=SUBJECT_MRI_FOLDER)
+    locating_subject_file = partial(utils.locating_file, parent_fols=[SUBJECT_MRI_FOLDER])
     MMVT_SUBJECT_FOLDER = op.join(mmvt_dir, MRI_SUBJECT)
     _get_fif_name_cond = partial(get_file_name, fname_format=fname_format, file_type='fif',
         cleaning_method=cleaning_method, contrast=contrast, raw_fname_format=raw_fname_format,
@@ -1501,10 +1501,10 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
         err_msg = '''BEM files don't exist, you should create it first using mne_watershed_bem.
             For that you need to open a terminal, define SUBJECTS_DIR, SUBJECT, source MNE, and run
             mne_watershed_bem.
-            cshrc: setenv SUBJECT subject_name
-            basrc: export SUBJECT=subject_name
+            cshrc: setenv SUBJECT {0}
+            basrc: export SUBJECT={0}
             You can take a look here:
-            http://perso.telecom-paristech.fr/~gramfort/mne/MRC/mne_anatomical_workflow.pdf '''
+            http://perso.telecom-paristech.fr/~gramfort/mne/MRC/mne_anatomical_workflow.pdf '''.format(mri_subject)
         raise Exception(err_msg)
     if not bem_files_exist and watershed_files_exist:
         for bem_file, watershed_file in zip(bem_files, watershed_files):
