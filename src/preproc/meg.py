@@ -73,6 +73,8 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
         fname_format = fname_format_cond
     SUBJECT = subject
     MRI_SUBJECT = mri_subject if mri_subject!='' else subject
+    if subjects_mri_dir == '':
+        subjects_mri_dir = SUBJECTS_MRI_DIR
     os.environ['SUBJECT'] = SUBJECT
     if task != '':
         if data_per_task:
@@ -1445,8 +1447,11 @@ def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_be
     if not op.isfile(bem_fname) or recreate_bem_solution:
         # todo: check if the bem and src has same ico
         prepare_bem_surfaces(mri_subject, remote_subject_dir, args)
-        model = mne.make_bem_model(mri_subject, subjects_dir=SUBJECTS_MRI_DIR, ico=int(bem_ico))
-        bem_sol = mne.make_bem_solution(model)
+        surfaces = mne.make_bem_model(mri_subject, subjects_dir=SUBJECTS_MRI_DIR, ico=int(bem_ico))
+        mne.write_bem_surfaces(op.join(
+            SUBJECTS_MRI_DIR, mri_subject, 'bem',
+            '{}-inner_skull-outer_skull-outer_skin.fif'.format(mri_subject)), surfaces)
+        bem_sol = mne.make_bem_solution(surfaces)
         save_bem_solution(bem_sol, bem_fname)
     if bem_sol is None and op.isfile(bem_fname):
         bem_sol = read_bem_solution(bem_fname)
