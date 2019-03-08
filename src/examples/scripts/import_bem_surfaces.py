@@ -1,12 +1,13 @@
 import os.path as op
 
 TRANS = [0, 0.8, 1]
-COLORS = ['red', 'lightcyan', 'white']
+TRANS = [0, 0.8, 0.8, 1]
+COLORS = ['green', 'red', 'lightcyan', 'white']
 
 
 def run(mmvt):
     surf_fol = op.join(mmvt.utils.get_user_fol(), 'surf')
-    watershed_files = ['inner_skull_surface', 'outer_skull_surface', 'outer_skin_surface']
+    watershed_files = ['brain_surface', 'inner_skull_surface', 'outer_skull_surface', 'outer_skin_surface']
     watershed_fnames = [op.join(surf_fol, '{}.ply'.format(watershed_name)) for watershed_name in watershed_files]
     if not all([op.isfile(f) for f in watershed_fnames]):
         print('Not all bem surfaces exist, trying to create them')

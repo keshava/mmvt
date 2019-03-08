@@ -1449,13 +1449,22 @@ def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_be
         prepare_bem_surfaces(mri_subject, remote_subject_dir, args)
         surfaces = mne.make_bem_model(mri_subject, subjects_dir=SUBJECTS_MRI_DIR, ico=int(bem_ico))
         mne.write_bem_surfaces(op.join(
-            SUBJECTS_MRI_DIR, mri_subject, 'bem',
-            '{}-inner_skull-outer_skull-outer_skin.fif'.format(mri_subject)), surfaces)
+            SUBJECTS_MRI_DIR, mri_subject, 'bem', '{}-surfaces.fif'.format(mri_subject)), surfaces)
         bem_sol = mne.make_bem_solution(surfaces)
         save_bem_solution(bem_sol, bem_fname)
     if bem_sol is None and op.isfile(bem_fname):
         bem_sol = read_bem_solution(bem_fname)
     return op.isfile(bem_fname), bem_sol
+
+
+def read_bem_surfaces(mri_subject):
+    from mne.io.constants import FIFF
+    intput_fname = op.join(SUBJECTS_MRI_DIR, mri_subject, 'bem',  '{}-surfaces.fif'.format(mri_subject))
+    surfaces = mne.read_bem_surfaces(intput_fname)
+    ids = {FIFF.FIFFV_BEM_SURF_ID_BRAIN: 'Brain',
+           FIFF.FIFFV_BEM_SURF_ID_SKULL: 'Skull',
+           FIFF.FIFFV_BEM_SURF_ID_HEAD: 'Head'}
+    print([ids[s['id']] for s in surfaces])
 
 
 def save_bem_solution(bem_sol, bem_fname):
