@@ -1429,6 +1429,7 @@ class Debug(bpy.types.Operator):
             return {'CANCELLED'}
 
         if not any('pycharm-debug' in p for p in sys.path):
+            print('Adding eggpath to the path: {}'.format(eggpath))
             sys.path.append(eggpath)
 
         import pydevd
