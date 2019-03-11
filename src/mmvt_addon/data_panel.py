@@ -1419,7 +1419,10 @@ class Debug(bpy.types.Operator):
     bl_options = {"UNDO"}
 
     def execute(self, context):
-        eggpath = op.join(DataMakerPanel.pycharm_fol, 'debug-eggs', 'pydevd-pycharm.egg')
+        fol = op.join(DataMakerPanel.pycharm_fol, 'debug-eggs')
+        eggpath = op.join(fol, 'pydevd-pycharm.egg')
+        if not op.exists(eggpath):
+            eggpath = op.join(fol, 'pycharm-debug-py3k.egg')
         if not op.exists(eggpath):
             self.report({'ERROR'}, 'Unable to find debug egg at {}. Configure the addon properties '
                                    'in the User Preferences menu.'.format(eggpath))
