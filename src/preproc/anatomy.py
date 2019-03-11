@@ -1254,6 +1254,7 @@ def check_bem(subject, remote_subject_dir, recreate_src_spacing, recreate_bem_so
     # args.remote_subject_dir = remote_subject_dir
     bem_exist, _ = meg.check_bem(subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution,
                                  bem_ico, meg_args)
+    meg.read_bem_surfaces(subject)
     return bem_exist
 
 
