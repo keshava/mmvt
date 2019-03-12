@@ -93,6 +93,10 @@ get_label_for_full_fname = mu.get_label_for_full_fname
 to_str = mu.to_str
 argmax2d = mu.argmax2d
 
+atlas_exist = mu.atlas_exist
+get_atlas_template = mu.get_atlas_template
+fix_atlas_name = mu.fix_atlas_name
+
 from src.mmvt_addon.scripts import scripts_utils as su
 get_link_dir = su.get_link_dir
 get_real_atlas_name = su.get_real_atlas_name
@@ -2238,29 +2242,29 @@ def power_spectrum(x, fs, scaling='density'):
     return frequencies, linear_spectrum #[Hz] / [V RMS]
 
 
-def atlas_exist(subject, atlas, subjects_dir):
-    return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
-
-
-def get_atlas_template(subject, atlas, subjects_dir):
-    return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
-
-
-def fix_atlas_name(subject, atlas, subjects_dir=''):
-    if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
-        if os.environ.get('FREESURFER_HOME', '') != '':
-            if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
-                atlas = 'aparc.DKTatlas'
-            elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
-                atlas = 'aparc.DKTatlas40'
-        else:
-            if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
-                    atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
-                atlas = 'aparc.DKTatlas40'
-            elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
-                    atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
-                atlas = 'aparc.DKTatlas'
-    return atlas
+# def atlas_exist(subject, atlas, subjects_dir):
+#     return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
+#
+#
+# def get_atlas_template(subject, atlas, subjects_dir):
+#     return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
+#
+#
+# def fix_atlas_name(subject, atlas, subjects_dir=''):
+#     if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
+#         if os.environ.get('FREESURFER_HOME', '') != '':
+#             if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
+#                 atlas = 'aparc.DKTatlas'
+#             elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
+#                 atlas = 'aparc.DKTatlas40'
+#         else:
+#             if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
+#                     atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
+#                 atlas = 'aparc.DKTatlas40'
+#             elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
+#                     atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
+#                 atlas = 'aparc.DKTatlas'
+#     return atlas
 
 
 def pair_list(lst):
