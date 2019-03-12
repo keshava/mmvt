@@ -551,9 +551,10 @@ def get_atlas():
         return ''
     atlas = blend_fname.split('_')[-1]
     real_atlas_name = get_real_atlas_name(atlas)
-    real_atlas_name = fix_atlas_name(get_user(), real_atlas_name, get_subjects_dir)
+    real_atlas_name = fix_atlas_name(get_user(), real_atlas_name, get_subjects_dir())
     print('Real atlas name {}'.format(real_atlas_name))
     return real_atlas_name
+
 
 def atlas_exist(subject, atlas, subjects_dir):
     return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
