@@ -565,7 +565,7 @@ def get_atlas_template(subject, atlas, subjects_dir):
 
 
 def fix_atlas_name(subject, atlas, subjects_dir=''):
-    if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
+    if atlas in ['dkt', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
         if os.environ.get('FREESURFER_HOME', '') != '':
             if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
                 atlas = 'aparc.DKTatlas'
