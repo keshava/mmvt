@@ -59,7 +59,7 @@ def calc_hesheng_surf(subject, atlas):
             target_file = op.join(fmri.FMRI_DIR, subject, 'hesheng_{}.nii.gz'.format(hemi))
             mgz_target_file = utils.change_fname_extension(target_file, 'mgz')
             if not op.isfile(mgz_target_file):
-                shutil.copy(fname, target_file)
+                utils.copy_file(fname, target_file)
                 fu.nii_gz_to_mgz(target_file)
                 os.remove(target_file)
         # Load Hesheng's files

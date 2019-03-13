@@ -188,7 +188,10 @@ def combine_images(fol, movie_name, frame_rate=10, start_number=-1, images_prefi
                    images_type='', ffmpeg_cmd='', movie_name_full_path=False, debug=False,
                    copy_files=False, add_reverse_frames=False, **kwargs):
     if ffmpeg_cmd == '':
-        ffmpeg_cmd = FFMPEG_CMD
+        ffmpeg_dir = utils.get_link_dir(utils.get_links_dir(), 'ffmpeg')
+        ffmpeg_dir = op.join(ffmpeg_dir, 'bin') if utils.is_windows() else ffmpeg_dir
+        ffmpeg_cmd = op.join(ffmpeg_dir, 'ffmpeg') if op.isdir(ffmpeg_dir) else 'ffmpeg'
+    print('ffmpeg_cmd: {}'.format(ffmpeg_cmd))
     images_type, images_prefix, images_format, images_format_len, start_number = find_images_props(
         fol, start_number, images_prefix, images_format, images_type)
     if movie_name == '' and images_prefix != '':
@@ -250,8 +253,14 @@ def find_images_props(fol, start_number=-1, images_prefix='', images_format='', 
         if images_type == '':
             raise Exception("Can't find the images type!")
     images = glob.glob(op.join(fol, '{}*.{}'.format(images_prefix, images_type)))
-    image_nb = utils.namebase(images[0])
-    number = utils.read_numbers_rx(image_nb)[0]
+    for image in images:
+        image_nb = utils.namebase(image)
+        numbers = utils.read_numbers_rx(image_nb)
+        if len(numbers) > 0:
+            number = numbers[0]
+            break
+    else:
+        raise Exception('No number was found! images_prefix={}, images_type={}'.format(images_prefix, images_type))
     if images_prefix == '':
         images_prefix = image_nb[:-len(number)]
     if images_format == '':
@@ -274,7 +283,7 @@ def change_frames_names(fol, images_prefix, images_type, images_format_len, new_
         num_str = images_formats[images_format_len].format(num + 1)
         new_image_fname = op.join(new_fol, '{}{}.{}'.format(images_prefix, num_str, images_type))
         print('{} -> {}'.format(image_fname, new_image_fname))
-        shutil.copy(image_fname, new_image_fname)
+        utils.copy_file(image_fname, new_image_fname)
     return new_fol
 
 

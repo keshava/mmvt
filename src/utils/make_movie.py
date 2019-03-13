@@ -410,11 +410,11 @@ def duplicate_frames(fol, multiplier=50, pics_type='png'):
     new_fol = '{}_dup'.format(fol)
     utils.delete_folder_files(new_fol)
     pic_ind = 0
-    shutil.copy(op.join(fol, 'data.pkl'), op.join(new_fol, 'data.pkl'))
+    utils.copy_file(op.join(fol, 'data.pkl'), op.join(new_fol, 'data.pkl'))
     for t, pic in enumerate(pics):
         for _ in range(multiplier):
             new_pic_name = op.join(new_fol, '{}_t{}.{}'.format(pic_ind, t, pics_type))
-            shutil.copy(pic, new_pic_name)
+            utils.copy_file(pic, new_pic_name)
             pic_ind += 1
 
 

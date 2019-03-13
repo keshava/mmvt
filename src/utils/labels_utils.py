@@ -9,6 +9,7 @@ import traceback
 import functools
 from collections import defaultdict, Counter
 from tqdm import tqdm
+import nibabel as nib
 
 from src.mmvt_addon import mmvt_utils as mu
 from src.utils import freesurfer_utils as fu
@@ -31,7 +32,7 @@ HEMIS = ['rh', 'lh']
 
 
 def find_template_brain_with_annot_file(aparc_name, fsaverage, subjects_dir, find_in_all=True):
-    fs_found = False
+    optional_templates = []
     if find_in_all:
         fsaverage = [utils.namebase(d) for d in glob.glob(op.join(subjects_dir, 'fs*'))]
     elif isinstance(fsaverage, str):
@@ -41,14 +42,15 @@ def find_template_brain_with_annot_file(aparc_name, fsaverage, subjects_dir, fin
             subjects_dir, fsav, 'label', '{}.{}.annot'.format('{hemi}', aparc_name)))
         fsaverage_labels_exist = len(glob.glob(op.join(subjects_dir, fsav, 'label', aparc_name, '*.label'))) > 0
         if fsaverage_annot_files_exist or fsaverage_labels_exist:
-            fsaverage = fsav
-            fs_found = True
-            break
-    if not fs_found:
+            optional_templates.append(fsav)
+    if len(optional_templates) == 0:
         print("Can't find the annot file for any of the templates brain!")
         return ''
     else:
-        return fsaverage
+        if 'fsaverage' in optional_templates and all([t.startswith('fsaverage') for t in optional_templates]):
+            return 'fsaverage'
+        else:
+            return utils.select_one_file(optional_templates)
 
 
 def morph_labels_from_fsaverage(subject, subjects_dir, mmvt_dir, aparc_name='aparc250', fs_labels_fol='',
@@ -172,7 +174,7 @@ def solve_labels_collision(subject, atlas, subjects_dir, mmvt_dir, backup_atlas,
         labels_fol = op.join(subjects_dir, subject, 'label', atlas)
         if op.isdir(backup_labels_fol):
             shutil.rmtree(backup_labels_fol)
-        shutil.copytree(labels_fol, backup_labels_fol)
+        utils.copy_filetree(labels_fol, backup_labels_fol)
     return save_labels_from_vertices_lookup(
         subject, atlas, subjects_dir, mmvt_dir, surf_type='pial', read_labels_from_fol=backup_labels_fol,
         overwrite_vertices_labels_lookup=overwrite_vertices_labels_lookup, n_jobs=n_jobs)
@@ -231,12 +233,15 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
             err = 'unique_values_num = {}\n'.format(unique_values_num)
         for hemi in hemis:
             if verts_dict is None:
-                if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
+                if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial')):
+                    verts, _ = nib.freesurfer.read_geometry(
+                        op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
+                elif utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
                     verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
                 elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
                     verts, _ = utils.read_pial(subject, SUBJECTS_DIR, hemi)
                 else:
-                    raise Exception('Can\'t find {} pial surfaces!'.fomat(subject))
+                    raise Exception('Can\'t find {} pial surfaces!'.format(subject))
             else:
                 verts = verts_dict[hemi]
             lookup_ok = lookup_ok and len(lookup[hemi].keys()) == len(verts)
@@ -273,7 +278,7 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
             annot_fname = get_annot_fnames(subject, SUBJECTS_DIR, atlas, hemi=hemi)[0]
             if op.isfile(annot_fname):
                 backup_fname = utils.add_str_to_file_name(annot_fname, '_backup')
-                shutil.copy(annot_fname, backup_fname)
+                utils.copy_file(annot_fname, backup_fname)
             try:
                 mne.write_labels_to_annot(subject=subject, hemi=hemi, labels=labels, parc=atlas, overwrite=True,
                                           subjects_dir=SUBJECTS_DIR)
@@ -287,12 +292,14 @@ def create_vertices_labels_lookup(subject, atlas, save_labels_ids=False, overwri
         if check_unknown and len([l for l in labels_names if 'unknown' in l.lower()]) == 0:
             raise Exception('No unknown label in {}'.format(annot_fname))
         if verts_dict is None:
-            if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
+            if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial')):
+                verts, _ = nib.freesurfer.read_geometry(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
+            elif utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
                 verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
             elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
                 verts, _ = utils.read_pial(subject, SUBJECTS_DIR, hemi)
             else:
-                raise Exception('Can\'t find {} pial surfaces!'.fomat(subject))
+                raise Exception('Can\'t find {} pial surfaces!'.format(subject))
         else:
             verts = verts_dict[hemi]
         if len([l for l in labels_names if 'unknown' in l.lower()]) > 0 and \
@@ -406,7 +413,7 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
         return subject_vertices_labels_lookup
     template_vertices_labels_lookup = create_vertices_labels_lookup(template_brain, atlas)
     for morph_maps_root in [MMVT_DIR, SUBJECTS_DIR]:
-        morph_maps_fol = op.join(MMVT_DIR, 'morph_maps')
+        morph_maps_fol = op.join(morph_maps_root, 'morph_maps')
         if op.isfile(op.join(morph_maps_fol, '{}-{}-morph.fif'.format(subject, template_brain))) and \
                 op.isfile(op.join(morph_maps_fol, '{}-{}-morph.fif'.format(template_brain, subject))):
             break
@@ -422,7 +429,7 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
             raise Exception('Wrong number of vertices!')
         if not (len(template_vertices) == morph_maps[hemi_ind].shape[1] ==
                 len(template_vertices_labels_lookup[hemi].keys())):
-            raise Exception('Wrong number of vertices!')
+            raise Exception('Wrong number of vertices in the morphing map!')
 
         for subject_vert in tqdm(range(len(subject_vertices))):
             template_verts_inds = morph_maps[hemi_ind][subject_vert].nonzero()[1]
@@ -449,7 +456,9 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
 
 
 def read_pial(subject, hemi):
-    if utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
+    if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial')):
+        return nib.freesurfer.read_geometry(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
+    elif utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'surf', '{hemi}.pial.ply')):
         return utils.read_pial(subject, MMVT_DIR, hemi)
     elif utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial.ply')):
         return utils.read_pial(subject, SUBJECTS_DIR, hemi)
@@ -472,7 +481,7 @@ def backup_annotation_files(subject, subjects_dic, aparc_name, backup_str='backu
     for hemi in HEMIS:
         annot_fname = op.join(subjects_dic, subject, 'label', '{}.{}.annot'.format(hemi, aparc_name))
         if op.isfile(annot_fname):
-            shutil.copyfile(op.join(subjects_dic, subject, 'label', '{}.{}.annot'.format(hemi, aparc_name)),
+            utils.copy_file(op.join(subjects_dic, subject, 'label', '{}.{}.annot'.format(hemi, aparc_name)),
                             op.join(subjects_dic, subject, 'label', '{}.{}.{}.annot'.format(hemi, aparc_name, backup_str)),)
 
 

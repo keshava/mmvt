@@ -28,6 +28,7 @@ import traceback
 import multiprocessing
 import getpass
 import copy
+import inspect
 
 try:
     import scipy.io as sio
@@ -91,6 +92,10 @@ check_if_atlas_exist = mu.check_if_atlas_exist
 get_label_for_full_fname = mu.get_label_for_full_fname
 to_str = mu.to_str
 argmax2d = mu.argmax2d
+
+atlas_exist = mu.atlas_exist
+get_atlas_template = mu.get_atlas_template
+fix_atlas_name = mu.fix_atlas_name
 
 from src.mmvt_addon.scripts import scripts_utils as su
 get_link_dir = su.get_link_dir
@@ -340,7 +345,7 @@ def srf2ply(srf_file, ply_file):
     # print('convert {} to {}'.format(namebase(srf_file), namebase(ply_file)))
     verts, faces, verts_num, faces_num = read_srf_file(srf_file)
     write_ply_file(verts, faces, ply_file)
-    return ply_file
+    return verts, faces
 
 
 def obj2ply(obj_file, ply_file):
@@ -421,11 +426,11 @@ def read_freesurfer_lookup_table(get_colors=False, return_dict=False, reverse_di
     if not op.isfile(lut_fname):
         resources_lut_fname = op.join(get_resources_fol(), lut_name)
         if op.isfile(resources_lut_fname):
-            shutil.copy(resources_lut_fname, lut_fname)
+            copy_file(resources_lut_fname, lut_fname)
         else:
             freesurfer_lut_fname = op.join(freesurfer_fol(), lut_name)
             if op.isfile(freesurfer_lut_fname):
-                shutil.copy(freesurfer_lut_fname, lut_fname)
+                copy_file(freesurfer_lut_fname, lut_fname)
             else:
                 print("Can't find FreeSurfer Color LUT!")
                 return None
@@ -947,7 +952,7 @@ def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_s
                         fs53_fname = file_name.replace('DKTatlas', 'DKTatlas40')
                         fs53_remote_fname = op.join(remote_subject_dir, fol, fs53_fname)
                         if op.isfile(fs53_remote_fname):
-                            shutil.copyfile(fs53_remote_fname, remote_fname)
+                            copy_file(fs53_remote_fname, remote_fname)
                     if len(local_files) == 0 or overwrite_files:
                         remote_files = glob.glob(remote_fname)
                         if len(remote_files) > 0:
@@ -971,7 +976,7 @@ def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_s
                                 if not op.isfile(local_fname):
                                     print('coping {} to {}'.format(remote_fname, local_fname))
                                     make_dir(get_parent_fol(local_fname))
-                                    shutil.copyfile(remote_fname, local_fname)
+                                    copy_file(remote_fname, local_fname)
                                 if op.isfile(local_fname) and op.getsize(remote_fname) != op.getsize(remote_fname):
                                     os.remove(local_fname)
                                     print('Local file and remote file have different sizes!')
@@ -985,7 +990,7 @@ def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_s
     if sftp:
         return all_files_exists, password
     else:
-        return all_files_exists
+        return all_files_exists, ''
 
 
 def check_if_all_necessary_files_exist(subject, necessary_files, local_subject_dir, trace=True):
@@ -1102,6 +1107,8 @@ def get_current_fol():
 def get_parent_fol(curr_dir='', levels=1):
     if curr_dir == '':
         curr_dir = get_current_fol()
+    if curr_dir.endswith(op.sep):
+        curr_dir = curr_dir[:-1]
     parent_fol = op.split(curr_dir)[0]
     for _ in range(levels - 1):
         parent_fol = get_parent_fol(parent_fol)
@@ -1121,6 +1128,7 @@ def get_files_fol():
 
 
 def save(obj, fname):
+    make_dir(get_parent_fol(fname))
     with open(fname, 'wb') as fp:
         # protocol=2 so we'll be able to load in python 2.7
         pickle.dump(obj, fp)
@@ -1845,19 +1853,25 @@ def add_str_to_file_name(fname, txt, suf=''):
     return op.join(get_parent_fol(fname), '{}{}.{}'.format(namebase(fname), txt, suf))
 
 
-def locating_file(default_fname, glob_pattern, parent_fol, raise_exception=False, exclude_pattern=''):
+def locating_file(default_fname, glob_pattern, parent_fols, raise_exception=False, exclude_pattern=''):
     if op.isfile(default_fname):
         return default_fname, True
-    if op.isfile(glob_pattern):
-        return glob_pattern, True
     if isinstance(glob_pattern, str):
         glob_pattern = [glob_pattern]
+    for gp in glob_pattern:
+        if op.isfile(gp):
+            return gp, True
     glob_pattern_print = ','.join(glob_pattern)
-    fname = op.join(parent_fol, default_fname)
-    if '{cond}' in fname:
-        exist = len(glob.glob(fname.replace('{cond}', '*'))) > 1
-    else:
-        exist = op.isfile(fname)
+    if isinstance(parent_fols, str):
+        parent_fols = [parent_fols]
+    for parent_fol in parent_fols:
+        fname = op.join(parent_fol, default_fname)
+        if '{cond}' in fname:
+            exist = len(glob.glob(fname.replace('{cond}', '*'))) > 1
+        else:
+            exist = op.isfile(fname)
+        if exist:
+            break
     if not exist:
         glob_pattern = [op.join(parent_fol, g) if get_parent_fol(g) == '' else g for g in glob_pattern]
         lists = [glob.glob(op.join(parent_fol, '**', namebase_with_ext(gb)), recursive=True) for gb in glob_pattern]
@@ -1873,6 +1887,7 @@ def locating_file(default_fname, glob_pattern, parent_fol, raise_exception=False
                 fname = files[0]
             else:
                 files = sorted(files)
+                print('{}:'.format(inspect.stack()[1][3]))
                 for ind, fname in enumerate(files):
                     print('{}) {}'.format(ind+1, fname))
                 ind = int(input('There are more than one {} files. Please choose the one you want to use: '.format(
@@ -2227,29 +2242,29 @@ def power_spectrum(x, fs, scaling='density'):
     return frequencies, linear_spectrum #[Hz] / [V RMS]
 
 
-def atlas_exist(subject, atlas, subjects_dir):
-    return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
-
-
-def get_atlas_template(subject, atlas, subjects_dir):
-    return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
-
-
-def fix_atlas_name(subject, atlas, subjects_dir=''):
-    if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
-        if os.environ.get('FREESURFER_HOME', '') != '':
-            if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
-                atlas = 'aparc.DKTatlas'
-            elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
-                atlas = 'aparc.DKTatlas40'
-        else:
-            if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
-                    atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
-                atlas = 'aparc.DKTatlas40'
-            elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
-                    atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
-                atlas = 'aparc.DKTatlas'
-    return atlas
+# def atlas_exist(subject, atlas, subjects_dir):
+#     return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
+#
+#
+# def get_atlas_template(subject, atlas, subjects_dir):
+#     return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
+#
+#
+# def fix_atlas_name(subject, atlas, subjects_dir=''):
+#     if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
+#         if os.environ.get('FREESURFER_HOME', '') != '':
+#             if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
+#                 atlas = 'aparc.DKTatlas'
+#             elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
+#                 atlas = 'aparc.DKTatlas40'
+#         else:
+#             if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
+#                     atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
+#                 atlas = 'aparc.DKTatlas40'
+#             elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
+#                     atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
+#                 atlas = 'aparc.DKTatlas'
+#     return atlas
 
 
 def pair_list(lst):
@@ -2283,3 +2298,8 @@ def find_hemi_using_vertices_num(subject, fname, subjects_dir):
 
 def extract_numpy_values_with_zero_dimensions(x):
     return x.item()
+
+
+def copy_file(src, dst):
+    if src != dst:
+        shutil.copyfile(src, dst)

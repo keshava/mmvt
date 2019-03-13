@@ -219,6 +219,8 @@ def render_draw(self, context):
         layout.operator(SaveImage.bl_idname, text='Save image', icon='ROTATE')
     func_name = 'Render' if view_mode == 'CAMERA' else 'Save'
     layout.operator(SaveAllViews.bl_idname, text='{} all perspectives'.format(func_name), icon='EDITMODE_HLT')
+    if func_name == 'Render':
+        layout.operator(ShowHideRenderRot.bl_idname, text="Render full rotation", icon='CLIP')
     layout.operator(SaveColorbar.bl_idname, text='Save the colorbar'.format(func_name), icon='SETTINGS')
     row = layout.row(align=0)
     row.prop(context.scene, 'save_views_with_cb', text="Colorbar")
@@ -497,6 +499,23 @@ def init_rendering(inflated, inflated_ratio, transparency, light_layers_depth, l
         _addon().show_pial()
     set_background_color_name(background_color)
     set_lighting(lighting)
+
+
+def render_movie(dx=None, dy=None, dz=None):
+    dx = bpy.context.scene.rotate_dx if dx is None else dx
+    dy = bpy.context.scene.rotate_dy if dy is None else dy
+    dz = bpy.context.scene.rotate_dz if dz is None else dz
+    stop = False
+    rotate_dxyz = np.array([0., 0., 0.])
+    run = 0
+    while not stop:
+        _addon().render.render_image('rotation')
+        _addon().render.camera_mode('ORTHO')
+        _addon().show_hide.rotate_brain(dx, dy, dz)
+        _addon().render.camera_mode('CAMERA')
+        rotate_dxyz += np.array([dx, dy, dz])
+        run += 1
+        stop = any([rotate_dxyz[k] >= 360 for k in range(3)]) or run > 360
 
 
 def render_all_images(camera_files=None, hide_subcorticals=False):
@@ -965,6 +984,17 @@ def set_resolution_percentage(val):
     bpy.context.scene.render.resolution_percentage = val
 
 
+class ShowHideRenderRot(bpy.types.Operator):
+    bl_idname = "mmvt.show_hide_render_rot"
+    bl_label = "mmvt show_hide_render_rot"
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        render_movie()
+        return {"FINISHED"}
+
+
 class RenderingMakerPanel(bpy.types.Panel):
     bl_space_type = "GRAPH_EDITOR"
     bl_region_type = "UI"
@@ -1023,6 +1053,7 @@ def register():
         bpy.utils.register_class(SaveAllViews)
         bpy.utils.register_class(SaveColorbar)
         bpy.utils.register_class(CombinePerspectives)
+        bpy.utils.register_class(ShowHideRenderRot)
         # print('Render Panel was registered!')
     except:
         print("Can't register Render Panel!")
@@ -1042,6 +1073,7 @@ def unregister():
         bpy.utils.unregister_class(SaveAllViews)
         bpy.utils.unregister_class(SaveColorbar)
         bpy.utils.unregister_class(CombinePerspectives)
+        bpy.utils.unregister_class(ShowHideRenderRot)
     except:
         pass
         # print("Can't unregister Render Panel!")

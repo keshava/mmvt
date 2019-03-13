@@ -74,10 +74,11 @@ def run_on_subjects(args, main_func, subjects_itr=None, subject_func=None):
         flags = dict()
         try:
             args.atlas = utils.fix_atlas_name(subject, args.atlas, SUBJECTS_DIR)
+            print('Setting th atlas to: {}'.format(args.atlas))
             # if utils.should_run(args, 'prepare_subject_folder'):
             # I think we always want to run this
             # *) Prepare the local subject's folder
-            flags['prepare_subject_folder'] = prepare_subject_folder(
+            flags['prepare_subject_folder'], password = prepare_subject_folder(
                 subject, remote_subject_dir, args)
             if not flags['prepare_subject_folder'] and not args.ignore_missing:
                 ans = input('Do you wish to continue (y/n)? ')
@@ -255,7 +256,7 @@ def backup_folder(subject, folder_name, backup_suffix='_backup'):
         print('{} already exist!'.format(target_dir))
         return
     print('backup {} to {}'.format(source_dir, target_dir))
-    shutil.copytree(source_dir, target_dir)
+    utils.copy_filetree(source_dir, target_dir)
 
 
 def check_func_output(ret):

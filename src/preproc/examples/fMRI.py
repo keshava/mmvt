@@ -248,11 +248,29 @@ def get_subjects_files(args):
                 # output_fname = op.join(subject_fol, 'rest.sm6.fsaverage6.{}.mgz'.format(hemi))
                 output_fname = op.join(subject_fol, 'rest.nii')
                 if not op.isfile(output_fname):
-                    shutil.copy(fname, output_fname)
+                    utils.copy_file(fname, output_fname)
                 else:
                     print('{} already exist!'.format(output_fname))
         else:
             print("Couldn't find the files for {}!".format(subject))
+
+
+def project_all_fmri_files(args):
+    import nibabel as nib
+    import numpy as np
+    subjects = pu.decode_subjects(args.subject)
+    for subject in subjects:
+        for fmri_fname in glob.glob(op.join(FMRI_DIR, subject, 'volume', '*.mgz')):
+            # fmri_fname = fu.mri_convert_to(fmri_fname, 'mgz')
+            fmri.direct_project_volume_to_surf(subject, fmri_fname, False)
+            data = nib.load(fmri_fname).get_data()
+            print('{} min max: '.format(fmri_fname))
+            print(np.min(data), np.max(data))
+            # if not fmri.surf_files_exist(subject, fmri_fname):
+            #     fmri.project_volume_to_surface(subject, fmri_fname)
+            surf_files = fmri.get_surf_files(subject, fmri_fname)
+            print('{} min max: '.format(utils.namebase(fmri_fname)))
+            print(fmri.calc_surf_files_min_max(surf_files))
 
 
 if __name__ == '__main__':

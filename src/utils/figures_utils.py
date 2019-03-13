@@ -5,6 +5,7 @@ import os.path as op
 import os
 import glob
 import numpy as np
+from tqdm import tqdm
 
 from src.utils import utils
 from src.utils import color_maps_utils as cmu
@@ -66,6 +67,8 @@ def find_color_map(color_map):
     color_map_name = color_map if isinstance(color_map, str) else color_map.name
     if color_map_name not in plt.cm.cmap_d:
         # color_map_name = color_map_name.replace('-', '_')
+        if color_map_name not in get_colormaps_names():
+            color_map_name = color_map_name.replace('_', '-')
         if color_map_name in get_colormaps_names():
             color_map = cmu.get_cm_obj(color_map_name)
         else:
@@ -161,8 +164,9 @@ def get_brain_perspectives_figures(fol, inflated=False, facecolor='black', clust
 
 
 def combine_four_brain_perspectives(fol, inflated=False, dpi=100, facecolor='black', clusters_name='', inflated_ratio=1,
-                                    crop=True, overwrite=True, **kargs):
-    figs = get_brain_perspectives_figures(fol, inflated, facecolor, clusters_name, inflated_ratio)
+                                    crop=True, figs=[], overwrite=True, **kargs):
+    if figs == []:
+        figs = get_brain_perspectives_figures(fol, inflated, facecolor, clusters_name, inflated_ratio)
     if len(figs) == 4:
         fig_name = combine_four_brain_perspectives_output_fname(fol, inflated, facecolor, clusters_name)
         if overwrite or not op.isfile(fig_name):
@@ -232,6 +236,15 @@ def combine_nine_images(figs, new_image_fname, dpi=100, facecolor='black', **kar
     plt.savefig(new_image_fname, facecolor=fig.get_facecolor(), transparent=True, bbox_inches='tight')
     plt.close()
     return new_image_fname
+
+
+def add_colorbar_to_images(figures_fol, data_max, data_min, colors_map, images_type='jpeg', background_color='black',
+                          cb_ticks=[], cb_ticks_font_size=10, cb_title='', set_cb_max_min_using_ticks=True,
+                          cb_ticks_perc=2, **kargs):
+    for figure_fname in tqdm(glob.glob(op.join(figures_fol, '*.{}'.format(images_type)))):
+        add_colorbar_to_image(figure_fname, data_max, data_min, colors_map, background_color,
+                              cb_ticks, cb_ticks_font_size, cb_title, set_cb_max_min_using_ticks,
+                              cb_ticks_perc)
 
 
 def add_colorbar_to_image(figure_fname, data_max, data_min, colors_map, background_color='black',

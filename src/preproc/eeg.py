@@ -85,35 +85,9 @@ def calc_minmax(mri_subject, args):
 
 def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True):
     return meg.create_helmet_mesh(subject, excludes, overwrite_faces_verts, modality='eeg')
-    # try:
-    #     from scipy.spatial import Delaunay
-    #     from src.utils import trig_utils
-    #     input_file = op.join(MMVT_DIR, subject, 'eeg', 'eeg_sensors_positions.npz')
-    #     mesh_ply_fname = op.join(MMVT_DIR, subject, 'eeg', 'eeg_helmet.ply')
-    #     faces_verts_out_fname = op.join(MMVT_DIR, subject, 'eeg', 'eeg_faces_verts.npy')
-    #     f = np.load(input_file)
-    #     verts = f['pos']
-    #     verts_tup = [(x, y, z) for x, y, z in verts]
-    #     tris = Delaunay(verts_tup)
-    #     faces = tris.convex_hull
-    #     areas = [trig_utils.poly_area(verts[poly]) for poly in tris.convex_hull]
-    #     inds = [k for k, s in enumerate(areas) if s > np.percentile(areas, 97)]
-    #     faces = np.delete(faces, inds, 0)
-    #     normals = trig_utils.calc_normals(verts, faces)
-    #     # verts += normals
-    #     utils.write_ply_file(verts, faces, mesh_ply_fname, True)
-    #     utils.calc_ply_faces_verts(verts, faces, faces_verts_out_fname, overwrite_faces_verts,
-    #                                utils.namebase(faces_verts_out_fname))
-    #     np.savez(input_file, pos=f['pos'], names=f['names'], tri=faces, excludes=excludes)
-    #     calc_eeg_mesh_verts_sensors(subject, f['pos'], verts, modality='eeg')
-    # except:
-    #     print('Error in create_helmet_mesh!')
-    #     print(traceback.format_exc())
-    #     return False
-    # return True
 
 
-def calc_eeg_mesh_verts_sensors(subject, sensors_verts, helmet_verts, modality='meg'):
+def calc_eeg_mesh_verts_sensors(subject, sensors_verts, helmet_verts, modality='eeg'):
     from scipy.spatial.distance import cdist
     max_dists = np.max(np.min(cdist(sensors_verts, helmet_verts), axis=1))
     if max_dists > 0.01:

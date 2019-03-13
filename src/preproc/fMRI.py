@@ -9,6 +9,7 @@ import glob
 import traceback
 from collections import defaultdict
 import functools
+from tqdm import tqdm
 
 try:
     from sklearn.neighbors import BallTree
@@ -297,7 +298,7 @@ def find_clusters(subject, surf_template_fname, t_val, atlas, min_cluster_max=2,
                     annot_fname = annot_files_template.format(hemi=hemi)
                     dest_annot_fname = op.join(clusters_fol, utils.namebase_with_ext(annot_fname))
                     if not op.isfile(dest_annot_fname):
-                        shutil.copy(annot_fname, dest_annot_fname)
+                        utils.copy_file(annot_fname, dest_annot_fname)
             from src.preproc import anatomy as anat
             anat.calc_labeles_contours(subject, new_atlas_name, overwrite=True, verbose=False)
 
@@ -310,26 +311,18 @@ def contrast_to_contours(subject, contrast_name, thresholds_min=None, thresholds
     from src.preproc import meg
     if mri_subject == '':
         mri_subject = subject
-    constrast = {hemi: np.load(op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}.{}.npy'.format(contrast_name, hemi)))
-                 for hemi in utils.HEMIS}
+    constrast = glob.glob(op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}??h.npy'.format(contrast_name)))
+    constrast = {lu.get_hemi_from_name(utils.namebase(f)): f for f in constrast}
     verts = utils.get_pial_vertices(subject, MMVT_DIR)
     vertno = {hemi: range(len(verts[hemi])) for hemi in utils.HEMIS}
-    data = np.concatenate([constrast['lh'], constrast['rh']])
+    data = np.concatenate([np.load(constrast['lh']), np.load(constrast['rh'])])
     data = np.reshape(data, (len(data), 1))
     vertices = [vertno['lh'], vertno['rh']]
     stc = mne.SourceEstimate(data, vertices, 0, 1, subject=mri_subject)
-    meg.stc_to_contours(mri_subject, contrast_name, 0, thresholds_min, thresholds_max, thresholds_dx,
-                        min_cluster_size, atlas, clusters_label, find_clusters_overlapped_labeles,
-                        stc_t_smooth=stc, n_jobs=n_jobs)
-
-
-def load_connectivity(subject):
-    connectivity_fname = op.join(MMVT_DIR, subject, 'spatial_connectivity.pkl')
-    if not op.isfile(connectivity_fname):
-        from src.preproc import anatomy
-        anatomy.create_spatial_connectivity(subject)
-    connectivity_per_hemi = utils.load(connectivity_fname)
-    return connectivity_per_hemi
+    return meg.stc_to_contours(
+        mri_subject, contrast_name, 0, thresholds_min, thresholds_max, thresholds_dx,
+        min_cluster_size, atlas, clusters_label, find_clusters_overlapped_labeles,
+        stc_t_smooth=stc, modality='fmri', n_jobs=n_jobs)
 
 
 # def find_clusters_tval_hist(subject, contrast_name, output_fol, input_fol='', n_jobs=1):
@@ -771,7 +764,7 @@ def copy_volume_to_blender(subject, volume_fname_template, contrast='', overwrit
     volume_fname = volume_fname_template.format(format=format)
     blender_volume_fname = op.basename(volume_fname) if contrast=='' else '{}.{}'.format(contrast, format)
     utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
-    shutil.copyfile(volume_fname, op.join(MMVT_DIR, subject, 'freeview', blender_volume_fname))
+    utils.copy_file(volume_fname, op.join(MMVT_DIR, subject, 'freeview', blender_volume_fname))
     return volume_fname
 
 
@@ -791,8 +784,11 @@ def project_volume_to_surface(subject, volume_fname_template, overwrite_surf_dat
     if target_subject == '':
         target_subject = subject
     utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
-    volume_fname = get_volume_fname(
-        subject, volume_fname_template, remote_fmri_dir)
+    if op.isfile(volume_fname_template):
+        volume_fname = volume_fname_template
+    else:
+        volume_fname = get_volume_fname(
+            subject, volume_fname_template, remote_fmri_dir)
     surf_output_fname, npy_surf_fname = get_surf_fnames(subject, volume_fname, target_subject)
     if volume_fname == '':
         return False, ''
@@ -801,7 +797,7 @@ def project_volume_to_surface(subject, volume_fname_template, overwrite_surf_dat
                        target_subject, overwrite_surf_data=overwrite_surf_data, is_pet=is_pet)
     freeview_volume_fname = op.join(MMVT_DIR, subject, 'freeview', op.basename(volume_fname))
     if not op.isfile(freeview_volume_fname):
-        shutil.copy(volume_fname, freeview_volume_fname)
+        utils.copy_file(volume_fname, freeview_volume_fname)
     return utils.both_hemi_files_exist(npy_surf_fname) and op.isfile(freeview_volume_fname), npy_surf_fname
 
 
@@ -841,7 +837,7 @@ def get_volume_fname(subject, volume_fname_template, remote_fmri_dir='', task=''
         fol = utils.make_dir(op.join(FMRI_DIR, subject)) if task == '' else utils.make_dir(op.join(FMRI_DIR, task, subject))
         local_fname = op.join(fol, utils.namebase_with_ext(volume_fname))
         if not op.isfile(local_fname) and local_fname != volume_fname:
-            shutil.copy(volume_fname, local_fname)
+            utils.copy_file(volume_fname, local_fname)
         volume_fname = local_fname
     return volume_fname
 
@@ -885,7 +881,7 @@ def copy_volumes(subject, contrast_file_template, contrast, volume_fol, volume_n
     blender_volume_fname = op.join(MMVT_DIR, subject, 'freeview', '{}.{}'.format(contrast, contrast_format))
     if not op.isfile(blender_volume_fname):
         print('copy {} to {}'.format(subject_volume_fname, blender_volume_fname))
-        shutil.copyfile(subject_volume_fname, blender_volume_fname)
+        utils.copy_file(subject_volume_fname, blender_volume_fname)
 
 
 def analyze_4d_data(subject, atlas, input_fname_template='rest.sm6.{subject}.{hemi}.mgz', measures=['mean'],
@@ -1122,7 +1118,7 @@ def save_labels_data(
         output_fname = output_fname_hemi.format(hemi=hemi)
         if backup_existing_files and op.isfile(output_fname):
             backup_fname = utils.add_str_to_file_name(output_fname, '_backup')
-            shutil.copy(output_fname, backup_fname.format(hemi=hemi))
+            utils.copy_file(output_fname, backup_fname.format(hemi=hemi))
         labels_data_hemi = labels_data[indices[hemi]]
         labels_names_hemi = labels[indices[hemi]]
         np.savez(output_fname, data=labels_data_hemi, names=labels_names_hemi)
@@ -1395,7 +1391,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         if files_num == 1:
             fmri_fname = op.join(FMRI_DIR, subject, files[0].split(op.sep)[-1])
             utils.make_dir(op.join(FMRI_DIR, subject))
-            shutil.copy(files[0], fmri_fname)
+            utils.copy_file(files[0], fmri_fname)
         else:
             print("Can't find any file in {}!".format(fmri_file_template))
             return ''
@@ -1407,7 +1403,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         if not op.isfile(op.join(fol, 'f.nii.gz')):
             if utils.file_type(fmri_fname) == 'mgz':
                 fmri_fname = fu.mgz_to_nii_gz(fmri_fname)
-            shutil.copy(fmri_fname, op.join(fol, 'f.nii.gz'))
+            utils.copy_file(fmri_fname, op.join(fol, 'f.nii.gz'))
         if not op.isfile(op.join(FMRI_DIR, subject, 'subjectname')):
             with open(op.join(FMRI_DIR, subject, 'subjectname'), 'w') as sub_file:
                 sub_file.write(subject)
@@ -1437,7 +1433,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
                 if op.isfile(res_fname):
                     fu.nii_gz_to_mgz(res_fname)
                     res_fname = utils.change_fname_extension(res_fname, 'mgz')
-                    shutil.copy(res_fname, new_fname)
+                    utils.copy_file(res_fname, new_fname)
         for hemi in utils.HEMIS:
             utils.make_link(new_fname_template.format(hemi=hemi), op.join(
                 MMVT_DIR, subject, 'fmri', utils.namebase_with_ext(new_fname_template.format(hemi=hemi))))
@@ -1612,7 +1608,7 @@ def fmri_pipeline(subject, atlas, contrast_file_template, task='', contrast='', 
         volume_files, hemis_files_templates = contrast_dict['volume_files'], contrast_dict['hemis_files']
         for volume_file in volume_files:
             fu.mri_convert_to(volume_file, 'mgz')
-            shutil.copyfile(volume_file, op.join(MMVT_DIR, subject, 'freeview', '{}.{}'.format(contrast, format)))
+            utils.copy_file(volume_file, op.join(MMVT_DIR, subject, 'freeview', '{}.{}'.format(contrast, format)))
         hemis_files_templates = [t for t in hemis_files_templates if not t.endswith('_morphed_to_{}.mgz'.format(subject))]
         for hemis_files_teamplate in hemis_files_templates:
             new_hemis_fname, new_hemis_org_subject_fname = {}, {}
@@ -1897,6 +1893,72 @@ def build_local_fname(nii_fname, user_fol):
     else:
         local_fname = utils.namebase_with_ext(nii_fname)
     return op.join(user_fol, 'fmri', local_fname)
+
+
+def surf_files_exist(subject, fmri_fname):
+    return utils.both_hemi_files_exist(surf_files_tempalte(subject, fmri_fname))
+
+
+def surf_files_tempalte(subject, fmri_fname):
+    return op.join(
+        MMVT_DIR, subject, 'fmri', 'fmri_{}_{}.npy'.format(utils.namebase(fmri_fname), '{hemi}'))
+
+
+def get_surf_files(subject, fmri_fname):
+    template = surf_files_tempalte(subject, fmri_fname)
+    return [template.format(hemi=hemi) for hemi in utils.HEMIS]
+
+
+def calc_surf_files_min_max(surf_files, min_val=1e-3):
+    data = [np.load(surf_fname) for surf_fname in surf_files]
+    try:
+        data_max = max([np.max(d[d > min_val]) for d in data])
+        data_min = min([np.min(d[d > min_val]) for d in data])
+    except:
+        data_max = max([np.max(d) for d in data])
+        data_min = min([np.min(d) for d in data])
+    return data_min, data_max
+
+
+def direct_project_volume_to_surf(subject, vol_fname, r=1, labels_restrict=None, atlas='aparc.DKTatlas40',
+                                  overwrite=False):
+    surf_template = surf_files_tempalte(subject, vol_fname)
+    vol = nib.load(vol_fname)
+    data = vol.get_data()
+
+    if labels_restrict is not None:
+        vertices_labels_lookup = utils.load(op.join(MMVT_DIR, subject, '{}_vertices_labels_lookup.pkl'.format(atlas)))
+    else:
+        vertices_labels_lookup = {hemi: None for hemi in utils.HEMIS}
+    t1 = nib.load(op.join(SUBJECTS_DIR, subject, 'mri', 'T1.mgz'))
+    for hemi in utils.HEMIS:
+        output_fname = surf_template.format(hemi=hemi)
+        if op.isfile(output_fname) and not overwrite:
+            print('{} already exists'.format(output_fname))
+            continue
+        vertices, _ = utils.read_pial(subject, MMVT_DIR, hemi)
+        t1_vox = utils.apply_trans(np.linalg.inv(t1.header.get_vox2ras_tkr()), vertices)
+        ras = utils.apply_trans(t1.header.get_vox2ras(), t1_vox)
+        vol_vox = np.rint(utils.apply_trans(np.linalg.inv(vol.header.get_vox2ras()), ras)).astype(int)
+        vertices_data = calc_vox_avg(data, vol_vox, r, labels_restrict, vertices_labels_lookup[hemi])
+        print('direct_project_volume_to_surf: Saving results in {}'.format(output_fname))
+        np.save(output_fname, vertices_data)
+
+
+def calc_vox_avg(data, voxels, r=1, labels_restrict=None, vertices_labels_lookup=None):
+    if r == 1 and vertices_labels_lookup is None:
+        return data[tuple([voxels[:, k] for k in range(3)])]
+
+    vertices_data = np.zeros(len(voxels))
+    vertices_indices = range(len(vertices_data))
+    for vertice_ind, vox in zip(vertices_indices, voxels):
+        if vertices_labels_lookup is not None:
+            vert_label = vertices_labels_lookup[vertice_ind]
+            if all([not vert_label.startswith(l) for l in labels_restrict]):
+                continue
+        vertices_data[vertice_ind] = \
+            np.max(data[vox[0] - r: vox[0] + r + 1, vox[1] - r: vox[1] + r + 1, vox[2] - r: vox[2] + r + 1])
+    return vertices_data
 
 
 def call_main(args):

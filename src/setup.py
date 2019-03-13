@@ -14,7 +14,7 @@ BLENDER_WIN_DIR = 'C:\Program Files\Blender Foundation\Blender'
 def copy_resources_files(mmvt_root_dir, overwrite=True, only_verbose=False):
     resource_dir = utils.get_resources_fol()
     utils.make_dir(op.join(op.join(mmvt_root_dir, 'color_maps')))
-    files = ['aparc.DKTatlas_groups.csv', 'atlas.csv', 'sub_cortical_codes.txt', 'FreeSurferColorLUT.txt',
+    files = ['aparc.DKTatlas40_groups.csv', 'atlas.csv', 'sub_cortical_codes.txt', 'FreeSurferColorLUT.txt',
              'empty_subject.blend', 'high_level_atlas.csv']
     cm_files = glob.glob(op.join(resource_dir, 'color_maps', '*.npy'))
     all_files_exist = utils.all([op.isfile(op.join(mmvt_root_dir, file_name)) for file_name in files])
@@ -39,7 +39,8 @@ def copy_resources_files(mmvt_root_dir, overwrite=True, only_verbose=False):
                 if op.isfile(op.join(resource_dir, file_name)):
                     shutil.copy(local_fname, op.join(mmvt_root_dir, file_name))
                 else:
-                    print('{} is missing, please update your code from github (git pull)')
+                    print('{} is missing, please update your code from github (git pull)'.format(
+                        op.join(resource_dir, file_name)))
     return utils.all([op.isfile(op.join(mmvt_root_dir, file_name)) for file_name in files])
 
 
@@ -200,9 +201,9 @@ def create_real_folder(real_fol):
 
 def install_reqs(do_upgrade=False, only_verbose=False):
     try:
-        return install_reqs_loop(do_upgrade, only_verbose)
-    except:
         return utils.run_script('pip install --user -r requirements.txt')
+    except:
+        return install_reqs_loop(do_upgrade, only_verbose)
 
 
 def install_reqs_loop(do_upgrade=False, only_verbose=False):

@@ -45,9 +45,9 @@ def set_args(task, conditions, raw_file, eve_fname):
 
 def copy_files(fol, raw_file, eve_fname):
     if not op.isfile(op.join(fol, utils.namebase_with_ext(raw_file))):
-        shutil.copy(raw_file, fol)
+        utils.copy_file(raw_file, fol)
     if not op.isfile(op.join(fol, utils.namebase_with_ext(eve_fname))):
-        shutil.copy(eve_fname, fol)
+        utils.copy_file(eve_fname, fol)
     raw_file = op.join(fol, utils.namebase_with_ext(raw_file))
     eve_fname = op.join(fol, utils.namebase_with_ext(eve_fname))
     return raw_file, eve_fname

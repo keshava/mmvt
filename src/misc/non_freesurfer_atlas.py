@@ -109,7 +109,7 @@ def main(region, atlas_fol, colin_T1_fname, overwrite=False):
         convert_to_ply(op.join(atlas_fol, 'tmp', '{}_{}.srf'.format(region, hemi)),
                        op.join(atlas_fol, 'tmp', '{}_{}.ply'.format(region, hemi)),
                        region_vox2ras_tkr, shifted_vox2tk_ras)
-        shutil.copy(op.join(atlas_fol, 'tmp', '{}_{}.ply'.format(region, hemi)),
+        utils.copy_file(op.join(atlas_fol, 'tmp', '{}_{}.ply'.format(region, hemi)),
                     op.join(MMVT_DIR, 'colin27', 'subcortical', '{}_{}.ply'.format(region, hemi)))
 
 

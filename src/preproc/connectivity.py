@@ -207,7 +207,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
     def backup(fname):
         if args.backup_existing_files and op.isfile(fname):
             backup_fname = utils.add_str_to_file_name(fname, '_backup')
-            shutil.copy(fname, backup_fname)
+            utils.copy_file(fname, backup_fname)
 
     data, names = {}, {}
     identifier = '{}_'.format(args.identifier) if args.identifier != '' else ''

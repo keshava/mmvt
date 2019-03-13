@@ -26,6 +26,34 @@ SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 HEMIS = ['rh', 'lh']
 
 
+def convert_dicoms_to_nifti(subject, dicoms_fol, output_fname='', seq='T1', overwrite=False, print_only=False,
+                      ask_before=False):
+    dicom_files = glob.glob(op.join(dicoms_fol, '*.dcm'))
+    if len(dicom_files) == 0:
+        print('No dicom files in {}!'.format(dicoms_fol))
+        return False
+    output_fname = op.join(utils.get_parent_fol(dicoms_fol), '{}_{}.mgz'.format(subject, seq)) \
+        if output_fname == '' else output_fname
+    if op.isfile(output_fname):
+        if not overwrite:
+            print('{} already exist'.format(output_fname))
+            print('You can examine the result:')
+            print('freeview -v {}'.format(output_fname))
+            return True
+        else:
+            os.remove(output_fname)
+    dicom_files.sort(key=op.getmtime)
+    if ask_before:
+        ret = input('convert dicom files in {} to {} (y/n)? '.format(dicoms_fol, output_fname))
+        if not au.is_true(ret):
+            return False
+    fu.mri_convert(dicom_files[0], output_fname, print_only=print_only)
+    if op.isfile(output_fname):
+        print('You can examine the result:')
+        print('freeview -v {}'.format(output_fname))
+    return True if print_only else op.isfile(output_fname)
+
+
 def cerebellum_segmentation(subject, remote_subject_dir, args, subregions_num=7, model='Buckner2011_7Networks'):
     # For cerebellum parcellation
     # http://www.freesurfer.net/fswiki/CerebellumParcellation_Buckner2011
@@ -185,7 +213,7 @@ def convert_and_rename_subcortical_files(fol, new_fol, lookup):
 #     blender_fol = op.join(MMVT_DIR, subject, mmvt_subcorticals_fol_name)
 #     if op.isdir(blender_fol):
 #         shutil.rmtree(blender_fol)
-#     shutil.copytree(subcorticals_fol, blender_fol)
+#     utils.copy_filetree(subcorticals_fol, blender_fol)
 
 
 def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', overwrite=False):
@@ -199,7 +227,18 @@ def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', o
             if not op.isfile(mmvt_hemi_ply_fname) or overwrite:
                 print('Reading {}'.format(surf_name))
                 if op.isfile(surf_name):
-                    verts, faces = nib_fs.read_geometry(surf_name)
+                    print('Reading {}'.format(surf_name))
+                    try:
+                        verts, faces = nib_fs.read_geometry(surf_name)
+                    except:
+                        utils.print_last_error_line()
+                        surf_wavefront_name = '{}.asc'.format(surf_name)
+                        print('mris_convert {} {}'.format(surf_name, surf_wavefront_name))
+                        utils.run_script('mris_convert {} {}'.format(surf_name, surf_wavefront_name))
+                        ply_fname = '{}.ply'.format(surf_name)
+                        verts, faces = utils.srf2ply(surf_wavefront_name, ply_fname)
+                        shutil.copyfile(surf_name, '{}.org'.format(surf_name))
+                        nib.freesurfer.write_geometry(surf_name, verts, faces)
                 elif op.isfile(mmvt_hemi_npz_fname):
                     verts, faces = utils.read_pial(subject, MMVT_DIR, hemi)
                 else:
@@ -250,7 +289,7 @@ def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', o
 #             if not op.isfile(mmvt_hemi_ply_fname) or overwrite:
 #                 if op.isfile(mmvt_hemi_ply_fname):
 #                     os.remove(mmvt_hemi_ply_fname)
-#                 shutil.copy(hemi_ply_fname, mmvt_hemi_ply_fname)
+#                 utils.copy_file(hemi_ply_fname, mmvt_hemi_ply_fname)
 #             if not op.isfile(mmvt_hemi_npz_fname) or overwrite:
 #                 if op.isfile(mmvt_hemi_npz_fname):
 #                     os.remove(mmvt_hemi_npz_fname)
@@ -271,7 +310,7 @@ def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', o
 #         ply_file = utils.srf2ply(op.join(SUBJECTS_DIR, subject, 'surf', '{}.{}.srf'.format(hemi, surf_type)),
 #                                  op.join(SUBJECTS_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
 #         # utils.make_dir(op.join(MMVT_DIR, subject))
-#         # shutil.copyfile(ply_file, op.join(MMVT_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
+#         # utils.copy_file(ply_file, op.join(MMVT_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
 
 
 def save_hemis_curv(subject, atlas):
@@ -420,7 +459,7 @@ def check_ply_files(subject):
 #         #         verts[:, 0] = verts[:, 0] + verts_offset
 #         #         utils.write_ply_file(verts, faces, ply_fname)
 #         # utils.rmtree(blender_fol)
-#         # shutil.copytree(ply_fol, blender_fol)
+#         # utils.copy_filetree(ply_fol, blender_fol)
 #         # utils.rmtree(mat_fol)
 #         # utils.rmtree(ply_fol)
 #     return lookup
@@ -447,12 +486,20 @@ def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_s
             return True
 
     # morph annot
+    utils.make_dir(op.join(SUBJECTS_DIR, subject, 'label'))
     if morph_annot:
-        annot_exist = lu.morph_annot(
-            subject, fsaverage, atlas, overwrite_vertices_labels_lookup, overwrite_morphing, overwrite_annotation,
-            n_jobs=n_jobs)
-        if annot_exist:
-            return True
+        if fu.is_fs_atlas(atlas) and not utils.both_hemi_files_exist(annotation_fname_template):  # or overwrite_annotation:
+            annot_exist = fu.create_annotation_file(
+                subject, atlas, subjects_dir=SUBJECTS_DIR, freesurfer_home=FREESURFER_HOME)
+        else:
+            fsaverage = lu.find_template_brain_with_annot_file(atlas, fsaverage, SUBJECTS_DIR)
+            if fsaverage == '':
+                print('Can\'t find a tempalte brain which has the atlas {}!'.format(atlas))
+                return False
+            annot_exist = lu.morph_annot(
+                subject, fsaverage, atlas, overwrite_vertices_labels_lookup, overwrite_morphing, overwrite_annotation,
+                n_jobs=n_jobs)
+        return annot_exist
 
     labels_files = glob.glob(op.join(SUBJECTS_DIR, subject, 'label', atlas, '*.label'))
     # If there are only 2 files, most likely it's the unknowns
@@ -474,7 +521,7 @@ def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_s
             remote_fname = op.join(remote_subject_dir, 'label', '{}.{}.annot'.format(hemi, atlas))
             local_fname = op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format(hemi, atlas))
             if remote_fname != local_fname:
-                shutil.copy(remote_fname, local_fname)
+                utils.copy_file(remote_fname, local_fname)
         return True
 
     if fu.is_fs_atlas(atlas):
@@ -634,6 +681,14 @@ def create_spatial_connectivity(subject, surf_types=('pial', 'dural'), overwrite
         utils.save(connectivity_per_hemi, connectivity_fname)
         ret = ret and op.isfile(connectivity_fname)
     return ret
+
+
+def load_connectivity(subject):
+    connectivity_fname = op.join(MMVT_DIR, subject, 'spatial_connectivity.pkl')
+    if not op.isfile(connectivity_fname):
+        create_spatial_connectivity(subject)
+    connectivity_per_hemi = utils.load(connectivity_fname)
+    return connectivity_per_hemi
 
 
 def calc_three_rois_intersection(subject, rois, output_fol='', model_name='', atlas='aparc.DKTatlas', debug=False,
@@ -998,7 +1053,7 @@ def calc_labels_center_of_mass(subject, atlas, overwrite=False):
                 writer.writerow([label.name, *center_of_mass[label.name]])
         blend_fname = op.join(MMVT_DIR, subject, '{}_center_of_mass.pkl'.format(atlas))
         utils.save(center_of_mass, com_fname)
-        shutil.copyfile(com_fname, blend_fname)
+        utils.copy_file(com_fname, blend_fname)
     return len(labels) > 0 and op.isfile(com_fname) and op.isfile(blend_fname)
 
 
@@ -1040,7 +1095,7 @@ def save_cerebellum_coloring(subject):
     if not op.isfile(lut_fname):
         lut_resources_fname = op.join(utils.get_resources_fol(), lut_name)
         if op.isfile(lut_resources_fname):
-            shutil.copy(lut_resources_fname, lut_fname)
+            utils.copy_file(lut_resources_fname, lut_fname)
         else:
             print("The Buckner2011 17Networks Color LUT is missing! ({})".format(lut_fname))
             return False
@@ -1180,24 +1235,26 @@ def create_new_subject_blend_file(subject, atlas, overwrite_blend=False, ask_if_
     # empty_subject_fname = op.join(MMVT_DIR, 'empty_subject.blend')
     # if not op.isfile(empty_subject_fname):
     #     resources_dir = op.join(utils.get_parent_fol(levels=2), 'resources')
-    #     shutil.copy(op.join(resources_dir, 'empty_subject.blend'), empty_subject_fname)
+    #     utils.copy_file(op.join(resources_dir, 'empty_subject.blend'), empty_subject_fname)
     # if op.isfile(new_fname) and not overwrite_blend:
     #     if ask_if_overwrite_blend:
     #         overwrite = input('The file {} already exist, do you want to overwrite? '.format(new_fname))
     #         if au.is_true(overwrite):
     #            os.remove(new_fname)
-    #            shutil.copy(op.join(MMVT_DIR, 'empty_subject.blend'), new_fname)
+    #            utils.copy_file(op.join(MMVT_DIR, 'empty_subject.blend'), new_fname)
     # else:
-    #     shutil.copy(empty_subject_fname, new_fname)
+    #     utils.copy_file(empty_subject_fname, new_fname)
 
 
-def check_bem(subject, remote_subject_dir, recreate_src_spacing, recreate_bem_solution=False, args={}):
+def check_bem(subject, remote_subject_dir, recreate_src_spacing, recreate_bem_solution=False, bem_ico=4, args={}):
     from src.preproc import meg
     meg_args = meg.read_cmd_args(dict(subject=subject))
     meg_args.update(args)
     meg.init(subject, meg_args, remote_subject_dir=remote_subject_dir)
     # args.remote_subject_dir = remote_subject_dir
-    bem_exist, _ = meg.check_bem(subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution, meg_args)
+    bem_exist, _ = meg.check_bem(subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution,
+                                 bem_ico, meg_args)
+    meg.read_bem_surfaces(subject)
     return bem_exist
 
 
@@ -1230,7 +1287,7 @@ def create_slices(subject, xyz, modality='mri', header=None, data=None):
         if not op.isfile(fname):
             subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', 'T1.mgz')
             if op.isfile(subjects_fname):
-                shutil.copy(subjects_fname, fname)
+                utils.copy_file(subjects_fname, fname)
             else:
                 print("Can't find subject's T1.mgz!")
                 return False
@@ -1239,7 +1296,7 @@ def create_slices(subject, xyz, modality='mri', header=None, data=None):
         if not op.isfile(fname):
             subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', 'ct.mgz')
             if op.isfile(subjects_fname):
-                shutil.copy(subjects_fname, fname)
+                utils.copy_file(subjects_fname, fname)
             else:
                 print("Can't find subject's CT! ({})".format(fname))
                 return False
@@ -1393,7 +1450,7 @@ def get_data_and_header(subject, image_name):
     # if not op.isfile(fname):
     subjects_fname = op.join(SUBJECTS_DIR, subject, 'mri', image_name)
     if not op.isfile(subjects_fname):
-        # shutil.copy(subjects_fname, fname)
+        # utils.copy_file(subjects_fname, fname)
     # else:
         print("Can't find subject's {}!".format(image_name))
         return None, None
@@ -1492,7 +1549,7 @@ def copy_sphere_reg_files(subject):
             mmvt_fname = op.join(MMVT_DIR, subject, 'surf', '{}.sphere.reg'.format(hemi))
             utils.make_dir(op.join(MMVT_DIR, subject, 'surf'))
             if not op.isfile(mmvt_fname):
-                shutil.copy(tempalte.format(hemi=hemi), mmvt_fname)
+                utils.copy_file(tempalte.format(hemi=hemi), mmvt_fname)
     else:
         print("No ?h.sphere.reg files! You won't be able to plot stc files")
 
@@ -1598,7 +1655,7 @@ def main(subject, remote_subject_dir, org_args, flags):
 
     if 'check_bem' in args.function:
         flags['check_bem'] = check_bem(
-            subject, remote_subject_dir, args.recreate_src_spacing, args.recreate_bem_solution, args)
+            subject, remote_subject_dir, args.recreate_src_spacing, args.recreate_bem_solution, args.bem_ico, args)
 
     if 'create_outer_skin_surface' in args.function:
         flags['create_outer_skin_surface'] = create_outer_skin_surface(
@@ -1631,6 +1688,11 @@ def main(subject, remote_subject_dir, org_args, flags):
         flags['morph_labels_from_fsaverage'] = solve_labels_collisions(
             subject, args.atlas, args.solve_labels_collision_surf_type, args.overwrite_vertices_labels_lookup,
             args.n_jobs)
+
+    if 'convert_dicoms_to_nifti' in args.function:
+        flags['convert_dicoms_to_nifti'] = convert_dicoms_to_nifti(
+            subject, args.dicoms_fol, args.nifti_fname, args.seq, args.overwrite_nifti, args.print_only,
+                args.ask_before)
 
     return flags
 
@@ -1681,12 +1743,19 @@ def read_cmd_args(argv=None):
     parser.add_argument('--slices_modality', help='', required=False, default='mri')
     parser.add_argument('--skull_surfaces_fol_name', help='', required=False, default='bem')
     parser.add_argument('--recreate_bem_solution', help='', required=False, default=0, type=au.is_true)
+    parser.add_argument('--bem_ico', help='', required=False, default=4, type=int)
     parser.add_argument('--recreate_src_spacing', help='', required=False, default='oct6')
 
+    parser.add_argument('--dicoms_fol', help='', required=False, default='')
+    parser.add_argument('--nifti_fname', help='', required=False, default='')
+    parser.add_argument('--seq', help='', required=False, default='T1')
+    parser.add_argument('--overwrite_nifti', help='', required=False, default=False, type=au.is_true)
+    parser.add_argument('--ask_before', help='', required=False, default=False, type=au.is_true)
 
     pu.add_common_args(parser)
     args = utils.Bag(au.parse_parser(parser, argv))
-    existing_freesurfer_annotations = ['aparc.DKTatlas', 'aparc', 'aparc.a2009s']
+    dkt_real_name = utils.fix_atlas_name(args.subject[0], 'dkt', SUBJECTS_DIR)
+    existing_freesurfer_annotations = [dkt_real_name, 'aparc', 'aparc.a2009s']
     args.necessary_files = {'mri': ['aseg.mgz', 'norm.mgz', 'ribbon.mgz', 'T1.mgz', 'orig.mgz', 'brain.mgz'],
         'surf': ['rh.pial', 'lh.pial', 'rh.inflated', 'lh.inflated', 'lh.curv', 'rh.curv', 'rh.sphere.reg',
                  'lh.sphere.reg', 'rh.sphere', 'lh.sphere', 'lh.white', 'rh.white', 'rh.smoothwm','lh.smoothwm',
@@ -1708,8 +1777,14 @@ def read_cmd_args(argv=None):
     if 'create_dural' in args.function and len(args.function) == 1:
         args.function = ['create_surfaces', 'create_pial_volume_mask', 'create_spatial_connectivity']
         args.surf_name = 'dural'
-    # python -m src.preproc.anatomy -s nmr00479 -f create_surfaces,create_pial_volume_mask,create_spatial_connectivity --surf_name dural
-    # print(args)
+
+    if args.function == ['convert_dicoms_to_nifti']:
+        args.ignore_missing = True
+
+    # Should be every fol arg
+    for key in ['dicoms_fol']:
+        args[key] = op.expanduser(args[key])
+
     return args
 
 

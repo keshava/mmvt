@@ -122,10 +122,17 @@ get_links_dir = su.get_links_dir
 get_resources_dir = su.get_resources_dir
 get_mmvt_dir = su.get_mmvt_dir
 get_subjects_dir = su.get_subjects_dir
+get_subject_dir = su.get_subject_dir
+get_fmri_dir = su.get_fmri_dir
 get_real_atlas_name = su.get_real_atlas_name
 get_parent_fol = su.get_parent_fol
 select_one_file = su.select_one_file
 is_true = su.is_true
+
+
+def get_fmri_dir():
+    return get_link_dir(get_links_dir(), 'fMRI')
+
 
 floats_const_pattern = r"""
      [-+]?
@@ -263,6 +270,14 @@ def insert_keyframe_to_custom_prop(obj, prop_name, value, keyframe):
     obj.keyframe_insert(data_path='[' + '"' + prop_name + '"' + ']', frame=keyframe)
 
 
+def get_object(obj_name, default=None):
+    return bpy.data.objects.get(obj_name, default)
+
+
+def delete_current_obj():
+    bpy.ops.object.delete()
+
+
 def create_and_set_material(obj):
     # curMat = bpy.data.materials['OrigPatchesMat'].copy()
     if obj.active_material is None or obj.active_material.name != obj.name + '_Mat':
@@ -370,6 +385,71 @@ def hook_curves(o1, o2, co1, co2, bevel_depth=0.1, resolution_u=5):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
+def create_cubes(data, values, vol_tkreg, indices, data_min, data_max, name, cm, radius=0.1,
+                 parent='Functional maps', material_name='Deep_electrode_mat'):
+    # https://stackoverflow.com/questions/48818274/quickly-adding-large-numbers-of-mesh-primitives-in-blender
+    _addon.data.create_empty_if_doesnt_exists(name, _addon.BRAIN_EMPTY_LAYER, None, parent)
+    orig_cube = create_cube(_addon.ACTIVITY_LAYER, radius=0.1)
+    orig_cube.name = 'original_cube'
+    orig_mat = bpy.data.materials[material_name]
+    materials = {}
+    colors_ratio = 256 / (data_max - data_min)
+    colors_indices = calc_colors_indices(values, data_min, colors_ratio)
+    colors = calc_colors_from_indices_cm(colors_indices, cm)
+    now, N = time.time(), len(indices)
+    dxyzs = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
+    inner_cubes = 0
+    for run, (voxel, ind, color, color_ind) in enumerate((zip(vol_tkreg, indices, colors, colors_indices))):
+        time_to_go(now, run, N, 1000)
+        # Don't create inner or lonely cubes
+        if all([data[tuple(ind + dxyz)] >= data_min for dxyz in dxyzs]) or \
+                all([data[tuple(ind + dxyz)] < data_min for dxyz in dxyzs]):
+            inner_cubes += 1
+            continue
+        cube_name = 'cube_{}_{}_{}_{}'.format(name[:3], ind[0], ind[1], ind[2])
+        cur_obj = get_object(cube_name)
+        curr_material_name = 'cube_{}'.format(color_ind)
+        if curr_material_name not in materials:
+            print('New material was created for color ind {}'.format(color_ind))
+            materials[curr_material_name] = orig_mat.copy()
+            materials[curr_material_name].name = curr_material_name
+        if cur_obj is not None:
+            color_obj(materials[curr_material_name], color)
+        else:
+            copy_cube(orig_cube, voxel * 0.1, cube_name, name, materials[curr_material_name], color)
+    print('{} inner cubes out of {} ({:.2f}%)'.format(inner_cubes, N, (inner_cubes / N) * 100))
+    # Deleting the original cube
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.data.objects[orig_cube.name].select = True
+    bpy.ops.object.delete()
+    print('create_cubes: Finish!')
+
+
+def create_cube(layer, radius=0.1):
+    layers = [False] * 20
+    layers[layer] = True
+    bpy.ops.mesh.primitive_cube_add(radius=radius)
+    bpy.ops.object.move_to_layer(layers=layers)
+    return bpy.context.active_object
+
+
+def copy_cube(orig_cube, pos, cube_name, name, material, color=(1, 1, 1)):
+    m = orig_cube.data.copy()
+    cur_obj = bpy.data.objects.new('cube', m)
+    cur_obj.name = cube_name
+    cur_obj.active_material = material
+    cur_obj.location = mathutils.Vector(tuple(pos))
+    cur_obj.parent = bpy.data.objects[name]
+    color_obj(material, color)
+    bpy.context.scene.objects.link(cur_obj)
+    return cur_obj
+
+
+def color_obj(cur_mat, color):
+    cur_mat.node_tree.nodes["RGB"].outputs[0].default_value = (color[0], color[1], color[2], 1)
+    cur_mat.diffuse_color = color[:3]
+
+
 def create_empty_if_doesnt_exists(name, brain_layer, layers_array=None, root_fol='Brain'):
     # if not bpy.data.objects.get(root_fol):
     #     print('root fol, {}, does not exist'.format(root_fol))
@@ -410,8 +490,6 @@ def create_material(name, diffuseColors, transparency, copy_material=True):
     curMat.node_tree.nodes['MyColor1'].inputs[0].default_value = diffuseColors
     curMat.node_tree.nodes['MyTransparency'].inputs['Fac'].default_value = transparency
     bpy.context.active_object.active_material.diffuse_color = diffuseColors[:3]
-
-
 
 
 def delete_hierarchy(parent_obj_name, exceptions=(), delete_only_animation=False):
@@ -472,7 +550,36 @@ def get_atlas():
                         "'_atlas-name.blend' (sub1_dkt.blend for example)")
         return ''
     atlas = blend_fname.split('_')[-1]
-    return get_real_atlas_name(atlas)
+    real_atlas_name = get_real_atlas_name(atlas)
+    real_atlas_name = fix_atlas_name(get_user(), real_atlas_name, get_subjects_dir())
+    print('Real atlas name {}'.format(real_atlas_name))
+    return real_atlas_name
+
+
+def atlas_exist(subject, atlas, subjects_dir):
+    return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
+
+
+def get_atlas_template(subject, atlas, subjects_dir):
+    return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
+
+
+def fix_atlas_name(subject, atlas, subjects_dir=''):
+    if atlas in ['dkt', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
+        if os.environ.get('FREESURFER_HOME', '') != '':
+            if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
+                atlas = 'aparc.DKTatlas'
+            elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
+                atlas = 'aparc.DKTatlas40'
+        else:
+            if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
+                    atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
+                atlas = 'aparc.DKTatlas40'
+            elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
+                    atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
+                atlas = 'aparc.DKTatlas'
+    return atlas
+
 
 
 # def get_real_atlas_name(atlas, csv_fol='', short_name=False):
@@ -724,6 +831,8 @@ def split_bipolar_name(elec_name):
     splits = elec_name.split('-')
     if len(splits) == 2:
         elec_name2, elec_name1 = splits
+    elif len(splits) == 3:
+        elec_name2, elec_name1 = '-'.join(splits[:2]), '-'.join(splits[2:3])
     elif len(splits) == 4:
         elec_name2, elec_name1 = '-'.join(splits[:2]), '-'.join(splits[2:4])
     return elec_name1, elec_name2
@@ -1083,9 +1192,11 @@ def tryit(except_retval=False, throw_exception=False, print_only_last_error_line
 
 def print_last_error_line():
     try:
-        print([l for l in traceback.format_exc().split('\n') if len(l) > 0][-1])
+        last_err_line = [l for l in traceback.format_exc().split('\n') if len(l) > 0][-1]
+        print(last_err_line)
+        return last_err_line
     except:
-        pass
+        return ''
 
 
 def get_all_children(parents):
@@ -2678,7 +2789,15 @@ def get_distinct_colors(colors_num=1):
 
 
 def calc_colors_from_cm(vert_values, data_min, colors_ratio, cm):
-    colors_indices = np.rint(((np.array(vert_values) - data_min) * colors_ratio)).astype(int)
+    colors_indices = calc_colors_indices(vert_values, data_min, colors_ratio)
+    return calc_colors_from_indices_cm(colors_indices, cm)
+
+
+def calc_colors_indices(vert_values, data_min, colors_ratio):
+    return np.rint(((np.array(vert_values) - data_min) * colors_ratio)).astype(int)
+
+
+def calc_colors_from_indices_cm(colors_indices, cm):
     # take care about values that are higher or smaller than the min and max values that were calculated (maybe using precentiles)
     colors_indices[colors_indices < 0] = 0
     colors_indices[colors_indices > 255] = 255

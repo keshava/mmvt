@@ -7,17 +7,19 @@ import glob
 from src.utils import trans_utils as tut
 import csv
 import shutil
-
+import warnings
+import os
 from src.utils import utils
 from src.utils import preproc_utils as pu
 from src.utils import freesurfer_utils as fu
 
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
+os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
 
 mri_robust_register = 'mri_robust_register --mov {subjects_dir}/{subject_from}/mri/T1.mgz --dst {subjects_dir}/{subject_to}/mri/T1.mgz --lta {subjects_dir}/{subject_from}/mri/{lta_name}.lta --satit --mapmov {subjects_dir}/{subject_from}/mri/T1_to_{subject_to}.mgz --cost nmi'
 mri_cvs_register = 'mri_cvs_register --mov {subject_from} --template {subject_to} ' + \
-                   '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_{subject_to} --nocleanup' # --step3'
+                   '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_{subject_to} --nocleanup --openmp {openmp}' # --step3'
 mri_cvs_register_mni = 'mri_cvs_register --mov {subject_from} --mni ' + \
                    '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_mni --nocleanup' # --step3'
 mri_vol2vol = 'mri_vol2vol --mov {subjects_dir}/{subject}/mri/T1.mgz ' + \
@@ -52,7 +54,8 @@ apply_morph_mni = 'applyMorph --template {subjects_dir}/{subject_to}/mri/orig.mg
 #         rs(cmd)
 
 
-def cvs_register_to_template(electrodes, template_system, subjects_dir, overwrite=False, print_only=False, n_jobs=1):
+def cvs_register_to_template(electrodes, template_system, subjects_dir, overwrite=False, print_only=False, n_jobs=1,
+                             openmp=8):
     subject_to = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
     if subject_to == 'fsaverage':
         output_fname = op.join(subjects_dir, '{subject}', 'mri_cvs_register_to_mni',
@@ -77,14 +80,16 @@ def cvs_register_to_template(electrodes, template_system, subjects_dir, overwrit
     print(subjects)
 
     indices = np.array_split(np.arange(len(subjects)), n_jobs)
-    chunks = [([subjects[ind] for ind in chunk_indices], subject_to, subjects_dir, overwrite, print_only)
+    chunks = [([subjects[ind] for ind in chunk_indices], subject_to, subjects_dir, overwrite, print_only, openmp)
               for chunk_indices in indices]
     utils.run_parallel(_mri_cvs_register_parallel, chunks, n_jobs)
+    return subjects
 
 
 def _mri_cvs_register_parallel(p):
-    subjects, subject_to, subjects_dir, overwrite, print_only = p
+    subjects, subject_to, subjects_dir, overwrite, print_only, openmp = p
     for subject_from in subjects:
+        print('********************* {} ***********************'.format(subject_from))
         # output_fname = op.join(SUBJECTS_DIR, subject_from, 'mri_cvs_register_to_colin27', 'combined_tocolin27_elreg_afteraseg-norm.tm3d')
         # if op.isfile(output_fname) and not overwrite:
         #     print('Already done for {}'.format(subject_from))
@@ -104,12 +109,11 @@ def morph_electrodes(electrodes, template_system, subjects_dir, mmvt_dir, overwr
     subject_to = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
     output_fname = op.join(mmvt_dir, '{subject}', 'electrodes', 'electrodes_morph_to_{}.txt'.format(subject_to))
     subjects = [s for s in list(electrodes.keys()) if overwrite or not op.isfile(output_fname.format(subject=s))]
-    if len(subjects) == 0:
-        return True
-    indices = np.array_split(np.arange(len(subjects)), n_jobs)
-    chunks = [([subjects[ind] for ind in chunk_indices], subject_to, subjects_dir, mmvt_dir, output_fname, overwrite, print_only)
-              for chunk_indices in indices]
-    utils.run_parallel(_morph_electrodes_parallel, chunks, n_jobs)
+    if len(subjects) > 0:
+        indices = np.array_split(np.arange(len(subjects)), n_jobs)
+        chunks = [([subjects[ind] for ind in chunk_indices], subject_to, subjects_dir, mmvt_dir, output_fname, overwrite, print_only)
+                  for chunk_indices in indices]
+        utils.run_parallel(_morph_electrodes_parallel, chunks, n_jobs)
     bad_subjects, good_subjects = [], []
     for subject_from in list(electrodes.keys()):
         ret = op.isfile(output_fname.format(subject=subject_from))
@@ -117,6 +121,7 @@ def morph_electrodes(electrodes, template_system, subjects_dir, mmvt_dir, overwr
             bad_subjects.append(subject_from)
         else:
             good_subjects.append(subject_from)
+    print('morph_electrodes:')
     print('good subjects: {}'.format(good_subjects))
     print('bad subjects: {}'.format(bad_subjects))
     print('{}/{} good subjects'.format(len(good_subjects), len(list(electrodes.keys()))))
@@ -167,7 +172,7 @@ def read_morphed_electrodes(electrodes, template_system, subjects_dir, mmvt_dir,
             continue
         subject_electrodes = trans_morphed_electrodes_to_tkreg(
             subject, subject_to, electrodes, trans, brain_mask, subjects_electrodes)
-        if subject_electrodes is None:
+        if subject_electrodes is None or len(subject_electrodes) == 0:
             bad_subjects.append(subject)
         else:
             template_electrodes[subject] = subject_electrodes
@@ -179,22 +184,24 @@ def read_morphed_electrodes(electrodes, template_system, subjects_dir, mmvt_dir,
             for pair in pairs:
                 # todo: check that the pair is actually two nei electrodes
                 new_bipolar_pos = np.mean([pair[0][1], pair[1][1]], axis=0)
-                group1, num1 = utils.elec_group_number(pair[0][0].split('_')[1], False)
-                group2, num2 = utils.elec_group_number(pair[1][0].split('_')[1], False)
-                if group1 != group2 or abs(num1-num2) != 1:
-                    raise Exception('Wrong pair!')
-                num1, num2 = (num1, num2) if num2 > num1 else (num2, num1)
-                bipolar_template_electrodes[subject].append(
-                    ('{}_{}{}-{}'.format(subject, group1, num1, num2), new_bipolar_pos))
+                group1, num1 = utils.elec_group_number('_'.join(pair[0][0].split('_')[1:]), False, False)
+                group2, num2 = utils.elec_group_number('_'.join(pair[1][0].split('_')[1:]), False, False)
+                if group1 != group2 or abs(int(num1)-int(num2)) != 1:
+                    print('Wrong pair! {} {} {}'.format(group1, num1, num2))
+                else:
+                    num1, num2 = (num1, num2) if int(num2) > int(num1) else (num2, num1)
+                    bipolar_template_electrodes[subject].append(
+                        ('{}_{}{}-{}'.format(subject, group1, num1, num2), new_bipolar_pos))
 
     utils.save(template_electrodes, output_fname)
     print('read_morphed_electrodes: {}'.format(op.isfile(output_fname)))
+    print('{}/{} good subjects'.format(len(good_subjects), len(electrodes)))
     print('good subjects: {}'.format(good_subjects))
     print('bad subjects: {}'.format(bad_subjects))
     return bipolar_template_electrodes if convert_to_bipolar else template_electrodes
 
 
-def trans_morphed_electrodes_to_tkreg(subject, subject_to, electrodes, trans, brain_mask, subjects_electrodes):
+def trans_morphed_electrodes_to_tkreg(subject, subject_to, electrodes, trans, brain_mask, subjects_electrodes=None):
     template_electrodes = []
     morphed_electrodes_file_name = 'electrodes_morph_to_{}.txt'.format(subject_to)
     input_fname = op.join(MMVT_DIR, subject, 'electrodes', morphed_electrodes_file_name)
@@ -206,12 +213,23 @@ def trans_morphed_electrodes_to_tkreg(subject, subject_to, electrodes, trans, br
     electrodes_names = [elc_name for (elc_name, _) in electrodes[subject]]
     if subject_to == 'fsaverage':
         voxels = tut.mni152_mni305(voxels)
-    check_if_electrodes_inside_the_brain(subject, voxels, electrodes_names, brain_mask)
+    #check_if_electrodes_inside_the_brain(subject, voxels, electrodes_names, brain_mask)
     write_morphed_electrodes_vox_into_csv(subject, subject_to, voxels, electrodes_names)
     tkregs = apply_trans(trans, voxels)
-    for tkreg, (elc_name, _) in zip(tkregs, electrodes[subject]):
-        if len(subjects_electrodes) > 0 and elc_name in subjects_electrodes[subject]:
-            template_electrodes.append(('{}_{}'.format(subject, elc_name), tkreg))
+    if subjects_electrodes is not None:
+        elecs = [elc_name for elc_name, _ in electrodes[subject] if elc_name in subjects_electrodes[subject]]
+        if len(elecs) == 0:
+            print('No electrodes for {}! ({})'.format(subject, subjects_electrodes[subject]))
+    for tkreg, vox, (elc_name, _) in zip(tkregs, voxels, electrodes[subject]):
+        if subjects_electrodes is not None and elc_name in subjects_electrodes[subject]:
+            try:
+                vox = np.rint(vox).astype(int)
+                if brain_mask[vox[0], vox[1], vox[2]] == 0:
+                    print('{}: {} is outside the brain!'.format(subject, elc_name))
+                template_electrodes.append(('{}_{}'.format(subject, elc_name), tkreg))
+            except:
+                print('Error with {}, {}, voxels={}'.format(subject, elc_name, vox))
+
     return template_electrodes
 
 
@@ -219,9 +237,12 @@ def check_if_electrodes_inside_the_brain(subject, voxels, electrodes_names, brai
     if brain_mask is not None:
         for vox, elc_name in zip(voxels, electrodes_names):
             vox = np.rint(vox).astype(int)
-            mask = brain_mask[vox[0], vox[1], vox[2]]
-            if mask == 0:
-                print('{}: {} is outside the brain!'.format(subject, elc_name))
+            try:
+                mask = brain_mask[vox[0], vox[1], vox[2]]
+                if mask == 0:
+                    print('{}: {} is outside the brain!'.format(subject, elc_name))
+            except:
+                print('Error with {}, {}, voxels={}'.format(subject, elc_name, vox))
 
 
 def write_morphed_electrodes_vox_into_csv(subject, subject_to, voxels, electrodes_names):
@@ -233,7 +254,6 @@ def write_morphed_electrodes_vox_into_csv(subject, subject_to, voxels, electrode
         wr.writerow(['Electrode Name','R','A','S'])
         for elc_name, elc_coords in zip(electrodes_names, voxels):
             wr.writerow([elc_name, *elc_coords.squeeze()])
-
 
 
 def apply_trans(trans, points):
@@ -344,6 +364,7 @@ def read_all_electrodes(subjects, bipolar):
             goods.append(subject)
         for elec_name, coords in zip(names, pos):
             electrodes[subject].append((elec_name, coords))
+    print('read_all_eletrodes:')
     print('bads: {}'.format(bads))
     print('goods: {}'.format(goods))
     return electrodes
@@ -381,52 +402,53 @@ def export_into_csv(template_system, mmvt_dir, bipolar=False, prefix=''):
     fol = utils.make_dir(op.join(MMVT_DIR, template, 'electrodes'))
     csv_fname2 = op.join(fol, utils.namebase_with_ext(csv_fname))
     if csv_fname != csv_fname2:
-        shutil.copy(csv_fname, csv_fname2)
+        utils.copy_file(csv_fname, csv_fname2)
     print('export_into_csv: {}'.format(op.isfile(csv_fname) and op.isfile(csv_fname2)))
+    return csv_fname
 
 
-def compare_electrodes_labeling(electrodes, template_system, atlas='aparc.DKTatlas'):
-    template = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
-    template_elab_files = glob.glob(op.join(
-        MMVT_DIR, template, 'electrodes', '{}_{}_electrodes_cigar_r_3_l_4.pkl'.format(template, atlas)))
-    if len(template_elab_files) == 0:
-        print('No electrodes labeling file for {}!'.format(template))
-        return
-    elab_template = utils.load(template_elab_files[0])
-    errors = ''
-    for subject in electrodes.keys():
-        elab_files = glob.glob(op.join(
-            MMVT_DIR, subject, 'electrodes', '{}_{}_electrodes_cigar_r_3_l_4.pkl'.format(subject, atlas)))
-        if len(elab_files) == 0:
-            print('No electrodes labeling file for {}!'.format(subject))
-            continue
-        electrodes_names = [e[0] for e in electrodes[subject]]
-        elab = utils.load(elab_files[0])
-        elab = [e for e in elab if e['name'] in electrodes_names]
-        for elc in electrodes_names:
-            no_errors = True
-            elc_labeling = [e for e in elab if e['name'] == elc][0]
-            elc_labeling_template = [e for e in elab_template if e['name'] == '{}_{}'.format(subject, elc)][0]
-            for roi, prob in zip(elc_labeling['cortical_rois'], elc_labeling['cortical_probs']):
-                no_err, err = compare_rois_and_probs(
-                    subject, template, elc, roi, prob, elc_labeling['cortical_rois'],
-                    elc_labeling_template['cortical_rois'], elc_labeling_template['cortical_probs'])
-                no_errors = no_errors and no_err
-                if err != '':
-                    errors += err + '\n'
-            for roi, prob in zip(elc_labeling['subcortical_rois'], elc_labeling['subcortical_probs']):
-                no_err, err = compare_rois_and_probs(
-                    subject, template, elc, roi, prob, elc_labeling['subcortical_rois'],
-                    elc_labeling_template['subcortical_rois'], elc_labeling_template['subcortical_probs'])
-                no_errors = no_errors and no_err
-                if err != '':
-                    errors += err + '\n'
-            if no_errors:
-                print('{},{},Good!'.format(subject, elc))
-                errors += '{},{},Good!\n'.format(subject, elc)
-    with open(op.join(MMVT_DIR, template, 'electrodes', 'trans_errors.txt'), "w") as text_file:
-        print(errors, file=text_file)
-    # print(errors)
+# def compare_electrodes_labeling(electrodes, template_system, atlas='aparc.DKTatlas'):
+#     template = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
+#     template_elab_files = glob.glob(op.join(
+#         MMVT_DIR, template, 'electrodes', '{}_{}_electrodes_cigar_r_3_l_4.pkl'.format(template, atlas)))
+#     if len(template_elab_files) == 0:
+#         print('No electrodes labeling file for {}!'.format(template))
+#         return
+#     elab_template = utils.load(template_elab_files[0])
+#     errors = ''
+#     for subject in electrodes.keys():
+#         elab_files = glob.glob(op.join(
+#             MMVT_DIR, subject, 'electrodes', '{}_{}_electrodes_cigar_r_3_l_4.pkl'.format(subject, atlas)))
+#         if len(elab_files) == 0:
+#             print('No electrodes labeling file for {}!'.format(subject))
+#             continue
+#         electrodes_names = [e[0] for e in electrodes[subject]]
+#         elab = utils.load(elab_files[0])
+#         elab = [e for e in elab if e['name'] in electrodes_names]
+#         for elc in electrodes_names:
+#             no_errors = True
+#             elc_labeling = [e for e in elab if e['name'] == elc][0]
+#             elc_labeling_template = [e for e in elab_template if e['name'] == '{}_{}'.format(subject, elc)][0]
+#             for roi, prob in zip(elc_labeling['cortical_rois'], elc_labeling['cortical_probs']):
+#                 no_err, err = compare_rois_and_probs(
+#                     subject, template, elc, roi, prob, elc_labeling['cortical_rois'],
+#                     elc_labeling_template['cortical_rois'], elc_labeling_template['cortical_probs'])
+#                 no_errors = no_errors and no_err
+#                 if err != '':
+#                     errors += err + '\n'
+#             for roi, prob in zip(elc_labeling['subcortical_rois'], elc_labeling['subcortical_probs']):
+#                 no_err, err = compare_rois_and_probs(
+#                     subject, template, elc, roi, prob, elc_labeling['subcortical_rois'],
+#                     elc_labeling_template['subcortical_rois'], elc_labeling_template['subcortical_probs'])
+#                 no_errors = no_errors and no_err
+#                 if err != '':
+#                     errors += err + '\n'
+#             if no_errors:
+#                 print('{},{},Good!'.format(subject, elc))
+#                 errors += '{},{},Good!\n'.format(subject, elc)
+#     with open(op.join(MMVT_DIR, template, 'electrodes', 'trans_errors.txt'), "w") as text_file:
+#         print(errors, file=text_file)
+#     # print(errors)
 
 
 # def compare_rois_and_probs(subject, template, elc, roi, prob, elc_labeling_rois, elc_labeling_template_rois,
@@ -528,19 +550,32 @@ def create_electrodes_files(electrodes, subjects_dir, overwrite=False):
                 wr.writerow(vox)
 
 
-def create_mmvt_coloring_file(template_system, template_electrodes):
+def create_mmvt_coloring_file(template_system, template_electrodes, electodes_colors={}):
     template = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
     fol = utils.make_dir(op.join(MMVT_DIR, template, 'coloring'))
     csv_fname = op.join(fol, 'morphed_electrodes.csv')
     print('Writing csv file to {}'.format(csv_fname))
     subjects = list(template_electrodes.keys())
-    colors = utils.get_distinct_colors(len(subjects))
+    if len(electodes_colors) != 0:
+        unique_colors = np.unique(utils.flat_list(([[k[1] for k in elecs] for elecs in electodes_colors.values()])))
+        colors = utils.get_distinct_colors(len(unique_colors))
+        min_elc_ind_val = min(unique_colors)
+    else:
+        colors = utils.get_distinct_colors(len(subjects))
     with open(csv_fname, 'w') as csv_file:
         wr = csv.writer(csv_file, quoting=csv.QUOTE_NONE)
-        for subject, color in zip(subjects, colors):
-            for elc_name, _ in template_electrodes[subject]:
+        for subject_ind, subject in enumerate(subjects):
+            # for elc_name, _ in template_electrodes[subject]:
+            for elc_name in template_electrodes[subject]:
+                if len(electodes_colors) != 0:
+                    real_elc_name = '_'.join(elc_name.split('_')[1:])
+                    elec_id = [tup for tup in electodes_colors[subject] if tup[0] == real_elc_name][0][1]
+                    color = colors[elec_id - min_elc_ind_val]
+                else:
+                    color = colors[subject_ind]
                 wr.writerow([elc_name, *color])
-
+    print('Writing colors for {} electrodes, {} subjects'.format(
+        sum([len(template_electrodes[s]) for s in subjects]), len(subjects)))
 
 
 def get_output_using_sftp(subjects, subject_to):
@@ -562,24 +597,30 @@ def get_output_using_sftp(subjects, subject_to):
             password = password_temp
 
 
-def prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=False):
+def prepare_files_for_subjects(subjects, remote_subject_templates, sftp=False,  sftp_username='', sftp_domain='',
+                               overwrite=False):
     necessary_files = {'surf': ['lh.inflated', 'rh.inflated', 'lh.pial', 'rh.pial', 'rh.white', 'lh.white',
                                 'lh.smoothwm', 'rh.smoothwm', 'rh.sulc', 'lh.sulc', 'lh.sphere', 'rh.sphere',
                                 'lh.inflated.K', 'rh.inflated.K', 'lh.inflated.H', 'rh.inflated.H'],
+                       'mri': ['aseg.mgz', 'norm.mgz', 'ribbon.mgz', 'T1.mgz', 'orig.mgz', 'brain.mgz'],
                        'label': ['lh.aparc.annot', 'rh.aparc.annot']}
 
     # subjects = pu.decode_subjects(['MG*'], remote_subject_template)
     good_subjects = []
     for subject in subjects:
         for remote_subject_template in remote_subject_templates:
+            remote_subject_template = remote_subject_template.replace('{hosp}', subject[:2])
             remote_subject_dir = utils.build_remote_subject_dir(remote_subject_template, subject)
-            all_files_exist = utils.prepare_subject_folder(
+            all_files_exist, _ = utils.prepare_subject_folder(
                 necessary_files, subject, remote_subject_dir, SUBJECTS_DIR, overwrite_files=overwrite,
-                print_missing_files=False)
+                sftp=sftp, sftp_username=sftp_username, sftp_domain=sftp_domain, print_missing_files=False)
             if all_files_exist:
                 good_subjects.append(subject)
                 break
     bad_subjects = list(set(subjects) - set(good_subjects))
+    print('prepare_files: {}/{} good subjects'.format(len(good_subjects), len(subjects)))
+    print('Good: {}'.format(good_subjects))
+    print('Bad: {}'.format(bad_subjects))
     # if len(bad_subjects) > 0:
         # from src.preproc import anatomy as anat
         # for subject in bad_subjects:
@@ -598,16 +639,19 @@ def get_all_subjects(remote_subject_template):
     return subjects
 
 
-def main(subjects, template_system, remote_subject_templates=(), bipolar=False, save_as_bipolar=False, prefix='', print_only=False, n_jobs=4):
-    good_subjects = prepare_files_for_subjects(subjects, remote_subject_templates, overwrite=False)
+def main(subjects, template_system, remote_subject_templates=(), bipolar=False, save_as_bipolar=False, prefix='',
+         sftp=False, sftp_username='', sftp_domain='', print_only=False, n_jobs=4):
+    good_subjects = prepare_files_for_subjects(
+        subjects, remote_subject_templates, sftp, sftp_username, sftp_domain, overwrite=False)
     electrodes = read_all_electrodes(good_subjects, bipolar)
-    cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=False, overwrite=False)
-    # create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=False)
-    # morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=False, n_jobs=n_jobs, print_only=True)
+    subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=True)
+    #create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
+    morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True, n_jobs=n_jobs, print_only=print_only)
     # read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
     # save_template_electrodes_to_template(None, save_as_bipolar, MMVT_DIR, template_system, prefix)
     # export_into_csv(template_system, MMVT_DIR, prefix)
-    # create_mmvt_coloring_file(template_system, electrodes)
+    # create_mmvt_coloring_file(template_system, electrodes)sss
+
 
 
 if __name__ == '__main__':
@@ -617,50 +661,40 @@ if __name__ == '__main__':
     use_apply_morph = True
     prefix, postfix = '', '' # 'stim_'
     overwrite=False
-    print_only=False
-    n_jobs=4
     remote_subject_template = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
-    # subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
-    # cny_goods = [s.upper() for s in ['mg105', 'mg104', 'mg96', 'mg107', 'mg111', 'mg90', 'mg95', 'mg109', 'mg91', 'mg115', 'mg108', 'mg92', 'mg114', 'mg85', 'mg86', 'mg87']]
-    # subjects = list(set(subjects) - set(cny_goods))
-    subjects = ['mg105', 'mg104', 'mg96']
+    subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
+    #subjects = ['MG96', 'MG98', 'MG100', 'MG122', 'MG106', 'BW37', 'BW38', 'BW39', 'BW40'] # bad
+    subjects = ['MG100', 'MG106', 'BW40', 'MG105', 'BW39', 'BW38', 'MG98', 'BW37']
+    file_missings=[]
+
     print('{} subject to preproc'.format(len(subjects)))
-    remote_subject_template1 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
-    remote_subject_template2 = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
-    remote_subject_template3 = '/mnt/cashlab/projects/DARPA/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput_REDONE'
-    remote_subject_template4 = '/usr/local/freesurfer/dev/subjects/{subject}'
-    remote_subject_templates = (remote_subject_template1, remote_subject_template2, remote_subject_template3, remote_subject_template4)
+    remote_subject_template1 = '/mnt/cashlab/Original Data/{hosp}/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
+    remote_subject_template2 = '/mnt/cashlab/Original Data/{hosp}/{subject}/{subject}_Notes_and_Images/Recon/{subject}_SurferOutput'
+    remote_subject_template3 = '/mnt/cashlab/Original Data/{hosp}/{subject}/{subject}_SurferOutput'
+    remote_subject_template4 = '/mnt/cashlab/projects/DARPA/{hosp}/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput_REDONE'
+    remote_subject_template5 = '/usr/local/freesurfer/dev/subjects/{subject}'
+    remote_subject_templates = (remote_subject_template1, remote_subject_template2, remote_subject_template3,
+                                remote_subject_template4, remote_subject_template5)
 
-    main(subjects, template_system, remote_subject_templates, bipolar, save_as_bipolar, prefix, print_only, n_jobs)
+    import argparse
+    from src.utils import args_utils as au
+    parser = argparse.ArgumentParser(description='MMVT')
+    parser.add_argument('-s', '--subject', help='subject name', required=False, default='', type=au.str_arr_type)
+    parser.add_argument('-f', '--function', help='function name', required=False, default='')
+    parser.add_argument('--print_only', required=False, default=False, type=au.is_true)
+    parser.add_argument('--sftp', required=False, default=False, type=au.is_true)
+    parser.add_argument('--sftp_username', help='sftp username', required=False, default='npeled')
+    parser.add_argument('--sftp_domain', help='sftp domain', required=False, default='door.nmr.mgh.harvard.edu')
+    parser.add_argument('--n_jobs', help='cpu num', required=False, default=1)
 
-    # get_output_using_sftp()
-    # subjects = get_all_subjects()
-    # subjects = ['cvs_avg35_inMNI152']
-    # raise Exception('Done')
-    # print('{} good subjects out of {}:'.format(len(good_subjects), len(subjects)))
-    # print(good_subjects)
-    # raise Exception('Done')
-
-    # electrodes = read_csv_file(op.join(root, csv_name), save_as_bipolar)
-    # subjects = electrodes.keys()
-    # MG96, MG104, MG105, MG107, MG108, and MG111
-    # good_subjects = ['mg96'] #['mg105', 'mg107', 'mg108', 'mg111']
-    # raise Exception('Done')
-
-    # if use_apply_morph:
-
-
-    # else:
-    #     output_fname = op.join(MMVT_DIR, template, 'electrodes', '{}electrodes{}_positions.npz'.format(
-    #         prefix, '_bipolar' if bipolar else '', postfix))
-    #     if not op.isfile(output_fname) or overwrite:
-    #         template_electrodes = transfer_electrodes_to_template_system(electrodes, template, overwrite)
-    #         save_template_electrodes_to_template(template_electrodes, save_as_bipolar, MMVT_DIR, template_system, prefix, postfix)
-    #     export_into_csv(template_system, MMVT_DIR, prefix)
-
-    # compare_electrodes_labeling(electrodes, template_system, atlas)
-
-
-
+    args = utils.Bag(au.parse_parser(parser))
+    args.n_jobs = utils.get_n_jobs(args.n_jobs)
+    if len(args.subject) == 0:
+        args.subject = subjects
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        main(args.subject, template_system, remote_subject_templates, bipolar, save_as_bipolar, prefix,
+             args.sftp, args.sftp_username, args.sftp_domain, args.print_only, args.n_jobs)
+    print('Done!')
 
     print('finish')

@@ -65,7 +65,7 @@ def create_annot_from_mad(args):
             local_temp_annot_fname = op.join(local_annot_fol, '{}.aparc.DKTatlas.annot'.format(hemi))
             if not op.isfile(remote_annot_fname):
                 if op.isfile(local_annot_fname):
-                    shutil.copyfile(local_annot_fname, local_temp_annot_fname)
+                    utils.copy_file(local_annot_fname, local_temp_annot_fname)
                 else:
                     print('Can\'t copy {} for {}, it doesn\'t exist!'.format(local_annot_fname, subject))
 
@@ -193,9 +193,9 @@ def main():
     parser.add_argument('-d', '--sftp_domain', help='sftp domain', required=False, default='door.nmr.mgh.harvard.edu')
     parser.add_argument('--remote_subject_dir', help='remote_subjects_dir', required=False,
                         default='/space/thibault/1/users/npeled/subjects/{subject}')
-    parser.add_argument('-f', '--function', help='function name', required=True,
-                        choices=[f_name for f_name, f in globals().items() if isinstance(f, collections.Callable)
-                                 if f_name not in ['Gooey', 'main']])
+    parser.add_argument('-f', '--function', help='function name', required=True)
+    # choices=[f_name for f_name, f in globals().items() if isinstance(f, collections.Callable)
+    #                                  if f_name not in ['Gooey', 'main']]
     args = utils.Bag(au.parse_parser(parser))
     # for subject in args.subject:
     globals()[args.function](args)

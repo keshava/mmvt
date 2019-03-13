@@ -749,6 +749,11 @@ def create_seghead(subject, subjects_dir=None, print_only=False, **kargs):
     rs(mkheadsurf)
 
 
+def apply_lta_trans():
+    # mri_vol2vol --mov org.nii.gz --lta org.lta --o output.nii.gz --targ T1.mgz
+    pass
+
+
 def is_fs_atlas(atlas):
     return atlas in ['aparc.DKTatlas', 'aparc.DKTatlas40', 'aparc', 'aparc.a2009s']
 

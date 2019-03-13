@@ -87,7 +87,7 @@ def average_all_evoked_responses(root_fol, moving_average_win_size=100, do_plot=
                  data=mean_win_evoked, names=f['names'], conditions=f['conditions'])
         np.savez(op.join(root_fol, 'healthy_labels_all_data_win_{}_{}.npz'.format(moving_average_win_size, hemi)),
                  data=all_data_win, names=f['names'], conditions=f['conditions'])
-        shutil.copy(op.join(root_fol, 'healthy_labels_data_win_{}_{}.npz'.format(moving_average_win_size, hemi)),
+        utils.copy_file(op.join(root_fol, 'healthy_labels_data_win_{}_{}.npz'.format(moving_average_win_size, hemi)),
                     op.join(root_fol, 'healthy_labels_data_{}.npz'.format(hemi)))
         if do_plot:
             plt.figure()
@@ -145,7 +145,7 @@ def calc_subject_evoked_response(subject, root_fol, task, atlas, events_id, fnam
         # calc_evoked(indices, op.join(root_fol, epochs_fname), overwrite_epochs, overwrite_evoked)
         fwd_fname = '{}_arc_rer_tsss-fwd.fif'.format(subject)
         if not op.isfile(op.join(SUBJECTS_MEG_DIR, task, subject, fwd_fname)):
-            shutil.copy(op.join(fwd_fol, fwd_fname), op.join(SUBJECTS_MEG_DIR, task, subject, fwd_fname))
+            utils.copy_file(op.join(fwd_fol, fwd_fname), op.join(SUBJECTS_MEG_DIR, task, subject, fwd_fname))
         # meg_preproc.calc_inverse_operator(events_id, calc_for_cortical_fwd=True, calc_for_sub_cortical_fwd=False)
         # stcs = meg_preproc.calc_stc_per_condition(events_id, inverse_method)
         stcs = None
@@ -164,7 +164,7 @@ def copy_evokes(task, root_fol, target_subject, raw_cleaning_method):
         indices = find_events_indices(op.join(root_fol, events_fname))
         if not indices is None:
             for hemi in utils.HEMIS:
-                shutil.copy(op.join(SUBJECTS_MEG_DIR, task, subject, 'labels_data_{}.npz'.format(hemi)),
+                utils.copy_file(op.join(SUBJECTS_MEG_DIR, task, subject, 'labels_data_{}.npz'.format(hemi)),
                             op.join(BLENDER_ROOT_DIR, target_subject, 'meg_evoked_files', '{}_labels_data_{}.npz'.format(subject, hemi)))
 
 

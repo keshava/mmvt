@@ -14,7 +14,7 @@ from src.utils import labels_utils as lu
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
-MMVT_DIR = op.join(LINKS_DIR, 'mmvt')
+MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 
 
@@ -63,6 +63,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
         utils.remove_file(output_fname)
 
     for ind, epochs_fol in enumerate(epochs_folders):
+        # Remove  '/autofs/space/karima_002/users/Machine_Learning_Clinical_MEG_EEG_Resting/epochs/nmr00479_4994627_vef',
         epo_fnames = glob.glob(op.join(epochs_fol, '*.fif'))
         if len(epo_fnames) != 1:
             print('********* No fif files in {}!!!'.format(epochs_fol))
@@ -92,6 +93,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
             cor_fname=cor_fname,
             function=functions,
             use_demi_events=use_demi_events,
+            stc_template=utils.namebase(epo_fname)[:-4],
             # windows_length=10000,
             # windows_shift=5000,
             # overwrite_fwd=True,
@@ -107,7 +109,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
         output_files = glob.glob(op.join(
             MMVT_DIR, subject, 'meg', 'labels_data_rest_electrodes_labels_dSPM_mean_flip_*.npz'))
         for output_fname in output_files:
-            shutil.copyfile(output_fname, op.join(fol, utils.namebase_with_ext(output_fname)))
+            utils.copy_file(output_fname, op.join(fol, utils.namebase_with_ext(output_fname)))
 
 
 def meg_preproc(subject, inv_method='MNE', em='mean_flip', atlas='electrodes_labels', remote_subject_dir='',
@@ -330,18 +332,21 @@ def main(args):
     if seder_root != '':
         remote_subject_dir = glob.glob(op.join(seder_root, args.subject, 'freesurfer', '*'))[0]
     else:
-        remote_subject_dir = [d for d in [
+        remote_subject_dirs = [d for d in [
             '/autofs/space/megraid_clinical/MEG-MRI/seder/freesurfer/{}'.format(args.subject),
             '/home/npeled/subjects/{}'.format(args.subject),
-            op.join(SUBJECTS_DIR, args.subject)] if op.isdir(d)][0]
-    meg_epochs_dir = [d for d in [
+            op.join(SUBJECTS_DIR, args.subject)] if op.isdir(d)]
+        remote_subject_dir = remote_subject_dirs[0] if len(remote_subject_dirs) == 1 else ''
+    meg_epochs_dirs = [d for d in [
         '/autofs/space/karima_002/users/Machine_Learning_Clinical_MEG_EEG_Resting/epochs',
         '/home/npeled/meg/{}'.format(args.subject),
-        op.join(MEG_DIR, args.subject)] if op.isdir(d)][0]
-    meg_remote_dir = [d for d in [
+        op.join(MEG_DIR, args.subject)] if op.isdir(d)]
+    meg_epochs_dir = meg_epochs_dirs[0] if len(meg_epochs_dirs) == 1 else ''
+    meg_remote_dirs = [d for d in [
         '/autofs/space/megraid_clinical/MEG/epilepsy/subj_6213848/171127',
         '/home/npeled/meg/{}'.format(args.subject),
-        op.join(MEG_DIR, args.subject)] if op.isdir(d)][0]
+        op.join(MEG_DIR, args.subject)] if op.isdir(d)]
+    meg_remote_dir = meg_remote_dirs[0] if len(meg_remote_dirs) == 1 else ''
     session_num = 1
     # raw_fnames = glob.glob(op.join(meg_remote_dir, '*_??_raw.fif'))
     raw_fname =  '' #utils.select_one_file(raw_fnames) # raw_fnames[0] if len(raw_fnames) > 0 else ''
@@ -395,6 +400,24 @@ def main(args):
         compare_ps_from_epochs_and_from_time_series(args.subject)
     elif args.function == 'filter_meg_labels_ts':
         filter_meg_labels_ts(args.subject, inv_method, em, atlas)
+    elif args.function == 'check_meg':
+        check_meg(args.subject)
+
+
+def check_meg(subject):
+    from src.mmvt_addon import colors_utils as cu
+
+    fol = op.join(MMVT_DIR, subject, 'meg')
+    colors = cu.get_distinct_colors(12)
+    for ind, color in zip(np.arange(1, 12), colors):
+        fname = op.join(fol, 'nmr00479_4994627_{}_Resting_eeg_meg_Demi_ar-epo'.format(str(ind).zfill(2)),
+                        'labels_data_rest_electrodes_labels_dSPM_mean_flip_lh.npz')
+        if not op.isfile(fname):
+            continue
+        x = np.load(fname)['data']
+        plt.plot(x[0, :, 0], color=color)
+        del x
+    plt.show()
 
 
 if __name__ == '__main__':

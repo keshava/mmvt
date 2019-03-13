@@ -73,6 +73,8 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
         fname_format = fname_format_cond
     SUBJECT = subject
     MRI_SUBJECT = mri_subject if mri_subject!='' else subject
+    if subjects_mri_dir == '':
+        subjects_mri_dir = SUBJECTS_MRI_DIR
     os.environ['SUBJECT'] = SUBJECT
     if task != '':
         if data_per_task:
@@ -83,7 +85,7 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
             SUBJECT_MEG_FOLDER = op.join(subjects_meg_dir, SUBJECT)
     else:
         SUBJECT_MEG_FOLDER = op.join(subjects_meg_dir, SUBJECT)
-    locating_meg_file = partial(utils.locating_file, parent_fol=SUBJECT_MEG_FOLDER)
+    locating_meg_file = partial(utils.locating_file, parent_fols=[SUBJECT_MEG_FOLDER])
     # if not op.isdir(SUBJECT_MEG_FOLDER):
     #     SUBJECT_MEG_FOLDER = op.join(subjects_meg_dir)
     # if not op.isdir(SUBJECT_MEG_FOLDER):
@@ -91,7 +93,7 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
     utils.make_dir(SUBJECT_MEG_FOLDER)
     print('Subject meg dir: {}'.format(SUBJECT_MEG_FOLDER))
     SUBJECT_MRI_FOLDER = op.join(subjects_mri_dir, MRI_SUBJECT)
-    locating_subject_file = partial(utils.locating_file, parent_fol=SUBJECT_MRI_FOLDER)
+    locating_subject_file = partial(utils.locating_file, parent_fols=[SUBJECT_MRI_FOLDER])
     MMVT_SUBJECT_FOLDER = op.join(mmvt_dir, MRI_SUBJECT)
     _get_fif_name_cond = partial(get_file_name, fname_format=fname_format, file_type='fif',
         cleaning_method=cleaning_method, contrast=contrast, raw_fname_format=raw_fname_format,
@@ -1404,7 +1406,7 @@ def check_src(mri_subject, recreate_the_source_space=False, recreate_src_spacing
                 src_fname = utils.select_one_file(src_files, '', 'source files')
     if op.isfile(src_fname) and utils.get_parent_fol(src_fname, 3) != SUBJECTS_MRI_DIR:
         fol = utils.make_dir(op.join(SUBJECTS_MRI_DIR, mri_subject, 'bem'))
-        shutil.copy(src_fname, op.join(fol, utils.namebase_with_ext(src_fname)))
+        utils.copy_file(src_fname, op.join(fol, utils.namebase_with_ext(src_fname)))
     if not recreate_the_source_space and op.isfile(src_fname):
         src = mne.read_source_spaces(src_fname)
     else:
@@ -1430,7 +1432,7 @@ def check_src(mri_subject, recreate_the_source_space=False, recreate_src_spacing
     return src
 
 
-def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution=False, args={}):
+def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution=False, bem_ico=4, args={}):
     bem_sol = None
     if len(args) == 0:
         args = utils.Bag(
@@ -1445,12 +1447,24 @@ def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_be
     if not op.isfile(bem_fname) or recreate_bem_solution:
         # todo: check if the bem and src has same ico
         prepare_bem_surfaces(mri_subject, remote_subject_dir, args)
-        model = mne.make_bem_model(mri_subject, subjects_dir=SUBJECTS_MRI_DIR, ico=int(recreate_src_spacing[3:]))
-        bem_sol = mne.make_bem_solution(model)
+        surfaces = mne.make_bem_model(mri_subject, subjects_dir=SUBJECTS_MRI_DIR, ico=int(bem_ico))
+        mne.write_bem_surfaces(op.join(
+            SUBJECTS_MRI_DIR, mri_subject, 'bem', '{}-surfaces.fif'.format(mri_subject)), surfaces)
+        bem_sol = mne.make_bem_solution(surfaces)
         save_bem_solution(bem_sol, bem_fname)
     if bem_sol is None and op.isfile(bem_fname):
         bem_sol = read_bem_solution(bem_fname)
     return op.isfile(bem_fname), bem_sol
+
+
+def read_bem_surfaces(mri_subject):
+    from mne.io.constants import FIFF
+    intput_fname = op.join(SUBJECTS_MRI_DIR, mri_subject, 'bem',  '{}-surfaces.fif'.format(mri_subject))
+    surfaces = mne.read_bem_surfaces(intput_fname)
+    ids = {FIFF.FIFFV_BEM_SURF_ID_BRAIN: 'Brain',
+           FIFF.FIFFV_BEM_SURF_ID_SKULL: 'Skull',
+           FIFF.FIFFV_BEM_SURF_ID_HEAD: 'Head'}
+    print([ids[s['id']] for s in surfaces])
 
 
 def save_bem_solution(bem_sol, bem_fname):
@@ -1501,15 +1515,15 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
         err_msg = '''BEM files don't exist, you should create it first using mne_watershed_bem.
             For that you need to open a terminal, define SUBJECTS_DIR, SUBJECT, source MNE, and run
             mne_watershed_bem.
-            cshrc: setenv SUBJECT subject_name
-            basrc: export SUBJECT=subject_name
+            cshrc: setenv SUBJECT {0}
+            basrc: export SUBJECT={0}
             You can take a look here:
-            http://perso.telecom-paristech.fr/~gramfort/mne/MRC/mne_anatomical_workflow.pdf '''
+            http://perso.telecom-paristech.fr/~gramfort/mne/MRC/mne_anatomical_workflow.pdf '''.format(mri_subject)
         raise Exception(err_msg)
     if not bem_files_exist and watershed_files_exist:
         for bem_file, watershed_file in zip(bem_files, watershed_files):
             utils.remove_file(op.join(bem_fol, bem_file))
-            shutil.copy(op.join(bem_fol, 'watershed', watershed_file.format(mri_subject)),
+            utils.copy_file(op.join(bem_fol, 'watershed', watershed_file.format(mri_subject)),
                         op.join(bem_fol, bem_file))
     return [op.join(bem_fol, 'watershed', watershed_fname.format(mri_subject)) for watershed_fname in watershed_files]
 
@@ -1517,7 +1531,7 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
 def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', fwd_fname='', cor_fname='',
                           sub_corticals_codes_file='', usingMEG=True, usingEEG=True, calc_corticals=True,
                           calc_subcorticals=True, recreate_the_source_space=False, recreate_bem_solution=False,
-                          recreate_src_spacing='oct6', recreate_src_surface='white', overwrite_fwd=False,
+                          bem_ico=4, recreate_src_spacing='oct6', recreate_src_surface='white', overwrite_fwd=False,
                           remote_subject_dir='', n_jobs=4, args={}):
     fwd, fwd_with_subcortical = None, None
     raw_fname = get_raw_fname(raw_fname)
@@ -1530,13 +1544,14 @@ def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', 
                         remote_subject_dir, n_jobs)
         check_src_ply_vertices_num(src)
         bem_exist, bem = check_bem(
-            mri_subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution, args)
+            mri_subject, recreate_src_spacing, remote_subject_dir, recreate_bem_solution, bem_ico, args)
         sub_corticals = utils.read_sub_corticals_code_file(sub_corticals_codes_file)
         if '{cond}' not in evo_fname:
             if calc_corticals:
                 if overwrite_fwd or not op.isfile(fwd_fname):
                     fwd = _make_forward_solution(
                         src, raw_fname, evo_fname, cor_fname, usingMEG, usingEEG, n_jobs, bem=bem)
+                    print('Writing fwd solution to {}'.format(fwd_fname))
                     mne.write_forward_solution(fwd_fname, fwd, overwrite=True)
             if calc_subcorticals and len(sub_corticals) > 0:
                 # add a subcortical volumes
@@ -1620,7 +1635,7 @@ def _make_forward_solution(src, raw_fname, epo_fname, cor_fname, usingMEG=True, 
             bem_fname = utils.select_one_file(op.join(
                 SUBJECTS_MRI_DIR, MRI_SUBJECT, 'bem', '*-bem-sol.fif'), '', 'bem files')
             if op.isfile(bem_fname):
-                shutil.copy(bem_fname, BEM)
+                utils.copy_file(bem_fname, BEM)
             else:
                 raise Exception("Can't find the BEM file!")
 
@@ -3206,7 +3221,7 @@ def calc_labels_avg_per_cluster(subject, atlas, events, inverse_method, stc_name
         lables_mmvt_fname = op.join(MMVT_DIR, MRI_SUBJECT, 'meg', op.basename(labels_output_fname))
         np.savez(labels_output_fname, data=labels_data[hemi][extract_method],
                  names=labels_names, conditions=conditions)
-        shutil.copy(labels_output_fname, lables_mmvt_fname)
+        utils.copy_file(labels_output_fname, lables_mmvt_fname)
 
 
 def calc_labels_avg_per_condition(
@@ -3233,7 +3248,7 @@ def calc_labels_avg_per_condition(
 
         inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
         global_inverse_operator = False
-        if events is None:
+        if events is None or len(events) == 0:
             events = dict(all=0)
         if '{cond}' not in inv_fname:
             if not op.isfile(inv_fname):
@@ -3247,8 +3262,9 @@ def calc_labels_avg_per_condition(
         if do_plot:
             utils.make_dir(op.join(SUBJECT_MEG_FOLDER, 'figures'))
 
-        # if stcs is None:
-        #     stcs = get_stc_conds(events, hemi, inverse_method)
+        # todo: check why those lines were removed
+        # if stcs is None or len(stcs) == 0:
+        #     stcs = get_stc_conds(events, hemi, inverse_method, stc_hemi_template)
         conds_incdices = {cond_id:ind for ind, cond_id in zip(range(len(stcs)), events.values())}
         conditions = []
         labels_data = {}
@@ -3550,16 +3566,20 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
     return True
 
 
-def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True, sensors_type='mag', modality='meg'):
+def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True, sensors_type='mag', modality='meg',
+                       overwrite=False):
     try:
         from scipy.spatial import Delaunay
         from src.utils import trig_utils
+        mesh_ply_fname = op.join(MMVT_DIR, subject, modality, '{}_helmet.ply'.format(modality))
+        if op.isfile(mesh_ply_fname) and not overwrite:
+            print('{} mesh already exist!'.format(modality))
+            return True
         input_file = op.join(MMVT_DIR, subject, modality, '{}_{}sensors_positions.npz'.format(
             modality, '{}_'.format(sensors_type) if modality == 'meg' else ''))
         if not op.isfile(input_file):
             print('Can\'t find {}! Run the read_sensors_layout function first'.format(input_file))
             return False
-        mesh_ply_fname = op.join(MMVT_DIR, subject, modality, '{}_helmet.ply'.format(modality))
         faces_verts_out_fname = op.join(MMVT_DIR, subject, modality, '{}_faces_verts.npy'.format(modality))
         f = np.load(input_file)
         verts = f['pos']
@@ -3585,7 +3605,7 @@ def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True, sensors
 def find_trans_file(trans_file='', remote_subject_dir='', subject='', subjects_dir=''):
     subject = MRI_SUBJECT if subject == '' else subject
     subject_dir = SUBJECTS_MRI_DIR if subjects_dir == '' else subjects_dir
-    trans_file = COR if trans_file == '' else trans_file
+    # trans_file = COR if trans_file == '' else trans_file
     if not op.isfile(trans_file):
         # trans_files = glob.glob(op.join(subject_dir, subject, '**', '*COR*.fif'), recursive=True)
         trans_files = utils.find_recursive(op.join(subject_dir, subject), '*COR*.fif')
@@ -3815,7 +3835,7 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
             # prepare_subject_folder(
             #     mri_subject, args.remote_subject_dir, SUBJECTS_MRI_DIR,
             #     {op.join('mri', 'T1-neuromag', 'sets'): ['COR.fif']}, args)
-            cor_fname = get_cor_fname(args.cor_fname)
+            cor_fname = get_cor_fname(args.cor_fname) if args.cor_fname != '' else ''
             trans_file = find_trans_file(cor_fname, args.remote_subject_dir)
             if trans_file is None:
                 flags['make_forward_solution'] = False
@@ -3826,9 +3846,9 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
                 local_cor_fname = op.join(trans_fol, utils.namebase_with_ext(trans_file))
                 if not op.isfile(local_cor_fname) and utils.get_parent_fol(trans_file) != trans_fol:
                     # if trans_file != trans_fol:
-                    #     shutil.copy(trans_file, trans_fol)
+                    #     utils.copy_file(trans_file, trans_fol)
                     if trans_file != COR:
-                        shutil.copy(trans_file, local_cor_fname)
+                        utils.copy_file(trans_file, local_cor_fname)
                 args.cor_fname = local_cor_fname
             src_dic = dict(bem=['*-{}-{}*-src.fif'.format(
                 args.recreate_src_spacing[:3], args.recreate_src_spacing[-1])])
@@ -3847,7 +3867,7 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
             flags['make_forward_solution'], fwd, fwd_subs = make_forward_solution(
                 mri_subject, conditions, raw_fname, evo_fname, fwd_fname, args.cor_fname, sub_corticals_codes_file,
                 args.fwd_usingMEG, args.fwd_usingEEG, args.fwd_calc_corticals, args.fwd_calc_subcorticals,
-                args.fwd_recreate_source_space, args.recreate_bem_solution, args.recreate_src_spacing,
+                args.fwd_recreate_source_space, args.recreate_bem_solution, args.bem_ico, args.recreate_src_spacing,
                 args.recreate_src_surface, args.overwrite_fwd, args.remote_subject_dir, args.n_jobs, args)
 
         if utils.should_run(args, 'calc_inverse_operator') and flags.get('make_forward_solution', True):
@@ -3901,7 +3921,7 @@ def calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, fl
         stc_exist = all([utils.both_hemi_files_exist(stc_hemi_template.format(
             cond=cond, method=im, hemi='{hemi}')) for (im, cond) in product(args.inverse_method, conditions)])
         if stc_exist and not args.overwrite_stc:
-            return True, None, {}
+            return flags, None, {}
         if isinstance(inverse_method, Iterable) and not isinstance(inverse_method, str):
             inverse_method = inverse_method[0]
         inv_fname = get_inv_fname(args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG)
@@ -4084,7 +4104,9 @@ def calc_labels_avg_per_condition_wrapper(
                     args.overwrite_labels_data)
             return flags
 
-        conditions_keys = conditions.keys() if conditions is not None else ['all']
+        if conditions is None or len(conditions) == 0:
+            conditions = {1: 'all'}
+        conditions_keys = conditions.keys()
         if isinstance(inverse_method, Iterable) and not isinstance(inverse_method, str):
             inverse_method = inverse_method[0]
         args.inv_fname = get_inv_fname(args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG)
@@ -4094,7 +4116,9 @@ def calc_labels_avg_per_condition_wrapper(
         get_meg_files(subject, stc_fnames + [args.inv_fname], args, conditions)
         if stcs_conds is None or len(stcs_conds) == 0:
             stcs_conds = get_stc_conds(conditions, inverse_method, args.stc_hemi_template)
-            if stcs_conds is None:
+            if stcs_conds is None or len(stcs_conds) == 0:
+                print('Can\'t find the STCs files! template: {}, conditions: {}'.format(
+                    args.stc_hemi_template, conditions))
                 flags['calc_labels_avg_per_condition'] = False
                 return flags
         factor = 6 if modality == 'eeg' else 12  # micro V for EEG, fT (Magnetometers) and fT/cm (Gradiometers) for MEG
@@ -4192,7 +4216,7 @@ def calc_stc_diff(stc1_fname, stc2_fname, output_name):
     utils.make_dir(utils.get_parent_fol(output_name))
     for hemi in utils.HEMIS:
         if output_name != mmvt_fname:
-            shutil.copy('{}-{}.stc'.format(output_name, hemi),
+            utils.copy_file('{}-{}.stc'.format(output_name, hemi),
                         '{}-{}.stc'.format(mmvt_fname, hemi))
             print('Saving to {}'.format('{}-{}.stc'.format(mmvt_fname, hemi)))
 
@@ -4358,10 +4382,10 @@ def find_functional_rois_in_stc(
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
         labels=None, verts_dict=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
         save_func_labels=True, recreate_src_spacing='oct6', calc_cluster_contours=True, save_results=True,
-        n_jobs=6):
+        modality='meg', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
-    clusters_root_fol = op.join(MMVT_DIR, subject, 'meg', 'clusters')
+    clusters_root_fol = op.join(MMVT_DIR, subject, modality, 'clusters')
     # todo: Should check for an overwrite flag. Not sure why, if the folder isn't being deleted, the code doesn't work
     # utils.delete_folder_files(clusters_root_fol)
     utils.make_dir(clusters_root_fol)
@@ -4395,7 +4419,7 @@ def find_functional_rois_in_stc(
         stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
         verts = check_stc_with_ply(stc_t_smooth, subject=subject)
     if connectivity is None:
-        connectivity = load_connectivity(subject)
+        connectivity = anat.load_connectivity(subject)
     if verts_dict is None:
         verts_dict = utils.get_pial_vertices(subject, MMVT_DIR)
     if threshold_is_precentile:
@@ -4491,15 +4515,6 @@ def get_stc_data_and_vertices(stc, hemi):
     return (stc.lh_data, stc.lh_vertno) if hemi == 'lh' else (stc.rh_data, stc.rh_vertno)
 
 
-def load_connectivity(subject):
-    connectivity_fname = op.join(MMVT_DIR, subject, 'spatial_connectivity.pkl')
-    if not op.isfile(connectivity_fname):
-        from src.preproc import anatomy
-        anatomy.create_spatial_connectivity(subject)
-    connectivity_per_hemi = utils.load(connectivity_fname)
-    return connectivity_per_hemi
-
-
 def calc_cluster_labels(
         subject, mri_subject, stc, clusters, clusters_fol, extract_time_series_for_clusters=True,
         save_labels=True, extract_mode='mean_flip', src=None, inv_fname='', time_index=-1, fwd_usingMEG=True,
@@ -4560,7 +4575,7 @@ def calc_contours(subject, atlas_name, hemi, clusters_labels, clusters_labels_fo
     #     dest_annot_fname = op.join(clusters_labels_fol, utils.namebase_with_ext(annot_fname))
     #     if op.isfile(dest_annot_fname):
     #         os.remove(dest_annot_fname)
-    #     shutil.copy(annot_fname, dest_annot_fname)
+    #     utils.copy_file(annot_fname, dest_annot_fname)
     # else:
     #     print('calc_contours: No annot file!')
     contours = anat.calc_labeles_contours(
@@ -4929,12 +4944,12 @@ def get_digitization_points(subject, raw_fname):
 
 def stc_to_contours(subject, stc_name, pick_t=0, thresholds_min=None, thresholds_max=None, thresholds_dx=1,
                     min_cluster_size=10, atlas='', clusters_label='', find_clusters_overlapped_labeles=False,
-                    mri_subject='', stc_t_smooth=None, n_jobs=4):
+                    mri_subject='', stc_t_smooth=None, modality='meg', n_jobs=4):
     if mri_subject == '':
         mri_subject = subject
-    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
+    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality, 'clusters'))
     output_fname = op.join(clusters_root_fol, '{}_contoures_{}.pkl'.format(stc_name, pick_t))
-    connectivity = load_connectivity(subject)
+    connectivity = anat.load_connectivity(subject)
     if stc_t_smooth is None:
         stc_t_smooth_fname = op.join(clusters_root_fol, '{}_{}_smooth'.format(stc_name, pick_t))
         stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
@@ -4976,7 +4991,7 @@ def stc_to_contours(subject, stc_name, pick_t=0, thresholds_min=None, thresholds
             subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=False,
             min_cluster_size=min_cluster_size, time_index=pick_t, extract_time_series_for_clusters=False,
             stc=stc_t_smooth, stc_t_smooth=stc_t_smooth, verts=verts, connectivity=connectivity, verts_dict=verts,
-            find_clusters_overlapped_labeles=find_clusters_overlapped_labeles,
+            find_clusters_overlapped_labeles=find_clusters_overlapped_labeles, modality=modality,
             verts_neighbors_dict=verts_neighbors_dict, save_results=False, clusters_label=clusters_label,
             n_jobs=n_jobs)
         for hemi in utils.HEMIS:
@@ -5212,7 +5227,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'stc_to_contours' in args.function:
         flags['stc_to_contours'], _ = stc_to_contours(
             subject, args.stc_name, args.peak_stc_time_index, args.thresholds_min, args.thresholds_max,
-            args.thresholds_dx, args.mri_subject, args.n_jobs)
+            args.thresholds_dx, args.mri_subject, 'meg', args.n_jobs)
 
     return flags
 
@@ -5308,6 +5323,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--fwd_calc_subcorticals', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--fwd_recreate_source_space', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--recreate_bem_solution', help='', required=False, default=0, type=au.is_true)
+    parser.add_argument('--bem_ico', help='', required=False, default=4, type=int)
     parser.add_argument('--recreate_src_spacing', help='', required=False, default='oct6')
     parser.add_argument('--recreate_src_surface', help='', required=False, default='white')
     parser.add_argument('--surf_name', help='', required=False, default='pial')
@@ -5336,7 +5352,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--calc_source_band_induced_power', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--apply_on_raw', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--extract_mode', help='', required=False, default='mean_flip', type=au.str_arr_type)
-    parser.add_argument('--read_only_from_annot', help='', required=False, default=1, type=au.is_true)
+    parser.add_argument('--read_only_from_annot', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--colors_map', help='', required=False, default='OrRd')
     parser.add_argument('--save_smoothed_activity', help='', required=False, default=True, type=au.is_true)
     parser.add_argument('--normalize_data', help='', required=False, default=0, type=au.is_true)

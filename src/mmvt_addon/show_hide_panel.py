@@ -110,8 +110,8 @@ def rotate_brain(dx=None, dy=None, dz=None, keep_rotating=False, save_image=Fals
     rv3d.view_rotation.rotate(mathutils.Euler((math.radians(d) for d in (dx, dy, dz))))
     if bpy.context.scene.rotate_and_save or save_image:
         _addon().save_image('rotation', view_selected=bpy.context.scene.save_selected_view)
-    if bpy.context.scene.rotate_and_render or render_image:
-        _addon().render_image('rotation')
+    # if bpy.context.scene.rotate_and_render or render_image:
+    #     _addon().render_image('rotation')
     if bpy.context.scene.rotate_360 and any([ShowHideObjectsPanel.rotate_dxyz[k] >= 360 for k in range(3)]):
         stop_rotating()
     elif keep_rotating:

@@ -111,7 +111,7 @@ def arrange_data(subjects):
                     output = utils.run_script('mri_convert {} {}'.format(target_file, new_target_file))
                 # utils.remove_link(target_file)
                 # if not op.isfile(target_file):
-                #     shutil.copy(fmri_files[0], target_file)
+                #     utils.copy_file(fmri_files[0], target_file)
             elif len(fmri_files) == 0:
                 print('No *_rest_reorient_skip_faln_mc.nii.gz files were found in {}!'.format(bold_fol))
                 continue
@@ -150,7 +150,7 @@ def copy_fmri_ts_files(subjects, delete_previous_files=True):
                 for old_fname in glob.glob(op.join(FMRI_DIR, sub, '*laus125_*.txt')):
                     os.remove(old_fname)
             print('Copy {} to {}'.format(ts_file, target_fname))
-            shutil.copy(ts_file, target_fname)
+            utils.copy_file(ts_file, target_fname)
 
 
 if __name__ == '__main__':

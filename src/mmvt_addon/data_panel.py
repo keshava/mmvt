@@ -1,6 +1,7 @@
 import bpy
 import bpy_extras
 import os.path as op
+import sys
 import glob
 import numpy as np
 import time
@@ -1407,7 +1408,34 @@ def data_draw(self, context):
         else:
             col.operator(CreateEEGMesh.bl_idname, text="Import EEG mesh", icon='COLOR_GREEN')
 
+    if DataMakerPanel.pycharm_fol != '':
+        col.operator(Debug.bl_idname, text="Debug", icon='GHOST_ENABLED')
 
+
+class Debug(bpy.types.Operator):
+    bl_idname = "mmvt.debug"
+    bl_label = "Debug"
+    bl_description = 'Connects to a PyCharm debugger on localhost:1090'
+    bl_options = {"UNDO"}
+
+    def execute(self, context):
+        fol = op.join(DataMakerPanel.pycharm_fol, 'debug-eggs')
+        eggpath = op.join(fol, 'pydevd-pycharm.egg')
+        if not op.exists(eggpath):
+            eggpath = op.join(fol, 'pycharm-debug-py3k.egg')
+        if not op.exists(eggpath):
+            self.report({'ERROR'}, 'Unable to find debug egg at {}. Configure the addon properties '
+                                   'in the User Preferences menu.'.format(eggpath))
+            return {'CANCELLED'}
+
+        if not any('pycharm-debug' in p for p in sys.path):
+            print('Adding eggpath to the path: {}'.format(eggpath))
+            sys.path.append(eggpath)
+
+        import pydevd
+        print('Waiting to connects to a PyCharm debugger on localhost:1090')
+        pydevd.settrace('localhost', port=1090, stdoutToServer=True, stderrToServer=True)
+        return {'FINISHED'}
 
 
 class AddDataToEEGSensors(bpy.types.Operator):
@@ -1505,6 +1533,7 @@ class DataMakerPanel(bpy.types.Panel):
     electrodes_data_exist = False
     meg_sensors_data = None
     meg_sensors_meta_data = None
+    pycharm_fol = ''
 
     def draw(self, context):
         data_draw(self, context)
@@ -1561,6 +1590,9 @@ def init(addon):
         bpy.context.scene.fMRI_dynamic_files = files_names[0]
     bpy.context.scene.add_meg_labels_data_overwrite = True
     # _addon().create_inflated_curv_coloring()
+    pycharm_fol = mu.get_link_dir(mu.get_links_dir(), 'pycharm')
+    if op.isdir(pycharm_fol):
+        DataMakerPanel.pycharm_fol = pycharm_fol
     DataMakerPanel.init = True
     register()
 
@@ -1647,6 +1679,7 @@ def register():
         bpy.utils.register_class(CreateMEGMesh)
         bpy.utils.register_class(AnatomyPreproc)
         bpy.utils.register_class(ChooseElectrodesPositionsFile)
+        bpy.utils.register_class(Debug)
         # bpy.utils.register_class(FixBrainMaterials)
         # bpy.utils.register_class(AddOtherSubjectMEGEvokedResponse)
         # bpy.utils.register_class(SelectExternalMEGEvoked)
@@ -1677,6 +1710,7 @@ def unregister():
         bpy.utils.unregister_class(CreateEEGMesh)
         bpy.utils.unregister_class(AnatomyPreproc)
         bpy.utils.unregister_class(ChooseElectrodesPositionsFile)
+        bpy.utils.unregister_class(Debug)
         # bpy.utils.unregister_class(FixBrainMaterials)
         # bpy.utils.unregister_class(AddOtherSubjectMEGEvokedResponse)
         # bpy.utils.unregister_class(SelectExternalMEGEvoked)

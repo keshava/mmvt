@@ -124,7 +124,7 @@ def read_meg_layouts(_args, remote_raw_fname=''):
             utils.make_dir(op.join(output_fol, subject))
             output_fname = op.join(output_fol, subject, utils.namebase_with_ext(sensors_fname))
             if not op.isfile(output_fname):
-                shutil.copyfile(sensors_fname, output_fname)
+                utils.copy_file(sensors_fname, output_fname)
 
     print('{}/{} subjects with no sensors:'.format(len(bad_subjects), len(args.subject)))
     print(bad_subjects)
@@ -161,7 +161,7 @@ def read_eeg_layouts(_args, remote_raw_fname=''):
             utils.make_dir(op.join(output_fol, subject))
             output_fname = op.join(output_fol, subject, utils.namebase_with_ext(sensors_fname))
             if not op.isfile(output_fname):
-                shutil.copyfile(sensors_fname, output_fname)
+                utils.copy_file(sensors_fname, output_fname)
 
     print('{}/{} subjects with no sensors:'.format(len(bad_subjects), len(args.subject)))
     print(bad_subjects)
