@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="images">
+    <file>images/transperent_logo_50px.png</file>
+    <file>images/icons8-about-50.png</file>
+    <file>images/icons8-delete-48.png</file>
+    <file>images/icons8-help-50.png</file>
+    <file>images/transperent_logo_small.png</file>
+  </qresource>
+</RCC>
