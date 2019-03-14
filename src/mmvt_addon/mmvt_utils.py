@@ -2696,7 +2696,8 @@ def make_link(source, target, overwrite=False, copy_if_fails=True):
             import ctypes
             kdll = ctypes.windll.LoadLibrary("kernel32.dll")
             ret = kdll.CreateSymbolicLinkA(source, target, 0)
-            if not ret and copy_if_fails:
+            if (not ret or op.getsize(target) == 0) and copy_if_fails:
+                remove_file(target)
                 shutil.copy(source, target)
             return op.exists(target)
         except:
@@ -2840,7 +2841,7 @@ def find_hemi_using_vertices_num(fname):
                 hemi = 'lh'
             else:
                 print("The vertices num ({}) in the nii file ({}) doesn't match any hemi! (rh:{}, lh:{})".format(
-                    vertices_num, fname, rh_verts_num, lh_verts_num))
+                    vertices_num, fname, verts_num['rh'], verts_num['lh']))
                 hemi = ''
     return hemi
 
