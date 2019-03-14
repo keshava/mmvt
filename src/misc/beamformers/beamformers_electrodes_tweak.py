@@ -28,7 +28,7 @@ from sklearn.linear_model import Ridge, RidgeCV, Lasso, LassoCV, ElasticNetCV
 
 # from src import dtw
 from src.utils import utils
-from src.beamformers import tf_dics as tf
+from src.misc.beamformers import tf_dics as tf
 from src.preproc import meg
 from src.preproc.meg import (calc_cov, calc_csd, get_cond_fname, get_file_name, make_forward_solution_to_specific_points, TASKS)
 

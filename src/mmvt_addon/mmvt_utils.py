@@ -851,7 +851,7 @@ def elec_group_number(elec_name, bipolar=False, num_to_int=True):
         elec_name = elec_name.strip()
         num = re.sub('\D', ',', elec_name).split(',')[-1]
         group = elec_name[:elec_name.rfind(num)]
-        if num_to_int:
+        if num_to_int and is_int(num):
             num = int(num)
         return group.strip(), num if num != '' else ''
 
