@@ -631,7 +631,8 @@ def plot_points(subject, verts, pts=None, colors=None, fig_name='', ax=None):
         plt.close()
 
 
-def load_surf_files(subject, surf_template_fname, task='', overwrite_surf_data=False):
+def load_surf_files(subject, surf_template_fname, task='', overwrite_surf_data=False,
+                    vertices_num=None):
     utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
     fol = op.join(FMRI_DIR, task, subject) if task != '' else op.join(FMRI_DIR, subject)
     surf_full_output_fname = op.join(fol, surf_template_fname).replace('{subject}', subject)
@@ -665,7 +666,10 @@ def load_surf_files(subject, surf_template_fname, task='', overwrite_surf_data=F
         if x.ndim == 2:
             print('The nii file has another dimension ({})! Taking the first.'.format(x.shape[1]))
             x = x[:, 0]
-        morph_from_subject = check_vertices_num(subject, hemi, x)
+        if not vertices_num is None and x.shape[0] == vertices_num[hemi]:
+            morph_from_subject = subject
+        else:
+            morph_from_subject = check_vertices_num(subject, hemi, x)
         if subject != morph_from_subject:
             morphed_fmri_fname = '{0}_morphed_to_{2}{1}'.format(*op.splitext(fmri_fname), subject)
             if not op.isfile(morphed_fmri_fname):
@@ -1255,6 +1259,8 @@ def find_template_files(template_fname, file_types=('mgz', 'mgh', 'nii.gz', 'nii
 
 def find_hemi_files_from_template(template_fname, file_types=('mgz', 'mgh', 'nii.gz', 'nii', 'npy'),
                                   convert_to_mgz=True):
+    if utils.is_windows:
+        convert_to_mgz = False
     try:
         if isinstance(file_types, str):
             file_types = [file_types]

@@ -31,10 +31,10 @@ def electrodes_hemis_update(self, context):
 
 def elc_size_update(self, context):
     try:
-        elc = bpy.context.selected_objects[0]
-        elc.scale[0] = bpy.context.scene.elc_size
-        elc.scale[1] = bpy.context.scene.elc_size
-        elc.scale[2] = bpy.context.scene.elc_size
+        for elec_obj in ElecsPanel.parent.children:
+            elec_obj.scale[0] = bpy.context.scene.elc_size
+            elec_obj.scale[1] = bpy.context.scene.elc_size
+            elec_obj.scale[2] = bpy.context.scene.elc_size
     except:
         pass
 
@@ -631,7 +631,6 @@ def elecs_draw(self, context):
         if ElecsPanel.electrodes_labeling_file_exist:
             layout.prop(context.scene, "electrode_rotate", text="Rotate view on click")
 
-        # layout.prop(context.scene, "elc_size", text="")
         row = layout.row(align=True)
         row.prop(context.scene, "show_electrodes_groups_leads", text="Show leads")
         leads_obj = bpy.data.objects.get('leads', None)
@@ -662,6 +661,7 @@ def elecs_draw(self, context):
         row.prop(context.scene, "electrodes_color_only_selected", text='Only selected')
         row.prop(context.scene, 'electrodes_color', text='')
         layout.operator(ExportElectrodes.bl_idname, text="Export", icon='EXPORT')
+        layout.prop(context.scene, "elc_size", text="size")
 
     layout.operator(ClearElectrodes.bl_idname, text="Clear", icon='PANEL_CLOSE')
     layout.prop(context.scene, 'electrodes_more_settings', text='More settings')
@@ -864,7 +864,7 @@ bpy.types.Scene.leads = bpy.props.EnumProperty(items=[], update=leads_update,
 bpy.types.Scene.electrodes_what_to_color = bpy.props.EnumProperty(
     items=[('probs', 'probabilities', '', 1), ('verts', 'vertices', '', 2)], description="what to color",
     update=what_to_color_update)
-bpy.types.Scene.elc_size = bpy.props.FloatProperty(description="", update=elc_size_update)
+bpy.types.Scene.elc_size = bpy.props.FloatProperty(min=0.1, description="", update=elc_size_update)
 bpy.types.Scene.show_electrodes_groups_leads = bpy.props.BoolProperty(default=False,
     update=show_electrodes_groups_leads_update, description='Shows the leads connecting the electrodes')
 bpy.types.Scene.electrodes_leads_color = bpy.props.FloatVectorProperty(
