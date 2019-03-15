@@ -7,13 +7,6 @@ import itertools
 import time
 import re
 import nibabel as nib
-try:
-    import matplotlib.pyplot as plt
-    import matplotlib
-    import matplotlib.image as mpimg
-    import matplotlib.cm as cmx
-except:
-    print('No matplotlib')
 import subprocess
 import functools
 from functools import partial, reduce
@@ -143,6 +136,9 @@ def delete_folder_files(fol):
 
 
 def get_scalar_map(x_min, x_max, color_map='jet'):
+    import matplotlib.pyplot as plt
+    import matplotlib.colors
+    import matplotlib.cm as cmx
     cm = plt.get_cmap(color_map)
     cNorm = matplotlib.colors.Normalize(vmin=x_min, vmax=x_max)
     return cmx.ScalarMappable(norm=cNorm, cmap=cm)
@@ -1159,6 +1155,8 @@ def calc_PCA(X, n_components=3):
 
 
 def gradient_scatter3d(X, colors_data, colorsMap='hot', do_show=True):
+    import matplotlib.colors
+    import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
     import matplotlib.cm as cmx
     cm = plt.get_cmap(colorsMap)
@@ -1176,6 +1174,7 @@ def gradient_scatter3d(X, colors_data, colorsMap='hot', do_show=True):
 
 def plot_3d_scatter(X, names=None, labels=None, classifier=None, labels_indices=[], colors=None, legend_labels=[],
                     title='', fname='', do_show=True):
+    import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D, proj3d
     fig = plt.figure()
     ax = Axes3D(fig)
@@ -1219,6 +1218,7 @@ def plot_3d_scatter(X, names=None, labels=None, classifier=None, labels_indices=
 
 
 def plot_2d_scatter(X, names=None, labels=None, classifier=None):
+    import matplotlib.pyplot as plt
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
     ax.scatter(X[:, 0], X[:, 1])
@@ -1255,6 +1255,8 @@ def add_annotation(ax, text, x, y, z=None):
 def calc_clusters_bic(X, n_components=0, do_plot=True):
     from sklearn import mixture
     import itertools
+    if do_plot:
+        import matplotlib.pyplot as plt
 
     lowest_bic = np.infty
     bic = []
@@ -1677,6 +1679,8 @@ def get_hemi_indifferent_rois(rois):
 
 
 def show_image(image_fname):
+    import matplotlib.pyplot as plt
+    import matplotlib.image as mpimg
     image = mpimg.imread(image_fname)
     plt.axis("off")
     plt.imshow(image)

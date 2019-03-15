@@ -8,7 +8,6 @@ import shutil
 import itertools
 from scipy.spatial.distance import cdist
 import fnmatch
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from src.utils import utils
@@ -504,6 +503,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
             conn_std = d['conn_std']
         static_con_fig_fname = utils.change_fname_extension(static_output_mat_fname, 'png')
         if not op.isfile(static_con_fig_fname) and args.do_plot_static_conn:
+            import matplotlib.pyplot as plt
             fig = plt.figure()
             ax = fig.add_subplot(111)
             cax = ax.matshow(static_conn)
