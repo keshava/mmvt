@@ -1423,6 +1423,7 @@ def check_src(mri_subject, recreate_the_source_space=False, recreate_src_spacing
                 src = mne.setup_source_space(MRI_SUBJECT, spacing=recreate_src_spacing, surface=recreate_src_surface,
                                              subjects_dir=SUBJECTS_MRI_DIR, n_jobs=n_jobs)
         else:
+            print(traceback.format_exc())
             raise Exception("Can't calculate the fwd solution without the source")
     return src
 
