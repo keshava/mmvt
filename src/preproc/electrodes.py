@@ -152,12 +152,14 @@ def calc_electrodes_types(labels, pos, electrodes_type=None):
 
 def grid_or_depth(data, electrodes_type=None):
     if data.shape[1] == 5:
-        electrodes_group_type = [None] * data.shape[0]
+        # electrodes_group_type = [None] * data.shape[0]
+        electrodes_group_type = np.empty((data.shape[0]))
         for ind, elc_type in enumerate(data[:, 4]):
             electrodes_group_type[ind] = GRID if elc_type in ['grid', 'strip'] else DEPTH
     else:
         pos = data[:, 1:4].astype(float)
-        return calc_electrodes_types(data[:, 0], pos, electrodes_type)
+        electrodes_group_type = calc_electrodes_types(data[:, 0], pos, electrodes_type)
+    return electrodes_group_type
 
 
 def read_electrodes_file(subject, bipolar, postfix='', snap=False, electrodes_type=None):
