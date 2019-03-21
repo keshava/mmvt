@@ -242,8 +242,7 @@ def slice_brain(cut_pos=None, save_image=False, render_image=False):
         mask_object_with_cube(inflated_object)
     try:
         #  TODO  Noam this is where I slice the head object.
-        slice_seghead = False
-        if slice_seghead:
+        if bpy.context.scene.slice_seghead:
             # if we need to slice the head :
             mask_object_with_cube(bpy.data.objects['seghead'])
         else:
