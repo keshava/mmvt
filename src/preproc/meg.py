@@ -16,12 +16,6 @@ from collections import Counter
 import inspect
 import copy
 import tqdm
-
-try:
-    import matplotlib.pyplot as plt
-except:
-    pass
-
 from mne.minimum_norm import (make_inverse_operator, apply_inverse,
                               write_inverse_operator, read_inverse_operator)
 from mne.minimum_norm.inverse import _prepare_forward
@@ -921,6 +915,7 @@ def plot_psds(subject, power_spectrum, freqs, labels, cond_ind, cond_name, plots
 
 
 def plot_label_psd(psd, freqs, label, cond_name, plots_fol):
+    import matplotlib.pyplot as plt
     psd_mean = psd.mean(0)
     psd_std = psd.std(0)
     plt.plot(freqs, psd_mean, color='k')
@@ -1428,6 +1423,7 @@ def check_src(mri_subject, recreate_the_source_space=False, recreate_src_spacing
                 src = mne.setup_source_space(MRI_SUBJECT, spacing=recreate_src_spacing, surface=recreate_src_surface,
                                              subjects_dir=SUBJECTS_MRI_DIR, n_jobs=n_jobs)
         else:
+            print(traceback.format_exc())
             raise Exception("Can't calculate the fwd solution without the source")
     return src
 
@@ -1887,7 +1883,10 @@ def calc_inverse_operator(
                 noise_cov = read_noise_cov(noise_cov_fname)
             if noise_cov is None:
                 if use_empty_room_for_noise_cov:
-                    raw_empty_room = mne.io.read_raw_fif(empty_fname) #, add_eeg_ref=False)
+                    try:
+                        raw_empty_room = mne.io.read_raw_fif(empty_fname) #, add_eeg_ref=False)
+                    except:
+                        raw_empty_room = mne.read_evokeds(empty_fname)[0]
                     noise_cov = mne.compute_raw_covariance(raw_empty_room, tmin=0, tmax=None)
                     noise_cov.save(noise_cov_fname)
                 elif use_raw_for_noise_cov:
@@ -2263,6 +2262,8 @@ def dipoles_fit(dipoles_times, dipoloes_title, evokes=None, noise_cov_fname='', 
                 n_jobs=6):
     from mne.forward import make_forward_dipole
     import nibabel as nib
+    if do_plot:
+        import matplotlib.pyplot as plt
 
     if noise_cov_fname == '':
         noise_cov_fname = NOISE_COV
@@ -2626,6 +2627,7 @@ def x_opertor_exists(operator, region, events):
 
 
 def plot_sub_cortical_activity(events, sub_corticals_codes_file, inverse_method='dSPM', regions=None, all_vertices=False):
+    import matplotlib.pyplot as plt
     lut = utils.read_freesurfer_lookup_table()
     if sub_corticals_codes_file is None:
         sub_corticals = regions
@@ -2656,6 +2658,7 @@ def plot_sub_cortical_activity(events, sub_corticals_codes_file, inverse_method=
 def save_subcortical_activity_to_blender(sub_corticals_codes_file, events, stat, inverse_method='dSPM',
         norm_by_percentile=True, norm_percs=(1,99), do_plot=False):
     if do_plot:
+        import matplotlib.pyplot as plt
         plt.figure()
 
     sub_corticals = utils.read_sub_corticals_code_file(sub_corticals_codes_file)
@@ -2706,6 +2709,8 @@ def save_subcortical_activity_to_blender(sub_corticals_codes_file, events, stat,
 
 
 # def plotActivationTS(stcs_meg):
+#     import matplotlib.pyplot as plt
+#
 #     plt.close('all')
 #     plt.figure(figsize=(8, 6))
 #     name = 'MEG'
@@ -2717,6 +2722,7 @@ def save_subcortical_activity_to_blender(sub_corticals_codes_file, events, stat,
 #
 #
 # def plot3DActivity(stc=None):
+#     import matplotlib.pyplot as plt
 #     if (stc is None):
 #         stc = read_source_estimate(STC)
 #     # Plot brain in 3D with PySurfer if available. Note that the subject name
@@ -3230,6 +3236,9 @@ def calc_labels_avg_per_condition(
         factor=1, inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, read_only_from_annot=True, task='',
         overwrite=False, do_plot=False, n_jobs=1):
 
+    if do_plot:
+        import matplotlib.pyplot as plt
+
     def _check_all_files_exist():
         return all([op.isfile(op.join(MMVT_DIR, MRI_SUBJECT, 'meg', op.basename(
             get_labels_data_fname(labels_data_template, im, task, atlas, em, hemi))))
@@ -3376,6 +3385,9 @@ def save_labels_data(labels_data, hemi, labels_names, atlas, conditions, extract
 
 
 def calc_power_spectrum(subject, events, args, do_plot=False):
+    if do_plot:
+        import matplotlib.pyplot as plt
+
     info = get_info(args.info_fname, args.evo_fname, args.raw_fname)
     if info is None:
         print('calc_power_spectrum: Can\'t find the MEG info file!')
@@ -3653,6 +3665,7 @@ def read_trans(fname):
         print('Not a trans file')
 
 # def plot_labels_data(plot_each_label=False):
+#     import matplotlib.pyplot as plt
 #     plt.close('all')
 #     for hemi in HEMIS:
 #         plt.figure()
@@ -3687,6 +3700,8 @@ def check_both_hemi_in_stc(events, inverse_method):
 
 
 def check_labels():
+    import matplotlib.pyplot as plt
+
     data, names = [], []
     for hemi in HEMIS:
         # todo: What?
@@ -4077,6 +4092,7 @@ def _load_labels_data_parallel(p):
 
 
 def plot_label_data(label_data, label, em, labels_output_fol):
+    import matplotlib.pyplot as plt
     plt.figure()
     plt.plot(label_data)
     plt.title('{} {}'.format(label, em))
@@ -4595,7 +4611,7 @@ def fit_ica(raw=None, n_components=0.95, method='fastica', ica_fname='', raw_fna
         ica = read_ica(ica_fname)
     else:
         ica = ICA(n_components=n_components, method=method)
-        raw.filter(low_freq, high_freq, n_jobs=n_jobs, l_trans_bandwidth=0.5, h_trans_bandwidth=0.5,
+        raw.filter(filter_low_freq, filter_high_freq, n_jobs=n_jobs, l_trans_bandwidth=0.5, h_trans_bandwidth=0.5,
                    filter_length='10s', phase='zero-double')
         picks = mne.pick_types(raw.info, meg=True, eeg=False, eog=False, ref_meg=False,
                                stim=False, exclude='bads')

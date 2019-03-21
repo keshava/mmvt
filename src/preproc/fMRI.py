@@ -10,36 +10,6 @@ import traceback
 from collections import defaultdict
 import functools
 from tqdm import tqdm
-
-try:
-    from sklearn.neighbors import BallTree
-except:
-    print('No sklearn!')
-
-try:
-    import mne.label
-    import mne.stats.cluster_level as mne_clusters
-    MNE_EXIST = True
-except:
-    MNE_EXIST = False
-
-try:
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import Axes3D
-    MATPLOTLIB_EXIST = True
-except:
-    MATPLOTLIB_EXIST = False
-    print('No matplotlib!')
-
-try:
-    from surfer import Brain
-    from surfer import viz
-    # from surfer import project_volume_data
-    SURFER = True
-except:
-    SURFER = False
-
-
 from src.utils import utils
 from src.utils import freesurfer_utils as fu
 from src.preproc import meg as meg
@@ -61,6 +31,8 @@ _mri_robust_register = 'mri_robust_register --mov {fsl_input}.nii --dst $SUBJECT
 
 
 def get_hemi_data(subject, hemi, source, surf_name='pial', name=None, sign="abs", min=None, max=None):
+    from surfer import Brain
+    from surfer import viz
     brain = Brain(subject, hemi, surf_name, curv=False, offscreen=True)
     print('Brain {} verts: {}'.format(hemi, brain.geo[hemi].coords.shape[0]))
     hemi = brain._check_hemi(hemi)
@@ -233,6 +205,7 @@ def find_clusters(subject, surf_template_fname, t_val, atlas, min_cluster_max=2,
     # if input_fol == '':
     #     input_fol = op.join(MMVT_DIR, subject, 'fmri')
     # input_fname = op.join(input_fol, 'fmri_{}_{}_{}.npy'.format(task, contrast_name, '{hemi}'))
+    import mne.stats.cluster_level as mne_clusters
 
     if utils.both_hemi_files_exist(surf_template_fname):
         surf_full_input_fname = surf_template_fname
@@ -326,6 +299,7 @@ def contrast_to_contours(subject, contrast_name, thresholds_min=None, thresholds
 
 
 # def find_clusters_tval_hist(subject, contrast_name, output_fol, input_fol='', n_jobs=1):
+#     import mne.stats.cluster_level as mne_clusters
 #     contrast, connectivity, _ = init_clusters(subject, contrast_name, input_fol)
 #     clusters = {}
 #     tval_values = np.arange(2, 20, 0.1)
@@ -345,6 +319,7 @@ def contrast_to_contours(subject, contrast_name, thresholds_min=None, thresholds
 
 
 def load_clusters_tval_hist(input_fol):
+    import matplotlib.pyplot as plt
     from itertools import chain
     clusters = utils.load(op.join(input_fol, 'clusters_tval_hist.pkl'))
     res = []
@@ -400,6 +375,8 @@ def create_functional_rois(subject, contrast_name, clusters_labels_fname='', fun
 
 
 def show_fMRI_using_pysurfer(subject, input_file, hemi='both'):
+    from surfer import Brain
+    from surfer import viz
     brain = Brain(subject, hemi, "pial", curv=False, offscreen=False)
     brain.toggle_toolbars(True)
     if hemi=='both':
@@ -598,6 +575,7 @@ def calc_subs_activity(subject, fmri_file_template, measures=['mean'], subcortic
 
 
 def calc_vert_vals(verts, pts, vals, method='max', k_points=100):
+    from sklearn.neighbors import BallTree
     ball_tree = BallTree(pts)
     k_points = min([k_points, len(pts)])
     dists, pts_inds = ball_tree.query(verts, k=k_points, return_distance=True)
@@ -617,6 +595,8 @@ def calc_vert_vals(verts, pts, vals, method='max', k_points=100):
 
 
 def plot_points(subject, verts, pts=None, colors=None, fig_name='', ax=None):
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
     if ax is None:
         fig = plt.figure()
         ax = Axes3D(fig)
@@ -631,7 +611,8 @@ def plot_points(subject, verts, pts=None, colors=None, fig_name='', ax=None):
         plt.close()
 
 
-def load_surf_files(subject, surf_template_fname, task='', overwrite_surf_data=False):
+def load_surf_files(subject, surf_template_fname, task='', overwrite_surf_data=False,
+                    vertices_num=None):
     utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
     fol = op.join(FMRI_DIR, task, subject) if task != '' else op.join(FMRI_DIR, subject)
     surf_full_output_fname = op.join(fol, surf_template_fname).replace('{subject}', subject)
@@ -665,7 +646,10 @@ def load_surf_files(subject, surf_template_fname, task='', overwrite_surf_data=F
         if x.ndim == 2:
             print('The nii file has another dimension ({})! Taking the first.'.format(x.shape[1]))
             x = x[:, 0]
-        morph_from_subject = check_vertices_num(subject, hemi, x)
+        if not vertices_num is None and x.shape[0] == vertices_num[hemi]:
+            morph_from_subject = subject
+        else:
+            morph_from_subject = check_vertices_num(subject, hemi, x)
         if subject != morph_from_subject:
             morphed_fmri_fname = '{0}_morphed_to_{2}{1}'.format(*op.splitext(fmri_fname), subject)
             if not op.isfile(morphed_fmri_fname):
@@ -739,6 +723,8 @@ def mask_volume(volume, mask, masked_volume):
 
 
 def load_and_show_npy(subject, npy_file, hemi):
+    from surfer import Brain
+    from surfer import viz
     x = np.load(npy_file)
     brain = Brain(subject, hemi, "pial", curv=False, offscreen=False)
     brain.toggle_toolbars(True)
@@ -1020,6 +1006,7 @@ def calc_labels_mean_freesurfer(
 @utils.check_for_freesurfer
 def calc_volumetric_labels_mean(subject, atlas, fmri_file_template, measures=['mean'],
                                 overwrite_aseg_file=False, norm_percs=(1, 99), print_only=False, args={}):
+    import mne.label
     output_fname_hemi = op.join(
         MMVT_DIR, subject, 'fmri', 'labels_data_{}_volume_{}_{}.npz'.format(atlas, '{measure}', '{hemi}'))
     minmax_fname_template = op.join(
@@ -1255,6 +1242,8 @@ def find_template_files(template_fname, file_types=('mgz', 'mgh', 'nii.gz', 'nii
 
 def find_hemi_files_from_template(template_fname, file_types=('mgz', 'mgh', 'nii.gz', 'nii', 'npy'),
                                   convert_to_mgz=True):
+    if utils.is_windows:
+        convert_to_mgz = False
     try:
         if isinstance(file_types, str):
             file_types = [file_types]

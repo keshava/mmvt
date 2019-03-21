@@ -550,7 +550,36 @@ def get_atlas():
                         "'_atlas-name.blend' (sub1_dkt.blend for example)")
         return ''
     atlas = blend_fname.split('_')[-1]
-    return get_real_atlas_name(atlas)
+    real_atlas_name = get_real_atlas_name(atlas)
+    real_atlas_name = fix_atlas_name(get_user(), real_atlas_name, get_subjects_dir())
+    print('Real atlas name {}'.format(real_atlas_name))
+    return real_atlas_name
+
+
+def atlas_exist(subject, atlas, subjects_dir):
+    return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
+
+
+def get_atlas_template(subject, atlas, subjects_dir):
+    return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
+
+
+def fix_atlas_name(subject, atlas, subjects_dir=''):
+    if atlas in ['dkt', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
+        if os.environ.get('FREESURFER_HOME', '') != '':
+            if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
+                atlas = 'aparc.DKTatlas'
+            elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
+                atlas = 'aparc.DKTatlas40'
+        else:
+            if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
+                    atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
+                atlas = 'aparc.DKTatlas40'
+            elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
+                    atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
+                atlas = 'aparc.DKTatlas'
+    return atlas
+
 
 
 # def get_real_atlas_name(atlas, csv_fol='', short_name=False):
@@ -822,7 +851,7 @@ def elec_group_number(elec_name, bipolar=False, num_to_int=True):
         elec_name = elec_name.strip()
         num = re.sub('\D', ',', elec_name).split(',')[-1]
         group = elec_name[:elec_name.rfind(num)]
-        if num_to_int:
+        if num_to_int and is_int(num):
             num = int(num)
         return group.strip(), num if num != '' else ''
 
@@ -2261,7 +2290,7 @@ def get_hemi_from_full_fname(fname):
 def get_label_for_full_fname(fname, delim='-'):
     fname_file_type = file_type(fname)
     names = [get_label_hemi_invariant_name(namebase(fname))]
-    folder = namebase(fname)
+    folder = get_parent_fol(fname) # namebase(fname)
     hemi_delim, pos, label, hemi = get_hemi_delim_and_pos(folder)
     while hemi == '' and folder != '':
         fname = get_parent_fol(fname)
@@ -2660,10 +2689,24 @@ def create_labels_contours():
     run_command_in_new_thread(cmd, False)
 
 
-def make_link(source, target, overwrite=False):
+def make_link(source, target, overwrite=False, copy_if_fails=True):
+    if is_windows:
+        try:
+            # https://stackoverflow.com/questions/1447575/symlinks-on-windows
+            import ctypes
+            kdll = ctypes.windll.LoadLibrary("kernel32.dll")
+            ret = kdll.CreateSymbolicLinkA(source, target, 0)
+            if (not ret or op.getsize(target) == 0) and copy_if_fails:
+                remove_file(target)
+                shutil.copy(source, target)
+            return op.exists(target)
+        except:
+            print(traceback.format_exc())
     try:
         if op.exists(source):
-            os.symlink(source, target)
+            ret = os.symlink(source, target)
+            if not ret and copy_if_fails:
+                shutil.copy(source, target)
             return True
         else:
             print('make_link: source {} doesn\'t exist!'.format(source))
@@ -2680,6 +2723,7 @@ def make_link(source, target, overwrite=False):
                 print('Couldn\'t remove {}!'.format(target))
         return True
     except:
+        print(traceback.format_exc())
         return False
 
 
@@ -2790,17 +2834,20 @@ def find_hemi_using_vertices_num(fname):
             print("Can'f find the vertices number of the nii file! {}".format(fname))
         else:
             vertices_num = vertices_num[0]
-            rh_verts_num = len(bpy.data.objects['rh'].data.vertices)
-            lh_verts_num = len(bpy.data.objects['lh'].data.vertices)
-            if vertices_num == rh_verts_num:
+            verts_num = get_vertices_num()
+            if vertices_num == verts_num['rh']:
                 hemi = 'rh'
-            elif vertices_num == lh_verts_num:
+            elif vertices_num == verts_num['lh']:
                 hemi = 'lh'
             else:
                 print("The vertices num ({}) in the nii file ({}) doesn't match any hemi! (rh:{}, lh:{})".format(
-                    vertices_num, fname, rh_verts_num, lh_verts_num))
+                    vertices_num, fname, verts_num['rh'], verts_num['lh']))
                 hemi = ''
     return hemi
+
+
+def get_vertices_num():
+    return {hemi:len(bpy.data.objects[hemi].data.vertices) for hemi in HEMIS}
 
 
 def get_hemi_obj(hemi):

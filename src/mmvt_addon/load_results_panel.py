@@ -192,7 +192,9 @@ def load_surf_files(nii_fname, run_fmri_preproc=True, user_fol='', debug=True):
             mu.add_mmvt_code_root_to_path()
             from src.preproc import fMRI
             importlib.reload(fMRI)
-            ret, npy_output_fname_template = fMRI.load_surf_files(mu.get_user(), fmri_file_template)
+            vertices_num = mu.get_vertices_num()
+            ret, npy_output_fname_template = fMRI.load_surf_files(
+                mu.get_user(), fmri_file_template, vertices_num=vertices_num)
             output_fname_template = op.join(
                 mu.get_parent_fol(npy_output_fname_template),
                 mu.namebase_with_ext(npy_output_fname_template)[len('fmri_'):])

@@ -876,7 +876,8 @@ def remove_exclude_labels_and_data(labels_names, labels_data, excludes=()):
 def calc_time_series_per_label(x, labels, measure, excludes=(),
                                figures_dir='', do_plot=False, do_plot_all_vertices=False):
     import sklearn.decomposition as deco
-    import matplotlib.pyplot as plt
+    if do_plot:
+        import matplotlib.pyplot as plt
 
     labels, _ = remove_exclude_labels(labels, excludes)
     if measure.startswith('pca'):

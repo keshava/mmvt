@@ -6,7 +6,6 @@ import shutil
 import scipy.io as sio
 import scipy
 from collections import defaultdict, OrderedDict, Iterable
-import matplotlib.pyplot as plt
 from datetime import datetime
 import traceback
 import glob
@@ -755,6 +754,7 @@ def fix_mismatches(edf_raw, channels_names_mismatches):
 
 
 def plot_electrodes(subject, edf_raw, data_channels, ref_ind=-1):
+    import matplotlib.pyplot as plt
     # inds = np.array([i for i, l in enumerate(edf_raw.ch_names) if l.startswith('LMF')])
     # data_channels = data_channels[inds]
     N = len(data_channels)
@@ -868,6 +868,7 @@ def create_raw_data_from_edf(subject, args, stat=STAT_DIFF, electrodes_type=None
             cond_id = cond_id + 1
 
     if do_plot:
+        import matplotlib.pyplot as plt
         plt.psd(data, Fs=hz)
         plt.show()
     if 'baseline' in conditions and args.remove_baseline:
@@ -934,6 +935,7 @@ def calc_seizure_times(start_time, seizure_onset, seizure_end, baseline_onset, b
 
 
 def plot_stat_data(data, conds, channels, figs_fol):
+    import matplotlib.pyplot as plt
     plt.plot((data[:, :, 0] - data[:, :, 1]).T)
     plt.savefig(op.join(figs_fol, 'diff.jpg'))
     for ch in range(data.shape[0]):
@@ -952,6 +954,7 @@ def get_data_channels(edf_raw):
 
 
 def plot_window(edf_raw, live_channels, t_start, window, hz, ylim=[-0.0015, 0.0015]):
+    import matplotlib.pyplot as plt
     data, times = edf_raw[:, int(t_start*hz):int(t_start*hz) + hz * window]
     data = data[live_channels, :]
     plt.figure()
@@ -961,6 +964,7 @@ def plot_window(edf_raw, live_channels, t_start, window, hz, ylim=[-0.0015, 0.00
 
 
 def plot_all_windows(edf_raw, live_channels, T, hz, window, edf_fname, ylim):
+    import matplotlib.pyplot as plt
     pics_fol = op.join(op.split(edf_fname)[0], 'pics')
     utils.make_dir(pics_fol)
     for t_start in np.arange(0, T-window, window):
@@ -980,6 +984,7 @@ def find_live_channels(edf_raw, hz, threshold=1e-6):
 
 
 def plot_power(data, time_step):
+    import matplotlib.pyplot as plt
     ps = np.abs(np.fft.fft(data))**2
     freqs = np.fft.fftfreq(data.size, time_step)
     idx = np.argsort(freqs)
@@ -1039,11 +1044,13 @@ def calc_epochs_power_spectrum(subject, windows_length, windows_shift, epochs_nu
 
 
 def electrodes_2d_scatter_plot(pos):
+    import matplotlib.pyplot as plt
     plt.scatter(pos[:, 0], pos[:, 1])
     plt.show()
 
 
 def electrodes_3d_scatter_plot(pos, pos2=None):
+    import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
     fig = plt.figure()
     ax = Axes3D(fig)
@@ -1215,6 +1222,7 @@ def get_rois_colors(subject, atlas, rois):
 
 @utils.tryit()
 def save_rois_colors_legend(subject, rois_colors, bipolar, legend_name=''):
+    import matplotlib.pyplot as plt
     from matplotlib import pylab
     if legend_name == '':
         legend_name = 'electrodes{}_coloring_legend.jpg'.format('_bipolar' if bipolar else '')

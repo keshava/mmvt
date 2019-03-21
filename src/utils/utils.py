@@ -7,13 +7,6 @@ import itertools
 import time
 import re
 import nibabel as nib
-try:
-    import matplotlib.pyplot as plt
-    import matplotlib
-    import matplotlib.image as mpimg
-    import matplotlib.cm as cmx
-except:
-    print('No matplotlib')
 import subprocess
 import functools
 from functools import partial, reduce
@@ -93,6 +86,10 @@ get_label_for_full_fname = mu.get_label_for_full_fname
 to_str = mu.to_str
 argmax2d = mu.argmax2d
 
+atlas_exist = mu.atlas_exist
+get_atlas_template = mu.get_atlas_template
+fix_atlas_name = mu.fix_atlas_name
+
 from src.mmvt_addon.scripts import scripts_utils as su
 get_link_dir = su.get_link_dir
 get_real_atlas_name = su.get_real_atlas_name
@@ -139,6 +136,9 @@ def delete_folder_files(fol):
 
 
 def get_scalar_map(x_min, x_max, color_map='jet'):
+    import matplotlib.pyplot as plt
+    import matplotlib.colors
+    import matplotlib.cm as cmx
     cm = plt.get_cmap(color_map)
     cNorm = matplotlib.colors.Normalize(vmin=x_min, vmax=x_max)
     return cmx.ScalarMappable(norm=cNorm, cmap=cm)
@@ -1155,6 +1155,8 @@ def calc_PCA(X, n_components=3):
 
 
 def gradient_scatter3d(X, colors_data, colorsMap='hot', do_show=True):
+    import matplotlib.colors
+    import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
     import matplotlib.cm as cmx
     cm = plt.get_cmap(colorsMap)
@@ -1172,6 +1174,7 @@ def gradient_scatter3d(X, colors_data, colorsMap='hot', do_show=True):
 
 def plot_3d_scatter(X, names=None, labels=None, classifier=None, labels_indices=[], colors=None, legend_labels=[],
                     title='', fname='', do_show=True):
+    import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D, proj3d
     fig = plt.figure()
     ax = Axes3D(fig)
@@ -1215,6 +1218,7 @@ def plot_3d_scatter(X, names=None, labels=None, classifier=None, labels_indices=
 
 
 def plot_2d_scatter(X, names=None, labels=None, classifier=None):
+    import matplotlib.pyplot as plt
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
     ax.scatter(X[:, 0], X[:, 1])
@@ -1251,6 +1255,8 @@ def add_annotation(ax, text, x, y, z=None):
 def calc_clusters_bic(X, n_components=0, do_plot=True):
     from sklearn import mixture
     import itertools
+    if do_plot:
+        import matplotlib.pyplot as plt
 
     lowest_bic = np.infty
     bic = []
@@ -1673,6 +1679,8 @@ def get_hemi_indifferent_rois(rois):
 
 
 def show_image(image_fname):
+    import matplotlib.pyplot as plt
+    import matplotlib.image as mpimg
     image = mpimg.imread(image_fname)
     plt.axis("off")
     plt.imshow(image)
@@ -2238,29 +2246,29 @@ def power_spectrum(x, fs, scaling='density'):
     return frequencies, linear_spectrum #[Hz] / [V RMS]
 
 
-def atlas_exist(subject, atlas, subjects_dir):
-    return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
-
-
-def get_atlas_template(subject, atlas, subjects_dir):
-    return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
-
-
-def fix_atlas_name(subject, atlas, subjects_dir=''):
-    if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
-        if os.environ.get('FREESURFER_HOME', '') != '':
-            if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
-                atlas = 'aparc.DKTatlas'
-            elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
-                atlas = 'aparc.DKTatlas40'
-        else:
-            if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
-                    atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
-                atlas = 'aparc.DKTatlas40'
-            elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
-                    atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
-                atlas = 'aparc.DKTatlas'
-    return atlas
+# def atlas_exist(subject, atlas, subjects_dir):
+#     return both_hemi_files_exist(get_atlas_template(subject, atlas, subjects_dir))
+#
+#
+# def get_atlas_template(subject, atlas, subjects_dir):
+#     return op.join(subjects_dir, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))
+#
+#
+# def fix_atlas_name(subject, atlas, subjects_dir=''):
+#     if atlas in ['dtk', 'dkt40', 'aparc.DKTatlas', 'aparc.DKTatlas40']:
+#         if os.environ.get('FREESURFER_HOME', '') != '':
+#             if op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas.gcs')):
+#                 atlas = 'aparc.DKTatlas'
+#             elif op.isfile(op.join(os.environ.get('FREESURFER_HOME'), 'average', 'rh.DKTatlas40.gcs')):
+#                 atlas = 'aparc.DKTatlas40'
+#         else:
+#             if not atlas_exist(subject, 'aparc.DKTatlas', subjects_dir) and \
+#                     atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir):
+#                 atlas = 'aparc.DKTatlas40'
+#             elif not atlas_exist(subject, 'aparc.DKTatlas40', subjects_dir) and \
+#                     atlas_exist(subject, 'aparc.DKTatlas', subjects_dir):
+#                 atlas = 'aparc.DKTatlas'
+#     return atlas
 
 
 def pair_list(lst):
