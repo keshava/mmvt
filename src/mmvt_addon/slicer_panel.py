@@ -243,10 +243,11 @@ def slice_brain(cut_pos=None, save_image=False, render_image=False):
     try:
         #  TODO  Noam this is where I slice the head object.
         slice_seghead = False
-        # if we need to slice the head :
-        # mask_object_with_cube(bpy.data.objects['seghead'])
-        # else, make sure we don't show the slicing
-        if not slice_seghead:
+        if slice_seghead:
+            # if we need to slice the head :
+            mask_object_with_cube(bpy.data.objects['seghead'])
+        else:
+            # else, make sure we don't show the slicing
             bpy.data.objects['seghead'].modifiers['mask_for_slice'].show_viewport = False
             bpy.data.objects['seghead'].modifiers['mask_for_slice'].show_render = False
 
@@ -629,6 +630,7 @@ bpy.types.Scene.slices_rotate_view_on_click = bpy.props.BoolProperty(
 bpy.types.Scene.what_to_cut = bpy.props.EnumProperty(
         items=[('tval', 't-val', '', 1), ('size', 'size', '', 2)],
         update=what_to_cut_update, description='Sorts the clusters list by t-value, size or name.\n\nCurrent sorting')
+bpy.types.Scene.slice_seghead = bpy.props.BoolProperty(default=False)
 
 
 def slicer_draw(self, context):
@@ -639,6 +641,8 @@ def slicer_draw(self, context):
     col.operator(SliceBrainButton.bl_idname, text="Slice brain", icon='FACESEL_HLT')
     col.operator(SliceBrainClearButton.bl_idname, text="Clear slice", icon='MESH_CUBE')
     col.prop(context.scene, 'show_full_slice', text='Show full slice')
+    col.prop(context.scene, 'slice_seghead', text='Slice outer skin')
+
     col = layout.box().column()
     row = col.row(align=0)
     if SlicerPanel.ct_exist or SlicerPanel.t2_exist:

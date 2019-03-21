@@ -1883,10 +1883,7 @@ def calc_inverse_operator(
                 noise_cov = read_noise_cov(noise_cov_fname)
             if noise_cov is None:
                 if use_empty_room_for_noise_cov:
-                    try:
-                        raw_empty_room = mne.io.read_raw_fif(empty_fname) #, add_eeg_ref=False)
-                    except:
-                        raw_empty_room = mne.read_evokeds(empty_fname)[0]
+                    raw_empty_room = mne.io.read_raw_fif(empty_fname) #, add_eeg_ref=False)
                     noise_cov = mne.compute_raw_covariance(raw_empty_room, tmin=0, tmax=None)
                     noise_cov.save(noise_cov_fname)
                 elif use_raw_for_noise_cov:
