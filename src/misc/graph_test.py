@@ -31,7 +31,7 @@ def calc_closeness_centrality(p):
         utils.time_to_go(now, run, len(times_chunk), 10)
         g = nx.from_numpy_matrix(con[:, :, t])
         # clos = nx.closeness_centrality(g)
-        x = np.clustering(g)
+        x = nx.clustering(g)
         vals.append([x[k] for k in range(len(x))])
         # vals.append([k for k in range(219)])
     vals = np.array(vals)
