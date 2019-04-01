@@ -12,7 +12,7 @@ import mne
 import types
 import scipy.io as sio
 import nibabel as nib
-from collections import Counter
+from collections import Counter, OrderedDict
 import inspect
 import copy
 import tqdm
@@ -28,6 +28,7 @@ from src.utils import labels_utils as lu
 from src.utils import args_utils as au
 from src.utils import freesurfer_utils as fu
 from src.preproc import anatomy as anat
+from src.preproc import connectivity
 
 SUBJECTS_MRI_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
@@ -1137,7 +1138,7 @@ def calc_labels_connectivity(
 def calc_stcs_spectral_connectivity(stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies,
                                     cwt_n_cycles, n_jobs=1):
     label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=True)
-    fmin, fmax = [t[0] for t in bands], [t[1] for t in bands]
+    fmin, fmax = [t[0] for t in bands], [t[1] for t in bands.values()]
     con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
         label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
         cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
@@ -1147,7 +1148,8 @@ def calc_stcs_spectral_connectivity(stcs, labels, src, em, bands, con_method, co
 def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file_with_info, mri_subject='',
         subjects_dir='', mmvt_dir='', inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'],
         surf_name='pial',  con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, overwrite_connectivity=False,
-        src=None, bands=None, cwt_frequencies=None, windows_length=0.1, windows_shift=0.05, n_jobs=6):
+        src=None, bands=None, cwt_frequencies=None, windows_length=0.1, windows_shift=0.05,
+        connectivity_modality='meg', n_jobs=6):
     if mri_subject == '':
         mri_subject = subject
     if subjects_dir == '':
@@ -1160,7 +1162,7 @@ def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file
     if cwt_frequencies is None or cwt_frequencies == '':
         cwt_frequencies = np.arange(4, 120, 2)
     if bands is None or bands == '':
-        bands = [[4, 8], [8, 15], [15, 30], [30, 55], [65, 120]]
+        bands = OrderedDict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     info = load_file_for_info(meg_file_with_info)
     stc_fol = op.join(mmvt_dir, mri_subject, 'meg')
     stc_fname = op.join(stc_fol, '{}-rh.stc'.format(stc_name))
@@ -1206,6 +1208,25 @@ def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file
             ret = ret and op.isfile(output_fname)
         else:
             ret = False
+
+    con_vertices_fname = op.join(
+        MMVT_DIR, subject, 'connectivity', '{}_vertices.pkl'.format(connectivity_modality))
+    first = True
+    for band_ind, band_name in enumerate(bands.keys()):
+        mmvt_connectivity_output_fname = connectivity.get_output_fname(
+            con_method, em, band_name)
+        if op.isfile(mmvt_connectivity_output_fname):
+           continue
+        if first:
+            d = utils.Bag(np.load(output_fname))
+            first = False
+        connectivity.save_connectivity(
+            subject, d.con[:, :, band_ind, :], atlas, con_method, connectivity.ROIS_TYPE, d.names, events_keys,
+            mmvt_connectivity_output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
+            symetric_colors=True)
+        ret = ret and op.isfile(mmvt_connectivity_output_fname)
+
+    ret = op.isfile(output_fname)
     return ret
 
 

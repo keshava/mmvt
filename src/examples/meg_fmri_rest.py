@@ -470,8 +470,9 @@ def merge_modalities_connectivity(args):
         output_fname = op.join(MMVT_DIR, args.template_brain, 'connectivity', '{}.npz'.format(con_name))
         con_vertices_fname = op.join(MMVT_DIR, args.template_brain, 'connectivity', '{}_vertices.pkl'.format(con_name))
         connectivity.save_connectivity(
-            args.template_brain, con_hubs, con_name, connectivity.ROIS_TYPE, labels_names, conditions, output_fname, conn_args,
-            con_vertices_fname)
+            args.template_brain, con_hubs, args.atlas, con_name, connectivity.ROIS_TYPE, labels_names, conditions,
+            output_fname, con_vertices_fname, conn_args.windows, conn_args.stat, conn_args.norm_by_percentile,
+            conn_args.norm_percs, conn_args.threshold, conn_args.threshold_percentile, conn_args.symetric_colors)
         print('{} was saved in {}'.format(con_name, output_fname))
 
 

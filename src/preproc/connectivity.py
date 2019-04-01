@@ -59,7 +59,9 @@ def calc_electrodes_connectivity(subject, args, overwrite=True):
     else:
         coh = np.load(coh_fname)
     (d['con_colors'], d['con_indices'], d['con_names'],  d['con_values'], d['con_types'],
-     d['data_max'], d['data_min']) = calc_connectivity(coh, d['labels'], d['hemis'], args)
+     d['data_max'], d['data_min'], args.threshold) = calc_connectivity(
+        coh, d['labels'], d['hemis'], args.conditions, args.windows, STAT_DIFF, args.norm_by_percentile,
+        args.norm_percs, args.threshold, args.threshold_percentile, args.symetric_colors)
     d['conditions'] = data_dict['conditions']
     vertices, vertices_lookup = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
     utils.save((vertices, vertices_lookup), con_vertices_fname)
@@ -165,9 +167,11 @@ def calc_rois_matlab_connectivity(subject, args):
     if args.sorted_labels_names_field != '':
         sorted_labels_names = matu.matlab_cell_str_to_list(mat_file[args.sorted_labels_names_field])
     d['labels'], d['locations'], d['verts'], d['hemis'] = calc_lables_info(
-        subject, args, sorted_labels_names=sorted_labels_names)
+        subject, args.atlas, sorted_labels_names=sorted_labels_names)
     (d['con_colors'], d['con_indices'], d['con_names'],  d['con_values'], d['con_types'],
-     d['data_max'], d['data_min']) = calc_connectivity(data, d['labels'], d['hemis'], args)
+     d['data_max'], d['data_min'], args.threshold) = calc_connectivity(
+        data, d['labels'], d['hemis'], args.conditions, args.windows, STAT_DIFF, args.norm_by_percentile,
+        args.norm_percs, args.threshold, args.threshold_percentile, args.symetric_colors)
     # args.stat, args.conditions, args.windows, args.threshold,
     #     args.threshold_percentile, args.color_map, args.norm_by_percentile, args.norm_percs, args.symetric_colors)
     d['conditions'] = args.conditions
@@ -191,12 +195,13 @@ def calc_windows(windows_length, windows_shift, T, windows_num=0):
     return windows
 
 
-def calc_lables_connectivity(subject, labels_extract_mode, args):
+def get_output_fname(subject, connectivity_method, connectivity_modality, labels_extract_mode='', identifier=''):
+    comps_num = '_{}'.format(labels_extract_mode.split('_')[1]) if labels_extract_mode.startswith('pca_') else ''
+    return op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}{}.npz'.format(
+        connectivity_modality, identifier, connectivity_method, comps_num))
 
-    def get_output_fname(connectivity_method, labels_extract_mode='', identifier=''):
-        comps_num = '_{}'.format(labels_extract_mode.split('_')[1]) if labels_extract_mode.startswith('pca_') else ''
-        return op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}{}.npz'.format(
-            args.connectivity_modality, identifier, connectivity_method, comps_num))
+
+def calc_lables_connectivity(subject, labels_extract_mode, args):
 
     def get_output_mat_fname(connectivity_method, labels_extract_mode='', identifier=''):
         comps_num = '_{}'.format(labels_extract_mode.split('_')[1]) if labels_extract_mode.startswith('pca_') else ''
@@ -331,7 +336,8 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
         identifier = '{}static_'.format(identifier) if identifier != '' else 'static_'
     if args.max_windows_num is not None:
         windows_num = min(args.max_windows_num, windows_num)
-    output_fname = get_output_fname(args.connectivity_method[0], labels_extract_mode, identifier)
+    output_fname = get_output_fname(
+        subject, args.connectivity_method[0], args.connectivity_modality, labels_extract_mode, identifier)
     output_mat_fname = get_output_mat_fname(args.connectivity_method[0], labels_extract_mode, identifier)
     static_conn = None
     if op.isfile(output_mat_fname) and not args.recalc_connectivity:
@@ -534,13 +540,17 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
         conn = conn[:, :, np.newaxis]
     elif 4 < conn.ndim < 2:
         raise Exception('Wrong number of dims!')
-    d = save_connectivity(subject, conn, args.connectivity_method, ROIS_TYPE, labels_names, conditions, output_fname, args,
-                          con_vertices_fname)
+    d = save_connectivity(
+        subject, conn, args.atlas, args.connectivity_method, ROIS_TYPE, labels_names, conditions, output_fname,
+        con_vertices_fname, args.windows, args.stat, args.norm_by_percentile, args.norm_percs, args.threshold,
+        args.threshold_percentile, args.symetric_colors)
     ret = op.isfile(output_fname)
     if not static_conn is None:
         static_conn = static_conn[:, :, np.newaxis]
-        save_connectivity(subject, static_conn, no_wins_connectivity_method, ROIS_TYPE, labels_names, conditions,
-                          static_output_fname, args, '', d['labels'], d['locations'], d['hemis'])
+        save_connectivity(
+            subject, static_conn, args.atlas, no_wins_connectivity_method, ROIS_TYPE, labels_names, conditions,
+            static_output_fname, '', args.windows, args.stat, args.norm_by_percentile, args.norm_percs, args.threshold,
+            args.threshold_percentile, args.symetric_colors, d['labels'], d['locations'], d['hemis'])
         ret = ret and op.isfile(static_output_fname)
 
     return ret
@@ -666,16 +676,18 @@ def _mi_vec_parallel(windows_chunk):
     return res
 
 
-@utils.tryit()
-def save_connectivity(subject, conn, connectivity_method, obj_type, labels_names, conditions, output_fname, args,
-                      con_vertices_fname='', labels=None, locations=None, hemis=None):
+# @utils.tryit()
+def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, labels_names, conditions, output_fname,
+                      con_vertices_fname='', windows=0, stat=STAT_DIFF, norm_by_percentile=True, norm_percs=[1, 99],
+                      threshold=0, threshold_percentile=0, symetric_colors=True, labels=None, locations=None,
+                      hemis=None):
     d = dict()
     d['conditions'] = conditions
     # args.labels_exclude = []
     if labels is None or locations is None or hemis is None:
         if obj_type == ROIS_TYPE:
             d['labels'], d['locations'], d['verts'], d['hemis'] = calc_lables_info(
-                subject, args, False, labels_names)
+                subject, atlas, False, labels_names)
         elif obj_type == ELECTRODES_TYPE:
             bipolar = '-' in labels_names[0]
             d['labels'], d['locations'] = get_electrodes_info(subject, bipolar)
@@ -692,7 +704,9 @@ def save_connectivity(subject, conn, connectivity_method, obj_type, labels_names
     else:
         d['labels'], d['locations'], d['hemis'] = labels, locations, hemis
     (_, d['con_indices'], d['con_names'], d['con_values'], d['con_types'],
-     d['data_max'], d['data_min']) = calc_connectivity(conn, d['labels'], d['hemis'], args)
+     d['data_max'], d['data_min'], threshold) = calc_connectivity(
+        conn, d['labels'], d['hemis'], conditions, windows, stat, norm_by_percentile, norm_percs, threshold,
+        threshold_percentile, symetric_colors)
     d['connectivity_method'] = connectivity_method
     print('Saving results to {}'.format(output_fname))
     np.savez(output_fname, **d)
@@ -713,9 +727,9 @@ def create_vertices_lookup(con_indices, con_names, labels):
     return np.array(list(vertices)), vertices_lookup
 
 
-def calc_lables_info(subject, args, sorted_according_to_annot_file=True, sorted_labels_names=None):
+def calc_lables_info(subject, atlas, sorted_according_to_annot_file=True, sorted_labels_names=None):
     labels = lu.read_labels(
-        subject, SUBJECTS_DIR, args.atlas, # exclude=tuple(args.labels_exclude)
+        subject, SUBJECTS_DIR, atlas, # exclude=tuple(args.labels_exclude)
         sorted_according_to_annot_file=sorted_according_to_annot_file)
     if not sorted_labels_names is None:
         sorted_labels_names_fix = []
@@ -743,22 +757,25 @@ def calc_lables_info(subject, args, sorted_according_to_annot_file=True, sorted_
     return labels_names, locations, verts, hemis
 
 
-def calc_connectivity(data, labels, hemis, args):
+def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_DIFF, norm_by_percentile=True,
+                      norm_percs=[1, 99], threshold=0, threshold_percentile=0, symetric_colors=True):
     # stat, conditions, w, threshold=0, threshold_percentile=0, color_map='jet',
     #                         norm_by_percentile=True, norm_percs=(1, 99), symetric_colors=True):
     # import time
     M = data.shape[0]
     if data.ndim == 2:
         data = data[:, :, np.newaxis]
-    W = data.shape[2] if 'windows' not in args or args.windows == 0 else args.windows
+    W = data.shape[2] if windows == 0 else windows
     L = int((M * M + M) / 2 - M)
-    con_indices = np.zeros((L, 2))
-    con_values = np.zeros((L, W, len(args.conditions)))
+    conds_len = len(conditions) if conditions != '' else 1
+    # con_indices = np.zeros((L, 2))
+    con_values = np.zeros((L, W, conds_len))
     con_names = [None] * L
     con_type = np.zeros((L))
     lower_rec_indices = list(utils.lower_rec_indices(M))
     # LRI = len(lower_rec_indices)
-    for cond in range(len(args.conditions)):
+    data[np.where(np.isnan(data))] = 0
+    for cond in range(conds_len):
         for w in range(W):
             # now = time.time()
             if W > 1 and data.ndim == 4:
@@ -775,8 +792,8 @@ def calc_connectivity(data, labels, hemis, args):
             #         con_values[ind, w, cond] = data[i, j, cond]
             #     else:
             #         con_values[ind, w, cond] = data[i, j]
-    if len(args.conditions) > 1:
-        stat_data = utils.calc_stat_data(con_values, args.stat)
+    if conds_len > 1:
+        stat_data = utils.calc_stat_data(con_values, stat)
     else:
         stat_data = np.squeeze(con_values)
 
@@ -790,17 +807,17 @@ def calc_connectivity(data, labels, hemis, args):
             print('error in calc_connectivity!')
     con_indices = con_indices.astype(np.int)
     con_names = np.array(con_names)
-    data_max, data_min = utils.get_data_max_min(stat_data, args.norm_by_percentile, args.norm_percs)
+    data_max, data_min = utils.get_data_max_min(stat_data, norm_by_percentile, norm_percs)
     data_minmax = max(map(abs, [data_max, data_min]))
-    if 'threshold_percentile' in args and args.threshold_percentile > 0:
-        args.threshold = np.percentile(np.abs(stat_data), args.threshold_percentile)
-    if args.threshold > data_minmax:
+    if threshold_percentile > 0:
+        threshold = np.percentile(np.abs(stat_data), threshold_percentile)
+    if threshold > data_minmax:
         raise Exception('threshold > abs(max(data)) ({})'.format(data_minmax))
-    if args.threshold >= 0:
+    if threshold >= 0:
         if stat_data.ndim >= 2:
-            indices = np.where(np.max(abs(stat_data), axis=1) > args.threshold)[0]
+            indices = np.where(np.max(abs(stat_data), axis=1) > threshold)[0]
         else:
-            indices = np.where(abs(stat_data) > args.threshold)[0]
+            indices = np.where(abs(stat_data) > threshold)[0]
         # indices = np.where(np.abs(stat_data) > args.threshold)[0]
         # con_colors = con_colors[indices]
         con_indices = con_indices[indices]
@@ -811,14 +828,11 @@ def calc_connectivity(data, labels, hemis, args):
 
     con_values = np.squeeze(con_values)
     # con_values = np.squeeze(stat_data)
-    if 'data_max' not in args and 'data_min' not in args or args.data_max == 0 and args.data_min == 0:
-        if args.symetric_colors and np.sign(data_max) != np.sign(data_min) and data_min != 0 and data_max != 0:
-            data_max, data_min = data_minmax, -data_minmax
-    else:
-        data_max, data_min = args.data_max, args.data_min
+    if symetric_colors and np.sign(data_max) != np.sign(data_min) and data_min != 0 and data_max != 0:
+        data_max, data_min = data_minmax, -data_minmax
     print('data_max: {}, data_min: {}, con len: {}'.format(data_max, data_min, len(con_names)))
     # con_colors = utils.mat_to_colors(stat_data, data_min, data_max, args.color_map)
-    return None, con_indices, con_names, con_values, con_type, data_max, data_min
+    return None, con_indices, con_names, con_values, con_type, data_max, data_min, threshold
 
 
 def calc_electrodes_rest_connectivity(subject, args):
@@ -919,13 +933,16 @@ def calc_electrodes_rest_connectivity(subject, args):
     conn = conn[:, :, :, np.newaxis]
     conditions = ['rest']
     electrodes_names = get_electrodes_names()
-    d = save_connectivity(subject, conn, connectivity_method, ELECTRODES_TYPE, electrodes_names, conditions, output_fname, args,
-                          con_vertices_fname)
+    d = save_connectivity(
+        subject, conn, connectivity_method, ELECTRODES_TYPE, electrodes_names, conditions, output_fname,
+        con_vertices_fname, args.windows, args.stat, args.norm_by_percentile, args.norm_percs, args.threshold,
+        args.threshold_percentile, args.symetric_colors)
     ret = op.isfile(output_fname)
     if not static_conn is None:
         static_conn = static_conn[:, :, np.newaxis]
-        save_connectivity(subject, static_conn, no_wins_connectivity_method, ELECTRODES_TYPE, electrodes_names, conditions,
-                          output_fname_static, args, '', d['labels'], d['locations'], d['hemis'])
+        save_connectivity(
+            subject, static_conn, args.atlas, no_wins_connectivity_method, ELECTRODES_TYPE,
+            electrodes_names, conditions, output_fname_static, '', d['labels'], d['locations'], d['hemis'])
         ret = ret and op.isfile(output_fname_static)
     return ret
 
