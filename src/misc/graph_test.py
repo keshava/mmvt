@@ -3,6 +3,7 @@ import os.path as op
 import networkx as nx
 from src.utils import utils
 import time
+import matplotlib.pyplot as plt
 
 
 def calc_measures(fol, n_jobs=4):
@@ -36,7 +37,16 @@ def calc_closeness_centrality(p):
     return vals, times_chunk
 
 
+def plot_values(fol):
+    vals = np.load(op.join(fol, 'closeness_centrality.npy'))
+    t_axis = np.linspace(-2, 5, vals.shape[1] - 1)
+    plt.plot(t_axis, np.diff(vals).T)
+    plt.show()
+
+
 if __name__ == '__main__':
     n_jobs = utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    calc_measures('/homes/5/npeled/space1/mmvt/nmr00857/connectivity/', n_jobs)
+    fol = '/homes/5/npeled/space1/mmvt/nmr00857/connectivity/'
+    # calc_measures(fol, n_jobs)
+    plot_values(fol)
