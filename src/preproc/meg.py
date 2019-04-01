@@ -1138,7 +1138,8 @@ def calc_labels_connectivity(
 def calc_stcs_spectral_connectivity(stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies,
                                     cwt_n_cycles, n_jobs=1):
     label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=True)
-    fmin, fmax = [t[0] for t in bands], [t[1] for t in bands.values()]
+    bands_freqs = bands.values()
+    fmin, fmax = [t[0] for t in bands_freqs], [t[1] for t in bands_freqs]
     con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
         label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
         cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
@@ -1148,8 +1149,8 @@ def calc_stcs_spectral_connectivity(stcs, labels, src, em, bands, con_method, co
 def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file_with_info, mri_subject='',
         subjects_dir='', mmvt_dir='', inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'],
         surf_name='pial',  con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, overwrite_connectivity=False,
-        src=None, bands=None, cwt_frequencies=None, windows_length=0.1, windows_shift=0.05,
-        connectivity_modality='meg', n_jobs=6):
+        src=None, bands=None, cwt_frequencies=None, windows_length=0.2, windows_shift=0.1,
+        connectivity_modality='meg', do_plot=False, n_jobs=6):
     if mri_subject == '':
         mri_subject = subject
     if subjects_dir == '':
@@ -1195,9 +1196,19 @@ def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file
             stc_w = stc.copy().crop(w[0], w[1])
             print('Calc spectral_connectivity for {}'.format(stc_w))
             con, freqs, times, n_epochs, n_tapers = calc_stcs_spectral_connectivity(
-                [stc_w], labels, src, em, bands, con_method, con_mode, info['sfreq'], cwt_frequencies, cwt_n_cycles, n_jobs)
+                [stc_w], labels, src, em, bands, con_method, con_mode, info['sfreq'], cwt_frequencies, cwt_n_cycles,
+                n_jobs)
+            if do_plot:
+                import matplotlib.pyplot as plt
+                plt.figure()
+                plt.plot(np.mean(con, axis=(0, 1)).T)
+                plt.savefig(op.join(fol, 'figures', 'win{}'.format(w_ind)))
             # Average over time
             con = np.mean(con, axis=3)
+            for band_ind, band_name in enumerate(bands.keys()):
+                print('band:{} min: {} max: {}, mean: {}'.format(
+                    band_name, np.nanmin(con[:, :, band_ind]), np.nanmax(con[:, :, band_ind]),
+                    np.nanmean(con[:, :, band_ind])))
             if first_w:
                 all_con = np.zeros((con.shape[0], con.shape[1], con.shape[2], len(windows)))
                 first_w = False
@@ -5560,7 +5571,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--grade', help='', required=False, default=5, type=au.int_or_none)
     parser.add_argument('--smoothing_iterations', help='', required=False, default=None, type=au.int_or_none)
     # Connectivty
-    parser.add_argument('--con_method', required=False, default='pli2_unbiased')
+    parser.add_argument('--con_method', required=False, default='pli')
     parser.add_argument('--con_mode', required=False, default='cwt_morlet')
     parser.add_argument('--cwt_n_cycles', required=False, default=7, type=int)
     parser.add_argument('--overwrite_connectivity', required=False, default=0, type=au.is_true)
