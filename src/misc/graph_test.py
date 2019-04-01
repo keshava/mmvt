@@ -5,8 +5,12 @@ from src.utils import utils
 import time
 import matplotlib.pyplot as plt
 
+LINKS_DIR = utils.get_links_dir()
+MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 
-def calc_measures(fol, graph_func, n_jobs=4):
+
+def calc_measures(subject, n_jobs=4):
+    fol = op.join(MMVT_DIR, subject, 'connectivity')
     con = np.load(op.join(fol, 'meg_pli.npy')).squeeze()
     names = np.load(op.join(fol, 'labels_names.npy'))
     T = con.shape[2]
@@ -38,16 +42,17 @@ def calc_closeness_centrality(p):
     return vals, times_chunk
 
 
-def plot_values(fol):
-    vals = np.load(op.join(fol, 'closeness_centrality.npy'))
+def plot_values(subject):
+    vals = np.load(op.join(MMVT_DIR, subject, 'connectivity', 'clustering.npy'))
     t_axis = np.linspace(-2, 5, vals.shape[1] - 1)
-    plt.plot(t_axis, np.diff(vals).T)
+    # plt.plot(t_axis, np.diff(vals).T)
+    plt.plot(t_axis, vals.T)
     plt.show()
 
 
 if __name__ == '__main__':
     n_jobs = utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    fol = '/homes/5/npeled/space1/mmvt/nmr00857/connectivity/'
-    calc_measures(fol, n_jobs)
-    # plot_values(fol)
+    subject = 'nmr00857'
+    # calc_measures(subject, n_jobs)
+    plot_values(subject)
