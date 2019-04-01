@@ -382,6 +382,8 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
 
         elif 'pli' in args.connectivity_method:
             conn = np.zeros((data.shape[0], data.shape[0], windows_num, len(conditions)))
+            if data.ndim == 2:
+                data = data[:, :, np.newaxis]
             for cond_ind, cond_name in enumerate(conditions):
                 if data.ndim == 4:
                     cond_data = data[:, :, : cond_ind]

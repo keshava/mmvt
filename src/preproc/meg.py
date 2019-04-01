@@ -32,7 +32,12 @@ from src.preproc import anatomy as anat
 SUBJECTS_MRI_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 LINKS_DIR = utils.get_links_dir()
+print('LINKS_DIR = {}'.format(LINKS_DIR))
+if not op.isdir(LINKS_DIR):
+    raise Exception('No links dir!')
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
+if not op.isdir(MEG_DIR):
+    print('No MEG dir! ({})'.format(MEG_DIR))
 LOOKUP_TABLE_SUBCORTICAL = op.join(MMVT_DIR, 'sub_cortical_codes.txt')
 
 STAT_AVG, STAT_DIFF = range(2)
@@ -1076,7 +1081,8 @@ def calc_labels_connectivity(
     epo_fname = get_epo_fname(epo_fname)
     if isinstance(extract_modes, str):
         extract_modes = [extract_modes]
-    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
+    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) and len(events) > 0 \
+        else ['all']
     lambda2 = 1.0 / snr ** 2
     if bands is None or bands == '':
         bands = [[4, 8], [8, 15], [15, 30], [30, 55], [65, 120]]
@@ -1117,13 +1123,8 @@ def calc_labels_connectivity(
             epochs = epochs[:max_epochs_num]
         stcs = mne.minimum_norm.apply_inverse_epochs(
             epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
-        label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=True)
-        fmin, fmax = [t[0] for t in bands], [t[1] for t in bands]
-        # The data is too big for running it in parallel
-        # todo: Parallel over bands
-        con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
-            label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
-            cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
+        con, freqs, times, n_epochs, n_tapers = calc_stcs_spectral_connectivity(
+            stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles, n_jobs)
         if con is not None:
             np.savez(output_fname, con=con, freqs=freqs, times=times, n_epochs=n_epochs, n_tapers=n_tapers,
                      names=[l.name for l in labels])
@@ -1133,6 +1134,115 @@ def calc_labels_connectivity(
     return ret
 
 
+def calc_stcs_spectral_connectivity(stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies,
+                                    cwt_n_cycles, n_jobs=1):
+    label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=True)
+    fmin, fmax = [t[0] for t in bands], [t[1] for t in bands]
+    con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
+        label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
+        cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
+    return con, freqs, times, n_epochs, n_tapers
+
+
+def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file_with_info, mri_subject='',
+        subjects_dir='', mmvt_dir='', inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'],
+        surf_name='pial',  con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, overwrite_connectivity=False,
+        src=None, bands=None, cwt_frequencies=None, windows_length=0.1, windows_shift=0.05, n_jobs=6):
+    if mri_subject == '':
+        mri_subject = subject
+    if subjects_dir == '':
+        subjects_dir = SUBJECTS_MRI_DIR
+    if mmvt_dir == '':
+        mmvt_dir = MMVT_DIR
+    if inv_fname == '':
+        inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
+    first_time = True
+    if cwt_frequencies is None or cwt_frequencies == '':
+        cwt_frequencies = np.arange(4, 120, 2)
+    if bands is None or bands == '':
+        bands = [[4, 8], [8, 15], [15, 30], [30, 55], [65, 120]]
+    info = load_file_for_info(meg_file_with_info)
+    stc_fol = op.join(mmvt_dir, mri_subject, 'meg')
+    stc_fname = op.join(stc_fol, '{}-rh.stc'.format(stc_name))
+    if not op.isfile(stc_fname):
+        print('{} can\'t be found in {}!'.format(stc_fol))
+        return False
+    stc = mne.read_source_estimate(stc_fname)
+    fol = utils.make_dir(op.join(mmvt_dir, mri_subject, 'connectivity'))
+    ret = True
+    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) and len(events) > 0 \
+        else ['all']
+    for cond_name, em in product(events_keys, extract_modes):
+        output_fname = op.join(fol, '{}_{}_{}_{}.npz'.format(cond_name, em, con_method, con_mode))
+        if op.isfile(output_fname) and not overwrite_connectivity:
+            print('{} already exist'.format(output_fname))
+            continue
+        if first_time:
+            first_time = False
+            labels = lu.read_labels(mri_subject, subjects_dir, atlas, surf_name=surf_name, n_jobs=n_jobs)
+            _, src = get_inv_src(inv_fname, src)
+            if src is None:
+                print('Source is None!')
+                return False
+        windows = calc_windows(stc, windows_length, windows_shift)
+        first_w = True
+        all_con = None
+        now = time.time()
+        for w_ind, w in enumerate(windows):
+            utils.time_to_go(now, w_ind, len(windows), 1)
+            stc_w = stc.copy().crop(w[0], w[1])
+            print('Calc spectral_connectivity for {}'.format(stc_w))
+            con, freqs, times, n_epochs, n_tapers = calc_stcs_spectral_connectivity(
+                [stc_w], labels, src, em, bands, con_method, con_mode, info['sfreq'], cwt_frequencies, cwt_n_cycles, n_jobs)
+            # Average over time
+            con = np.mean(con, axis=3)
+            if first_w:
+                all_con = np.zeros((con.shape[0], con.shape[1], con.shape[2], len(windows)))
+                first_w = False
+            all_con[:, :, :, w_ind] = con
+        if all_con is not None:
+            np.savez(output_fname, con=all_con, freqs=freqs, times=times, n_epochs=n_epochs, n_tapers=n_tapers,
+                     names=[l.name for l in labels], windows=windows)
+            ret = ret and op.isfile(output_fname)
+        else:
+            ret = False
+    return ret
+
+
+def calc_windows(stc, windows_length=0.1, windows_shift=0.05):
+    import math
+    T = stc.times[-1] - stc.times[0]
+    if windows_length == 0:
+        windows_length = T
+        windows_num = 1
+    else:
+        windows_num = math.floor((T - windows_length) / windows_shift + 1)
+    windows = np.zeros((windows_num, 2))
+    for win_ind in range(windows_num):
+        windows[win_ind] = [win_ind * windows_shift, win_ind * windows_shift + windows_length]
+    return windows + stc.tmin
+
+
+def load_file_for_info(meg_file_with_info):
+    meg_fname = op.join(SUBJECT_MEG_FOLDER, '{}.fif'.format(meg_file_with_info))
+    try:
+        raw = mne.io.read_raw_fif(meg_fname)
+        return raw.info
+    except:
+        pass
+    try:
+        evokes = mne.read_evokeds(meg_fname)
+        return evokes[0].info
+    except:
+        pass
+    try:
+        epochs = mne.read_epochs(meg_fname)
+        return epochs.info
+    except:
+        pass
+    raise Exception('Can\'t find {}!'.format(meg_fname))
+
+
 def spectral_connectivity(label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
                           cwt_frequencies=None, cwt_n_cycles=7, n_jobs=1):
     try:
@@ -1140,7 +1250,7 @@ def spectral_connectivity(label_ts, con_method, con_mode, sfreq, fmin, fmax, fav
             con, freqs, times, n_epochs, n_tapers = mne.connectivity.spectral_connectivity(
                 label_ts, method=con_method, mode=con_mode, sfreq=sfreq, fmin=fmin,
                 fmax=fmax, faverage=faverage, mt_adaptive=mt_adaptive,
-                cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
+                cwt_freqs=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
         elif con_mode == 'multitaper':
             con, freqs, times, n_epochs, n_tapers = mne.connectivity.spectral_connectivity(
                 label_ts, method=con_method, mode=con_mode, sfreq=sfreq, fmin=fmin,
@@ -5168,6 +5278,13 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.con_method, args.con_mode, args.cwt_n_cycles, args.max_epochs_num, args.overwrite_connectivity,
             n_jobs=args.n_jobs)
 
+    if 'calc_labels_connectivity_from_stc' in args.function:
+        flags['calc_labels_connectivity_from_stc'] = calc_labels_connectivity_from_stc(
+            SUBJECT, args.atlas, conditions, args.stc_name, args.file_name_with_info, MRI_SUBJECT, SUBJECTS_MRI_DIR,
+            MMVT_DIR, args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG, args.extract_mode, args.surf_name,
+            args.con_method, args.con_mode, args.cwt_n_cycles, args.overwrite_connectivity,
+            n_jobs=args.n_jobs)
+
     if 'calc_baseline_sensors_bands_psd' in args.function:
         flags['calc_baseline_sensors_bands_psd'] = calc_baseline_sensors_bands_psd(
             mri_subject, args.epo_fname, args.raw_template, args.modality, args.bad_channels,
@@ -5268,6 +5385,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--evo_fname', help='', required=False, default='')
     parser.add_argument('--cor_fname', help='', required=False, default='')
     parser.add_argument('--info_fname', help='', required=False, default='')
+    parser.add_argument('--file_name_with_info', help='', required=False, default='')
     parser.add_argument('--read_info_file', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--noise_cov_fname', help='', required=False, default='')
     parser.add_argument('--empty_fname', help='', required=False, default='')
@@ -5421,7 +5539,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--grade', help='', required=False, default=5, type=au.int_or_none)
     parser.add_argument('--smoothing_iterations', help='', required=False, default=None, type=au.int_or_none)
     # Connectivty
-    parser.add_argument('--con_method', required=False, default='coh')
+    parser.add_argument('--con_method', required=False, default='pli2_unbiased')
     parser.add_argument('--con_mode', required=False, default='cwt_morlet')
     parser.add_argument('--cwt_n_cycles', required=False, default=7, type=int)
     parser.add_argument('--overwrite_connectivity', required=False, default=0, type=au.is_true)
