@@ -355,7 +355,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
         elif 'coherence' in args.connectivity_method:
             connectivity_method = 'COH'
     if not op.isfile(output_mat_fname) or args.recalc_connectivity:
-        if 'corr' in args.connectivity_method or 'mi' in args.connectivity_method:
+        if 'corr' in args.connectivity_method:
             conn = np.zeros((data.shape[0], data.shape[0], windows_num))
             if labels_extract_mode.startswith('pca_'):
                 comps_num = int(labels_extract_mode.split('_')[1])
@@ -388,7 +388,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
             np.save(output_mat_fname, conn)
             connectivity_method = 'Pearson corr'
 
-        elif 'pli' in args.connectivity_method:
+        if 'pli' in args.connectivity_method:
             conn = np.zeros((data.shape[0], data.shape[0], windows_num, len(conditions)))
             if data.ndim == 2:
                 data = data[:, :, np.newaxis]
@@ -415,7 +415,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
                 np.save(output_mat_fname, conn)
             connectivity_method = 'PLI'
 
-        elif 'coherence' in args.connectivity_method:
+        if 'coherence' in args.connectivity_method:
             if args.bands == '':
                 args.bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
             conn = np.zeros((data.shape[0], data.shape[0], len(args.bands))) # What about windows_num?
@@ -435,7 +435,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
                     # todo: fix this
                     conn[:, :, iband] = con
 
-        elif 'mi' in args.connectivity_method or 'mi_vec' in args.connectivity_method:
+        if 'mi' in args.connectivity_method or 'mi_vec' in args.connectivity_method:
             conn = np.zeros((data.shape[0], data.shape[0], windows_num))
             corr_fname = get_output_mat_fname('corr', labels_extract_mode)
             if op.isfile(corr_fname):

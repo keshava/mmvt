@@ -97,7 +97,7 @@ def calc_meg_connectivity(args):
             atlas='laus125',
             function='calc_lables_connectivity',
             connectivity_modality='meg',
-            connectivity_method='mi',
+            connectivity_method='corr,mi',
             windows_length=500,
             windows_shift=100,
             identifier=band_name,
