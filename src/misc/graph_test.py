@@ -61,7 +61,7 @@ def plot_values(subject, con_name, func_name, ma_win_size=10):
     t_axis = np.linspace(-2, 5, vals.shape[1])
     # plt.plot(t_axis, np.diff(vals).T)
     plt.plot(t_axis, vals.T)
-    plt.title(con_name)
+    plt.title('{} {}'.format(con_name, func_name))
     plt.show()
 
 
@@ -69,10 +69,10 @@ if __name__ == '__main__':
     n_jobs = utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     subject = 'nmr00857'
-    func_name = 'degree_centrality', #'closeness_centrality' # 'clustering'
+    func_name = 'degree_centrality' #, #'closeness_centrality' # 'clustering'
     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     for band_name in bands.keys():
         con_name = 'meg_{}_mi'.format(band_name)
         # plot_con(subject, con_name)
-        calc_measures(subject, con_name, func_name, n_jobs)
-        # plot_values(subject, con_name, func_name)
+        # calc_measures(subject, con_name, func_name, n_jobs)
+        plot_values(subject, con_name, func_name)
