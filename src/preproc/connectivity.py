@@ -310,6 +310,9 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
     if args.windows_num == 1 and data.ndim == 3 and len(conditions) == 1:
         data = np.mean(data, axis=2)
 
+    if args.fmin != 0 and args.fmax != 0:
+        data = mne.filter.filter_data(data, args.sfreq, args.fmin, args.fmax)
+
     # Check this code!!!
     # if data.ndim == 3 and data.shape[2] == len(conditions):
     #     data = np.diff(data, axis=2).squeeze()
@@ -437,14 +440,18 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
 
         if 'mi' in args.connectivity_method or 'mi_vec' in args.connectivity_method:
             conn = np.zeros((data.shape[0], data.shape[0], windows_num))
-            corr_fname = get_output_mat_fname('corr', labels_extract_mode)
-            if op.isfile(corr_fname):
-                corr = np.load(get_output_mat_fname('corr', labels_extract_mode))
-            if not op.isfile(corr_fname) or corr.shape[0] != data.shape[0]:
-                new_args = utils.Bag(args.copy())
-                new_args.connectivity_method = ['corr']
-                calc_lables_connectivity(subject, labels_extract_mode, new_args)
-                corr = np.load(get_output_mat_fname('corr', labels_extract_mode))
+            corr = np.zeros((data.shape[0], data.shape[0], windows_num))
+            # corr_fname = get_output_mat_fname('corr', labels_extract_mode)
+            # if op.isfile(corr_fname):
+            #     corr = np.load(get_output_mat_fname('corr', labels_extract_mode))
+            # if not op.isfile(corr_fname) or corr.shape[0] != data.shape[0]:
+            #     new_args = utils.Bag(args.copy())
+            #     new_args.connectivity_method = ['corr']
+            #     calc_lables_connectivity(subject, labels_extract_mode, new_args)
+            #     corr = np.load(get_output_mat_fname('corr', labels_extract_mode))
+            for w in range(windows_num):
+                corr[:, :, w] = np.corrcoef(data[:, windows[w, 0]:windows[w, 1]])
+                np.fill_diagonal(corr[:, :, w], 0)
             if 'mi' in args.connectivity_method or 'mi_vec' in args.connectivity_method and corr.ndim == 3:
                 conn_fname = get_output_mat_fname('mi', labels_extract_mode)
                 if op.isfile(conn_fname):
@@ -1102,8 +1109,8 @@ def read_cmd_args(argv=None):
     parser.add_argument('--tmax', help='', required=False, default=None, type=au.int_or_none)
 
     parser.add_argument('--sfreq', help='', required=False, default=1000, type=float)
-    parser.add_argument('--fmin', help='', required=False, default=5, type=float)
-    parser.add_argument('--fmax', help='', required=False, default=100, type=float)
+    parser.add_argument('--fmin', help='', required=False, default=0, type=float)
+    parser.add_argument('--fmax', help='', required=False, default=0, type=float)
     parser.add_argument('--bands', required=False, default='')
     parser.add_argument('--epochs_fname', required=False, default='')
 
