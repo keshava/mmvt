@@ -2264,9 +2264,10 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                     else:
                         raise Exception('Can\'t find the raw data!')
                     try:
-                        mne.set_eeg_reference(raw, ref_channels=None)
+                        mne.set_eeg_reference(raw) #, ref_channels=None)
                     except:
-                        print('annot create EEG average reference projector (no EEG data found)')
+                        utils.print_last_error_line()
+                        print('Cannot create EEG average reference projector (no EEG data found)')
                     stcs[cond_name] = mne.minimum_norm.apply_inverse_raw(
                         raw, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori)
                 else:
