@@ -203,8 +203,9 @@ def get_output_fname(subject, connectivity_method, connectivity_modality, labels
 
 def calc_lables_connectivity(subject, labels_extract_mode, args):
 
-    def get_output_mat_fname(connectivity_method, labels_extract_mode='', identifier=''):
+    def get_output_mat_fname(connectivity_method, labels_extract_mode=''):
         comps_num = '_{}'.format(labels_extract_mode.split('_')[1]) if labels_extract_mode.startswith('pca_') else ''
+        identifier = '{}_'.format(args.identifier) if args.identifier != '' else ''
         return op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}{}.npy'.format(
             args.connectivity_modality, identifier, connectivity_method, comps_num))
 
@@ -343,7 +344,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
         windows_num = min(args.max_windows_num, windows_num)
     output_fname = get_output_fname(
         subject, args.connectivity_method[0], args.connectivity_modality, labels_extract_mode, identifier)
-    output_mat_fname = get_output_mat_fname(args.connectivity_method[0], labels_extract_mode, identifier)
+    output_mat_fname = get_output_mat_fname(args.connectivity_method[0], labels_extract_mode)
     static_conn = None
     if op.isfile(output_mat_fname) and not args.recalc_connectivity:
         conn = np.load(output_mat_fname)
