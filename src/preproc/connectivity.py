@@ -1096,7 +1096,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--data_min', help='', required=False, default=0, type=float)
     parser.add_argument('--windows_length', help='', required=False, default=1000, type=int)
     parser.add_argument('--windows_shift', help='', required=False, default=500, type=int)
-    parser.add_argument('--windows_num', help='', required=False, default=1, type=int)
+    parser.add_argument('--windows_num', help='', required=False, default=0, type=int)
     parser.add_argument('--max_windows_num', help='', required=False, default=None, type=au.int_or_none)
     parser.add_argument('--tmin', help='', required=False, default=None, type=au.int_or_none)
     parser.add_argument('--tmax', help='', required=False, default=None, type=au.int_or_none)
