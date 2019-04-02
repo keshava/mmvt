@@ -12,7 +12,7 @@ MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 def calc_measures(subject, n_jobs=4):
     fol = op.join(MMVT_DIR, subject, 'connectivity')
     con = np.load(op.join(fol, 'meg_pli.npy')).squeeze()
-    names = np.load(op.join(fol, 'labels_names.npy'))
+    # names = np.load(op.join(fol, 'labels_names.npy'))
     T = con.shape[2]
 
     indices = np.array_split(np.arange(T), n_jobs)
@@ -24,7 +24,7 @@ def calc_measures(subject, n_jobs=4):
             values = np.zeros((len(vals_chunk[0]), T))
             first = False
         values[:, times_chunk] = vals_chunk.T
-    np.save(op.join(fol, 'clustering.npy'), values)
+    np.save(op.join(fol, 'closeness_centrality.npy'), values)
 
 
 def calc_closeness_centrality(p):
@@ -34,10 +34,8 @@ def calc_closeness_centrality(p):
     for run, t in enumerate(times_chunk):
         utils.time_to_go(now, run, len(times_chunk), 10)
         g = nx.from_numpy_matrix(con[:, :, t])
-        # clos = nx.closeness_centrality(g)
-        x = nx.clustering(g)
+        x = nx.closeness_centrality(g)
         vals.append([x[k] for k in range(len(x))])
-        # vals.append([k for k in range(219)])
     vals = np.array(vals)
     return vals, times_chunk
 
@@ -58,5 +56,5 @@ if __name__ == '__main__':
     print('n_jobs: {}'.format(n_jobs))
     subject = 'nmr00857'
     func_name = 'closeness_centrality' # 'clustering'
-    # calc_measures(subject, n_jobs)
-    plot_values(subject, func_name)
+    calc_measures(subject, n_jobs)
+    # plot_values(subject, func_name)
