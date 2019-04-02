@@ -47,7 +47,7 @@ def calc_closeness_centrality(p):
         con_t = con[:, :, t]
         g = nx.from_numpy_matrix(con_t)
         # x = nx.closeness_centrality(g)
-        x = np.degree_centrality(g)
+        x = nx.degree_centrality(g)
         vals.append([x[k] for k in range(len(x))])
     vals = np.array(vals)
     return vals, times_chunk
