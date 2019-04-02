@@ -4076,7 +4076,7 @@ def calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, fl
             cond=cond, method=im, hemi='{hemi}')) for (im, cond) in product(args.inverse_method, conditions)])
         if stc_exist and not args.overwrite_stc:
             print('stc exist! ({})'.format(','.join([stc_hemi_template.format(
-                cond=cond, method=im, hemi='{hemi}')) for (im, cond) in product(args.inverse_method, conditions)])))
+                cond=cond, method=im, hemi='{hemi}') for (im, cond) in product(args.inverse_method, conditions)])))
             return flags, None, {}
         if isinstance(inverse_method, Iterable) and not isinstance(inverse_method, str):
             inverse_method = inverse_method[0]
