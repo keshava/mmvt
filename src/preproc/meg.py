@@ -4070,7 +4070,7 @@ def calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, fl
     stcs_conds, stcs_num = None, {}
     if utils.should_run(args, 'calc_stc'):
         stc_hemi_template = get_stc_hemi_template(args.stc_template)
-        if conditions is None:
+        if conditions is None or len(conditions) == 0:
             conditions = ['all']
         stc_exist = all([utils.both_hemi_files_exist(stc_hemi_template.format(
             cond=cond, method=im, hemi='{hemi}')) for (im, cond) in product(args.inverse_method, conditions)])
