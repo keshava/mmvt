@@ -202,6 +202,19 @@ def save_sz_pick_values(subject, files_names, func_name, atlas):
             np.savez(labels_output_fname, data=vals[hemis], names=names[hemis], conditions=['sz'])
 
 
+def plot_con(subject, files, band_name):
+    fname = [fname for fname in files if utils.namebase(fname).endswith('SZ')][0]
+    file_name = utils.namebase(fname)
+    con_name = 'meg_{}_mi'.format(band_name)
+    fol = op.join(MMVT_DIR, subject, 'connectivity', file_name)
+    con = np.load(op.join(fol, '{}.npy'.format(con_name))).squeeze()
+    print(np.unravel_index(np.argmax(con), con.shape))
+    t_axis = np.linspace(-2, 5, con.shape[2])
+    plt.plot(t_axis, con[0].T)
+    plt.title(con_name)
+    plt.show()
+
+
 if __name__ == '__main__':
     subject = 'nmr00857'
     atlas = 'laus125'
@@ -212,4 +225,5 @@ if __name__ == '__main__':
     remote_subject_dir = '/space/megraid/clinical/MEG-MRI/seder/freesurfer/nmr00857'
     fol = '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/run1_NoFilter'
     files = glob.glob(op.join(fol, '*.fif'))
-    main(subject, atlas, connectivity_method, graph_func, remote_subject_dir, files, n_jobs)
+    # main(subject, atlas, connectivity_method, graph_func, remote_subject_dir, files, n_jobs)
+    plot_con(subject, files, 'beta')
