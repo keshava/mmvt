@@ -25,7 +25,7 @@ def calc_measures(subject, con_name, n_jobs=4):
             values = np.zeros((len(vals_chunk[0]), T))
             first = False
         values[:, times_chunk] = vals_chunk.T
-    np.save(op.join(fol, 'closeness_centrality.npy'), values)
+    np.save(op.join(fol, '{}_closeness_centrality.npy'.format(con_name)), values)
 
 
 def calc_closeness_centrality(p):
