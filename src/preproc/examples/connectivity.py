@@ -91,6 +91,7 @@ def calc_fmri_static_connectivity(args):
 def calc_meg_connectivity(args):
     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     for band_name, band_freqs in bands.items():
+        print('calc_meg_connectivity: {}'.format(band_name))
         args = con.read_cmd_args(utils.Bag(
             subject=args.subject,
             atlas='laus125',
