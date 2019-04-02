@@ -89,23 +89,25 @@ def calc_fmri_static_connectivity(args):
 
 
 def calc_meg_connectivity(args):
-    args = con.read_cmd_args(utils.Bag(
-        subject=args.subject,
-        atlas='laus125',
-        function='calc_lables_connectivity',
-        connectivity_modality='meg',
-        connectivity_method='pli',
-        windows_length=500,
-        windows_shift=100,
-        # sfreq=1000.0,
-        # fmin=10,
-        # fmax=100
-        # recalc_connectivity=True,
-        # max_windows_num=100,
-        recalc_connectivity=True,
-        n_jobs=args.n_jobs
-    ))
-    con.call_main(args)
+    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    for band_name, band_freqs in bands.items():
+        args = con.read_cmd_args(utils.Bag(
+            subject=args.subject,
+            atlas='laus125',
+            function='calc_lables_connectivity',
+            connectivity_modality='meg',
+            connectivity_method='mi',
+            windows_length=500,
+            windows_shift=100,
+            identifier=band_name,
+            fmin=band_freqs[0],
+            fmax=band_freqs[1],
+            # recalc_connectivity=True,
+            # max_windows_num=100,
+            recalc_connectivity=True,
+            n_jobs=args.n_jobs
+        ))
+        con.call_main(args)
 
 
 def calc_meg_gamma_connectivity(args):

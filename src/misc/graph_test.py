@@ -42,9 +42,12 @@ def calc_closeness_centrality(p):
     return vals, times_chunk
 
 
-def plot_values(subject):
-    vals = np.load(op.join(MMVT_DIR, subject, 'connectivity', 'clustering.npy'))
-    t_axis = np.linspace(-2, 5, vals.shape[1] - 1)
+def plot_values(subject, func_name, ma_win_size=10):
+    vals = np.load(op.join(MMVT_DIR, subject, 'connectivity', '{}.npy'.format(func_name)))
+    # inds = np.argsort(np.max(vals, axis=1) - np.min(vals, axis=1))[::-1]
+    # vals = vals[inds[:10]]
+    # vals = utils.moving_avg(vals, ma_win_size)
+    t_axis = np.linspace(-2, 5, vals.shape[1])
     # plt.plot(t_axis, np.diff(vals).T)
     plt.plot(t_axis, vals.T)
     plt.show()
@@ -54,5 +57,6 @@ if __name__ == '__main__':
     n_jobs = utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     subject = 'nmr00857'
+    func_name = 'closeness_centrality' # 'clustering'
     # calc_measures(subject, n_jobs)
-    plot_values(subject)
+    plot_values(subject, func_name)

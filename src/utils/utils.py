@@ -1501,13 +1501,20 @@ def find_list_items_in_list(l_new, l_org):
 
 
 def moving_avg(x, window):
-    # import pandas as pd
-    # return pd.rolling_mean(x, window)#[:, window-1:]
+    if window == 0:
+        return x
     weights = np.repeat(1.0, window)/window
     sma = np.zeros((x.shape[0], x.shape[1] - window + 1))
     for ind in range(x.shape[0]):
         sma[ind] = np.convolve(x[ind], weights, 'valid')
     return sma
+
+
+def moving_avg_mean(signal, period):
+    buffer = [np.nan] * period
+    for i in range(period,len(signal)):
+        buffer.append(signal[i-period:i].mean())
+    return buffer
 
 
 def is_exe(fpath):
