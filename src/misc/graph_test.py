@@ -9,9 +9,10 @@ LINKS_DIR = utils.get_links_dir()
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 
 
-def calc_measures(subject, n_jobs=4):
+def calc_measures(subject, con_name, n_jobs=4):
     fol = op.join(MMVT_DIR, subject, 'connectivity')
-    con = np.load(op.join(fol, 'meg_pli.npy')).squeeze()
+    print('Loading {}'.format(op.join(fol, '{}.npy'.format(con_name))))
+    con = np.load(op.join(fol, '{}.npy'.format(con_name))).squeeze()
     # names = np.load(op.join(fol, 'labels_names.npy'))
     T = con.shape[2]
 
@@ -56,5 +57,7 @@ if __name__ == '__main__':
     print('n_jobs: {}'.format(n_jobs))
     subject = 'nmr00857'
     func_name = 'closeness_centrality' # 'clustering'
-    calc_measures(subject, n_jobs)
+    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    for band_name in bands.keys():
+        calc_measures(subject, 'meg_{}_mi'.format(band_name), n_jobs)
     # plot_values(subject, func_name)
