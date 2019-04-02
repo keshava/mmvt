@@ -454,9 +454,9 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
                 np.fill_diagonal(corr[:, :, w], 0)
             if 'mi' in args.connectivity_method or 'mi_vec' in args.connectivity_method and corr.ndim == 3:
                 conn_fname = get_output_mat_fname('mi', labels_extract_mode)
-                if op.isfile(conn_fname):
+                if op.isfile(conn_fname) and not args.recalc_connectivity:
                     conn = np.load(conn_fname)
-                if not op.isfile(conn_fname) or conn.shape[0] != data.shape[0]:
+                if not op.isfile(conn_fname) or conn.shape[0] != data.shape[0] or args.recalc_connectivity:
                     conn = np.zeros(corr.shape)
                     params = [(corr[:, :, w]) for w in range(windows_num)]
                     chunks = utils.chunks(list(enumerate(params)), windows_num / args.n_jobs)
