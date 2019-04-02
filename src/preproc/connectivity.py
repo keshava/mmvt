@@ -237,6 +237,8 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
         labels_data_fname = utils.select_one_file(glob.glob(op.join(
             conn_fol, '{}*labels_data*_{}_*{}_rh.npz'.format(args.identifier, args.atlas, labels_extract_mode))))
         if labels_data_fname == '':
+            print('No labels data in {}'.format(op.join(
+                conn_fol, '{}*labels_data*_{}_*{}_rh.npz'.format(args.identifier, args.atlas, labels_extract_mode))))
             modalities_fols_dic = dict(meg=MEG_DIR, fmri=FMRI_DIR, electrodes=ELECTRODES_DIR)
             conn_fol = op.join(modalities_fols_dic[args.connectivity_modality], subject)
             labels_data_fname = utils.select_one_file([f for f in glob.glob(op.join(conn_fol, '*labels_data*.npz'))
