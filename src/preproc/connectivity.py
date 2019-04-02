@@ -355,7 +355,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
         elif 'coherence' in args.connectivity_method:
             connectivity_method = 'COH'
     if not op.isfile(output_mat_fname) or args.recalc_connectivity:
-        if 'corr' in args.connectivity_method:
+        if 'corr' in args.connectivity_method or 'mi' in args.connectivity_method:
             conn = np.zeros((data.shape[0], data.shape[0], windows_num))
             if labels_extract_mode.startswith('pca_'):
                 comps_num = int(labels_extract_mode.split('_')[1])
