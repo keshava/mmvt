@@ -24,7 +24,6 @@ def calc_measures(subject, con_name, n_jobs=4):
     con = np.load(op.join(fol, '{}.npy'.format(con_name))).squeeze()
     # names = np.load(op.join(fol, 'labels_names.npy'))
     T = con.shape[2]
-    con[con < np.percentile(con, 99)] = 0
     indices = np.array_split(np.arange(T), n_jobs)
     chunks = [(con, indices_chunk) for indices_chunk in indices]
     results = utils.run_parallel(calc_closeness_centrality, chunks, n_jobs)
@@ -34,7 +33,7 @@ def calc_measures(subject, con_name, n_jobs=4):
             values = np.zeros((len(vals_chunk[0]), T))
             first = False
         values[:, times_chunk] = vals_chunk.T
-        print('{}: min={}, max={}, mean={}'.format(con_name, np.min(values), np.max(values), np.mean(values)))
+    print('{}: min={}, max={}, mean={}'.format(con_name, np.min(values), np.max(values), np.mean(values)))
     np.save(op.join(fol, '{}_closeness_centrality.npy'.format(con_name)), values)
 
 
@@ -44,7 +43,9 @@ def calc_closeness_centrality(p):
     now = time.time()
     for run, t in enumerate(times_chunk):
         utils.time_to_go(now, run, len(times_chunk), 10)
-        g = nx.from_numpy_matrix(con[:, :, t])
+        con_t = con[:, :, t]
+        con_t[con_t < np.percentile(con_t, 99)] = 0
+        g = nx.from_numpy_matrix(con_t)
         x = nx.closeness_centrality(g)
         vals.append([x[k] for k in range(len(x))])
     vals = np.array(vals)
@@ -59,6 +60,7 @@ def plot_values(subject, con_name, func_name, ma_win_size=10):
     t_axis = np.linspace(-2, 5, vals.shape[1])
     # plt.plot(t_axis, np.diff(vals).T)
     plt.plot(t_axis, vals.T)
+    plt.title(con_name)
     plt.show()
 
 
