@@ -2258,7 +2258,7 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                 stcs_num[cond_name] = epochs.events.shape[0]
             if not single_trial_stc: # So calc_source_band_induced_power can enter here also
                 if apply_on_raw:
-                    raw_fname = get_raw_fname(apply_on_raw)
+                    raw_fname = get_raw_fname(raw_fname)
                     if op.isfile(raw_fname):
                         raw = mne.io.read_raw_fif(raw_fname)
                     else:
