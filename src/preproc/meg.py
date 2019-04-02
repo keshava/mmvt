@@ -3327,11 +3327,13 @@ def get_stc_conds(events, inverse_method, stc_hemi_template):
     for cond in events.keys():
         stc_fname = stc_hemi_template.format(cond=cond, method=inverse_method, hemi=hemi)
         if not op.isfile(stc_fname):
-            template = op.join(SUBJECT_MEG_FOLDER, '*-{}.stc'.format(hemi))
-            stc_fname = utils.select_one_file(glob.glob(template), template=template, files_desc='STC', print_title=True)
-        if not op.isfile(stc_fname):
-            template = op.join(MMVT_DIR, SUBJECT, 'meg', '*-{}.stc'.format(hemi))
-            stc_fname = utils.select_one_file(glob.glob(template), template=template, files_desc='STC', print_title=True)
+            template_meg_stc = op.join(SUBJECT_MEG_FOLDER, '*-{}.stc'.format(hemi))
+            template_meg_h5 = op.join(SUBJECT_MEG_FOLDER, '*-stc.h5'.format(hemi))
+            template_mmvt_stc = op.join(MMVT_DIR, SUBJECT, 'meg', '*-{}.stc'.format(hemi))
+            template_mmvt_h5 = op.join(MMVT_DIR, SUBJECT, 'meg', '*-stc.h5'.format(hemi))
+            stc_fname = utils.select_one_file(
+                glob.glob(template_meg_stc) + glob.glob(template_meg_h5) + glob.glob(template_mmvt_stc) +
+                glob.glob(template_mmvt_h5), template='stc/h5', files_desc='STC', print_title=True)
         if not op.isfile(stc_fname):
             return None
         stcs[cond] = mne.read_source_estimate(stc_fname)
@@ -4264,7 +4266,7 @@ def calc_labels_avg_per_condition_wrapper(
             return flags
 
         if conditions is None or len(conditions) == 0:
-            conditions = {1: 'all'}
+            conditions = {'all': 1}
         conditions_keys = conditions.keys()
         if isinstance(inverse_method, Iterable) and not isinstance(inverse_method, str):
             inverse_method = inverse_method[0]

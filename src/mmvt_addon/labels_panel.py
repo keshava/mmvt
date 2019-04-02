@@ -231,8 +231,13 @@ def _load_labels_data(labels_data_fname):
         return False
     if isinstance(labels[0], mne.Label):
         labels = [l.name for l in labels]
-    if data.ndim == 2 :
-        data = data.mean(axis=1) if data.shape[0] == len(labels) else data.mean(axis=0)
+    if data.ndim == 2:
+        if data.shape[0] == len(labels):
+            data = data[:, bpy.context.scene.frame_current]
+        elif data.shape[1] == len(labels):
+            data = data[bpy.context.scene.frame_current]
+        else:
+            data = data.mean(axis=1) if data.shape[0] == len(labels) else data.mean(axis=0)
     if 'atlas' not in d:
         atlas = mu.check_atlas_by_labels_names(labels)
         if atlas == '':

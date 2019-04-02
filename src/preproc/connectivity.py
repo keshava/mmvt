@@ -281,6 +281,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
     np.save(labels_fname, labels_names)
     labels_indices = np.array([ind for ind,l in enumerate(labels_names) if not np.any(
         [e in l for e in args.labels_exclude])])
+    np.save(op.join(MMVT_DIR, subject, 'connectivity', 'labels_indices.npy'), labels_indices)
     if len(labels_indices) < len(labels_names):
         labels_names = labels_names[labels_indices]
         data = data[labels_indices]

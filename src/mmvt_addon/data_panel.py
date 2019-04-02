@@ -809,7 +809,7 @@ def add_data_to_obj(obj_name, data, conditions):
     clear_animation = False
     fcurves_num = mu.count_fcurves(cur_obj)
     if cur_obj.animation_data is not None:
-        if len(cur_obj.animation_data.action.fcurves[0].keyframe_points) != T + 2:
+        if len(cur_obj.animation_data.action.fcurves[0].keyframe_points) != T:
             clear_animation = True
     if fcurves_num < len(conditions):
         clear_animation = True
@@ -822,12 +822,12 @@ def add_data_to_obj(obj_name, data, conditions):
             cond_str = cond_str.astype(str)
             # Set the values to zeros in the first and last frame for current object(current label)
             mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, 1)
-            mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, len(data) + 2)
+            mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, len(data))
 
             # For every time point insert keyframe to current object
             cond_data = data[:, cond_ind] if data.ndim == 2 else np.reshape(data, (len(data), 1))
             for ind, t in enumerate(cond_data):
-                mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, t, ind + 2)
+                mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, t, ind)
 
             # remove the orange keyframe sign in the fcurves window
             fcurves = bpy.data.objects[obj_name].animation_data.action.fcurves[cond_ind]
@@ -970,7 +970,7 @@ def add_data_to_parent_obj(parent_obj, source_files, stat):
         return
     sources_names = sorted(list(sources.keys()))
     N = len(sources_names)
-    T = len(sources[sources_names[0]]) + 2
+    T = len(sources[sources_names[0]])
     fcurves_num = mu.count_fcurves(parent_obj)
     if fcurves_num < len(sources_names):
         parent_obj.animation_data_clear()
@@ -984,7 +984,7 @@ def add_data_to_parent_obj(parent_obj, source_files, stat):
 
             # For every time point insert keyframe to the main Brain object
             for ind in range(data.shape[0]):
-                mu.insert_keyframe_to_custom_prop(parent_obj, source_name, data[ind], ind + 2)
+                mu.insert_keyframe_to_custom_prop(parent_obj, source_name, data[ind], ind)
 
             # remove the orange keyframe sign in the fcurves window
             fcurves = parent_obj.animation_data.action.fcurves[obj_counter]
