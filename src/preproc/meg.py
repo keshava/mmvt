@@ -2311,8 +2311,9 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                 print('Saving the source estimate to {} and\n {}'.format(
                     stc_fname, mmvt_stc_fname))
                 print('max: {}, min: {}'.format(np.max(stcs[cond_name].data), np.min(stcs[cond_name].data)))
-                stcs[cond_name].save(mmvt_stc_fname)
-                stcs[cond_name].save(stc_fname)
+                ftype = 'h5' if apply_on_raw else 'stc'
+                stcs[cond_name].save(mmvt_stc_fname, ftype)
+                # stcs[cond_name].save(stc_fname)
                 # if mmvt_stc_fname != stc_fname:
                 #     for hemi in utils.HEMIS:
                 #         utils.make_link(
