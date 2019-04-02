@@ -2260,7 +2260,7 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                 if apply_on_raw:
                     raw_fname = get_raw_fname(raw_fname)
                     if op.isfile(raw_fname):
-                        raw = mne.io.read_raw_fif(raw_fname)
+                        raw = mne.io.read_raw_fif(raw_fname, preload=True)
                     else:
                         raise Exception('Can\'t find the raw data!')
                     try:
