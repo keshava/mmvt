@@ -4,6 +4,7 @@ import numpy as np
 import time
 import networkx as nx
 import matplotlib.pyplot as plt
+import math
 
 from src.utils import utils
 from src.utils import labels_utils as lu
@@ -42,7 +43,7 @@ def main(subject, atlas, connectivity_method, graph_func, remote_subject_dir, fi
                 op.join(meg_fol, 'labels_data_epilepsy_laus125_dSPM_mean_flip_{}.npz'.format(hemi)), files_fol)
 
     plot_all_files_graph_max(subject, files, graph_func)
-    save_sz_pick_values(subject, files, graph_func, atlas)
+    # save_sz_pick_values(subject, files, graph_func, atlas)
 
 
 def analyse_connectivity(subject, connectivity_method, graph_func, file_name, atlas, n_jobs=4):
@@ -146,26 +147,59 @@ def plot_graph_values(subject, file_name, con_name, func_name):
 def plot_all_files_graph_max(subject, files_names, func_name):
     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity', func_name))
+    sfreq = 2035
+    windows_length = 500
+    half_window = (1 /sfreq) * (windows_length / 2) # In seconds
     for band_name in bands.keys():
         con_name = 'meg_{}_mi'.format(band_name)
         output_fname =  op.join(output_fol, '{}_{}.jpg'.format(con_name, func_name))
-        if op.isfile(output_fname):
-            continue
-        plt.figure(figsize=(10, 10))
+        # if op.isfile(output_fname):
+        #     continue
+        baseline_values = []
+        all_values = []
+        # sz_ind = 0
+        fig = plt.figure(figsize=(10, 10))
+        axes = fig.add_subplot(111)
         for fname in files_names:
             file_name = utils.namebase(fname)
-            is_sz = file_name.endswith('SZ')
+            is_sz = 'SZ' in file_name
             input_fname = op.join(MMVT_DIR, subject, 'connectivity', file_name, '{}_{}.npy'.format(con_name, func_name))
             vals = np.load(input_fname)
-            # vals = np.diff(vals)
+            # t_axis = np.linspace(-2, 5, vals.shape[1])
+            t_axis = np.linspace(-2 + half_window, 5 - half_window, vals.shape[1])
             max_vals = np.max(vals, axis=0)
-            t_axis = np.linspace(-2, 5, vals.shape[1])
-            plt.plot(t_axis, max_vals, '-' if is_sz else '--', label=file_name)
-        plt.title('{} {}'.format(func_name, band_name))
-        plt.legend()
+            all_values.append(max_vals)
+            if is_sz:
+                # sz_ind += 1
+                # if 'start' in file_name:
+                #     max_vals[np.where(t_axis < 0)[0]] = np.nan
+                # else:
+                plt.plot(t_axis, max_vals, label='SZ')# {}'.format(sz_ind))
+            else:
+                baseline_values.append(max_vals)
+        baseline_values_max = np.array(baseline_values).max(axis=0)
+        baseline_values_mean = np.array(baseline_values).mean(axis=0)
+        baseline_values_std = np.array(baseline_values).std(axis=0)
+        plt.plot(t_axis, baseline_values_max, '--', label='No SZ max')
+        plt.plot(t_axis, baseline_values_mean, '--', label='No SZ mean')
+        plt.fill_between(t_axis, baseline_values_mean - 2 * baseline_values_std, baseline_values_mean + 2 * baseline_values_std,
+                         color='#539caf', alpha=0.4, label='No SZ' + r'$ \pm 2\sigma$')
+        plt.axvline(x=0, linestyle='--', color='k')
+        plt.xlabel('Time(s)', fontsize=18)
+        xticklabels = np.arange(-3, 6).tolist()
+        xticklabels[3] = 'SZ'
+        axes.set_xticklabels(xticklabels)
+        plt.ylabel('max(Eigencentrality)', fontsize=16)
+        # plt.ylim([0.3, 0.6])
+        plt.title('Eigencentrality ({})'.format(band_name), fontsize=16)
+        plt.legend(loc='upper right', fontsize=16)
         print('Saving figure to {}'.format(output_fname))
         plt.savefig(output_fname)
         plt.close()
+
+        # all_values = np.array(all_values)
+        # plt.figure()
+
 
 
 def save_sz_pick_values(subject, files_names, func_name, atlas):
@@ -223,7 +257,8 @@ if __name__ == '__main__':
     n_jobs = utils.get_n_jobs(-5)
     print('n_jobs = {}'.format(n_jobs))
     remote_subject_dir = '/space/megraid/clinical/MEG-MRI/seder/freesurfer/nmr00857'
-    fol = '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/run1_NoFilter'
+    # fol = '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/run1_NoFilter'
+    fol = '/homes/5/npeled/space1/MEG/nmr00857/clips'
     files = glob.glob(op.join(fol, '*.fif'))
-    # main(subject, atlas, connectivity_method, graph_func, remote_subject_dir, files, n_jobs)
-    plot_con(subject, files, 'beta')
+    main(subject, atlas, connectivity_method, graph_func, remote_subject_dir, files, n_jobs)
+    # plot_con(subject, files, 'beta')
