@@ -2690,7 +2690,7 @@ def create_labels_contours():
 
 
 def make_link(source, target, overwrite=False, copy_if_fails=True):
-    if is_windows:
+    if is_windows():
         try:
             # https://stackoverflow.com/questions/1447575/symlinks-on-windows
             import ctypes

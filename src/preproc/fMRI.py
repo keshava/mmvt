@@ -634,7 +634,7 @@ def load_surf_files(subject, surf_template_fname, task='', overwrite_surf_data=F
             surf_full_output_name, utils.file_type(surf_full_output_fname)))
     output_fname_template = op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}'.format(op.basename(
         new_surf_full_output_fname)))
-    npy_output_fname_template = '{}.npy'.format(op.splitext(output_fname_template)[0])
+    npy_output_fname_template = utils.change_fname_extension(output_fname_template, 'npy')
     if utils.both_hemi_files_exist(npy_output_fname_template) and not overwrite_surf_data:
         return True, npy_output_fname_template
     for hemi in utils.HEMIS:
