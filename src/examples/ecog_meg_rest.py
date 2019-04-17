@@ -353,17 +353,17 @@ def main(args):
             '/autofs/space/megraid_clinical/MEG-MRI/seder/freesurfer/{}'.format(args.subject),
             # '/home/npeled/subjects/{}'.format(args.subject),
             op.join(SUBJECTS_DIR, args.subject)] if op.isdir(d)]
-        remote_subject_dir = remote_subject_dirs[0] if len(remote_subject_dirs) == 1 else ''
+        remote_subject_dir = remote_subject_dirs[0] if len(remote_subject_dirs) > 0 else ''
     meg_epochs_dirs = [d for d in [
-        '/autofs/space/karima_002/users/Machine_Learning_Clinical_MEG_EEG_Resting/epochs',
+        '/autofs/space/karima_002/users/Machine_Learning_Clinical_MEG_EEG_Resting/epochs/{}'.format(args.subject),
         # '/home/npeled/meg/{}'.format(args.subject),
         op.join(MEG_DIR, args.subject)] if op.isdir(d)]
-    meg_epochs_dir = meg_epochs_dirs[0] if len(meg_epochs_dirs) == 1 else ''
+    meg_epochs_dir = meg_epochs_dirs[0] if len(meg_epochs_dirs) > 0 else ''
     meg_remote_dirs = [d for d in [
         '/autofs/space/megraid_clinical/MEG/epilepsy/subj_6213848/171127',
         '/home/npeled/meg/{}'.format(args.subject),
         op.join(MEG_DIR, args.subject)] if op.isdir(d)]
-    meg_remote_dir = meg_remote_dirs[0] if len(meg_remote_dirs) == 1 else ''
+    meg_remote_dir = meg_remote_dirs[0] if len(meg_remote_dirs) > 0 else ''
     session_num = 1
     # raw_fnames = glob.glob(op.join(meg_remote_dir, '*_??_raw.fif'))
     raw_fname =  '' #utils.select_one_file(raw_fnames) # raw_fnames[0] if len(raw_fnames) > 0 else ''
