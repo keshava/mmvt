@@ -57,30 +57,16 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
                        meg_remote_dir='', meg_epochs_dir='', empty_fname='', cor_fname='', use_demi_events=True, n_jobs=-1):
     functions = 'make_forward_solution,calc_inverse_operator,calc_stc,calc_labels_avg_per_condition'
 
-    epochs_folders = [d for d in glob.glob(op.join(meg_epochs_dir, '*_??')) if op.isdir(d)]
-    print('epochs_folders: {}'.format(epochs_folders))
-    # remote_epo_fname = op.join(meg_epochs_dir, '{}_{}_{}'.format(args.subject, args.nmr, session),
-    #                            '{}_{}_{}_Resting_eeg_meg_Demi_ar-epo.fif'.format(args.subject, args.nmr, session))
+    epochs_files = glob.glob(op.join(
+        meg_epochs_dir, '**', '{}_*_Resting_eeg_meg_Demi_ar-epo.fif'.format(subject)))
     output_files = glob.glob(op.join(
         MMVT_DIR, subject, 'meg', 'labels_data_rest_electrodes_labels_dSPM_mean_flip_*.npz'))
     for output_fname in output_files:
         utils.remove_file(output_fname)
 
-    for ind, epochs_fol in enumerate(epochs_folders):
+    for ind, epo_fname in enumerate(epochs_files):
         # Remove  '/autofs/space/karima_002/users/Machine_Learning_Clinical_MEG_EEG_Resting/epochs/nmr00479_4994627_vef',
-        epo_fnames = glob.glob(op.join(epochs_fol, '*.fif'))
-        if len(epo_fnames) != 1:
-            print('********* No fif files in {}!!!'.format(epochs_fol))
-            continue
-        epo_fname = epo_fnames[0]
         fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', utils.namebase(epo_fname)))
-
-        # output_files = glob.glob(op.join(
-        #     fol, 'labels_data_rest_electrodes_labels_dSPM_mean_flip_*.npz'))
-        # if len(output_files) >= 1:
-        #     print('Already calculated for {}'.format(epochs_fol))
-        #     continue
-
         overwrite_source_bem = args.overwrite_source_bem if ind == 0 else False
 
         meg_args = meg.read_cmd_args(dict(
@@ -113,7 +99,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
         output_files = glob.glob(op.join(
             MMVT_DIR, subject, 'meg', 'labels_data_rest_electrodes_labels_dSPM_mean_flip_*.npz'))
         for output_fname in output_files:
-            utils.copy_file(output_fname, op.join(fol, utils.namebase_with_ext(output_fname)))
+            utils.move_file(output_fname, fol, overwrite=True)
 
 
 def meg_preproc(subject, inv_method='MNE', em='mean_flip', atlas='electrodes_labels', remote_subject_dir='',
@@ -318,17 +304,7 @@ def compare_ps_from_epochs_and_from_time_series(subject):
     plt.show()
 
 
-def check_mmvt_file(subject):
-    # input_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_data_power_spectrum_comparison.npz')
-    # d = utils.Bag(np.load(input_fname))
-    # plt.figure()
-    # plt.plot(d.data[:, :, 0].T)
-    # plt.title(d.conditions[0])
-    # plt.figure()
-    # plt.plot(d.data[:, :, 1].T)
-    # plt.title(d.conditions[1])
-    # plt.show()
-    #
+def check_mmvt_files(subject):
     input_files = glob.glob(op.join(MMVT_DIR, subject, 'meg', '**', 'labels_data_rest_electrodes_labels_dSPM_mean_flip_lh.npz'))
     if len(input_files) < 2:
         print('No enough files!')
@@ -336,7 +312,35 @@ def check_mmvt_file(subject):
     x1 = np.load(input_files[0])['data']
     x2 = np.load(input_files[1])['data']
     if np.array_equal(x1, x2):
-        print('!!! labels data is equal !!!')
+        raise Exception('!!! labels are equal !!!')
+    print(x1.shape, x2.shape)
+    print('OK!')
+
+
+def check_epochs(subject, meg_epochs_dir):
+    import mne
+    epochs_files = glob.glob(op.join(
+        meg_epochs_dir, '**', '{}_*_Resting_eeg_meg_Demi_ar-epo.fif'.format(subject)))
+    if len(epochs_files) < 2:
+        print('No enough epochs!')
+    ep1 = mne.read_epochs(epochs_files[0])
+    ep2 = mne.read_epochs(epochs_files[1])
+    if np.array_equal(ep1._data, ep2._data):
+        raise Exception('!!! epochs data are equall !!!')
+    print('OK!')
+
+
+def check_meg(subject):
+    from src.mmvt_addon import colors_utils as cu
+
+    fol = op.join(MMVT_DIR, subject, 'meg')
+    fnames = glob.glob(op.join(fol, '**', 'labels_data_rest_electrodes_labels_dSPM_mean_flip_lh.npz'))
+    colors = cu.get_distinct_colors(len(fnames))
+    for fname, color in zip(fnames, colors):
+        x = np.load(fname)['data']
+        plt.plot(x[0, :, 0], color=color)
+        del x
+    plt.show()
 
 
 def main(args):
@@ -407,30 +411,16 @@ def main(args):
         calc_electrodes_power_spectrum(args.subject, edf_name, overwrite_power_spectrum)
     elif args.function == 'combine_meg_and_electrodes_power_spectrum':
         combine_meg_and_electrodes_power_spectrum(args.subject, inv_method, em, low_freq, high_freq)
-    elif args.function == 'check_mmvt_file':
-        check_mmvt_file(args.subject)
+    elif args.function == 'check_mmvt_files':
+        check_mmvt_files(args.subject)
+    elif args.function == 'check_epochs':
+        check_epochs(args.subject, meg_epochs_dir)
     elif args.function == 'compare_ps_from_epochs_and_from_time_series':
         compare_ps_from_epochs_and_from_time_series(args.subject)
     elif args.function == 'filter_meg_labels_ts':
         filter_meg_labels_ts(args.subject, inv_method, em, atlas)
     elif args.function == 'check_meg':
         check_meg(args.subject)
-
-
-def check_meg(subject):
-    from src.mmvt_addon import colors_utils as cu
-
-    fol = op.join(MMVT_DIR, subject, 'meg')
-    colors = cu.get_distinct_colors(12)
-    for ind, color in zip(np.arange(1, 12), colors):
-        fname = op.join(fol, 'nmr00479_4994627_{}_Resting_eeg_meg_Demi_ar-epo'.format(str(ind).zfill(2)),
-                        'labels_data_rest_electrodes_labels_dSPM_mean_flip_lh.npz')
-        if not op.isfile(fname):
-            continue
-        x = np.load(fname)['data']
-        plt.plot(x[0, :, 0], color=color)
-        del x
-    plt.show()
 
 
 if __name__ == '__main__':

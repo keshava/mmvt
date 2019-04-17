@@ -1067,9 +1067,18 @@ def make_dir(fol):
     return fol
 
 
-def move_file(fname, fol):
+def move_file(fname, fol, overwrite=False):
     if op.isfile(fname):
+        output_fname = op.join(fol, namebase_with_ext(fname))
+        if op.isfile(output_fname):
+            if not overwrite:
+                print('{} already exist!'.format(output_fname))
+                return
+            else:
+                os.remove(output_fname)
         shutil.move(fname, op.join(fol, namebase_with_ext(fname)))
+    else:
+        print('{} does not exist!'.format(fname))
 
 
 def copy_file(fname, fol):
