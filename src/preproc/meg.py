@@ -1926,8 +1926,12 @@ def recalc_epochs_for_noise_cov(noise_t_min, noise_t_max, args, raw=None):
 
 def get_inv_fname(inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True):
     if inv_fname == '':
-        inv_fname = INV_EEG if fwd_usingEEG and not fwd_usingMEG else INV
+        inv_modal_fname = INV_EEG if fwd_usingEEG and not fwd_usingMEG else INV
     inv_fname, inv_exist = locating_meg_file(inv_fname, '*inv.fif')
+    if inv_exist and inv_fname != inv_modal_fname:
+        ret = input('Can\'t find {}, do you want to use {} instead? '.format(inv_modal_fname, inv_fname))
+        if not au.is_true(ret):
+            raise Exception('Wrong inv file')
     if not inv_exist:
         files = glob.glob(op.join(SUBJECT_MEG_FOLDER, '*{}*'.format(inv_fname)))
         if len(files) > 0:
