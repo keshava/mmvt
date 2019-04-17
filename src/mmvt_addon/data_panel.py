@@ -809,7 +809,7 @@ def add_data_to_obj(obj_name, data, conditions):
     clear_animation = False
     fcurves_num = mu.count_fcurves(cur_obj)
     if cur_obj.animation_data is not None:
-        if len(cur_obj.animation_data.action.fcurves[0].keyframe_points) != T:
+        if len(cur_obj.animation_data.action.fcurves[0].keyframe_points) != T + 1:
             clear_animation = True
     if fcurves_num < len(conditions):
         clear_animation = True
