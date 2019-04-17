@@ -1675,7 +1675,10 @@ def create_labels_around_electrodes(subject, bipolar=False, labels_fol_name='ele
         return False
     labels_fol = utils.make_dir(op.join(SUBJECTS_DIR, subject, 'label', labels_fol_name))
     if op.isdir(labels_fol) and overwrite:
-        shutil.rmtree(labels_fol)
+        try:
+            shutil.rmtree(labels_fol)
+        except:
+            print('Can\'t remove {}'.format(labels_fol))
     verts = {}
     for hemi in utils.HEMIS:
         verts[hemi], _ = utils.read_pial(subject, MMVT_DIR, hemi)

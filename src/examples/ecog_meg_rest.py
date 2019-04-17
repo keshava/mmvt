@@ -21,7 +21,11 @@ MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 def create_electrodes_labels(subject, bipolar=False, labels_fol_name='electrodes_labels',
         label_r=5, snap=False, sigma=1, overwrite=False, n_jobs=-1):
     electrodes_names, pos = [], []
-    for elcs_group_fname in glob.glob(op.join(SUBJECTS_DIR, subject, 'electrodes', '*_snap_electrodes.npz')):
+    electrodes_snap_coordinates_temp = op.join(SUBJECTS_DIR, subject, 'electrodes', '*_snap_electrodes.npz')
+    electrodes_snap_coordinates_files = glob.glob(electrodes_snap_coordinates_temp)
+    if len(electrodes_snap_coordinates_files) == 0:
+        raise Exception('No electrodes snap coordinates files ({})!'.format(electrodes_snap_coordinates_temp))
+    for elcs_group_fname in electrodes_snap_coordinates_files:
         d = utils.Bag(np.load(elcs_group_fname))
         group_name = utils.namebase(elcs_group_fname).split('_')[0]
         electrodes_names.extend([
@@ -53,7 +57,7 @@ def meg_calc_labels_ts(subject, inv_method='MNE', em='mean_flip', atlas='electro
                        meg_remote_dir='', meg_epochs_dir='', empty_fname='', cor_fname='', use_demi_events=True, n_jobs=-1):
     functions = 'make_forward_solution,calc_inverse_operator,calc_stc,calc_labels_avg_per_condition'
 
-    epochs_folders = glob.glob(op.join(meg_epochs_dir, '{}_*_*'.format(args.subject, args.nmr)))
+    epochs_folders = [d for d in glob.glob(op.join(meg_epochs_dir, '*_??')) if op.isdir(d)]
     print('epochs_folders: {}'.format(epochs_folders))
     # remote_epo_fname = op.join(meg_epochs_dir, '{}_{}_{}'.format(args.subject, args.nmr, session),
     #                            '{}_{}_{}_Resting_eeg_meg_Demi_ar-epo.fif'.format(args.subject, args.nmr, session))
@@ -315,15 +319,24 @@ def compare_ps_from_epochs_and_from_time_series(subject):
 
 
 def check_mmvt_file(subject):
-    input_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_data_power_spectrum_comparison.npz')
-    d = utils.Bag(np.load(input_fname))
-    plt.figure()
-    plt.plot(d.data[:, :, 0].T)
-    plt.title(d.conditions[0])
-    plt.figure()
-    plt.plot(d.data[:, :, 1].T)
-    plt.title(d.conditions[1])
-    plt.show()
+    # input_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_data_power_spectrum_comparison.npz')
+    # d = utils.Bag(np.load(input_fname))
+    # plt.figure()
+    # plt.plot(d.data[:, :, 0].T)
+    # plt.title(d.conditions[0])
+    # plt.figure()
+    # plt.plot(d.data[:, :, 1].T)
+    # plt.title(d.conditions[1])
+    # plt.show()
+    #
+    input_files = glob.glob(op.join(MMVT_DIR, subject, 'meg', '**', 'labels_data_rest_electrodes_labels_dSPM_mean_flip_lh.npz'))
+    if len(input_files) < 2:
+        print('No enough files!')
+        return
+    x1 = np.load(input_files[0])['data']
+    x2 = np.load(input_files[1])['data']
+    if np.array_equal(x1, x2):
+        print('!!! labels data is equal !!!')
 
 
 def main(args):
@@ -334,12 +347,12 @@ def main(args):
     else:
         remote_subject_dirs = [d for d in [
             '/autofs/space/megraid_clinical/MEG-MRI/seder/freesurfer/{}'.format(args.subject),
-            '/home/npeled/subjects/{}'.format(args.subject),
+            # '/home/npeled/subjects/{}'.format(args.subject),
             op.join(SUBJECTS_DIR, args.subject)] if op.isdir(d)]
         remote_subject_dir = remote_subject_dirs[0] if len(remote_subject_dirs) == 1 else ''
     meg_epochs_dirs = [d for d in [
         '/autofs/space/karima_002/users/Machine_Learning_Clinical_MEG_EEG_Resting/epochs',
-        '/home/npeled/meg/{}'.format(args.subject),
+        # '/home/npeled/meg/{}'.format(args.subject),
         op.join(MEG_DIR, args.subject)] if op.isdir(d)]
     meg_epochs_dir = meg_epochs_dirs[0] if len(meg_epochs_dirs) == 1 else ''
     meg_remote_dirs = [d for d in [
