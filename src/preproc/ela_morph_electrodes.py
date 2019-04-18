@@ -79,14 +79,20 @@ def calc_subcorticals_pos(subject, aseg_data, lut):
     return subs_pos, names
 
 
-@utils.timeit
-def calc_elas(subject, specific_elecs_names, template, bipolar=False,  atlas='aparc.DKTatlas',
-              error_radius=3, elc_length=4, print_warnings=False, overwrite=False, n_jobs=1):
-    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
+def get_electrodes_info(subject, bipolar, n_jobs=1):
     cmd_args = ['-s', subject, '-a', atlas, '-b', str(bipolar), '--n_jobs', str(n_jobs)]
     args = find_rois.get_args(cmd_args)
     elecs_names, elecs_pos, elecs_dists, elecs_types, _ = find_rois.get_electrodes(subject, bipolar, args)
     elecs_oris = find_rois.get_electrodes_orientation(elecs_names, elecs_pos, bipolar, elecs_types)
+    return elecs_names, elecs_pos, elecs_dists, elecs_types, elecs_oris
+
+
+@utils.timeit
+def calc_elas(subject, template, specific_elecs_names=[], bipolar=False,  atlas='aparc.DKTatlas',
+              error_radius=3, elc_length=4, print_warnings=False, overwrite=False, n_jobs=1):
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
+    elecs_names, elecs_pos, elecs_dists, elecs_types, elecs_oris = get_electrodes_info(subject, bipolar, n_jobs)
+    specific_elecs_names = specific_elecs_names if len(specific_elecs_names) > 0 else elecs_names
     elecs_info = [(elec_name, elec_pos, elec_dist, elec_type, elec_ori) for
                   elec_name, elec_pos, elec_dist, elec_type, elec_ori in \
                   zip(elecs_names, elecs_pos, elecs_dists, elecs_types, elecs_oris)
@@ -281,6 +287,6 @@ if __name__ == '__main__':
     atlas = 'laus125'
     overwrite = True
 
-    calc_elas(subject, elec_name, template, bipolar=False, atlas=atlas, print_warnings=False, overwrite=overwrite,
+    calc_elas(subject, template, elec_name, bipolar=False, atlas=atlas, print_warnings=False, overwrite=overwrite,
               n_jobs=1)
     write_electrodes_pos(subject, template, elec_name)
