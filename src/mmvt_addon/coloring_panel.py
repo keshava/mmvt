@@ -2442,8 +2442,9 @@ bpy.types.Scene.coloring_use_abs = bpy.props.BoolProperty(default=True,
 bpy.types.Scene.fmri_files = bpy.props.EnumProperty(items=[('', '', '', 0)],
     description='Selects the contrast to plot the fMRI activity.\n\nScript:mmvt.coloring.get_select_fMRI_contrast()\n\nCurrent contrast')
 bpy.types.Scene.stc_files = bpy.props.EnumProperty(items=[('', '', '', 0)], description="STC files")
-bpy.types.Scene.electrodes_conditions= bpy.props.EnumProperty(items=[],
-    description='Selects the condition to plot the electrodes activity.\n\nCurrent condition')
+bpy.types.Scene.electrodes_conditions= bpy.props.EnumProperty(
+    items=[], description='Selects the condition to plot the electrodes activity.\n\nCurrent condition',
+    update=electrodes_conditions_update)
 bpy.types.Scene.meg_max_t = bpy.props.IntProperty(default=0, min=0, description="MEG max t")
 bpy.types.Scene.electrodes_sources_files = bpy.props.EnumProperty(items=[], description="electrodes sources files")
 bpy.types.Scene.coloring_files = bpy.props.EnumProperty(items=[],

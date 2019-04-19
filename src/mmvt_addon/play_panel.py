@@ -33,7 +33,7 @@ items_names = [("meg", "MEG activity"), ("meg_labels", 'MEG Labels'),
        ('fmri', 'fMRI'), ('fmri_dynamics', 'fMRI dynamics'),
        ('fmri_labels', 'fMRI labels dynamics'),
        ("labels_connectivity", "Labels connectivity"),
-       ("elecs", "Electrodes activity"),
+       ("elecs", "Electrodes activity"), ("elecs_connectivity", "Electrodes connectivity"),
        ("elecs_coh", "Electrodes coherence"), ("elecs_act_coh", "Electrodes activity & coherence"),
        ("stim", "Electrodes stimulation"), ("stim_sources", "Electrodes stimulation & sources"),
        ("meg_elecs", "Meg & Electrodes activity"),
@@ -214,9 +214,11 @@ def plot_something(self=None, context=None, cur_frame=0, uuid='', camera_fname='
     if play_type in ['fmri_dynamics']:
         successful_ret = _addon().plot_activity(
             'FMRI_DYNAMICS', PlayPanel.faces_verts, bpy.context.scene.meg_threshold, None, False)
-    if play_type in ['elecs', 'meg_elecs', 'elecs_act_coh', 'meg_elecs_coh']:
+    if play_type in ['elecs', 'meg_elecs', 'elecs_act_coh', 'meg_elecs_coh', 'elecs_connectivity']:
         # _addon().set_appearance_show_electrodes_layer(bpy.context.scene, True)
         plot_electrodes(cur_frame, bpy.context.scene.electrodes_threshold)
+    if play_type in ['elecs_connectivity']:
+        _addon().coloring.color_connections()
     if play_type == 'meg_labels':
         # todo: get the aparc_name
         _addon().meg_labels_coloring(override_current_mat=True)
@@ -616,9 +618,10 @@ def play_panel_draw(context, layout):
     layout.operator(ExportGraph.bl_idname, text="Export graph", icon='SNAP_NORMAL')
 
     try:
-        files_with_numbers = sum([len(re.findall('\d+', mu.namebase(f))) for f in
-                                  glob.glob(op.join(bpy.context.scene.output_path, '*.{}'.format(
-                                      _addon().get_figure_format())))])
+        images = glob.glob(op.join(bpy.context.scene.output_path, '*.{}'.format(_addon().get_figure_format())))
+        if len(images) < 2:
+            images = glob.glob(op.join(bpy.context.scene.output_path, 'screencast*.jpg'))
+        files_with_numbers = 0 if len(images) < 2 else sum([len(re.findall('\d+', mu.namebase(f))) for f in images])
     except:
         files_with_numbers = 0
 
