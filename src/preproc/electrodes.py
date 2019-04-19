@@ -1265,6 +1265,14 @@ def transform_electrodes_to_subject(subject, args):
     return op.isfile(electrodes_fname)
 
 
+def morph_electrodes(subject, atlas, subject_morph_to='fsaverage', specific_elecs_names=[], bipolar=False,
+                     overwrite=False):
+    from src.preproc import ela_morph_electrodes
+    ela_morph_electrodes.calc_elas(
+        subject, subject_morph_to, specific_elecs_names, bipolar=bipolar, atlas=atlas, overwrite=overwrite)
+    ela_morph_electrodes.write_electrodes_pos(subject, subject_morph_to, specific_elecs_names)
+
+
 def save_electrodes_coords(subject, elecs_names, elecs_coords, good_channels=None, bad_channels=None, fname_postfix=''):
     good_elecs_names, good_elecs_coords = [], []
     for elec_name, elec_coord in zip(elecs_names, elecs_coords):
@@ -1758,6 +1766,11 @@ def main(subject, remote_subject_dir, args, flags):
     if 'transform_electrodes_to_subject' in args.function:
         flags['transform_electrodes_to_subject'] = transform_electrodes_to_subject(subject, args)
 
+    if 'morph_electrodes' in args.function:
+        flags['morph_electrodes'] = morph_electrodes(
+            subject, args.atlas, args.subject_morph_to, args.morphed_elecctrodes, args.bipolar,
+            args.overwrite_morphed_elecctrodes)
+
     if 'show_image' in args.function:
         legend_name = 'electrodes{}_coloring_legend.jpg'.format('_bipolar' if args.bipolar else '')
         flags['show_image'] = utils.show_image(op.join(MMVT_DIR, subject, 'coloring', legend_name))
@@ -1868,6 +1881,11 @@ def read_cmd_args(argv=None):
     parser.add_argument('--epochs_num', help='epoches nun', required=False, default=-1, type=int)
     parser.add_argument('--overwrite_power_spectrum', help='', required=False, default=False, type=au.is_true)
     parser.add_argument('--electrodes_type', help='', required=False, default=None)
+
+    # ELA Morphing
+    parser.add_argument('--overwrite_morphed_elecctrodes', required=False, default=0, type=au.is_true)
+    parser.add_argument('--morphed_elecctrodes', required=False, default='', type=au.str_arr_type)
+    parser.add_argument('--subject_morph_to', required=False, default='fsaverage')
 
     pu.add_common_args(parser)
     args = utils.Bag(au.parse_parser(parser, argv))

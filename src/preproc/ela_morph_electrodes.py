@@ -46,7 +46,7 @@ def init(subject, atlas, n_jobs):
     labels_center_of_mass = lu.calc_center_of_mass(labels, ret_mat=True) * 1000
     regions_center_of_mass = np.concatenate((labels_center_of_mass, subs_center_of_mass))
     regions_names = labels_names + subs_names
-    save_com_as_elecs(subject, regions_center_of_mass, regions_names, atlas)
+    # save_com_as_elecs(subject, regions_center_of_mass, regions_names, atlas)
     # save_com_as_elecs(subject, subs_center_of_mass, subs_names, atlas)
     return labels_vertices, regions_center_of_mass, regions_names, aseg_data, lut, pia_verts,
 
@@ -84,14 +84,15 @@ def get_electrodes_info(subject, bipolar, n_jobs=1):
     args = find_rois.get_args(cmd_args)
     elecs_names, elecs_pos, elecs_dists, elecs_types, _ = find_rois.get_electrodes(subject, bipolar, args)
     elecs_oris = find_rois.get_electrodes_orientation(elecs_names, elecs_pos, bipolar, elecs_types)
-    return elecs_names, elecs_pos, elecs_dists, elecs_types, elecs_oris
+    return elecs_names, elecs_pos, elecs_dists, elecs_types, elecs_oris, args.excludes
 
 
 @utils.timeit
-def calc_elas(subject, template, specific_elecs_names=[], bipolar=False,  atlas='aparc.DKTatlas',
+def calc_elas(subject, template, specific_elecs_names=[], bipolar=False, atlas='aparc.DKTatlas',
               error_radius=3, elc_length=4, print_warnings=False, overwrite=False, n_jobs=1):
-    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
-    elecs_names, elecs_pos, elecs_dists, elecs_types, elecs_oris = get_electrodes_info(subject, bipolar, n_jobs)
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes', 'ela_morphed'))
+    elecs_names, elecs_pos, elecs_dists, elecs_types, elecs_oris, excludes = get_electrodes_info(
+        subject, bipolar, n_jobs)
     specific_elecs_names = specific_elecs_names if len(specific_elecs_names) > 0 else elecs_names
     elecs_info = [(elec_name, elec_pos, elec_dist, elec_type, elec_ori) for
                   elec_name, elec_pos, elec_dist, elec_type, elec_ori in \
@@ -122,7 +123,7 @@ def calc_elas(subject, template, specific_elecs_names=[], bipolar=False,  atlas=
             continue
         elec_labeling = calc_ela(
             subject, bipolar, elec_name, elec_pos, elec_type, elec_ori, elec_dist, labels_vertices, aseg_data, lut,
-            pia_verts, len_lh_pia, args.excludes, error_radius, elc_length, print_warnings, overwrite, n_jobs)
+            pia_verts, len_lh_pia, excludes, error_radius, elc_length, print_warnings, overwrite, n_jobs)
         print('subject_ela:')
         print_ela(elec_labeling)
 
@@ -134,7 +135,7 @@ def calc_elas(subject, template, specific_elecs_names=[], bipolar=False,  atlas=
 
         elec_labeling_template = calc_ela(
             template, bipolar, elec_name, template_elec_pos, elec_type, elec_ori, elec_dist, template_labels_vertices, template_aseg_data, lut,
-            template_pia_verts, template_len_lh_pia, args.excludes, error_radius, elc_length, print_warnings, overwrite, n_jobs)
+            template_pia_verts, template_len_lh_pia, excludes, error_radius, elc_length, print_warnings, overwrite, n_jobs)
         err = comp_elecs_labeling(
             elec_labeling_template, template_regions_center_of_mass, template_regions_names,
             subject_prob_pos_in_template_space)
@@ -150,8 +151,9 @@ def calc_elas(subject, template, specific_elecs_names=[], bipolar=False,  atlas=
                 params = [(template, bipolar, elec_name, new_template_elec_pos, elec_type, elec_ori, elec_dist,
                            template_labels_vertices, template_aseg_data, lut, template_pia_verts, template_len_lh_pia,
                            elec_labeling_no_whites, regions_center_of_mass, regions_names,
-                           template_regions_center_of_mass, template_regions_names, subject_prob_pos_in_template_space, args.excludes,
-                           error_radius, elc_length, overwrite) for new_template_elec_pos in new_template_elec_pos_arr]
+                           template_regions_center_of_mass, template_regions_names, subject_prob_pos_in_template_space,
+                           excludes, error_radius, elc_length, overwrite)
+                          for new_template_elec_pos in new_template_elec_pos_arr]
                 results = utils.run_parallel(_parallel_calc_ela_err, params, len(dxyzs))
                 errs = [res[1] for res in results]
                 ind = np.argmin(errs)
@@ -171,7 +173,7 @@ def calc_elas(subject, template, specific_elecs_names=[], bipolar=False,  atlas=
                     elec_labeling_template = calc_ela(
                         template, bipolar, elec_name, new_template_elec_pos, elec_type, elec_ori, elec_dist,
                         template_labels_vertices, template_aseg_data, lut,
-                        template_pia_verts, template_len_lh_pia, args.excludes, error_radius, elc_length,
+                        template_pia_verts, template_len_lh_pia, excludes, error_radius, elc_length,
                         print_warnings, overwrite, n_jobs)
                     new_err = comp_elecs_labeling(
                         elec_labeling_template, template_regions_center_of_mass, template_regions_names,
@@ -194,7 +196,8 @@ def calc_elas(subject, template, specific_elecs_names=[], bipolar=False,  atlas=
                 print_ela(elec_labeling)
                 print('template ela:')
                 print_ela(elec_labeling_template)
-        np.savez(elec_output_fname, pos=new_template_pos, err=err)
+        print('Save output to {}'.format(elec_output_fname))
+        np.savez(elec_output_fname, pos=new_template_pos, name=elec_name, err=err)
 
 
 def print_ela(ela):
@@ -266,13 +269,16 @@ def calc_ela(subject, bipolar, elec_name, elec_pos, elec_type, elec_ori, elec_di
     return ret
 
 
-def write_electrodes_pos(subject, subject_to, elecs):
+def write_electrodes_pos(subject, subject_to, specific_elecs=[]):
     names, pos = [], []
-    for elec_name in elecs:
-        elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', '{}_ela_morphed.npz'.format(elec_name))
-        d = np.load(elec_input_fname)
-        elec_name = '{}_{}'.format(subject, elec_name)
-        names.append(elec_name)
+    morphed_electrodes_files = glob.glob(op.join(
+        MMVT_DIR, subject, 'electrodes', 'ela_morphed', '*_ela_morphed.npz'))
+    for elec_fname in morphed_electrodes_files:
+        d = np.load(elec_fname)
+        elc_name = d['name']
+        if len(specific_elecs) > 0 and elc_name not in specific_elecs:
+            continue
+        names.append('{}_{}'.format(subject, elc_name))
         pos.append(d['pos'])
     fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
     output_fname = op.join(fol, 'electrodes_positions_from_{}.npz'.format(subject))
