@@ -5,8 +5,7 @@ from collections import defaultdict
 from src.utils import utils
 from src.utils import preproc_utils as pu
 from src.examples import morph_electrodes_to_template
-from src.examples import ela_morph_electrodes
-from src.preproc import anatomy as anat
+from src.preproc import anatomy as anat, ela_morph_electrodes
 
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
@@ -46,7 +45,7 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', overwrite=
                 continue
         try:
             ela_morph_electrodes.calc_elas(
-                subject, subjects_electrodes[subject], subject_to, bipolar=False, atlas=atlas,overwrite=overwrite)
+                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas,overwrite=overwrite)
         except:
             err = utils.print_last_error_line()
             bad_subjects.append((subject, err))
