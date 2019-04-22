@@ -127,7 +127,8 @@ def calc_per_session(subject, condition, ctf_raw_data, inverse_method, args, all
                 do_plot=args.do_plot_ica, eog_inds=eog_inds, eog_channel=eog_channel, n_jobs=args.n_jobs)
         else:
             raw = mne.io.read_raw_fif(new_raw_no_filter_fname, preload=True)
-        meg.calc_noise_cov(None, args.noise_t_min, args.noise_t_max, args.noise_cov_fname, args, raw)
+        meg.calc_noise_cov(None, args.noise_t_min, args.noise_t_max, args.noise_cov_fname, args, raw,
+                           use_eeg=use_eeg, use_meg=use_meg)
         if filter_raw_data:
             raw.filter(raw_data_filter_freqs[0], raw_data_filter_freqs[1],  h_trans_bandwidth='auto',
                        filter_length='auto', phase='zero')

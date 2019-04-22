@@ -44,10 +44,10 @@ LOOKUP_TABLE_SUBCORTICAL = op.join(MMVT_DIR, 'sub_cortical_codes.txt')
 STAT_AVG, STAT_DIFF = range(2)
 HEMIS = ['rh', 'lh']
 
-SUBJECT, MRI_SUBJECT, SUBJECT_MEG_FOLDER, RAW, RAW_ICA, INFO, EVO, EVE, COV, EPO, EPO_NOISE, FWD, FWD_EEG, FWD_SUB, FWD_X,\
-FWD_SMOOTH, INV, INV_EEG, INV_SMOOTH, INV_EEG_SMOOTH, INV_SUB, INV_X, EMPTY_ROOM, MRI, SRC, SRC_SMOOTH, BEM, STC, \
+SUBJECT, MRI_SUBJECT, SUBJECT_MEG_FOLDER, RAW, RAW_ICA, INFO, EVO, EVE, COV, EPO, EPO_NOISE, FWD_EEG, FWD_MEG, FWD_MEEG, FWD_SUB, FWD_X,\
+FWD_SMOOTH, INV_EEG, INV_MEG, INV_MEEG, INV_SMOOTH, INV_EEG_SMOOTH, INV_SUB, INV_X, EMPTY_ROOM, MRI, SRC, SRC_SMOOTH, BEM, STC, \
 STC_HEMI, STC_HEMI_SAVE, STC_HEMI_SMOOTH, STC_HEMI_SMOOTH_SAVE, STC_ST,\
-COR, LBL, STC_MORPH, ACT, ASEG, DATA_COV, NOISE_COV, DATA_CSD, NOISE_CSD, MEG_TO_HEAD_TRANS = [''] * 43
+COR, LBL, STC_MORPH, ACT, ASEG, DATA_COV, NOISE_COV_EEG, NOISE_COV_MEG, NOISE_COV_MEEG, DATA_CSD, NOISE_CSD, MEG_TO_HEAD_TRANS = [''] * 47
 
 locating_meg_file = lambda x, y: ('', False)
 locating_subject_file = lambda x, y: ('', False)
@@ -64,10 +64,10 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
                  fwd_fname_format='', inv_fname_format='', events_fname='', files_includes_cond=False,
                  cleaning_method='', contrast='', task='', subjects_meg_dir='', subjects_mri_dir='', mmvt_dir='',
                  fwd_no_cond=False, inv_no_cond=False, data_per_task=False, sub_dirs_for_tasks=False):
-    global SUBJECT, MRI_SUBJECT, SUBJECT_MEG_FOLDER, RAW, RAW_ICA, INFO, EVO, EVE, COV, EPO, EPO_NOISE, FWD, FWD_EEG, FWD_SUB,\
-        FWD_X, FWD_SMOOTH, INV, INV_EEG, INV_SMOOTH, INV_EEG_SMOOTH, INV_SUB, INV_X, EMPTY_ROOM, MRI, SRC, SRC_SMOOTH,\
+    global SUBJECT, MRI_SUBJECT, SUBJECT_MEG_FOLDER, RAW, RAW_ICA, INFO, EVO, EVE, COV, EPO, EPO_NOISE, FWD_EEG, FWD_MEG, FWD_MEEG, FWD_SUB,\
+        FWD_X, FWD_SMOOTH, INV_EEG, INV_MEG, INV_MEEG, INV_SMOOTH, INV_EEG_SMOOTH, INV_SUB, INV_X, EMPTY_ROOM, MRI, SRC, SRC_SMOOTH,\
         BEM, STC, STC_HEMI, STC_HEMI_SAVE, STC_HEMI_SMOOTH, STC_HEMI_SMOOTH_SAVE, STC_ST, COR, AVE, LBL, STC_MORPH,\
-        ACT, ASEG, MMVT_SUBJECT_FOLDER, DATA_COV, NOISE_COV, DATA_CSD, NOISE_CSD, MEG_TO_HEAD_TRANS, \
+        ACT, ASEG, MMVT_SUBJECT_FOLDER, DATA_COV, NOISE_COV_EEG, NOISE_COV_MEG, NOISE_COV_MEEG, DATA_CSD, NOISE_CSD, MEG_TO_HEAD_TRANS, \
         locating_meg_file, locating_subject_file
     if files_includes_cond:
         fname_format = fname_format_cond
@@ -120,18 +120,23 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
     EVO = _get_fif_name('ave')
     COV = _get_fif_name('cov')
     DATA_COV = _get_fif_name('data-cov')
-    NOISE_COV = _get_fif_name_no_cond('noise-cov')
+    NOISE_COV_EEG = _get_fif_name_no_cond('eeg-noise-cov')
+    NOISE_COV_MEG = _get_fif_name_no_cond('meg-noise-cov')
+    NOISE_COV_MEEG = _get_fif_name_no_cond('meeg-noise-cov')
     DATA_CSD = _get_pkl_name('data-csd')
     NOISE_CSD = _get_pkl_name('noise-csd')
     EPO = _get_fif_name('epo')
     EPO_NOISE = _get_fif_name('noise-epo')
-    FWD = _get_fif_name_no_cond('fwd') if fwd_no_cond else _get_fif_name_cond('fwd')
+    # FWD = _get_fif_name_no_cond('fwd') if fwd_no_cond else _get_fif_name_cond('fwd')
     FWD_EEG = _get_fif_name_no_cond('eeg-fwd') if fwd_no_cond else _get_fif_name_cond('eeg-fwd')
+    FWD_MEG = _get_fif_name_no_cond('meg-fwd') if fwd_no_cond else _get_fif_name_cond('meg-fwd')
+    FWD_MEEG = _get_fif_name_no_cond('meeg-fwd') if fwd_no_cond else _get_fif_name_cond('meeg-fwd')
     FWD_SUB = _get_fif_name_no_cond('sub-cortical-fwd') if fwd_no_cond else _get_fif_name_cond('sub-cortical-fwd')
     FWD_X = _get_fif_name_no_cond('{region}-fwd') if fwd_no_cond else _get_fif_name_cond('{region}-fwd')
     FWD_SMOOTH = _get_fif_name_no_cond('smooth-fwd') if inv_no_cond else _get_fif_name_cond('smooth-fwd')
-    INV = _get_fif_name_no_cond('inv') if inv_no_cond else _get_fif_name_cond('inv')
     INV_EEG = _get_fif_name_no_cond('eeg-inv') if inv_no_cond else _get_fif_name_cond('eeg-inv')
+    INV_MEG = _get_fif_name_no_cond('meg-inv') if inv_no_cond else _get_fif_name_cond('meg-inv')
+    INV_MEEG = _get_fif_name_no_cond('meeg-inv') if inv_no_cond else _get_fif_name_cond('meeg-inv')
     INV_SUB = _get_fif_name_no_cond('sub-cortical-inv') if inv_no_cond else _get_fif_name_cond('sub-cortical-inv')
     INV_X = _get_fif_name_no_cond('{region}-inv') if inv_no_cond else _get_fif_name_cond('{region}-inv')
     INV_SMOOTH = _get_fif_name_no_cond('smooth-inv') if inv_no_cond else _get_fif_name_cond('smooth-inv')
@@ -1564,6 +1569,8 @@ def check_src(mri_subject, recreate_the_source_space=False, recreate_src_spacing
                 # No overwrite keyword (not sure why... versions?)
                 src = mne.setup_source_space(MRI_SUBJECT, spacing=recreate_src_spacing, surface=recreate_src_surface,
                                              subjects_dir=SUBJECTS_MRI_DIR, n_jobs=n_jobs)
+            if src is not None:
+                mne.write_source_spaces(src_fname, src)
         else:
             print(traceback.format_exc())
             raise Exception("Can't calculate the fwd solution without the source")
@@ -1674,7 +1681,7 @@ def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', 
     fwd, fwd_with_subcortical = None, None
     raw_fname = get_raw_fname(raw_fname)
     evo_fname = get_evo_fname(evo_fname)
-    fwd_fname = get_fwd_fname(fwd_fname, usingMEG, usingEEG)
+    fwd_fname = get_fwd_fname(fwd_fname, usingMEG, usingEEG, True)
     cor_fname = get_cor_fname(cor_fname)
     events_keys = events.keys() if events is not None else ['all']
     try:
@@ -1884,9 +1891,15 @@ def add_subcortical_volumes(org_src, seg_labels, spacing=5., use_grid=True):
     return src
 
 
-def calc_noise_cov(epochs=None, noise_t_min=None, noise_t_max=0, noise_cov_fname='', args=None, raw=None):
+def calc_noise_cov(epochs=None, noise_t_min=None, noise_t_max=0, noise_cov_fname='', args=None, raw=None,
+                   use_eeg=False, use_meg=False):
+    if not use_eeg and not use_meg:
+        raise Exception('use_eeg and use_meg are False!')
     if noise_cov_fname == '':
-        noise_cov_fname = NOISE_COV
+        if use_eeg and use_meg:
+            noise_cov_fname = NOISE_COV_MEEG
+        else:
+            noise_cov_fname = NOISE_COV_MEG if use_meg else NOISE_COV_EEG
     if op.isfile(noise_cov_fname):
         noise_cov = mne.read_cov(noise_cov_fname)
         return noise_cov
@@ -1906,7 +1919,7 @@ def calc_noise_cov(epochs=None, noise_t_min=None, noise_t_max=0, noise_cov_fname
             demi_epochs = mne.read_epochs(EPO_NOISE)
         else:
             raise Exception("You should split first your epochs into small demi epochs, see calc_demi_epoches")
-        noise_cov = calc_noise_cov(demi_epochs)
+        noise_cov = calc_noise_cov(demi_epochs, use_eeg=use_eeg, use_meg=use_meg)
     noise_cov.save(noise_cov_fname)
     return noise_cov
 
@@ -1924,14 +1937,21 @@ def recalc_epochs_for_noise_cov(noise_t_min, noise_t_max, args, raw=None):
     return noise_cov
 
 
-def get_inv_fname(inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True):
-    if inv_fname == '':
-        inv_modal_fname = INV_EEG if fwd_usingEEG and not fwd_usingMEG else INV
+def get_inv_fname(inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, create_new=False):
+    if fwd_usingMEG and fwd_usingEEG:
+        inv_modal_fname = INV_MEEG
+    else:
+        inv_modal_fname = INV_EEG if fwd_usingEEG else INV_MEG
+    if op.isfile(inv_modal_fname) and inv_fname == '':
+        print('get_inv_fname: using {}'.format(inv_modal_fname))
+        return inv_modal_fname
+    if create_new:
+        return inv_fname if inv_fname != '' else  inv_modal_fname
     inv_fname, inv_exist = locating_meg_file(inv_fname, '*inv.fif')
     if inv_exist and inv_fname != inv_modal_fname:
         ret = input('Can\'t find {}, do you want to use {} instead? '.format(inv_modal_fname, inv_fname))
         if not au.is_true(ret):
-            raise Exception('Wrong inv file')
+            return inv_modal_fname
     if not inv_exist:
         files = glob.glob(op.join(SUBJECT_MEG_FOLDER, '*{}*'.format(inv_fname)))
         if len(files) > 0:
@@ -1950,10 +1970,20 @@ def get_raw_fname(raw_fname='', include_empty=False):
     return raw_fname if raw_exist else ''
 
 
-def get_fwd_fname(fwd_fname='', fwd_usingMEG=True, fwd_usingEEG=True):
-    if fwd_fname == '':
-        fwd_fname = FWD_EEG if fwd_usingEEG and not fwd_usingMEG else FWD
+def get_fwd_fname(fwd_fname='', fwd_usingMEG=True, fwd_usingEEG=True, create_new=False):
+    if fwd_usingMEG and fwd_usingEEG:
+        fwd_modal_fname = FWD_MEEG
+    else:
+        fwd_modal_fname = FWD_EEG if fwd_usingEEG else FWD_MEG
+    if op.isfile(fwd_modal_fname) and fwd_fname == '':
+        print('get_fwd_fname: using {}'.format(fwd_modal_fname))
+        return fwd_modal_fname
+    if create_new:
+        return fwd_fname if fwd_fname != '' else  fwd_modal_fname
     fwd_fname, fwd_exist = locating_meg_file(fwd_fname, '*fwd.fif')
+    if not op.isfile(fwd_modal_fname) and fwd_exist:
+        ret = input('Can\'t find {}, do you want to use {} instead? '.format(fwd_modal_fname, fwd_fname))
+        fwd_fname = fwd_fname if au.is_true(ret) else fwd_modal_fname
     return fwd_fname
 
 
@@ -2005,14 +2035,17 @@ def calc_inverse_operator(
         cortical_fwd=None, subcortical_fwd=None, spec_subcortical_fwd=None, region=None, args=None):
     raw_fname = get_raw_fname(raw_fname)
     fwd_fname = get_fwd_fname(fwd_fname, fwd_usingMEG, fwd_usingEEG)
-    inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
+    inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG, True)
     evo_fname = get_evo_fname(evo_fname)
     epo_fname = get_epo_fname(epo_fname)
     if use_empty_room_for_noise_cov:
         empty_fname = get_empty_fname(empty_fname)
     noise_cov = None
     if noise_cov_fname == '':
-        noise_cov_fname = NOISE_COV
+        if fwd_usingEEG and fwd_usingMEG:
+            noise_cov_fname = NOISE_COV_MEEG
+        else:
+            noise_cov_fname = NOISE_COV_MEG if fwd_usingMEG else NOISE_COV_EEG
     if events is None:
         conds = ['all']
     else:
@@ -2042,7 +2075,9 @@ def calc_inverse_operator(
                 else:
                     epo = get_cond_fname(epo_fname, cond)
                     epochs = mne.read_epochs(epo)
-                    noise_cov = calc_noise_cov(epochs, noise_t_min, noise_t_max, noise_cov_fname, args)
+                    noise_cov = calc_noise_cov(
+                        epochs, noise_t_min, noise_t_max, noise_cov_fname, args,
+                        use_eeg=fwd_usingEEG, use_meg=fwd_usingMEG)
 
             # todo: should use noise_cov = calc_cov(...
             if calc_for_cortical_fwd and (not op.isfile(get_cond_fname(inv_fname, cond))
@@ -2168,7 +2203,10 @@ def check_noise_cov_channels(noise_cov, info, fwd, fwd_usingMEG, fwd_usingEEG, n
                 raise Exception('Inconsistency in channels names')
 
     if noise_cov_fname == '':
-        noise_cov_fname = NOISE_COV
+        if fwd_usingEEG and fwd_usingMEG:
+            noise_cov_fname = NOISE_COV_MEEG
+        else:
+            noise_cov_fname = NOISE_COV_MEG if fwd_usingMEG else NOISE_COV_EEG
     noise_cov.save(noise_cov_fname)
     return noise_cov
 
@@ -2411,7 +2449,10 @@ def dipoles_fit(dipoles_times, dipoloes_title, evokes=None, noise_cov_fname='', 
         import matplotlib.pyplot as plt
 
     if noise_cov_fname == '':
-        noise_cov_fname = NOISE_COV
+        if use_eeg and use_meg:
+            noise_cov_fname = NOISE_COV_MEEG
+        else:
+            noise_cov_fname = NOISE_COV_MEG if use_meg else NOISE_COV_EEG
     if head_to_mri_trans_mat_fname == '':
         head_to_mri_trans_mat_fname = COR
     evo_fname = get_evo_fname(evo_fname)
@@ -3988,8 +4029,8 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
         return flags
     if mri_subject == '':
         mri_subject = subject
-    inv_fname = get_inv_fname(args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG)
-    fwd_fname = get_fwd_fname(args.fwd_fname, args.fwd_usingMEG, args.fwd_usingEEG)
+    inv_fname = get_inv_fname(args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG, True)
+    fwd_fname = get_fwd_fname(args.fwd_fname, args.fwd_usingMEG, args.fwd_usingEEG, True)
     get_meg_files(subject, [inv_fname], args, conditions)
     if args.overwrite_inv or args.overwrite_fwd or not op.isfile(inv_fname) or \
             (args.inv_calc_subcorticals and not op.isfile(INV_SUB)):
@@ -4037,7 +4078,13 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
             evo_fname = get_evo_fname(args.evo_fname)
             get_meg_files(subject, [epo_fname, fwd_fname], args, conditions)
             raw_fname = get_raw_fname(args.raw_fname)
-            noise_cov_fname = NOISE_COV if args.noise_cov_fname == '' else args.noise_cov_fname
+            if args.noise_cov_fname == '':
+                if args.fwd_usingEEG and args.fwd_usingMEG:
+                    noise_cov_fname = NOISE_COV_MEEG
+                else:
+                    noise_cov_fname = NOISE_COV_MEG if args.fwd_usingMEG else NOISE_COV_EEG
+            else:
+                noise_cov_fname = args.noise_cov_fname
             flags['calc_inverse_operator'] = calc_inverse_operator(
                 conditions, raw_fname, epo_fname, evo_fname, fwd_fname, inv_fname, noise_cov_fname, args.empty_fname,
                 args.inv_loose, args.inv_depth, args.noise_t_min, args.noise_t_max, args.overwrite_inv,
