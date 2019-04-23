@@ -142,8 +142,8 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
     INV_SMOOTH = _get_fif_name_no_cond('smooth-inv') if inv_no_cond else _get_fif_name_cond('smooth-inv')
     INV_EEG_SMOOTH = _get_fif_name_no_cond('eeg-smooth-inv') if inv_no_cond else _get_fif_name_cond('eeg-smooth-inv')
     EMPTY_ROOM = _get_fif_name_no_cond('empty-raw').replace('-{}-'.format(task), '-').replace('_{}'.format(cleaning_method), '')
-    STC = _get_stc_name('{method}')
-    STC_HEMI = _get_stc_name('{method}-{hemi}')
+    STC = _get_stc_name('{method}-{modal}')
+    STC_HEMI = _get_stc_name('{method}-{hemi}-{modal}')
     STC_HEMI_SAVE = op.splitext(STC_HEMI)[0].replace('-{hemi}','')
     STC_HEMI_SMOOTH = _get_stc_name('{method}-smoothed-{hemi}')
     STC_HEMI_SMOOTH_SAVE = op.splitext(STC_HEMI_SMOOTH)[0].replace('-{hemi}','')
@@ -2245,6 +2245,10 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
     epo_fname = get_epo_fname(epo_fname)
     evo_fname = get_evo_fname(evo_fname)
     inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
+    if fwd_usingMEG and fwd_usingEEG:
+        modal = 'meeg'
+    else:
+        modal = 'meg' if fwd_usingMEG else 'eeg'
     if stc_template == '':
         stc_template = STC[:-4]
         stc_hemi_template = STC_HEMI
@@ -2252,7 +2256,8 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
         if stc_template.endswith('.stc'):
             stc_template = stc_template[:-4]
         stc_hemi_template = '{}{}'.format(stc_template, '-{hemi}.stc')
-    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
+    all_conds = 'all' if task == '' else task
+    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else [all_conds]
     stcs, stcs_num = {}, {}
     lambda2 = 1.0 / snr ** 2
     global_inverse_operator = False
@@ -2263,10 +2268,10 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
         inverse_operator = read_inverse_operator(inv_fname)
         global_inverse_operator = True
     if calc_stc_for_all or len(events_keys) == 0:
-        events_keys.append('all')
+        events_keys.append(all_conds)
     flag = False
     for cond_name in events_keys:
-        stc_fname = stc_template.format(cond=cond_name, method=inverse_method)
+        stc_fname = stc_template.format(cond=cond_name, method=inverse_method, modal=modal)
         if utils.get_parent_fol(stc_fname) == '':
             stc_fname = op.join(MMVT_DIR, SUBJECT, modality, stc_fname)
         if op.isfile('{}.stc'.format(stc_fname)) and not overwrite_stc:
@@ -2315,6 +2320,7 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                 else:
                     evoked = get_evoked_cond(
                         cond_name, evo_fname, epo_fname, baseline, apply_SSP_projection_vectors, add_eeg_ref)
+                    stc_fname = '{}-{}'.format(stc_fname, utils.namebase(evo_fname))
                     if evoked is None and cond_name == 'all':
                         all_evokes_fname = op.join(SUBJECT_MEG_FOLDER, '{}-all-eve.fif'.format(SUBJECT))
                         if op.isfile(all_evokes_fname):
@@ -2339,17 +2345,22 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                         stcs[cond_name] = apply_inverse(
                             evoked, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori)
             # Can work only for non generator stcs
-            if not isinstance(stcs[cond_name], types.GeneratorType) and np.max(stcs[cond_name].data) < 1e-4:
-                factor = 6 if modality == 'eeg' else 12  # todo: depends on the inverse method, should check
-                stcs[cond_name] = mne.SourceEstimate(
-                    stcs[cond_name].data * np.power(10, factor), vertices=stcs[cond_name].vertices,
-                    tmin=stcs[cond_name].tmin, tstep=stcs[cond_name].tstep, subject=stcs[cond_name].subject,
-                    verbose=stcs[cond_name].verbose)
+            if not isinstance(stcs[cond_name], types.GeneratorType):
+                factor = 0
+                if np.max(stcs[cond_name].data) < 1e-4:
+                    factor = 6 if modality == 'eeg' else 12  # todo: depends on the inverse method, should check
+                elif np.max(stcs[cond_name].data) > 1e8:
+                    factor = -6 if modality == 'eeg' else -12  # todo: depends on the inverse method, should check
+                if factor != 0:
+                    stcs[cond_name] = mne.SourceEstimate( # stcs[cond_name].data * np.power(10, factor)
+                        stcs[cond_name].data * 10**factor, vertices=stcs[cond_name].vertices,
+                        tmin=stcs[cond_name].tmin, tstep=stcs[cond_name].tstep, subject=stcs[cond_name].subject,
+                        verbose=stcs[cond_name].verbose)
             if save_stc and (not op.isfile(stc_fname) or overwrite_stc) and \
                     not isinstance(stcs[cond_name], types.GeneratorType):
                 # MMVT reads stcs only from the 'meg' fol, need to change that
                 mmvt_fol = utils.make_dir(op.join(MMVT_DIR, MRI_SUBJECT, 'meg'))
-                mmvt_stc_fname =  op.join(mmvt_fol, utils.namebase(stc_fname))
+                mmvt_stc_fname = op.join(mmvt_fol, utils.namebase_with_ext(stc_fname))
                 print('Saving the source estimate to {} and\n {}'.format(
                     stc_fname, mmvt_stc_fname))
                 print('max: {}, min: {}'.format(np.max(stcs[cond_name].data), np.min(stcs[cond_name].data)))
