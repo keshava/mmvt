@@ -21,7 +21,7 @@ mri_robust_register = 'mri_robust_register --mov {subjects_dir}/{subject_from}/m
 mri_cvs_register = 'mri_cvs_register --mov {subject_from} --template {subject_to} ' + \
                    '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_{subject_to} --nocleanup --openmp {openmp}' # --step3'
 mri_cvs_register_mni = 'mri_cvs_register --mov {subject_from} --mni ' + \
-                   '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_mni --nocleanup' # --step3'
+                   '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_mni --nocleanup --openmp {openmp}' # --step3'
 mri_vol2vol = 'mri_vol2vol --mov {subjects_dir}/{subject}/mri/T1.mgz ' + \
     '--o {subjects_dir}/{subject}/mri/T1_to_colin_csv_register.mgz --m3z ' + \
     '{subjects_dir}/{subject}/mri_cvs_register_to_colin27/final_CVSmorph_tocolin27.m3z ' + \
@@ -655,16 +655,18 @@ def main(subjects, template_system, remote_subject_templates=(), bipolar=False, 
 
 
 if __name__ == '__main__':
-    template_system = 'mni'# ''ras' #'matt_hibert' # 'mni' # hc029
+    template_system = 'ras'# ''ras' #'matt_hibert' # 'mni' # hc029
     template = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
     bipolar, save_as_bipolar = False, False
     use_apply_morph = True
     prefix, postfix = '', '' # 'stim_'
     overwrite=False
-    remote_subject_template = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
-    subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
+    # remote_subject_template = '/mnt/cashlab/Original Data/MG/{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'
+    remote_subject_template = '/autofs/space/will_002/users/Conte_PET_analyses_10.14.11/DBS_OCD_MRI/{subject}'
+    # subjects = set(['MG51b', 'MG72', 'MG73', 'MG83', 'MG76', 'MG84', 'MG84', 'MG85', 'MG86', 'MG86', 'MG87', 'MG87', 'MG90', 'MG91', 'MG91', 'MG92', 'MG93', 'MG94', 'MG95', 'MG96', 'MG96', 'MG96', 'MG98', 'MG100', 'MG103', 'MG104', 'MG105', 'MG105', 'MG106', 'MG106', 'MG106', 'MG106', 'MG107', 'MG108', 'MG108', 'MG109', 'MG109', 'MG110', 'MG111', 'MG112', 'MG112', 'MG114', 'MG114', 'MG115', 'MG116', 'MG118', 'MG120', 'MG120', 'MG121', 'MG122', 'BW36', 'BW37', 'BW38', 'BW39', 'BW40', 'BW40', 'BW40', 'BW40', 'BW42', 'BW43', 'BW44'])
     #subjects = ['MG96', 'MG98', 'MG100', 'MG122', 'MG106', 'BW37', 'BW38', 'BW39', 'BW40'] # bad
-    subjects = ['MG100', 'MG106', 'BW40', 'MG105', 'BW39', 'BW38', 'MG98', 'BW37']
+    # subjects = ['MG100', 'MG106', 'BW40', 'MG105', 'BW39', 'BW38', 'MG98', 'BW37']
+    subjects = ['M1']
     file_missings=[]
 
     print('{} subject to preproc'.format(len(subjects)))
@@ -675,6 +677,8 @@ if __name__ == '__main__':
     remote_subject_template5 = '/usr/local/freesurfer/dev/subjects/{subject}'
     remote_subject_templates = (remote_subject_template1, remote_subject_template2, remote_subject_template3,
                                 remote_subject_template4, remote_subject_template5)
+
+    remote_subject_templates = [remote_subject_template]
 
     import argparse
     from src.utils import args_utils as au

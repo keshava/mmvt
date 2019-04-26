@@ -1140,22 +1140,7 @@ def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None
         if not clear_animation:
             clear_animation = fcurves_num != len(conditions) or fcurve_len < T
         if clear_animation:
-            cur_obj.animation_data_clear()
-            for cond_ind, cond_str in enumerate(conditions):
-                cond_str = cond_str.astype(str) if not isinstance(cond_str, str) else cond_str
-                # Set the values to zeros in the first and last frame for current object(current label)
-                mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, 1)
-                # todo: +2? WTF?!?
-                mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, T + 2)
-
-                print('keyframing ' + obj_name + ' object in condition ' + cond_str)
-                # For every time point insert keyframe to current object
-                data_cond_ind = conditions.index(cond_str) #np.where(conditions == cond_str)[0][0]
-                for ind, t in enumerate(data[:T, data_cond_ind]):
-                    mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + str(cond_str), t, ind + 2)
-                # remove the orange keyframe sign in the fcurves window
-                fcurves = bpy.data.objects[obj_name].animation_data.action.fcurves[cond_ind]
-                mod = fcurves.modifiers.new(type='LIMITS')
+            add_data_to_electrode(data, cur_obj, obj_name, conditions, T)
         else:
             for fcurve_ind, fcurve in enumerate(cur_obj.animation_data.action.fcurves):
                 fcurve.keyframe_points[0].co[1] = 0
@@ -1166,6 +1151,25 @@ def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None
     conditions = meta_data['conditions']
     print('Finished keyframing!!')
     return conditions
+
+
+def add_data_to_electrode(data, cur_obj, obj_name, conditions, T):
+    cur_obj.animation_data_clear()
+    for cond_ind, cond_str in enumerate(conditions):
+        cond_str = cond_str.astype(str) if not isinstance(cond_str, str) else cond_str
+        # Set the values to zeros in the first and last frame for current object(current label)
+        mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, 1)
+        # todo: +2? WTF?!?
+        mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + cond_str, 0, T + 2)
+
+        print('keyframing ' + obj_name + ' object in condition ' + cond_str)
+        # For every time point insert keyframe to current object
+        data_cond_ind = conditions.index(cond_str)  # np.where(conditions == cond_str)[0][0]
+        for ind, t in enumerate(data[:T, data_cond_ind]):
+            mu.insert_keyframe_to_custom_prop(cur_obj, obj_name + '_' + str(cond_str), t, ind + 2)
+        # remove the orange keyframe sign in the fcurves window
+        fcurves = bpy.data.objects[obj_name].animation_data.action.fcurves[cond_ind]
+        mod = fcurves.modifiers.new(type='LIMITS')
 
 
 @mu.tryit()
