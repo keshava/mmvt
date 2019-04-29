@@ -214,21 +214,21 @@ def trans_morphed_electrodes_to_tkreg(subject, subject_to, electrodes, trans, br
     if subject_to == 'fsaverage':
         voxels = tut.mni152_mni305(voxels)
     #check_if_electrodes_inside_the_brain(subject, voxels, electrodes_names, brain_mask)
-    write_morphed_electrodes_vox_into_csv(subject, subject_to, voxels, electrodes_names)
     tkregs = apply_trans(trans, voxels)
-    if subjects_electrodes is not None:
+    write_morphed_electrodes_vox_into_csv(subject, subject_to, tkregs, electrodes_names)
+    if subjects_electrodes is not None and subject in subjects_electrodes:
         elecs = [elc_name for elc_name, _ in electrodes[subject] if elc_name in subjects_electrodes[subject]]
         if len(elecs) == 0:
             print('No electrodes for {}! ({})'.format(subject, subjects_electrodes[subject]))
     for tkreg, vox, (elc_name, _) in zip(tkregs, voxels, electrodes[subject]):
-        if subjects_electrodes is not None and elc_name in subjects_electrodes[subject]:
-            try:
-                vox = np.rint(vox).astype(int)
-                if brain_mask[vox[0], vox[1], vox[2]] == 0:
-                    print('{}: {} is outside the brain!'.format(subject, elc_name))
-                template_electrodes.append(('{}_{}'.format(subject, elc_name), tkreg))
-            except:
-                print('Error with {}, {}, voxels={}'.format(subject, elc_name, vox))
+        # if subjects_electrodes is not None and elc_name in subjects_electrodes[subject]:
+        try:
+            vox = np.rint(vox).astype(int)
+            if brain_mask[vox[0], vox[1], vox[2]] == 0:
+                print('{}: {} is outside the brain!'.format(subject, elc_name))
+            template_electrodes.append(('{}_{}'.format(subject, elc_name), tkreg))
+        except:
+            print('Error with {}, {}, voxels={}'.format(subject, elc_name, vox))
 
     return template_electrodes
 
@@ -639,17 +639,19 @@ def get_all_subjects(remote_subject_template):
     return subjects
 
 
-def main(subjects, template_system, remote_subject_templates=(), bipolar=False, save_as_bipolar=False, prefix='',
-         sftp=False, sftp_username='', sftp_domain='', print_only=False, n_jobs=4):
+def main(subjects, template_system, remote_subject_templates=(), bipolar=False, save_as_bipolar=False, overwrite=False,
+         prefix='', sftp=False, sftp_username='', sftp_domain='', print_only=False, n_jobs=4):
     good_subjects = prepare_files_for_subjects(
         subjects, remote_subject_templates, sftp, sftp_username, sftp_domain, overwrite=False)
     electrodes = read_all_electrodes(good_subjects, bipolar)
-    subjects_to_morph = cvs_register_to_template(electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=True)
-    #create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
-    morph_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True, n_jobs=n_jobs, print_only=print_only)
-    # read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
-    # save_template_electrodes_to_template(None, save_as_bipolar, MMVT_DIR, template_system, prefix)
-    # export_into_csv(template_system, MMVT_DIR, prefix)
+    subjects_to_morph = cvs_register_to_template(
+        electrodes, template_system, SUBJECTS_DIR, n_jobs=n_jobs, print_only=print_only, overwrite=overwrite)
+    create_electrodes_files(electrodes, SUBJECTS_DIR, overwrite=True)
+    morph_electrodes(
+        electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=overwrite, n_jobs=n_jobs, print_only=print_only)
+    read_morphed_electrodes(electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, overwrite=True)
+    save_template_electrodes_to_template(None, save_as_bipolar, MMVT_DIR, template_system, prefix)
+    export_into_csv(template_system, MMVT_DIR, prefix)
     # create_mmvt_coloring_file(template_system, electrodes)sss
 
 
@@ -697,7 +699,7 @@ if __name__ == '__main__':
         args.subject = subjects
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        main(args.subject, template_system, remote_subject_templates, bipolar, save_as_bipolar, prefix,
+        main(args.subject, template_system, remote_subject_templates, bipolar, save_as_bipolar, overwrite, prefix,
              args.sftp, args.sftp_username, args.sftp_domain, args.print_only, args.n_jobs)
     print('Done!')
 

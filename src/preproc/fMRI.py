@@ -615,30 +615,35 @@ def load_surf_files(subject, surf_template_fname, task='', overwrite_surf_data=F
                     vertices_num=None):
     utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
     fol = op.join(FMRI_DIR, task, subject) if task != '' else op.join(FMRI_DIR, subject)
-    surf_full_output_fname = op.join(fol, surf_template_fname).replace('{subject}', subject)
-    surf_full_output_fnames = find_hemi_files_from_template(surf_full_output_fname)
-    if len(surf_full_output_fnames) == 0:
-        surf_full_output_fname = op.join(MMVT_DIR, subject, 'fmri', surf_template_fname)
+    if isinstance(surf_template_fname, str):
+        surf_full_output_fname = op.join(fol, surf_template_fname).replace('{subject}', subject)
         surf_full_output_fnames = find_hemi_files_from_template(surf_full_output_fname)
         if len(surf_full_output_fnames) == 0:
-            print('No hemi files were found from the template {}'.format(surf_full_output_fname))
-            return False, ''
-    surf_full_output_fname = surf_full_output_fnames[0]
-    if '{hemi}' not in utils.namebase(surf_full_output_fname):
-        new_surf_full_output_fname = op.join(utils.get_parent_fol(surf_full_output_fname), '{}_{}.{}'.format(utils.namebase(
-            surf_full_output_fname), '{hemi}', utils.file_type(surf_full_output_fname)))
+            surf_full_output_fname = op.join(MMVT_DIR, subject, 'fmri', surf_template_fname)
+            surf_full_output_fnames = find_hemi_files_from_template(surf_full_output_fname)
+            if len(surf_full_output_fnames) == 0:
+                print('No hemi files were found from the template {}'.format(surf_full_output_fname))
+                return False, ''
+        surf_full_output_fname = surf_full_output_fnames[0]
+        if '{hemi}' not in utils.namebase(surf_full_output_fname):
+            new_surf_full_output_fname = op.join(utils.get_parent_fol(surf_full_output_fname), '{}_{}.{}'.format(utils.namebase(
+                surf_full_output_fname), '{hemi}', utils.file_type(surf_full_output_fname)))
+        else:
+            delim, _, label, _ = lu.get_hemi_delim_and_pos(utils.namebase(surf_full_output_fname).format(hemi='rh'))
+            surf_full_output_name = lu.build_label_name(delim, 'end', label, '{hemi}')
+            new_surf_full_output_fname = op.join(utils.get_parent_fol(surf_full_output_fname), '{}.{}'.format(
+                surf_full_output_name, utils.file_type(surf_full_output_fname)))
+        output_fname_template = op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}'.format(op.basename(
+            new_surf_full_output_fname)))
+        npy_output_fname_template = utils.change_fname_extension(output_fname_template, 'npy')
+        if utils.both_hemi_files_exist(npy_output_fname_template) and not overwrite_surf_data:
+            return True, npy_output_fname_template
     else:
-        delim, _, label, _ = lu.get_hemi_delim_and_pos(utils.namebase(surf_full_output_fname).format(hemi='rh'))
-        surf_full_output_name = lu.build_label_name(delim, 'end', label, '{hemi}')
-        new_surf_full_output_fname = op.join(utils.get_parent_fol(surf_full_output_fname), '{}.{}'.format(
-            surf_full_output_name, utils.file_type(surf_full_output_fname)))
-    output_fname_template = op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}'.format(op.basename(
-        new_surf_full_output_fname)))
-    npy_output_fname_template = utils.change_fname_extension(output_fname_template, 'npy')
-    if utils.both_hemi_files_exist(npy_output_fname_template) and not overwrite_surf_data:
-        return True, npy_output_fname_template
+        npy_label_inv = lu.get_label_hemi_invariant_name(utils.namebase(surf_template_fname['rh']))
+        npy_output_fname_template = op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}_{}.npy'.format(npy_label_inv, '{hemi}'))
     for hemi in utils.HEMIS:
-        fmri_fname = surf_full_output_fname.format(hemi=hemi)
+        fmri_fname = surf_full_output_fname.format(hemi=hemi) if isinstance(surf_template_fname, str) \
+            else surf_template_fname[hemi]
         if not op.isfile(fmri_fname):
             print('load_surf_files: {} doesn not exist!')
             return False

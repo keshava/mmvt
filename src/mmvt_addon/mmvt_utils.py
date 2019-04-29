@@ -2289,7 +2289,7 @@ def get_hemi_from_full_fname(fname):
         # print('get_hemi_from_full_fname: hemi, other_hemi_fname: {}, {}'.format(hemi, other_hemi_fname))
     if org_hemi == '':
         print('get_hemi_from_full_fname: Can\'t find the hemi from {}!'.format(fname))
-        return {'rh': '', 'lh': ''}
+        return '', {'rh': '', 'lh': ''}
     hemis_fnames = {org_hemi: full_fname, other_hemi(org_hemi): other_hemi_fname}
     # else:
     #     hemis_fnames = {'rh':'', 'lh':''}
@@ -2737,6 +2737,8 @@ def make_link(source, target, overwrite=False, copy_if_fails=True):
 
 
 def both_hemi_files_exist(file_template):
+    if isinstance(file_template, dict):
+        return all([op.isfile(file_template[hemi]) for hemi in HEMIS])
     if '*' not in file_template:
         return op.isfile(file_template.format(hemi='rh')) and op.isfile(file_template.format(hemi='lh'))
     else:

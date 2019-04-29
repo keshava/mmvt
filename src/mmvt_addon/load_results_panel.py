@@ -179,6 +179,8 @@ def load_surf_files(nii_fname, run_fmri_preproc=True, user_fol='', debug=True):
     if debug:
         print('load_surf_files: other_hemi: {}'.format(other_hemi))
     other_hemi_fname = fmri_hemis[other_hemi]
+    if other_hemi_fname == '':
+        other_hemi_fname = local_fname.replace(hemi, other_hemi)
     if debug:
         print('load_surf_files: other_hemi_fname: {}'.format(other_hemi_fname))
     # todo: if the other hemi file doens't exist, just create an empty one
@@ -194,7 +196,7 @@ def load_surf_files(nii_fname, run_fmri_preproc=True, user_fol='', debug=True):
             importlib.reload(fMRI)
             vertices_num = mu.get_vertices_num()
             ret, npy_output_fname_template = fMRI.load_surf_files(
-                mu.get_user(), fmri_file_template, vertices_num=vertices_num)
+                mu.get_user(), fmri_hemis, vertices_num=vertices_num)
             output_fname_template = op.join(
                 mu.get_parent_fol(npy_output_fname_template),
                 mu.namebase_with_ext(npy_output_fname_template)[len('fmri_'):])
