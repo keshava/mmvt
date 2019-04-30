@@ -1239,6 +1239,7 @@ def get_user():
     k = 1
     subject = '_'.join(spl[:-k])
     while not op.isdir(op.join(root, subject)) and k < len(spl):
+        print('get_user: no folder {}'.format(op.join(root, subject)))
         k += 1
         subject = '_'.join(spl[:-k])
     if not op.isdir(op.join(root, subject)):
