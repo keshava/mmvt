@@ -870,14 +870,36 @@ def elec_group(elec_name, bipolar=False):
     return group
 
 
-def csv_file_reader(csv_fname, delimiter=',', skip_header=0):
+def csv_file_reader(csv_fname, delimiter=',', skip_header=0, encoding=None, find_encoding=False):
     import csv
-    with open(csv_fname, 'r') as csvfile:
+    if find_encoding:
+        encoding = find_file_encoding(csv_fname)
+    with open(csv_fname, 'r', encoding=encoding) as csvfile:
         reader = csv.reader(csvfile, delimiter=delimiter)
         for line_num, line in enumerate(reader):
             if line_num < skip_header:
                 continue
+            if encoding == 'utf-8':
+                line = [v.encode('utf-8').decode('utf-8-sig') for v in line]
             yield [val.strip() for val in line]
+
+
+def find_file_encoding(fname):
+    import io
+    encodings = ['utf-8', 'windows-1250', 'windows-1252']
+    for e in encodings:
+        try:
+            fh = io.open(fname, 'r', encoding=e)
+            fh.readlines()
+            fh.seek(0)
+        except UnicodeDecodeError:
+            # print('got unicode error with %s , trying different encoding' % e)
+            continue
+        else:
+            # print('opening the file with encoding:  %s ' % e)
+            return e
+    else:
+        return None
 
 
 def check_obj_type(obj_name):

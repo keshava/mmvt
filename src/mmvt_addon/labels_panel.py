@@ -115,7 +115,7 @@ def build_new_label_name():
 
 def grow_a_label():
     closest_mesh_name, vertex_ind, _ = \
-        _addon().find_vertex_index_and_mesh_closest_to_cursor(use_shape_keys=True)
+        _addon().find_closest_vertex_index_and_mesh(use_shape_keys=True)
     hemi = closest_mesh_name[len('infalted_'):] if _addon().is_inflated() else closest_mesh_name
     subject, atlas = mu.get_user(), bpy.context.scene.subject_annot_files
     label_name, label_r = bpy.context.scene.new_label_name, bpy.context.scene.new_label_r

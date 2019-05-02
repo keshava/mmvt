@@ -58,11 +58,11 @@ def _clusters_update():
     else:
         if _addon().is_pial():
             bpy.context.scene.cursor_location = cluster_centroid
-            closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(
+            closest_mesh_name, vertex_ind, vertex_co = _addon().find_closest_vertex_index_and_mesh(
                 cluster_centroid, mu.HEMIS, False)
             _addon().set_closest_vertex_and_mesh_to_cursor(vertex_ind, closest_mesh_name)
         else:
-            closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(
+            closest_mesh_name, vertex_ind, vertex_co = _addon().find_closest_vertex_index_and_mesh(
                 cluster_centroid, mu.HEMIS, False)
             inflated_mesh = 'inflated_{}'.format(closest_mesh_name)
             me = bpy.data.objects[inflated_mesh].to_mesh(bpy.context.scene, True, 'PREVIEW')
@@ -157,7 +157,7 @@ def find_closest_cluster(only_within=False):
         vertex_co = _addon().get_tkreg_ras()
     else:
         if _addon().is_inflated(): # and _addon().get_inflated_ratio() == 1:
-            closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(
+            closest_mesh_name, vertex_ind, vertex_co = _addon().find_closest_vertex_index_and_mesh(
                 use_shape_keys=True)
             # print(closest_mesh_name, vertex_ind, vertex_co)
             # print(vertex_co - bpy.context.scene.cursor_location)
@@ -168,7 +168,7 @@ def find_closest_cluster(only_within=False):
             vertex_co = pial_vert.co
             _addon().set_tkreg_ras(vertex_co, move_cursor=False)
         else:
-            closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor()
+            closest_mesh_name, vertex_ind, vertex_co = _addon().find_closest_vertex_index_and_mesh()
             bpy.context.scene.cursor_location = vertex_co
 
     # vertex_co *= 10

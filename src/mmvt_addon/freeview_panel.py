@@ -45,7 +45,7 @@ def goto_cursor_position():
 
 def freeview_save_cursor():
     if _addon().is_inflated():  # and _addon().get_inflated_ratio() == 1:
-        closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(
+        closest_mesh_name, vertex_ind, vertex_co = _addon().find_closest_vertex_index_and_mesh(
             use_shape_keys=True)
         bpy.context.scene.cursor_location = vertex_co
         pial_mesh = 'rh' if closest_mesh_name == 'inflated_rh' else 'lh'

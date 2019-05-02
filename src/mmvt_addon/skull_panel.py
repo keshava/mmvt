@@ -147,7 +147,7 @@ def find_point_thickness(cursor_location=None, skull_type=''):
     if skull_type == '':
         skull_type = '{}_skull'.format(bpy.context.scene.cast_ray_source)
     closest_mesh_name, vertex_ind, vertex_co = \
-        _addon().find_vertex_index_and_mesh_closest_to_cursor(cursor_location, objects_names=[skull_type])
+        _addon().find_closest_vertex_index_and_mesh(cursor_location, objects_names=[skull_type])
     if closest_mesh_name is None:
         return
     _addon().create_slices(pos=vertex_co)

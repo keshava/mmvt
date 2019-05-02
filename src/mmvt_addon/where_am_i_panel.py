@@ -377,7 +377,7 @@ def find_closest_label(atlas=None, plot_contour=True):
         vertex_ind, hemi = _addon().get_closest_vertex_and_mesh_to_cursor()
     else:
         closest_mesh_name, vertex_ind, _ = \
-            _addon().find_vertex_index_and_mesh_closest_to_cursor(use_shape_keys=True)
+            _addon().find_closest_vertex_index_and_mesh(use_shape_keys=True)
         hemi = closest_mesh_name[len('infalted_'):] if _addon().is_inflated() else closest_mesh_name
     if vertex_ind == -1:
         print("find_closest_label: Can't find the closest vertex")
@@ -617,7 +617,7 @@ def slices_were_clicked(active_image, pos):
 
 
 def pos_to_current_inflation(pos, hemis=mu.HEMIS):
-    closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(pos / 10, hemis)
+    closest_mesh_name, vertex_ind, vertex_co = _addon().find_closest_vertex_index_and_mesh(pos / 10, hemis)
     obj = bpy.data.objects['inflated_{}'.format(closest_mesh_name)]
     me = obj.to_mesh(bpy.context.scene, True, 'PREVIEW')
     try:

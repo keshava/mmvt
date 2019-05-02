@@ -293,6 +293,8 @@ def object_coloring(obj, rgb):
     if not obj:
         print('object_coloring: obj is None!')
         return False
+    if isinstance(rgb, str):
+        rgb = _addon().colors_utils.name_to_rgb(rgb)
     bpy.context.scene.objects.active = obj
     # todo: do we need to select the object here? In diff mode it's a problem
     # obj.select = True

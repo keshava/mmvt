@@ -557,7 +557,7 @@ def get_electrodes_radius():
     return bpy.context.scene.electrodes_radius
 
 
-def create_electrode(pos, elc_name, electrode_size=None, layers_array=None, parnet_name=''):
+def create_electrode(pos, elc_name, electrode_size=None, layers_array=None, parnet_name='', color=''):
     if parnet_name == '':
         parnet_name = _addon().electrodes_panel_parent
     if electrode_size is None:
@@ -565,10 +565,14 @@ def create_electrode(pos, elc_name, electrode_size=None, layers_array=None, parn
     if layers_array is None:
         layers_array = [False] * 20
         layers_array[_addon().ELECTRODES_LAYER] = True
+    if bpy.data.objects.get(parnet_name, None) is None:
+        parent_layers_array = [False] * 20
+        create_empty_if_doesnt_exists(parnet_name, _addon().BRAIN_EMPTY_LAYER, parent_layers_array, parnet_name)
+
     x, y, z = pos * 0.1
     if not bpy.data.objects.get(elc_name) is None:
-        elc_obj = bpy.data.objects[elc_name]
-        elc_obj.location = [x, y, z]
+        cur_obj = bpy.data.objects[elc_name]
+        cur_obj.location = [x, y, z]
     else:
         print('creating {}: {}'.format(elc_name, (x, y, z)))
         mu.create_sphere((x, y, z), electrode_size, layers_array, elc_name)
@@ -576,6 +580,9 @@ def create_electrode(pos, elc_name, electrode_size=None, layers_array=None, parn
         cur_obj.select = True
         cur_obj.parent = bpy.data.objects[parnet_name]
         mu.create_and_set_material(cur_obj)
+    if color != '':
+        _addon().coloring.object_coloring(cur_obj, color)
+    return cur_obj
 
 
 def update_code():

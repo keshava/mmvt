@@ -84,13 +84,15 @@ def find_closest_vertices(pos, vertices_indices, obj_name, use_shape_keys=True):
 
 
 # @mu.timeit
-def find_vertex_index_and_mesh_closest_to_cursor(cursor=None, hemis=None, use_shape_keys=False, objects_names=None):
+def find_closest_vertex_index_and_mesh(pos=None, hemis=None, use_shape_keys=False, objects_names=None):
+    # If pos is None, take the cursor's pos
+
     # 3d cursor relative to the object data
     # print('cursor at:' + str(bpy.context.scene.cursor_location))
     # co_find = context.scene.cursor_location * obj.matrix_world.inverted()
     distances, names, vertices_idx, vertices_co = [], [], [], []
 
-    if cursor is None and hemis is None and use_shape_keys is True and \
+    if pos is None and hemis is None and use_shape_keys is True and \
             (objects_names is None or objects_names == mu.INF_HEMIS):
         closest_mesh_name, vertex_ind, vertex_co = snap_ray()
         if closest_mesh_name is not None:
@@ -102,15 +104,15 @@ def find_vertex_index_and_mesh_closest_to_cursor(cursor=None, hemis=None, use_sh
     elif hemis is None:
         # hemis = mu.HEMIS if _addon().is_pial() else mu.INF_HEMIS
         hemis = mu.INF_HEMIS
-    if cursor is None:
-        cursor = bpy.context.scene.cursor_location
+    if pos is None:
+        pos = bpy.context.scene.cursor_location
     else:
-        cursor = mathutils.Vector(cursor)
+        pos = mathutils.Vector(pos)
     for obj_name in hemis:
         if use_shape_keys and obj_name in ['rh', 'lh']:
             obj_name = 'inflated_{}'.format(obj_name)
         obj = bpy.data.objects[obj_name]
-        co_find = cursor * obj.matrix_world.inverted()
+        co_find = pos * obj.matrix_world.inverted()
         mesh = obj.data
         size = len(mesh.vertices)
         kd = mathutils.kdtree.KDTree(size)
@@ -123,7 +125,7 @@ def find_vertex_index_and_mesh_closest_to_cursor(cursor=None, hemis=None, use_sh
                 except:
                     # in flat map not all the vertices exist
                     # todo handle the case where the brain is sliced and the user click the plane with the image.
-                    print('find_vertex_index_and_mesh_closest_to_cursor: exception in the use_shape_keys loop')
+                    print('find_closest_vertex_index_and_mesh: exception in the use_shape_keys loop')
                     break
             bpy.data.meshes.remove(me)
         else:
@@ -214,7 +216,7 @@ class CreateVertexData(bpy.types.Operator):
         mod = fcurves.modifiers.new(type='LIMITS')
 
     def invoke(self, context, event=None):
-        closest_mesh_name, vertex_ind, vertex_co = find_vertex_index_and_mesh_closest_to_cursor()
+        closest_mesh_name, vertex_ind, vertex_co = find_closest_vertex_index_and_mesh()
         print(vertex_co)
         self.create_empty_in_vertex_location(vertex_co)
         data_path = mu.get_user_fol()

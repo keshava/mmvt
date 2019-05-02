@@ -722,7 +722,7 @@ def cursor_is_snapped():
 def snap_cursor(flag=None, objects_names=mu.INF_HEMIS, use_shape_keys=True, set_snap_cursor_to_true=True):
     flag = not bpy.context.scene.cursor_is_snapped if flag is None else flag
     if flag:
-        closest_mesh_name, vertex_ind, vertex_co = _addon().find_vertex_index_and_mesh_closest_to_cursor(
+        closest_mesh_name, vertex_ind, vertex_co = _addon().find_closest_vertex_index_and_mesh(
             use_shape_keys=use_shape_keys, objects_names=objects_names)
         bpy.context.scene.cursor_location = vertex_co
         set_cursor_pos()

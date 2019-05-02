@@ -475,7 +475,7 @@ get_ct_voxel = where_am_i_panel.get_ct_voxel
 get_labels_contours = where_am_i_panel.get_labels_contours
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ vertex_data_panel links ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 vertex_data = vertex_data_panel
-find_vertex_index_and_mesh_closest_to_cursor = vertex_data_panel.find_vertex_index_and_mesh_closest_to_cursor
+find_closest_vertex_index_and_mesh = vertex_data_panel.find_closest_vertex_index_and_mesh
 set_vertex_data = vertex_data_panel.set_vertex_data
 get_vertex_data = vertex_data_panel.get_vertex_data
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ freeview_panel links ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

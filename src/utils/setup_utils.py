@@ -91,9 +91,9 @@ def get_link_dir_from_csv(links_dir, link_name, csv_file_name='links.csv'):
     return ''
 
 
-def csv_file_reader(csv_fname, delimiter=',', skip_header=0):
+def csv_file_reader(csv_fname, delimiter=',', skip_header=0, encoding=None):
     import csv
-    with open(csv_fname, 'r') as csvfile:
+    with open(csv_fname, 'r', encoding=encoding) as csvfile:
         reader = csv.reader(csvfile, delimiter=delimiter)
         for line_num, line in enumerate(reader):
             if line_num < skip_header:
