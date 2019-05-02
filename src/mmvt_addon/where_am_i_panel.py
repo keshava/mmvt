@@ -605,7 +605,7 @@ def slices_were_clicked(active_image, pos):
     new_pos_pial = apply_trans(t1_trans().vox2ras_tkr, np.array([new_pos_vox]))[0]#.astype(np.int)[0]
     if _addon().appearance.cursor_is_snapped():
         # Find the closest vertex on the pial brain, and convert it to the current inflation
-        new_pos_pial = pos_to_current_inflation(new_pos_pial) / 10
+        new_pos_pial = pos_to_current_inflation(new_pos_pial)
     else:
         new_pos_pial = new_pos_pial / 10
     bpy.context.scene.cursor_location = new_pos_pial
@@ -616,12 +616,24 @@ def slices_were_clicked(active_image, pos):
     # save_slices_cursor_pos()
 
 
-def pos_to_current_inflation(pos, hemis=mu.HEMIS):
-    closest_mesh_name, vertex_ind, vertex_co = _addon().find_closest_vertex_index_and_mesh(pos / 10, hemis)
+def mni305_ras_to_subject_tkreg_ras(mni305_ras):
+    matrix_world = mu.get_matrix_world()
+    if mu.get_user() == 'fsaverage':
+        ras_tkr = mathutils.Vector(mni305_ras) * matrix_world
+    else:
+        vox = mu.apply_trans(np.linalg.inv(t1_trans().vox2ras), mni305_ras)
+        ras_tkr = mathutils.Vector(mu.apply_trans(np.linalg.inv(t1_trans().ras_tkr2vox), vox)) * matrix_world
+    return ras_tkr
+
+
+def pos_to_current_inflation(pos, hemis=mu.HEMIS, subject_tkreg_ras=False):
+    if not subject_tkreg_ras:
+        pos = mathutils.Vector(pos) * mu.get_matrix_world()
+    closest_mesh_name, vertex_ind, vertex_co = _addon().find_closest_vertex_index_and_mesh(pos, hemis)
     obj = bpy.data.objects['inflated_{}'.format(closest_mesh_name)]
     me = obj.to_mesh(bpy.context.scene, True, 'PREVIEW')
     try:
-        new_pos = me.vertices[vertex_ind].co
+        new_pos = me.vertices[vertex_ind].co * mu.get_matrix_world()
         # Bug in windows, Blender crashses here
         # todo: Figure out why...
         if not mu.IS_WINDOWS:

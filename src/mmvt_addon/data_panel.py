@@ -1,5 +1,6 @@
 import bpy
 import bpy_extras
+import mathutils
 import os.path as op
 import sys
 import glob
@@ -557,7 +558,8 @@ def get_electrodes_radius():
     return bpy.context.scene.electrodes_radius
 
 
-def create_electrode(pos, elc_name, electrode_size=None, layers_array=None, parnet_name='', color=''):
+def create_electrode(pos, elc_name, electrode_size=None, layers_array=None, parnet_name='', color='',
+                     subject_tkreg_ras=False):
     if parnet_name == '':
         parnet_name = _addon().electrodes_panel_parent
     if electrode_size is None:
@@ -569,7 +571,10 @@ def create_electrode(pos, elc_name, electrode_size=None, layers_array=None, parn
         parent_layers_array = [False] * 20
         create_empty_if_doesnt_exists(parnet_name, _addon().BRAIN_EMPTY_LAYER, parent_layers_array, parnet_name)
 
-    x, y, z = pos * 0.1
+    if not subject_tkreg_ras:
+        x, y, z = mathutils.Vector(pos) * mu.get_matrix_world()
+    else:
+        x, y, z = pos
     if not bpy.data.objects.get(elc_name) is None:
         cur_obj = bpy.data.objects[elc_name]
         cur_obj.location = [x, y, z]

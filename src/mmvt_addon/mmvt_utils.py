@@ -870,7 +870,7 @@ def elec_group(elec_name, bipolar=False):
     return group
 
 
-def csv_file_reader(csv_fname, delimiter=',', skip_header=0, encoding=None, find_encoding=False):
+def csv_file_reader(csv_fname, delimiter=',', skip_header=0, encoding=None, find_encoding=False, max_lines=0):
     import csv
     if find_encoding:
         encoding = find_file_encoding(csv_fname)
@@ -879,9 +879,15 @@ def csv_file_reader(csv_fname, delimiter=',', skip_header=0, encoding=None, find
         for line_num, line in enumerate(reader):
             if line_num < skip_header:
                 continue
+            if max_lines > 0 and line_num > max_lines:
+                break
             if encoding == 'utf-8':
                 line = [v.encode('utf-8').decode('utf-8-sig') for v in line]
             yield [val.strip() for val in line]
+
+
+def get_matrix_world():
+    return bpy.data.objects['rh'].matrix_world
 
 
 def find_file_encoding(fname):

@@ -1,6 +1,7 @@
 import bpy
 import os.path as op
 import mmvt_utils as mu
+import mathutils
 import numpy as np
 
 
@@ -42,9 +43,11 @@ class SearchFilter(bpy.types.Operator):
             selected_roi = [o for o in SearchPanel.marked_objects if mu.obj_is_cortex(o)][0]
             hemi = mu.get_obj_hemi(selected_roi)
             center = _addon().where_am_i.pos_to_current_inflation(center, hemis=[hemi])
+        else:
+            center = mathutils.Vector(center) * mu.get_matrix_world()
             # if bpy.context.scene.search_plot_contour:
             #     _addon().where_am_i.plot_closest_label_contour(selected_roi, hemi)
-        bpy.context.scene.cursor_location = tuple(center / 10)
+        bpy.context.scene.cursor_location = tuple(center)
         _addon().set_cursor_pos()
         _addon().set_tkreg_ras(bpy.context.scene.cursor_location * 10, False)
         if bpy.context.scene.slices_rotate_view_on_click:
