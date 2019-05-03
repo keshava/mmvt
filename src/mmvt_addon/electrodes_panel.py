@@ -585,6 +585,10 @@ def run_ela_alg():
     init(_addon(), False)
 
 
+def delete_electrodes():
+    mu.delete_hierarchy('Deep_electrodes')
+
+
 def elecs_draw(self, context):
     layout = self.layout
     box = layout.box()
@@ -662,6 +666,7 @@ def elecs_draw(self, context):
         row.prop(context.scene, 'electrodes_color', text='')
         layout.operator(ExportElectrodes.bl_idname, text="Export", icon='EXPORT')
         layout.prop(context.scene, "elc_size", text="size")
+        layout.operator(DeleteElectrodes.bl_idname, text="Delete electrodes", icon='CANCEL')
 
     layout.operator(ClearElectrodes.bl_idname, text="Clear", icon='PANEL_CLOSE')
     layout.prop(context.scene, 'electrodes_more_settings', text='More settings')
@@ -673,6 +678,16 @@ def elecs_draw(self, context):
     # row.label(text='             ')
     # row.prop(context.scene, 'electrodes_color', text='')
     # row.label(text='             ')
+
+
+class DeleteElectrodes(bpy.types.Operator):
+    bl_idname = "mmvt.delete_electrodes"
+    bl_label = "delete_electrodes"
+    bl_options = {"UNDO"}
+
+    def invoke(self, context, event=None):
+        delete_electrodes()
+        return {'PASS_THROUGH'}
 
 
 class ExportElectrodes(bpy.types.Operator):
@@ -1142,6 +1157,7 @@ def register():
         bpy.utils.register_class(ClearElectrodes)
         bpy.utils.register_class(ExportElectrodes)
         bpy.utils.register_class(RunELA)
+        bpy.utils.register_class(DeleteElectrodes)
         # print('Electrodes Panel was registered!')
     except:
         print("Can't register Electrodes Panel!")
@@ -1159,6 +1175,7 @@ def unregister():
         bpy.utils.unregister_class(ClearElectrodes)
         bpy.utils.unregister_class(ExportElectrodes)
         bpy.utils.unregister_class(RunELA)
+        bpy.utils.unregister_class(DeleteElectrodes)
     except:
         pass
         # print("Can't unregister Electrodes Panel!")
