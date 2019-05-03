@@ -1,6 +1,7 @@
 import os.path as op
 import numpy as np
 import nibabel as nib
+import time
 from src.utils import utils
 
 LINKS_DIR = utils.get_links_dir()
@@ -270,6 +271,46 @@ def mni2tal(coords):
     return np.rint(out_coords).astype(int)
 
 
+def yale_tal2mni(points, yale_app_url=''):
+    try:
+        from selenium import webdriver
+    except:
+        print('You should first install Selenium with Python!')
+        print('https://selenium-python.readthedocs.io/installation.html')
+        return False
+
+    # Using Chrome to access web
+    chrome_driver_fname = op.join(LINKS_DIR, 'chromedriver')
+    if not op.isfile(chrome_driver_fname):
+        print('Can\'t find chrome driver! It should be in {}'.format(chrome_driver_fname))
+        print('ChromeDriver: https://sites.google.com/a/chromium.org/chromedriver/getting-started')
+        return False
+
+    driver = webdriver.Chrome(chrome_driver_fname)
+    if yale_app_url == '':
+        yale_app_url = 'http://sprout022.sprout.yale.edu/mni2tal/mni2tal.html'
+    # Open the website
+    driver.get(yale_app_url)
+    time.sleep(0.3)
+    mni = []
+    for xyz in points:
+        for val, element_name in zip(xyz, ['talx', 'taly', 'talz']):
+            set_val(driver, element_name, val)
+        time.sleep(0.1)
+        driver.find_element_by_id('talgo').click()
+        time.sleep(0.1)
+        mni.append([int(get_val(driver, element_name)) for element_name in ['mnix', 'mniy', 'mniz']])
+    return mni
+
+
+def get_val(driver, element_name):
+    return driver.find_element_by_id(element_name).get_attribute('value')
+
+
+def set_val(driver, element_name, val):
+    driver.execute_script("document.getElementById('{}').value='{}'".format(element_name, str(val)))
+
+
 if __name__ == '__main__':
     from src.utils import preproc_utils as pu
     SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
@@ -291,3 +332,6 @@ if __name__ == '__main__':
 
     mni2 = vertex_to_mni(23633, 0, 'mg78', SUBJECTS_DIR)
     print('mni2: {}'.format(mni2))
+
+    # Should be [[3, 5, 7], [2, 7, -1], [7, 6, 5]]
+    print(yale_tal2mni([[2, 3, 9],[1, 4, 2], [6, 3, 7]]))
