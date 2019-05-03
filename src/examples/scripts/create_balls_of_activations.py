@@ -23,7 +23,7 @@ def run(mmvt):
         ball_name = 'peak_{}_{}_{}'.format(ind, cond, primary)
         mmvt.data.create_electrode(
             inflated_pos, ball_name, balls_r[primary], color=balls_c[cond], subject_tkreg_ras=True)
-        mmvt.appearance.show_electrodes(True)
+    mmvt.appearance.show_electrodes(True)
 
 
 bpy.types.Scene.balls_of_activations_csv_fname = bpy.props.StringProperty(subtype='FILE_PATH')
