@@ -1,14 +1,10 @@
 from src.utils import trans_utils as tu
 from src.utils import utils
-import os
-import os.path as op
-
-SUBJECTS_DIR = '/autofs/space/lilli_004/users/DARPA-MSIT/msit/subjs'
 
 
-def trans_tal_coords(file_name):
+def trans_tal_coords(file_name, subjects_dir):
     subjects = {}
-    for fname in utils.find_recursive(SUBJECTS_DIR, file_name):
+    for fname in utils.find_recursive(subjects_dir, file_name):
         lines = list(utils.csv_file_reader(fname, delimiter=' '))
         if len(lines) == 0:
             print('{} is empty!'.format(fname))
@@ -33,4 +29,5 @@ if __name__ == '__main__':
     `find . -name "L_IFG.txt"`
     `find . -name "R_IFG.txt"`
     '''
-    trans_tal_coords('dACC.txt')
+    subjects_dir = '/autofs/space/lilli_004/users/DARPA-MSIT/msit/subjs'
+    trans_tal_coords('dACC.txt', subjects_dir)
