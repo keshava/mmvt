@@ -17,7 +17,7 @@ def trans_tal_coords(file_name):
         elif len(lines) > 1:
             print('More than one line in {}!'.format(fname))
             subjects[subject] = '>1'
-            break
+            continue
         xyz = [int(float(v)) for v in lines[0] if utils.is_float(v)]
         subject = utils.namebase(utils.get_parent_fol(fname, 3))
         subjects[subject] = xyz
