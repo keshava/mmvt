@@ -271,7 +271,7 @@ def mni2tal(coords):
     return np.rint(out_coords).astype(int)
 
 
-def yale_tal2mni(points, yale_app_url=''):
+def yale_get_driver(yale_app_url=''):
     try:
         from selenium import webdriver
     except:
@@ -292,22 +292,41 @@ def yale_tal2mni(points, yale_app_url=''):
     # Open the website
     driver.get(yale_app_url)
     time.sleep(0.3)
-    mni = []
+    return driver
+
+
+def yale_tal2mni(points, driver=None, yale_app_url='', get_brodmann_areas=False):
+    mni_points, brodmann_areas = [], []
+    one_point = False
+    if utils.is_int(points[0]) or utils.is_float(points[0]):
+        one_point = True
+        points = [points]
+    if driver is None:
+        driver = yale_get_driver(yale_app_url)
     for xyz in points:
         for val, element_name in zip(xyz, ['talx', 'taly', 'talz']):
-            set_val(driver, element_name, val)
+            element_set_val(driver, element_name, val)
         time.sleep(0.1)
         driver.find_element_by_id('talgo').click()
         time.sleep(0.1)
-        mni.append([int(get_val(driver, element_name)) for element_name in ['mnix', 'mniy', 'mniz']])
-    return mni
+        mni_points.append([int(element_get_val(driver, element_name)) for element_name in ['mnix', 'mniy', 'mniz']])
+        if get_brodmann_areas:
+            brodmann_areas.append(element_get_val(driver, 'baselectbox'))
+    if one_point:
+        mni_points = mni_points[0]
+        if get_brodmann_areas:
+            brodmann_areas = brodmann_areas[0]
+    if get_brodmann_areas:
+        return mni_points, brodmann_areas
+    else:
+        return mni_points
 
 
-def get_val(driver, element_name):
+def element_get_val(driver, element_name):
     return driver.find_element_by_id(element_name).get_attribute('value')
 
 
-def set_val(driver, element_name, val):
+def element_set_val(driver, element_name, val):
     driver.execute_script("document.getElementById('{}').value='{}'".format(element_name, str(val)))
 
 
