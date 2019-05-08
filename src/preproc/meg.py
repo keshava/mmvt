@@ -143,7 +143,7 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
     INV_EEG_SMOOTH = _get_fif_name_no_cond('eeg-smooth-inv') if inv_no_cond else _get_fif_name_cond('eeg-smooth-inv')
     EMPTY_ROOM = _get_fif_name_no_cond('empty-raw').replace('-{}-'.format(task), '-').replace('_{}'.format(cleaning_method), '')
     STC = _get_stc_name('{method}-{modal}')
-    STC_HEMI = _get_stc_name('{method}-{hemi}-{modal}')
+    STC_HEMI = _get_stc_name('{method}-{modal}-{hemi}')
     STC_HEMI_SAVE = op.splitext(STC_HEMI)[0].replace('-{hemi}','')
     STC_HEMI_SMOOTH = _get_stc_name('{method}-smoothed-{hemi}')
     STC_HEMI_SMOOTH_SAVE = op.splitext(STC_HEMI_SMOOTH)[0].replace('-{hemi}','')
@@ -1997,14 +1997,14 @@ def get_epo_fname(epo_fname='', load_autoreject_if_exist=False, overwrite=False)
         epo_fname, epo_exist = locating_meg_file(epo_fname, '*ar-epo.fif')
     if not epo_exist or not load_autoreject_if_exist:
         epo_fname, epo_exist = locating_meg_file(epo_fname, '*epo.fif')
-    return epo_fname
+    return epo_fname.strip()
 
 
 def get_evo_fname(evo_fname=''):
     if evo_fname == '':
         evo_fname = EVO
     evo_fname, epo_exist = locating_meg_file(evo_fname, '*ave.fif')
-    return evo_fname
+    return evo_fname.strip()
 
 
 def get_cor_fname(cor_fname=''):
@@ -2385,6 +2385,26 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
 def get_stc_fname(args):
     return '{}-{}.stc'.format(
         STC[:-4].format(cond=args.conditions[0], method=args.inverse_method[0]), '{hemi}')
+
+
+def calc_stc_zvals(subject, stc_name, baseline_stc_name, use_abs=False, overwrite=False):
+    stc_zvals_fname = op.join(MMVT_DIR, subject, 'meg', '{}-zvals'.format(stc_name))
+    if op.isfile(stc_zvals_fname) and not overwrite:
+        print('calc_stc_zvals: {} already exist'.format(stc_zvals_fname))
+        return True
+    for file_name in [stc_name, baseline_stc_name]:
+        if not utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(file_name, '{hemi}'))):
+            print('Can\'t find {}!'.format(file_name))
+            return False
+    stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-rh.stc'.format(stc_name)))
+    baseline_stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-rh.stc'.format(baseline_stc_name)))
+    zvals = (stc.data - np.mean(baseline_stc.data)) / np.std(baseline_stc.data)
+    if use_abs:
+        zvals = np.abs(zvals)
+    stc_zvals = mne.SourceEstimate(zvals, stc.vertices, stc.tmin, stc.tstep, subject=subject)
+    print('stc_zvals: max: {}, min: {}'.format(np.max(stc_zvals.data), np.min(stc_zvals.data)))
+    stc_zvals.save(stc_zvals_fname)
+    return op.isfile(stc_zvals_fname)
 
 
 def calc_induced_power(epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
@@ -3377,23 +3397,29 @@ def calc_single_trial_labels_per_condition(atlas, events, stcs, extract_modes=('
             np.save(op.join(SUBJECT_MEG_FOLDER, 'labels_ts_{}_{}'.format(cond_name, extract_mode)), np.array(labels_ts))
 
 
-def get_stc_conds(events, inverse_method, stc_hemi_template):
+def get_stc_conds(events, inverse_method, stc_hemi_template, modal='meg'):
     stcs = {}
     hemi = 'lh' # both will be loaded
     for cond in events.keys():
-        stc_fname = stc_hemi_template.format(cond=cond, method=inverse_method, hemi=hemi)
+        stc_fname = stc_hemi_template.format(cond=cond, method=inverse_method, hemi=hemi, modal=modal)
         if not op.isfile(stc_fname):
-            template_meg_stc = op.join(SUBJECT_MEG_FOLDER, '*-{}.stc'.format(hemi))
-            template_meg_h5 = op.join(SUBJECT_MEG_FOLDER, '*-stc.h5'.format(hemi))
-            template_mmvt_stc = op.join(MMVT_DIR, SUBJECT, 'meg', '*-{}.stc'.format(hemi))
-            template_mmvt_h5 = op.join(MMVT_DIR, SUBJECT, 'meg', '*-stc.h5'.format(hemi))
-            stc_fname = utils.select_one_file(
-                glob.glob(template_meg_stc) + glob.glob(template_meg_h5) + glob.glob(template_mmvt_stc) +
-                glob.glob(template_mmvt_h5), template='stc/h5', files_desc='STC', print_title=True)
+            if len(events.keys()) == 1:
+                template_mmvt = '{}.{}'.format(stc_hemi_template.format(
+                    cond='*', method=inverse_method, hemi='*-{}'.format(hemi), modal=modal), '{type}')
+                stc_fname = utils.select_one_file(
+                    glob.glob(template_mmvt.format(type='stc')) + glob.glob(template_mmvt.format(type='h5')))
+            else:
+                template_meg_stc = op.join(SUBJECT_MEG_FOLDER, '*-{}.stc'.format(hemi))
+                template_meg_h5 = op.join(SUBJECT_MEG_FOLDER, '*-stc.h5'.format(hemi))
+                template_mmvt_stc = op.join(MMVT_DIR, SUBJECT, 'meg', '*-{}.stc'.format(hemi))
+                template_mmvt_h5 = op.join(MMVT_DIR, SUBJECT, 'meg', '*-stc.h5'.format(hemi))
+                stc_fname = utils.select_one_file(
+                    glob.glob(template_meg_stc) + glob.glob(template_meg_h5) + glob.glob(template_mmvt_stc) +
+                    glob.glob(template_mmvt_h5), template='stc/h5', files_desc='STC', print_title=True)
         if not op.isfile(stc_fname):
             return None
         stcs[cond] = mne.read_source_estimate(stc_fname)
-    return stcs
+    return stcs, stc_fname
 
 
 def calc_labels_avg_per_cluster(subject, atlas, events, inverse_method, stc_names, extract_method,
@@ -3433,7 +3459,7 @@ def calc_labels_avg_per_condition(
         atlas, hemi, events=None, surf_name='pial', labels_fol='', stcs=None, stcs_num={}, inverse_method='dSPM',
         extract_modes=['mean_flip'], positive=False, moving_average_win_size=0, labels_data_template='', src=None,
         factor=1, inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, read_only_from_annot=True, task='',
-        overwrite=False, do_plot=False, n_jobs=1):
+        overwrite=False, stc_name='', do_plot=False, n_jobs=1):
 
     if do_plot:
         import matplotlib.pyplot as plt
@@ -3443,7 +3469,11 @@ def calc_labels_avg_per_condition(
             get_labels_data_fname(labels_data_template, im, task, atlas, em, hemi))))
             for em, im in product(extract_modes, inverse_method)])
 
-    if labels_data_template == '':
+    if stc_name != '':
+        labels_data_template = op.join(utils.get_parent_fol(
+            stc_name), 'labels_data_{}'.format(utils.namebase(stc_name)[:-3]))
+        labels_data_template += '_{}_{}_{}_{}_{}.npz' #task, atlas, inverse_method, em, hemi
+    elif labels_data_template == '':
         labels_data_template = LBL
     if _check_all_files_exist() and not overwrite:
         return True
@@ -4328,17 +4358,20 @@ def calc_labels_avg_per_condition_wrapper(
             return flags
 
         if conditions is None or len(conditions) == 0:
-            conditions = {'all': 1}
+            conditions = {'all': 1} if args.task == '' else {args.task: 1}
         conditions_keys = conditions.keys()
         if isinstance(inverse_method, Iterable) and not isinstance(inverse_method, str):
             inverse_method = inverse_method[0]
         args.inv_fname = get_inv_fname(args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG)
-        args.stc_hemi_template = STC_HEMI if args.stc_template == '' else get_stc_hemi_template(args.stc_template)
-        stc_fnames = [args.stc_hemi_template.format(cond='{cond}', method=inverse_method, hemi=hemi)
+        if args.stc_template == '':
+            args.stc_hemi_template = op.join(MMVT_DIR, subject, 'meg', utils.namebase(STC_HEMI))
+        else:
+            args.stc_hemi_template =  get_stc_hemi_template(args.stc_template)
+        stc_fnames = [args.stc_hemi_template.format(cond='{cond}', method=inverse_method, hemi=hemi, modal=modality)
                       for hemi in utils.HEMIS]
         get_meg_files(subject, stc_fnames + [args.inv_fname], args, conditions)
         if stcs_conds is None or len(stcs_conds) == 0:
-            stcs_conds = get_stc_conds(conditions, inverse_method, args.stc_hemi_template)
+            stcs_conds, stc_fname = get_stc_conds(conditions, inverse_method, args.stc_hemi_template, args.modality)
             if stcs_conds is None or len(stcs_conds) == 0:
                 print('Can\'t find the STCs files! template: {}, conditions: {}'.format(
                     args.stc_hemi_template, conditions))
@@ -4353,8 +4386,8 @@ def calc_labels_avg_per_condition_wrapper(
                 labels_data_template=args.labels_data_template, task=args.task,
                 stcs=stcs_conds, factor=factor, inv_fname=args.inv_fname,
                 fwd_usingMEG=args.fwd_usingMEG, fwd_usingEEG=args.fwd_usingMEG,
-                stcs_num=stcs_num, read_only_from_annot=args.read_only_from_annot, overwrite=args.overwrite_labels_data,
-                n_jobs=args.n_jobs)
+                stcs_num=stcs_num, read_only_from_annot=args.read_only_from_annot, stc_name=stc_fname,
+                overwrite=args.overwrite_labels_data, n_jobs=args.n_jobs)
             if stcs_conds and isinstance(stcs_conds[list(conditions_keys)[0]], types.GeneratorType) and hemi_ind == 0:
                 # Create the stc generator again for the second hemi
                 _, stcs_conds, stcs_num = calc_stc_per_condition_wrapper(
@@ -4418,7 +4451,12 @@ def _calc_labels_data_minmax(hemis_data):
 
 
 def get_labels_data_fname(labels_data_template, inverse_method, task, atlas, em, hemi):
-    return labels_data_template.format(task.lower(), atlas, inverse_method, em, hemi).replace('__', '_')
+    _task = task.lower() if task.lower() not in labels_data_template else ''
+    _atlas = atlas if atlas not in labels_data_template else ''
+    _inverse_method = inverse_method if inverse_method not in labels_data_template else ''
+    _em = em if em not in labels_data_template else ''
+    labels_data_fname = labels_data_template.format(_task, _atlas, _inverse_method, _em, hemi).replace('__', '_')
+    return labels_data_fname
 
 
 def get_minmax_fname(min_max_output_template, inverse_method, task, atlas, em):
@@ -5288,7 +5326,11 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     flags, stcs_conds, stcs_num = calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, flags)
     # flags: calc_labels_avg_per_condition
     flags = calc_labels_avg_per_condition_wrapper(
-        subject, conditions, args.atlas, inverse_method, stcs_conds, args, flags, stcs_num, raw, epochs)
+        subject, conditions, args.atlas, inverse_method, stcs_conds, args, flags, stcs_num, raw, epochs,
+        modality=args.modality)
+
+    if 'calc_stc_zvals' in args.function:
+        flags['calc_stc_zvals'] = calc_stc_zvals(subject, args.stc_name, args.baseline_stc_name, args.use_abs)
 
     if 'calc_power_spectrum' in args.function:
         flags['calc_power_spectrum'] = calc_power_spectrum(subject, conditions, args)
@@ -5615,6 +5657,8 @@ def read_cmd_args(argv=None):
     parser.add_argument('--calc_spectrum_with_no_windows', help='', required=False, default=0, type=au.is_true)
     # Clusters
     parser.add_argument('--stc_name', required=False, default='')
+    parser.add_argument('--baseline_stc_name', required=False, default='')
+    parser.add_argument('--use_abs', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--threshold', required=False, default=75, type=float)
     parser.add_argument('--threshold_is_precentile', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--peak_stc_time_index', required=False, default=None, type=au.int_or_none)
