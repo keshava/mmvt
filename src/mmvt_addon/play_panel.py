@@ -251,8 +251,7 @@ def plot_something(self=None, context=None, cur_frame=0, uuid='', camera_fname='
         # _addon().color_meg_helmet()
     if successful_ret:
         if bpy.context.scene.save_images:
-            _addon().save_image(play_type, bpy.context.scene.save_selected_view,
-                                          bpy.context.scene.frame_current)
+            _addon().save_image(play_type, bpy.context.scene.save_selected_view, bpy.context.scene.frame_current)
         if bpy.context.scene.render_movie:
             _addon().render_image(set_to_camera_mode=set_to_camera_mode)
     else:

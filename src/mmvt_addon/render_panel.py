@@ -631,7 +631,7 @@ def _save_image():
 def save_image(image_type='image', view_selected=None, index=-1, zoom_val=0, add_index_to_name=True,
                add_colorbar=None, cb_ticks_num=None, cb_ticks_font_size=None):
     if add_colorbar is None:
-        add_colorbar = bpy.context.scene.save_views_with_cb
+        add_colorbar = False #todo: Fix!! bpy.context.scene.save_views_with_cb
     if cb_ticks_num is None:
         cb_ticks_num = bpy.context.scene.cb_ticks_num
     if cb_ticks_font_size is None:
