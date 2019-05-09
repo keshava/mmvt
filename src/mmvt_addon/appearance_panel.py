@@ -93,11 +93,13 @@ def showing_electordes():
 
 
 def show_rois():
-    bpy.context.scene.appearance_show_rois_activity = 'rois'
+    if bpy.context.scene.appearance_show_rois_activity != 'rois':
+        bpy.context.scene.appearance_show_rois_activity = 'rois'
 
 
 def show_activity():
-    bpy.context.scene.appearance_show_rois_activity = 'activity'
+    if bpy.context.scene.appearance_show_rois_activity != 'activity':
+        bpy.context.scene.appearance_show_rois_activity = 'activity'
 
 
 # def show_pial():

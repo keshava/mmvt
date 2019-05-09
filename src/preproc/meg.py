@@ -4423,12 +4423,12 @@ def calc_labels_minmax(atlas, inverse_method, extract_modes, task='', labels_dat
             min_max_output_template, im, task, atlas, em))) for em, im in product(extract_modes, inverse_method)])
 
 
-def calc_labels_data_minmax(labels_data_fname_template, inverse_method='dSPM', min_max_output_fname='', task='', atlas='',
-                            em='mean-flip', labels_data_template=''):
+def calc_labels_data_minmax(labels_data_fname_template='', inverse_method='dSPM', min_max_output_fname='', task='',
+                            atlas='', em='mean-flip'):
+    if labels_data_fname_template == '':
+        labels_data_fname_template = LBL
     if min_max_output_fname == '':
-        if labels_data_template == '':
-            labels_data_template = LBL
-        min_max_output_template = get_labels_minmax_template(labels_data_template)
+        min_max_output_template = get_labels_minmax_template(labels_data_fname_template)
         min_max_output_fname = get_minmax_fname(min_max_output_template, inverse_method, task, atlas, em)
     labels_data = [np.load(labels_data_fname_template.format(hemi=hemi)) for hemi in utils.HEMIS]
     labels_min, labels_max = _calc_labels_data_minmax(labels_data)

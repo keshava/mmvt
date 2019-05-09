@@ -183,7 +183,7 @@ def plot_something(self=None, context=None, cur_frame=0, uuid='', camera_fname='
     if context is None:
         context = bpy.context
     if bpy.context.scene.frame_current > bpy.context.scene.play_to:
-        return
+        bpy.context.scene.frame_current = bpy.context.scene.play_from
 
     plot_subcorticals = True
     if play_type is None:
@@ -221,7 +221,9 @@ def plot_something(self=None, context=None, cur_frame=0, uuid='', camera_fname='
         _addon().coloring.color_connections()
     if play_type == 'meg_labels':
         # todo: get the aparc_name
-        _addon().meg_labels_coloring(override_current_mat=True)
+        labels_data_fname = _addon().meg.get_label_data_fname()
+        labels_data_dict = {hemi:np.load(labels_data_fname.format(hemi=hemi)) for hemi in mu.HEMIS}
+        _addon().meg_labels_coloring(override_current_mat=True, labels_data_dict=labels_data_dict)
     if play_type == 'labels_connectivity':
         _addon().color_connections()
     if play_type in ['elecs_coh', 'elecs_act_coh', 'meg_elecs_coh']:

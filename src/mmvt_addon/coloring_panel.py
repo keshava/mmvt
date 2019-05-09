@@ -12,6 +12,7 @@ from functools import partial
 import re
 import shutil
 import math
+import importlib
 
 from tqdm import tqdm
 
@@ -390,14 +391,16 @@ def clear_object_vertex_colors(cur_obj):
 
 # todo: do something with the threshold parameter
 # @mu.timeit
-def color_objects_homogeneously(data, names, conditions, data_min, colors_ratio, threshold=0, postfix_str=''):
+def color_objects_homogeneously(data, names, conditions, data_min, colors_ratio, threshold=0, postfix_str='',
+                                cur_frame=None):
     if data is None:
         print('color_objects_homogeneously: No data to color!')
         return
     if names is None:
         data, names, conditions = data['data'], data['names'], data['conditions']
     default_color = (1, 1, 1)
-    cur_frame = bpy.context.scene.frame_current
+    if cur_frame is None:
+        cur_frame = bpy.context.scene.frame_current
     for obj_name, values in zip(names, data):
         if not isinstance(obj_name, str):
             obj_name = obj_name.astype(str)
@@ -509,24 +512,34 @@ def activity_map_coloring(map_type, clusters=False, threshold=None):
     # setup_environment_settings()
 
 
-def meg_labels_coloring(override_current_mat=True):
+# @mu.timeit
+def meg_labels_coloring(override_current_mat=True, labels_data_dict=None):
     ColoringMakerPanel.what_is_colored.add(WIC_MEG_LABELS)
     init_activity_map_coloring('MEG')
     threshold = bpy.context.scene.coloring_lower_threshold
     hemispheres = [hemi for hemi in HEMIS if not mu.get_hemi_obj(hemi).hide]
     user_fol = mu.get_user_fol()
-    atlas, em = bpy.context.scene.atlas, bpy.context.scene.meg_labels_extract_method
-    labels_data_minimax_fname = op.join(user_fol, 'meg', 'labels_data_{}_{}_minmax.npz'.format(atlas, em))
-    if not op.isfile(labels_data_minimax_fname):
-        print('Can\'t find labels_data_minimax_fname! ({})'.format(labels_data_minimax_fname))
+    # atlas, em = bpy.context.scene.atlas, bpy.context.scene.meg_labels_extract_method
+    # labels_data_minimax_fname = op.join(user_fol, 'meg', 'labels_data_{}_{}_minmax.npz'.format(atlas, em))
+    labels_data_fname = _addon().meg.get_label_data_fname()
+    if not mu.both_hemi_files_exist(labels_data_fname):
+        print('Can\'t find {}!'.format(labels_data_fname))
         return
-    labels_data_minimax = np.load(labels_data_minimax_fname)
+    labels_data_minmax_fname = _addon().meg.get_label_data_minmax_fname()
+    if not op.isfile(labels_data_minmax_fname):
+        mu.add_mmvt_code_root_to_path()
+        from src.preproc import meg as preproc_meg
+        importlib.reload(preproc_meg)
+        preproc_meg.calc_labels_data_minmax(labels_data_fname, min_max_output_fname=labels_data_minmax_fname)
+    labels_data_minimax = np.load(labels_data_minmax_fname)
     meg_labels_min, meg_labels_max = labels_data_minimax['labels_diff_minmax'] \
         if bpy.context.scene.meg_labels_coloring_type == 'diff' else labels_data_minimax['labels_minmax']
     data_minmax = max(map(abs, [meg_labels_max, meg_labels_min]))
     meg_labels_min, meg_labels_max = -data_minmax, data_minmax
     for hemi in hemispheres:
-        labels_data = np.load(op.join(user_fol, 'meg', 'labels_data_{}_{}_{}.npz'.format(atlas, em, hemi)))
+        # labels_data = np.load(op.join(user_fol, 'meg', 'labels_data_{}_{}_{}.npz'.format(atlas, em, hemi)))
+        labels_data = np.load(labels_data_fname.format(hemi=hemi)) \
+            if labels_data_dict is None else labels_data_dict[hemi]
         labels_coloring_hemi(
             labels_data, ColoringMakerPanel.faces_verts, hemi, threshold, bpy.context.scene.meg_labels_coloring_type,
             override_current_mat, meg_labels_min, meg_labels_max)
@@ -731,9 +744,38 @@ def load_labels_vertices(atlas):
             dict(labels_names=labels_names,labels_vertices=labels_vertices)
 
 
+def set_colorbar(colors_min=None, colors_max=None, cmap=None):
+    no_colors = colors_min is None or colors_max is None
+    if _addon().colorbar_values_are_locked() or no_colors:
+        colors_max, colors_min = _addon().get_colorbar_max_min()
+        colors_ratio = 256 / (colors_max - colors_min)
+    else:
+        colors_ratio = 256 / (colors_max - colors_min)
+        _addon().set_colorbar_max_min(colors_max, colors_min)
+        if cmap is not None:
+            _addon().set_colormap(cmap)
+        else:
+            _addon().set_colorbar_default_cm()
+    return colors_ratio
+
+
 def labels_coloring_hemi(labels_data, faces_verts, hemi, threshold=0, labels_coloring_type='diff',
                          override_current_mat=True, colors_min=None, colors_max=None, use_abs=None, cmap=None,
                          atlas=None):
+    no_t = labels_data['data'][0].ndim == 0
+    t = bpy.context.scene.frame_current
+    colors_ratio = set_colorbar(colors_min, colors_max, cmap)
+    if bpy.context.scene.color_rois_homogeneously:
+        if no_t:
+            label_data_t = labels_data['data']
+        else:
+            N, T = labels_data['data'].shape
+            label_data_t = labels_data['data'][:, t] if 0 <= t < T else np.zeros((N))
+        color_objects_homogeneously(label_data_t, labels_data['names'], [], colors_min, colors_ratio, cur_frame=t,
+                                    threshold=threshold)
+        _addon().show_rois()
+        return
+
     if faces_verts is None:
         print('faces_verts is None!')
         return
@@ -754,29 +796,12 @@ def labels_coloring_hemi(labels_data, faces_verts, hemi, threshold=0, labels_col
     labels_names = ColoringMakerPanel.labels_vertices[atlas]['labels_names']
     labels_vertices = ColoringMakerPanel.labels_vertices[atlas]['labels_vertices']
     vertices_num = max(itertools.chain.from_iterable(labels_vertices[hemi])) + 1
-    no_t = labels_data['data'][0].ndim == 0
-    t = bpy.context.scene.frame_current
     if not colors_min is None and not colors_max is None:
         colors_data = np.zeros((vertices_num))
     else:
         colors_data = np.ones((vertices_num, 4))
         colors_data[:, 0] = 0
     colors = labels_data['colors'] if 'colors' in labels_data else [None] * len(labels_data['names'])
-    if not colors_min is None and not colors_max is None:
-        if _addon().colorbar_values_are_locked():
-            colors_max, colors_min = _addon().get_colorbar_max_min()
-            colors_ratio = 256 / (colors_max - colors_min)
-        else:
-            colors_ratio = 256 / (colors_max - colors_min)
-            _addon().set_colorbar_max_min(colors_max, colors_min)
-            if cmap is not None:
-                _addon().set_colormap(cmap)
-            else:
-                _addon().set_colorbar_default_cm()
-            # elif colors_min == 0 or np.sign(colors_min) == np.sign(colors_max):
-            #     _addon().set_colormap('YlOrRd')
-            # else:
-            #     _addon().set_colormap('BuPu-YlOrRd')
     for label_data, label_colors, label_name in zip(labels_data['data'], colors, labels_data['names']):
         label_name = mu.to_str(label_name)
         if label_data.ndim == 0:
@@ -811,7 +836,7 @@ def labels_coloring_hemi(labels_data, faces_verts, hemi, threshold=0, labels_col
             if no_t:
                 label_data_t, label_colors_t = label_data, label_colors
             else:
-                label_data_t, label_colors_t = (label_data[t], label_colors[t]) if 0 < t < len(label_data) else (0, 0)
+                label_data_t, label_colors_t = (label_data[t], label_colors[t]) if 0 <= t < len(label_data) else (0, 0)
             # print('coloring {} with {}'.format(label_name, label_colors_t))
             if not colors_min is None and not colors_max is None:
                 colors_data[label_vertices] = label_data_t
@@ -2432,7 +2457,8 @@ bpy.types.Scene.electrodes_min_prec = bpy.props.FloatProperty(min=0, default=0, 
 bpy.types.Scene.electrodes_max_prec = bpy.props.FloatProperty(min=0, default=0, max=100, update=electrodes_minmax_prec_update,
     description='Sets the max percentile that is being used to calculate the min & max colorbar’s values')
 bpy.types.Scene.meg_files = bpy.props.EnumProperty(items=[], description='Selects the condition to plot the MEG activity.\n\nCurrent condition')
-bpy.types.Scene.meg_labels_coloring_type = bpy.props.EnumProperty(items=[], description='Selects the condition to plot the MEG labels activity.\n\nCurrent condition')
+bpy.types.Scene.meg_labels_coloring_type = bpy.props.EnumProperty(
+    items=[('', '', '', 0)], description='Selects the condition to plot the MEG labels activity.\n\nCurrent condition')
 bpy.types.Scene.coloring_fmri = bpy.props.BoolProperty(default=True, description="Plot FMRI")
 bpy.types.Scene.coloring_electrodes = bpy.props.BoolProperty(default=False, description="Plot Deep electrodes")
 bpy.types.Scene.coloring_lower_threshold = bpy.props.FloatProperty(default=0.5, min=0,
