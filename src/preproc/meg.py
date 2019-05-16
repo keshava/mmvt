@@ -3807,39 +3807,35 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
     return True
 
 
+@utils.tryit()
 def create_helmet_mesh(subject, excludes=[], overwrite_faces_verts=True, sensors_type='mag', modality='meg',
                        overwrite=False):
-    try:
-        from scipy.spatial import Delaunay
-        from src.utils import trig_utils
-        mesh_ply_fname = op.join(MMVT_DIR, subject, modality, '{}_helmet.ply'.format(modality))
-        if op.isfile(mesh_ply_fname) and not overwrite:
-            print('{} mesh already exist!'.format(modality))
-            return True
-        input_file = op.join(MMVT_DIR, subject, modality, '{}_{}sensors_positions.npz'.format(
-            modality, '{}_'.format(sensors_type) if modality == 'meg' else ''))
-        if not op.isfile(input_file):
-            print('Can\'t find {}! Run the read_sensors_layout function first'.format(input_file))
-            return False
-        faces_verts_out_fname = op.join(MMVT_DIR, subject, modality, '{}_faces_verts.npy'.format(modality))
-        f = np.load(input_file)
-        verts = f['pos']
-        # excluded_inds = [np.where(f['names'] == e)[0] for e in excludes]
-        # verts = np.delete(verts, excluded_inds, 0)
-        verts_tup = [(x, y, z) for x, y, z in verts]
-        tris = Delaunay(verts_tup)
-        faces = tris.convex_hull
-        areas = [trig_utils.poly_area(verts[poly]) for poly in tris.convex_hull]
-        inds = [k for k, s in enumerate(areas) if s > np.percentile(areas, 97)]
-        faces = np.delete(faces, inds, 0)
-        utils.write_ply_file(verts, faces, mesh_ply_fname, True)
-        utils.calc_ply_faces_verts(verts, faces, faces_verts_out_fname, overwrite_faces_verts,
-                                   utils.namebase(faces_verts_out_fname))
-        np.savez(input_file, pos=f['pos'], names=f['names'], tri=faces, excludes=excludes)
-    except:
-        print('Error in create_eeg_mesh!')
-        print(traceback.format_exc())
+    from scipy.spatial import Delaunay
+    from src.utils import trig_utils
+    mesh_ply_fname = op.join(MMVT_DIR, subject, modality, '{}_helmet.ply'.format(modality))
+    if op.isfile(mesh_ply_fname) and not overwrite:
+        print('{} mesh already exist!'.format(modality))
+        return True
+    input_file = op.join(MMVT_DIR, subject, modality, '{}_{}sensors_positions.npz'.format(
+        modality, '{}_'.format(sensors_type) if modality == 'meg' else ''))
+    if not op.isfile(input_file):
+        print('Can\'t find {}! Run the read_sensors_layout function first'.format(input_file))
         return False
+    faces_verts_out_fname = op.join(MMVT_DIR, subject, modality, '{}_faces_verts.npy'.format(modality))
+    f = np.load(input_file)
+    verts = f['pos']
+    # excluded_inds = [np.where(f['names'] == e)[0] for e in excludes]
+    # verts = np.delete(verts, excluded_inds, 0)
+    verts_tup = [(x, y, z) for x, y, z in verts]
+    tris = Delaunay(verts_tup)
+    faces = tris.convex_hull
+    areas = [trig_utils.poly_area(verts[poly]) for poly in tris.convex_hull]
+    inds = [k for k, s in enumerate(areas) if s > np.percentile(areas, 97)]
+    faces = np.delete(faces, inds, 0)
+    utils.write_ply_file(verts, faces, mesh_ply_fname, True)
+    utils.calc_ply_faces_verts(verts, faces, faces_verts_out_fname, overwrite_faces_verts,
+                               utils.namebase(faces_verts_out_fname))
+    np.savez(input_file, pos=f['pos'], names=f['names'], tri=faces, excludes=excludes)
     return True
 
 
