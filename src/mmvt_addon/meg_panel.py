@@ -734,6 +734,16 @@ def filter_clusters(val_threshold=None, size_threshold=None, clusters_label=None
             # any([clusters_label in inter_label['name'] for inter_label in c.intersects])]
 
 
+def get_label_data_fname():
+    return op.join(mu.get_user_fol(), 'meg', 'labels_data_{}_{}.npz'.format(
+        bpy.context.scene.meg_data_labels_files, '{hemi}'))
+
+
+def get_label_data_minmax_fname():
+    return op.join(mu.get_user_fol(), 'meg', 'labels_data_{}_minmax.npz'.format(
+        bpy.context.scene.meg_data_labels_files))
+
+
 def meg_clusters_labels_files_update(self, context):
     if MEGPanel.init:
         # fname = MEGPanel.clusters_labels_fnames[bpy.context.scene.meg_clusters_labels_files]
@@ -1010,6 +1020,11 @@ def meg_draw(self, context):
             # col.prop(context.scene, 'plot_mesh_using_uv_map', text='Use UV map')
         col.prop(context.scene, 'find_max_eeg_sensors', text='Find peak activity')
 
+    if MEGPanel.meg_labels_data_files_exist:
+        col = layout.box().column()
+        col.label(text='EEG/MEG labels data: ')
+        col.prop(context.scene, 'meg_data_labels_files', text='')
+
     if MEGPanel.meg_clusters_files_exist:
         layout.prop(context.scene, 'meg_clusters_labels_files', text='')
         if MNE_EXIST:
@@ -1074,6 +1089,7 @@ bpy.types.Scene.meg_clusters_labels_files = bpy.props.EnumProperty(
     items=[], description="meg files", update=meg_clusters_labels_files_update)
 bpy.types.Scene.meg_clusters = bpy.props.EnumProperty(
     items=[], description="meg clusters", update=clusters_update)
+bpy.types.Scene.meg_data_labels_files = bpy.props.EnumProperty(items=[], description="meg labels datafiles")
 bpy.types.Scene.meg_clusters_val_threshold = bpy.props.FloatProperty(min=0)
 bpy.types.Scene.meg_clusters_size_threshold = bpy.props.FloatProperty(min=0)
 bpy.types.Scene.meg_clusters_label = bpy.props.StringProperty()
@@ -1177,7 +1193,6 @@ class FilterMEGClusters(bpy.types.Operator):
         return {'PASS_THROUGH'}
 
 
-
 class PlotMEGClusters(bpy.types.Operator):
     bl_idname = "mmvt.plot_meg_clusters"
     bl_label = "Plot MEG clusters"
@@ -1214,10 +1229,25 @@ class MEGPanel(bpy.types.Panel):
     meg_sensors_data, meg_sensors_meta_data, meg_sensors_data_minmax = {}, {}, None
     eeg_sensors_conditions_items = []
     meg_sensors_conditions_items = []
+    meg_labels_data_files_exist = False
 
     def draw(self, context):
         if MEGPanel.init:
             meg_draw(self, context)
+
+
+def init_labels_data():
+    labels_data_files = []
+    labels_rh_data_files = glob.glob(op.join(mu.get_user_fol(), 'meg', 'labels_data_*_rh.npz'))
+    for labels_data_fname in labels_rh_data_files:
+        lh_fname = '{}_lh.npz'.format(labels_data_fname[:-7])
+        if op.isfile(lh_fname):
+            labels_data_files.append(mu.namebase(labels_data_fname)[len('labels_data_'):-3])
+    if len(labels_data_files) > 0:
+        meg_data_labels_items = [(c, c, '', ind) for ind, c in enumerate(list(set(labels_data_files)))]
+        bpy.types.Scene.meg_data_labels_files = bpy.props.EnumProperty(
+            items=meg_data_labels_items, description="meg labels data files")
+    MEGPanel.meg_labels_data_files_exist = len(labels_data_files) > 0
 
 
 def init(addon):
@@ -1254,6 +1284,7 @@ def init(addon):
         bpy.context.scene.meg_show_filtering = False
         bpy.context.scene.cumulate_meg_cluster = False
 
+    init_labels_data()
     register()
     MEGPanel.init = True
 

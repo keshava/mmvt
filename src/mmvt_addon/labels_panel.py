@@ -88,14 +88,14 @@ def plot_labels_data():
 
 
 def labels_data_files_update(self, context):
-    # if LabelsPanel.init:
-    labels_data_fname = glob.glob(op.join(mu.get_user_fol(), 'labels', 'labels_data', '{}.*'.format(
-        bpy.context.scene.labels_data_files.replace(' ', '_'))))[0]
-    ret = _load_labels_data(labels_data_fname)
-    if isinstance(ret, bool):
-        return
-    d, labels, data, atlas, cb_title, labels_max, labels_min, cmap = ret
-    _addon().init_labels_colorbar(data, cb_title, labels_max, labels_min, cmap)
+    if LabelsPanel.init:
+        labels_data_fname = glob.glob(op.join(mu.get_user_fol(), 'labels', 'labels_data', '{}.*'.format(
+            bpy.context.scene.labels_data_files.replace(' ', '_'))))[0]
+        ret = _load_labels_data(labels_data_fname)
+        if isinstance(ret, bool):
+            return
+        d, labels, data, atlas, cb_title, labels_max, labels_min, cmap = ret
+        _addon().init_labels_colorbar(data, cb_title, labels_max, labels_min, cmap)
 
 
 def new_label_r_update(self, context):
