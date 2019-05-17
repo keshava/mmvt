@@ -2433,7 +2433,7 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
     if bands is None or bands == '':
-        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     # atlas = 'high.level.atlas'
     if normalize_proj:
         epochs.info.normalize_proj()
