@@ -905,14 +905,20 @@ def creating_stc_obj(data_dict, vertno_dict, subject, tmin=0, tstep=0):
         if isinstance(vertno_dict, list) and isinstance(vertno_dict[0], np.ndarray):
             verts_indices = vertno_dict[0] if hemi == 'lh' else vertno_dict[1]
         elif isinstance(vertno_dict, dict) and 'lh' in vertno_dict and 'rh' in vertno_dict:
-            verts_indices = np.array(list(vertno_dict[hemi].keys()))
+            if isinstance(vertno_dict[hemi], list):
+                verts_indices = np.array(vertno_dict[hemi])
+            elif isinstance(vertno_dict[hemi], dict):
+                verts_indices = np.array(list(vertno_dict[hemi].keys()))
+            else:
+                raise Exception('Wrong type of vertno!s')
         else:
             raise Exception('Wrong type of vertno!s')
         indices_ord = np.argsort(verts_indices)
         vertno[hemi] = verts_indices[indices_ord]
         data[hemi] = np.array(data_dict[hemi])[indices_ord]
     data = np.concatenate([data['lh'], data['rh']])
-    data = np.reshape(data, (len(data), 1))
+    if data.ndim == 1:
+        data = np.reshape(data, (len(data), 1))
     vertices = [vertno['lh'], vertno['rh']]
     stc = mne.SourceEstimate(data, vertices, tmin, tstep, subject=subject)
     return stc
@@ -953,7 +959,8 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
     epo_fname = get_epo_fname(epo_fname)
     if isinstance(extract_modes, str):
         extract_modes = [extract_modes]
-    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
+    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) and len(events) > 0 \
+        else ['all']
     lambda2 = 1.0 / snr ** 2
     if bands is None:
         bands = dict(theta=np.arange(4, 8, 1), alpha=np.arange(8, 15, 1), beta=np.arange(15, 30, 2),
@@ -2232,7 +2239,7 @@ def get_cov_from_dict(cov_dict):
 #     stc.save(STC.format('all', inverse_method))
 
 
-def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None, inverse_method='dSPM', baseline=(None, 0),
+def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_max=None, inverse_method='dSPM', baseline=(None, 0),
                            apply_SSP_projection_vectors=True, add_eeg_ref=True, pick_ori=None,
                            single_trial_stc=False, calc_source_band_induced_power=False, save_stc=True, snr=3.0,
                            overwrite_stc=False, stc_template='', raw_fname='', epo_fname='', evo_fname='', inv_fname='',
@@ -2285,12 +2292,17 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                 inverse_operator = read_inverse_operator(inv_fname.format(cond=cond_name))
             if (single_trial_stc or calc_source_band_induced_power or events_keys == ['rest']) and not apply_on_raw:
                 if epochs is None:
-                    epo_fname = epo_fname.format(cond=cond_name)
+                    # epo_fname = epo_fname.format(cond=cond_name)
+                    epo_fname = get_cond_fname(epo_fname, cond_name)
                     if not op.isfile(epo_fname):
-                        print('single_trial_stc=True and no epochs file was found!')
-                        return False, stcs, stcs_num
-                    epo_cond = get_cond_fname(epo_fname, cond_name)
-                    epochs = mne.read_epochs(epo_cond, apply_SSP_projection_vectors, add_eeg_ref)
+                        if single_trial_stc:
+                            print('single_trial_stc=True and no epochs file was found!')
+                            return False, stcs, stcs_num
+                        else:
+                            evoked = get_evoked_cond(
+                                cond_name, evo_fname, epo_fname, baseline, apply_SSP_projection_vectors, add_eeg_ref)
+                    else:
+                        epochs = mne.read_epochs(epo_fname, apply_SSP_projection_vectors, add_eeg_ref)
                 try:
                     mne.set_eeg_reference(epochs, ref_channels=None)
                 except:
@@ -2299,9 +2311,17 @@ def calc_stc_per_condition(events=None, task='', stc_t_min=None, stc_t_max=None,
                     stcs[cond_name] = mne.minimum_norm.apply_inverse_epochs(
                         epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
                 if calc_source_band_induced_power:
-                    calc_induced_power(epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
+                    if epochs is None and evoked is not None:
+                        C, T = evoked.data.shape
+                        epochs = mne.EpochsArray(
+                            evoked.data.reshape((1, C, T)), evoked.info, np.array([[0, 0, 1]]), 0, 1)
+                        stc_fname = '{}-{}'.format(stc_fname, utils.namebase(evo_fname))
+                    calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
                                        calc_inducde_power_per_label, normalize_proj=induced_power_normalize_proj,
-                                       overwrite_stc=overwrite_stc, n_jobs=n_jobs)
+                                       overwrite_stc=overwrite_stc, modality=modality, n_jobs=n_jobs)
+                    # stc files were already been saved
+                    save_stc = False
+                    stcs[cond_name] = None
                 stcs_num[cond_name] = epochs.events.shape[0]
             if not single_trial_stc: # So calc_source_band_induced_power can enter here also
                 if apply_on_raw:
@@ -2407,8 +2427,9 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, use_abs=False, overwrit
     return op.isfile(stc_zvals_fname)
 
 
-def calc_induced_power(epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
-                       calc_inducde_power_per_label=True, normalize_proj=True, overwrite_stc=False, n_jobs=6):
+def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
+                       calc_inducde_power_per_label=True, normalize_proj=True, overwrite_stc=False,
+                       modality='meg', n_jobs=6):
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
     if bands is None or bands == '':
@@ -2417,7 +2438,7 @@ def calc_induced_power(epochs, atlas, task, bands, inverse_operator, lambda2, st
     if normalize_proj:
         epochs.info.normalize_proj()
     if calc_inducde_power_per_label:
-        fol = utils.make_dir(op.join(SUBJECT_MEG_FOLDER, 'induced_power'))
+        fol = utils.make_dir(op.join(SUBJECT_MEG_FOLDER, '{}-induced_power'.format(stc_fname)))
         labels = lu.read_labels(MRI_SUBJECT, SUBJECTS_MRI_DIR, atlas)
         if len(labels) == 0:
             raise Exception('No labels found for {}!'.format(atlas))
@@ -2425,9 +2446,10 @@ def calc_induced_power(epochs, atlas, task, bands, inverse_operator, lambda2, st
         for ind, label in enumerate(labels):
             if 'unknown' in label.name:
                 continue
-            files_exist = all([op.isfile(op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band)))
-                               for band in bands.keys()])
+            files_exist = all([utils.both_hemi_files_exist(op.join(fol, '{}_{}_{}_induced_power-{}.stc'.format(
+                task, label.name, band, '{hemi}'))) for band in bands.keys()])
             if files_exist and not overwrite_stc:
+                print('Files already exist for {}'.format(label.name))
                 continue
             print('Calculating source_band_induced_power for {}'.format(label.name))
             utils.time_to_go(now, ind, len(labels), runs_num_to_print=1)
@@ -2440,15 +2462,57 @@ def calc_induced_power(epochs, atlas, task, bands, inverse_operator, lambda2, st
                 band_stc_fname = op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band))
                 print('Saving {}'.format(band_stc_fname))
                 stc_band.save(band_stc_fname)
+        ret = True
+        for band in bands.keys():
+            ret = ret and combine_labels_stc_filse(
+                subject, atlas, fol, '{}_{}'.format(utils.namebase(stc_fname), band), labels, '{}_'.format(task),
+                '_{}_induced_power'.format(band), modality, overwrite_stc)
     else:
         stcs = source_band_induced_power(
             epochs, inverse_operator, bands, n_cycles=2, use_fft=False, lambda2=lambda2, pca=True,
             n_jobs=n_jobs)
+        ret = True
         for band, stc_band in stcs.items():
             # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
             band_stc_fname = '{}_induced_power_{}'.format(stc_fname, band)
             print('Saving {}'.format(band_stc_fname))
             stc_band.save(band_stc_fname)
+            ret = ret and utils.both_hemi_files_exist('{}-{}.stc'.format(band_stc_fname, '{hemi}'))
+    return ret
+
+
+def combine_labels_stc_filse(subject, atlas, folder, stc_output_name, labels=None, pre_identifier='',
+                             post_identifier='', modality='meg', overwrite=False):
+    fol = op.join(MMVT_DIR, subject, modality, folder)
+    output_fname = op.join(MMVT_DIR, subject, modality, stc_output_name)
+    if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not overwrite:
+        return True
+    if not op.isdir(fol):
+        print('The folder {} could not be found!'.format(fol))
+        return False
+    if labels is None:
+        labels = lu.read_labels(MRI_SUBJECT, SUBJECTS_MRI_DIR, atlas)
+    if labels is None or len(labels) == 0:
+        print('No labels found for {}!'.format(atlas))
+        return False
+    vertices, vertices_data = defaultdict(list), defaultdict(list)
+    for label in labels:
+        stc_label_fname = op.join(fol, '{}{}{}-lh.stc'.format(pre_identifier, label.name, post_identifier))
+        if not op.isfile(stc_label_fname):
+            if 'unknown' in label.name:
+                continue
+            else:
+                print('Can\'t find the stc files for {}! ({})'.format(label.name, stc_label_fname))
+                return False
+        label_stc = mne.read_source_estimate(stc_label_fname)
+        verts_data = label_stc.lh_data if label.hemi == 'lh' else label_stc.rh_data
+        verts_no = label_stc.lh_vertno if label.hemi == 'lh' else label_stc.rh_vertno
+        vertices[label.hemi].extend(verts_no)
+        vertices_data[label.hemi].extend(verts_data)
+    combined_stc = creating_stc_obj(vertices_data, vertices, subject)
+    print('Saving {}'.format(output_fname))
+    combined_stc.save(output_fname)
+    return utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}'))
 
 
 def calc_stc_diff_both_hemis(events, stc_hemi_template, inverse_method, overwrite_stc=False):
@@ -4027,15 +4091,19 @@ def get_fname_format(task, fname_format='', fname_format_cond='', args_condition
                 fname_format = '{subject}_audvis_{ana_type}.{file_type}'
             conditions = dict(LA=1, RA=2, LV=3, RV=4, smiley=5, button=32)
         elif task == 'rest':
-            if fname_format == '':
+            if fname_format == '' or fname_format == '{subject}-{ana_type}.{file_type}':
                 fname_format = fname_format_cond = '{subject}_{cleaning_method}-rest-{ana_type}.{file_type}'
             conditions = dict(rest=1)
+        elif task == 'epilepsy':
+            if fname_format == '' or fname_format == '{subject}-{ana_type}.{file_type}':
+                fname_format = fname_format_cond = '{subject}_{cleaning_method}-epilepsy-{ana_type}.{file_type}'
+            conditions = dict(epilepsy=1)
     if conditions is None:
         if fname_format == '' or fname_format_cond == '':
             raise Exception('Empty fname_format and/or fname_format_cond!')
         # raise Exception('Unkown task! Known tasks are MSIT/ECR/ARC')
         # print('Unkown task! Known tasks are MSIT/ECR/ARC.')
-        args_conditions = ('all') if args_conditions is None else args_conditions
+        args_conditions = ['all'] if args_conditions is None or args_conditions == '' else args_conditions
         conditions = dict((cond_name, cond_id + 1) for cond_id, cond_name in enumerate(args_conditions))
     # todo: what if we want to set something like LV=3, RV=4 from the args?
     if args_conditions is not None and args_conditions != '':
@@ -4180,7 +4248,7 @@ def calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, fl
         evo_fname = get_evo_fname(args.evo_fname)
         get_meg_files(subject, [inv_fname, evo_fname], args, conditions)
         flags['calc_stc'], stcs_conds, stcs_num = calc_stc_per_condition(
-            conditions, args.task, args.stc_t_min, args.stc_t_max, inverse_method, args.baseline,
+            subject, conditions, args.task, args.stc_t_min, args.stc_t_max, inverse_method, args.baseline,
             args.apply_SSP_projection_vectors, args.add_eeg_ref, args.pick_ori, args.single_trial_stc,
             args.calc_source_band_induced_power, args.save_stc, args.snr, args.overwrite_stc, args.stc_template,
             args.raw_fname, args.epo_fname, args.evo_fname, args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG,
