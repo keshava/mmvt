@@ -489,7 +489,6 @@ def calc_meg_mesh_verts_sensors():
     mu.save(meg_helmet_indices, op.join(mu.get_user_fol(), 'meg', 'meg_vertices_sensors.pkl'))
 
 
-
 class ImportRois(bpy.types.Operator):
     bl_idname = "mmvt.roi_importing"
     bl_label = "import2 ROIs"

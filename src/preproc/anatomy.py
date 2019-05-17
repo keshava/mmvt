@@ -905,24 +905,33 @@ def write_flat_brain_patch(subject, hemi, flat_patch_fname):
 
 
 # @utils.tryit(False, False)
-def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, labels_dict=None, verts_dict=None,
+def calc_labeles_contours(subject, atlas, hemi='both', min_nei_num=2, overwrite=True, labels_dict=None, verts_dict=None,
                           check_unknown=True, save_lookup=True, verts_neighbors_dict=None, calc_centers=True,
                           return_contours=False, verbose=True):
     utils.make_dir(op.join(MMVT_DIR, subject, 'labels'))
-    output_fname = op.join(MMVT_DIR, subject, 'labels', '{}_contours_{}.npz'.format(atlas, '{hemi}'))
+    output_fname = op.join(MMVT_DIR, subject, 'labels', '{}_contours_{}{}.npz'.format(
+        atlas, '{}_'.format(min_nei_num if min_nei_num > 2 else ''), '{hemi}'))
+    hemis = utils.HEMIS if hemi == 'both' else [hemi]
     if utils.both_hemi_files_exist(output_fname) and not overwrite:
-        return True
+        if return_contours:
+            contours_ret = {}
+            for hemi in hemis:
+                d = np.load(output_fname.format(hemi=hemi))
+                contours_ret[hemi] = dict(
+                    contours=d['contours'], max=d['max'], labels=d['labels']) #, centers=d['centers'])
+            return contours_ret
+        else:
+            return True
     if verts_neighbors_dict is None:
         verts_neighbors_fname = op.join(MMVT_DIR, subject, 'verts_neighbors_{hemi}.pkl')
         if not utils.both_hemi_files_exist(verts_neighbors_fname):
             print('calc_labeles_contours: You should first run create_spatial_connectivity')
             create_spatial_connectivity(subject)
-            return calc_labeles_contours(subject, atlas, overwrite, verbose)
+            return calc_labeles_contours(subject, atlas, overwrite=overwrite, verbose=verbose)
     vertices_labels_lookup = lu.create_vertices_labels_lookup(
         subject, atlas, False, overwrite, hemi=hemi, labels_dict=labels_dict, verts_dict=verts_dict,
         check_unknown=check_unknown, save_lookup=save_lookup)
-    hemis = utils.HEMIS if hemi == 'both' else [hemi]
-    contours_ret = {}
+    contours_ret, contours_verts_nei = {}, defaultdict(dict)
     for hemi in hemis:
         if verts_dict is None:
             verts, _ = utils.read_pial(subject, MMVT_DIR, hemi)
@@ -930,7 +939,7 @@ def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, labels_di
             verts = verts_dict[hemi]
         contours = np.zeros((len(verts)))
         if verts_neighbors_dict is None:
-            vertices_neighbors = np.load(verts_neighbors_fname.format(hemi=hemi))
+            vertices_neighbors = utils.load(verts_neighbors_fname.format(hemi=hemi))
         else:
             vertices_neighbors = verts_neighbors_dict[hemi]
         # labels = lu.read_hemi_labels(subject, SUBJECTS_DIR, atlas, hemi)
@@ -946,7 +955,9 @@ def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, labels_di
                 if vert >= len(verts):
                     continue
                 nei = set([vertices_labels_lookup[hemi].get(v, '') for v in vertices_neighbors[vert]]) - set([''])
-                contours[vert] = label_ind + 1 if len(nei) > 1 else 0
+                contours[vert] = label_ind + 1 if len(nei) >= min_nei_num else 0
+                if len(nei) >= min_nei_num:
+                    contours_verts_nei[hemi][vert] = nei
                 if verbose:
                     label_nei[vert_ind] = contours[vert]
             if verbose:
@@ -959,12 +970,13 @@ def calc_labeles_contours(subject, atlas, hemi='both', overwrite=True, labels_di
         else:
             centers = None
         if return_contours:
-            contours_ret[hemi] = dict(contours=contours, max=len(labels), labels=[l.name for l in labels], centers=centers)
+            contours_ret[hemi] = dict(
+                contours=contours, max=len(labels), labels=[l.name for l in labels], centers=centers)
         # else:
         np.savez(output_fname.format(hemi=hemi), contours=contours, max=len(labels),
                  labels=[l.name for l in labels], centers=centers)
     if return_contours:
-        return contours_ret
+        return contours_ret, contours_verts_nei
     else:
         return utils.both_hemi_files_exist(output_fname) if hemi == 'both' else op.isfile(output_fname.format(hemi=hemi))
 
@@ -1209,7 +1221,7 @@ def create_high_level_atlas(subject, high_level_atlas_name='high.level.atlas', b
     lu.labels_to_annot(subject, SUBJECTS_DIR, high_level_atlas_name, labels=labels, overwrite=True)
     save_labels_vertices(subject, high_level_atlas_name, overwrite)
     create_spatial_connectivity(subject, ['pial'], overwrite)
-    calc_labeles_contours(subject, high_level_atlas_name, overwrite)
+    calc_labeles_contours(subject, high_level_atlas_name, overwrite=overwrite)
     calc_labels_center_of_mass(subject, high_level_atlas_name, overwrite)
     return utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format(
         '{hemi}', high_level_atlas_name)))
