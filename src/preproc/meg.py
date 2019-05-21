@@ -2428,21 +2428,34 @@ def get_stc_fname(args):
         STC[:-4].format(cond=args.conditions[0], method=args.inverse_method[0]), '{hemi}')
 
 
-def calc_stc_zvals(subject, stc_name, baseline_stc_name, use_abs=False, overwrite=False):
-    stc_zvals_fname = op.join(MMVT_DIR, subject, 'meg', '{}-zvals'.format(stc_name))
-    if op.isfile(stc_zvals_fname) and not overwrite:
-        print('calc_stc_zvals: {} already exist'.format(stc_zvals_fname))
-        return True
+def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs=False, overwrite=False):
+    fol = utils.make_dir(op.join(op.join(MMVT_DIR, subject, modality)))
+    stc_zvals_fname = op.join(fol, '{}-zvals'.format(stc_name))
+    # if op.isfile(stc_zvals_fname) and not overwrite:
+    #     print('calc_stc_zvals: {} already exist'.format(stc_zvals_fname))
+    #     return True
     for file_name in [stc_name, baseline_stc_name]:
-        if not utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(file_name, '{hemi}'))):
+        if not utils.both_hemi_files_exist(
+                op.join(MMVT_DIR, subject, modality, '{}-{}.stc'.format(file_name, '{hemi}'))):
             print('Can\'t find {}!'.format(file_name))
             return False
-    stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-rh.stc'.format(stc_name)))
-    baseline_stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-rh.stc'.format(baseline_stc_name)))
-    zvals = (stc.data - np.mean(baseline_stc.data)) / np.std(baseline_stc.data)
+    stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, modality, '{}-rh.stc'.format(stc_name)))
+    baseline_stc = mne.read_source_estimate(
+        op.join(MMVT_DIR, subject, modality, '{}-rh.stc'.format(baseline_stc_name)))
+    baseline_std = np.std(baseline_stc.data) # np.std(baseline_stc.data * 10e-15) * 10e15
+    baseline_mean = np.mean(baseline_stc.data) #np.mean(baseline_stc.data * 10e-15) * 10e15
+    if np.isinf(baseline_std):
+        print('std of baseline is inf!')
+        return False
+    elif baseline_std == 0:
+        print('std of baseline is 0!')
+        return False
+    zvals = (stc.data - baseline_mean) / baseline_std
     if use_abs:
         zvals = np.abs(zvals)
     stc_zvals = mne.SourceEstimate(zvals, stc.vertices, stc.tmin, stc.tstep, subject=subject)
+    print('stc: max: {}, min: {}, std: {}'.format(np.max(stc.data), np.min(stc.data), np.std(stc.data * 10e-15) * 10e15))
+    print('baseline: max: {}, min: {}, std: {}'.format(np.max(baseline_stc.data), np.min(baseline_stc.data), baseline_std))
     print('stc_zvals: max: {}, min: {}'.format(np.max(stc_zvals.data), np.min(stc_zvals.data)))
     stc_zvals.save(stc_zvals_fname)
     return op.isfile(stc_zvals_fname)
@@ -2504,12 +2517,13 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
 
 def combine_labels_stc_filse(subject, atlas, folder, stc_output_name, labels=None, pre_identifier='',
                              post_identifier='', modality='meg', overwrite=False):
-    fol = op.join(MMVT_DIR, subject, modality, folder)
-    output_fname = op.join(MMVT_DIR, subject, modality, stc_output_name)
-    if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not overwrite:
-        return True
-    if not op.isdir(fol):
-        print('The folder {} could not be found!'.format(fol))
+    stcs_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality, folder))
+    combined_stcs_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality))
+    output_fname = op.join(combined_stcs_fol, stc_output_name)
+    # if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not overwrite:
+    #     return True
+    if not op.isdir(stcs_fol):
+        print('The folder {} could not be found!'.format(stcs_fol))
         return False
     if labels is None:
         labels = lu.read_labels(MRI_SUBJECT, SUBJECTS_MRI_DIR, atlas)
@@ -2518,7 +2532,7 @@ def combine_labels_stc_filse(subject, atlas, folder, stc_output_name, labels=Non
         return False
     vertices, vertices_data = defaultdict(list), defaultdict(list)
     for label in labels:
-        stc_label_fname = op.join(fol, '{}{}{}-lh.stc'.format(pre_identifier, label.name, post_identifier))
+        stc_label_fname = op.join(stcs_fol, '{}{}{}-lh.stc'.format(pre_identifier, label.name, post_identifier))
         if not op.isfile(stc_label_fname):
             if 'unknown' in label.name:
                 continue
@@ -5431,7 +5445,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
         modality=args.modality)
 
     if 'calc_stc_zvals' in args.function:
-        flags['calc_stc_zvals'] = calc_stc_zvals(subject, args.stc_name, args.baseline_stc_name, args.use_abs)
+        flags['calc_stc_zvals'] = calc_stc_zvals(
+            subject, args.stc_name, args.baseline_stc_name, args.modality, args.use_abs)
 
     if 'calc_power_spectrum' in args.function:
         flags['calc_power_spectrum'] = calc_power_spectrum(subject, conditions, args)
