@@ -1802,12 +1802,10 @@ def _make_forward_solution(src, raw_fname='', epo_fname='', evo_fname='', cor_fn
             else:
                 raise Exception("Can't find the BEM file!")
 
-    info = get_info(epo_fname, evo_fname, raw_fname)
+    info = get_info(epo_fname, evo_fname, raw_fname, bad_channels, fwd_usingEEG=fwd_usingEEG, fwd_usingMEG=fwd_usingMEG)
     if info is None:
         raise Exception("Can't find info object for make_forward_solution!")
 
-    bad_channels = get_bad_channels(info, bad_channels, fwd_usingEEG, fwd_usingMEG)
-    info['bads'] = list((set(info['bads']).union(set(bad_channels))))
     bem = bem_fname if bem is None else bem
     try:
         fwd = mne.make_forward_solution(
@@ -2135,10 +2133,11 @@ def _calc_inverse_operator(
         fwd_name, inv_name, raw_fname, evoked_fname, epochs_fname, noise_cov, bad_channels, fwd_usingMEG, fwd_usingEEG,
         inv_loose=0.2, inv_depth=0.8, noise_cov_fname='', check_for_channels_inconsistency=True):
     fwd = mne.read_forward_solution(fwd_name)
-    info = get_info(epochs_fname, evoked_fname, raw_fname, bad_channels)
+    info = get_info(epochs_fname, evoked_fname, raw_fname, bad_channels,
+                    fwd_usingEEG=fwd_usingEEG, fwd_usingMEG=fwd_usingMEG)
     if info is None:
         raise Exception("Can't find info for calculating the inverse operator!")
-    noise_cov['bads'] = info['bads']
+    # noise_cov['bads'] = info['bads']
     noise_cov = check_noise_cov_channels(
         noise_cov, info, fwd, fwd_usingMEG, fwd_usingEEG, noise_cov_fname, check_for_channels_inconsistency)
     inverse_operator = make_inverse_operator(info, fwd, noise_cov,
@@ -3700,11 +3699,12 @@ def save_labels_data(labels_data, hemi, labels_names, atlas, conditions, extract
         np.savez(labels_output_fname, data=labels_data[em], names=labels_names, conditions=conditions)
 
 
-def calc_power_spectrum(subject, events, args, do_plot=False):
+def calc_power_spectrum(subject, events, args, fwd_usingEEG=True, fwd_usingMEG=True, do_plot=False):
     if do_plot:
         import matplotlib.pyplot as plt
 
-    info = get_info(args.epo_fname, args.evo_fname, args.raw_fname, args.info_fname)
+    info = get_info(args.epo_fname, args.evo_fname, args.raw_fname, args.info_fname,
+                    fwd_usingEEG=fwd_usingEEG, fwd_usingMEG=fwd_usingMEG)
     if info is None:
         print('calc_power_spectrum: Can\'t find the MEG info file!')
         return False
@@ -3759,7 +3759,8 @@ def get_labels_fname(subject, hemi, args):
     return labels_fname
 
 
-def get_info(epochs_fname='', evoked_fname='', raw_fname='', bad_channels=[], info_fname=''):
+def get_info(epochs_fname='', evoked_fname='', raw_fname='', bad_channels=[], info_fname='',
+             fwd_usingEEG=True, fwd_usingMEG=True):
     info = None
     epochs_fname = get_epo_fname(epochs_fname)
     evoked_fname = get_evo_fname(evoked_fname)
@@ -3780,7 +3781,10 @@ def get_info(epochs_fname='', evoked_fname='', raw_fname='', bad_channels=[], in
         info = raw.info
     if info is None:
         return None
-    bad_channels = get_bad_channels(info, bad_channels)
+    if set(info['bads']) == set(bad_channels):
+        return info
+
+    bad_channels = get_bad_channels(info, bad_channels, fwd_usingEEG, fwd_usingMEG)
     if set(info['bads']) != set(bad_channels):
         info['bads'] = list((set(info['bads']).union(set(bad_channels))))
         utils.save(info, info_fname)
