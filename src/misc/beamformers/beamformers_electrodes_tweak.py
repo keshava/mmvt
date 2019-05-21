@@ -111,7 +111,7 @@ def calc_electrode_fwd(subject, electrode, events_id, bipolar=False, overwrite_f
             raise Exception('bipolar and org_pos is None!')
         index = np.where(names==electrode)[0][0]
         elec_pos = org_pos[index] if bipolar else np.array([pos[index]])
-        fwds = make_forward_solution_to_specific_points(events_id, elec_pos, electrode, EPO, FWD_X,
+        fwds = make_forward_solution_to_specific_points(events_id, elec_pos, electrode, EPO, EVO, FWD_X,
             n_jobs=n_jobs, usingEEG=True)
     else:
         if read_if_exist:
@@ -131,7 +131,7 @@ def calc_electrodes_fwd(subject, electrodes, events_id, bipolar=False, overwrite
         if bipolar and org_pos is None:
             raise Exception('bipolar and org_pos is None!')
         elec_pos = org_pos if bipolar else np.array(pos)
-        fwds = make_forward_solution_to_specific_points(events_id, elec_pos, region, EPO, FWD_X,
+        fwds = make_forward_solution_to_specific_points(events_id, elec_pos, region, EPO, EVO, FWD_X,
             n_jobs=n_jobs, usingEEG=True)
     else:
         if read_if_exist:
@@ -160,7 +160,7 @@ def calc_all_electrodes_fwd(subject, events_id, overwrite_fwd=False, n_jobs=6):
         if not check_if_fwd_exist(elec, events_id) or overwrite_fwd:
             print('make forward solution for {}'.format(elec))
             try:
-                make_forward_solution_to_specific_points(events_id, [np.array(elec_pos)], elec, EPO, FWD_X,
+                make_forward_solution_to_specific_points(events_id, [np.array(elec_pos)], elec, EPO, EVO, FWD_X,
                     n_jobs=n_jobs, usingEEG=True)
             except:
                 print(traceback.format_exc())
@@ -169,7 +169,7 @@ def calc_all_electrodes_fwd(subject, events_id, overwrite_fwd=False, n_jobs=6):
         if not check_if_fwd_exist(elec, events_id) or overwrite_fwd:
             print('make forward solution for {}'.format(elec))
             try:
-                make_forward_solution_to_specific_points(events_id, elec_pos_org, elec, EPO, FWD_X,
+                make_forward_solution_to_specific_points(events_id, elec_pos_org, elec, EPO, EVO, FWD_X,
                     n_jobs=n_jobs, usingEEG=True)
             except:
                 print(traceback.format_exc())

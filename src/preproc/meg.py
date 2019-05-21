@@ -97,7 +97,7 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
     MMVT_SUBJECT_FOLDER = op.join(mmvt_dir, MRI_SUBJECT)
     _get_fif_name_cond = partial(get_file_name, fname_format=fname_format, file_type='fif',
         cleaning_method=cleaning_method, contrast=contrast, raw_fname_format=raw_fname_format,
-                 fwd_fname_format=fwd_fname_format, inv_fname_format=inv_fname_format)
+        fwd_fname_format=fwd_fname_format, inv_fname_format=inv_fname_format)
     _get_fif_name_no_cond = partial(_get_fif_name_cond, cond='')
     _get_fif_name = _get_fif_name_cond if files_includes_cond else _get_fif_name_no_cond
     _get_txt_name = partial(get_file_name, fname_format=fname_format, file_type='txt',
@@ -1519,16 +1519,16 @@ def check_src_ply_vertices_num(src):
         print('No ply files to check the src!')
 
 
-def make_smoothed_forward_solution(events, n_jobs=4, usingEEG=True, usingMEG=True):
-    src = create_smooth_src(MRI_SUBJECT)
-    if '{cond}' not in EPO:
-        fwd = _make_forward_solution(src, RAW, EPO, COR, usingMEG, usingEEG, n_jobs)
-        mne.write_forward_solution(FWD_SMOOTH, fwd, overwrite=True)
-    else:
-        for cond in events.keys():
-            fwd = _make_forward_solution(src, RAW, get_cond_fname(EPO, cond), COR, usingMEG, usingEEG, n_jobs)
-            mne.write_forward_solution(get_cond_fname(FWD_SMOOTH, cond), fwd, overwrite=True)
-    return fwd
+# def make_smoothed_forward_solution(events, n_jobs=4, usingEEG=True, usingMEG=True):
+#     src = create_smooth_src(MRI_SUBJECT)
+#     if '{cond}' not in EPO:
+#         fwd = _make_forward_solution(src, RAW, EPO, COR, usingMEG, usingEEG, n_jobs=n_jobs)
+#         mne.write_forward_solution(FWD_SMOOTH, fwd, overwrite=True)
+#     else:
+#         for cond in events.keys():
+#             fwd = _make_forward_solution(src, RAW, get_cond_fname(EPO, cond), COR, usingMEG, usingEEG, n_jobs)
+#             mne.write_forward_solution(get_cond_fname(FWD_SMOOTH, cond), fwd, overwrite=True)
+#     return fwd
 
 
 def create_smooth_src(subject, surface='pial', overwrite=False, fname=SRC_SMOOTH):
@@ -1680,13 +1680,14 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
     return [op.join(bem_fol, 'watershed', watershed_fname.format(mri_subject)) for watershed_fname in watershed_files]
 
 
-def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', fwd_fname='', cor_fname='',
-                          sub_corticals_codes_file='', usingMEG=True, usingEEG=True, calc_corticals=True,
-                          calc_subcorticals=True, recreate_the_source_space=False, recreate_bem_solution=False,
-                          bem_ico=4, recreate_src_spacing='oct6', recreate_src_surface='white', overwrite_fwd=False,
-                          remote_subject_dir='', n_jobs=4, args={}):
+def make_forward_solution(
+        mri_subject, events=None, raw_fname='', epo_fname='', evo_fname='', fwd_fname='', cor_fname='', bad_channels=[],
+        usingMEG=True, usingEEG=True, calc_corticals=True, calc_subcorticals=True, sub_corticals_codes_file='',
+        recreate_the_source_space=False, recreate_bem_solution=False, bem_ico=4, recreate_src_spacing='oct6',
+        recreate_src_surface='white', overwrite_fwd=False, remote_subject_dir='', n_jobs=4, args={}):
     fwd, fwd_with_subcortical = None, None
     raw_fname = get_raw_fname(raw_fname)
+    epo_fname = get_epo_fname(epo_fname)
     evo_fname = get_evo_fname(evo_fname)
     fwd_fname = get_fwd_fname(fwd_fname, usingMEG, usingEEG, True)
     cor_fname = get_cor_fname(cor_fname)
@@ -1702,7 +1703,8 @@ def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', 
             if calc_corticals:
                 if overwrite_fwd or not op.isfile(fwd_fname):
                     fwd = _make_forward_solution(
-                        src, raw_fname, evo_fname, cor_fname, usingMEG, usingEEG, n_jobs, bem=bem)
+                        src, raw_fname, epo_fname, evo_fname, cor_fname, bad_channels, usingMEG, usingEEG,
+                        bem=bem, n_jobs=n_jobs)
                     print('Writing fwd solution to {}'.format(fwd_fname))
                     mne.write_forward_solution(fwd_fname, fwd, overwrite=True)
             if calc_subcorticals and len(sub_corticals) > 0:
@@ -1710,7 +1712,8 @@ def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', 
                 if overwrite_fwd or not op.isfile(FWD_SUB):
                     src_with_subcortical = add_subcortical_volumes(src, sub_corticals)
                     fwd_with_subcortical = _make_forward_solution(
-                        src_with_subcortical, raw_fname, evo_fname, cor_fname, usingMEG, usingEEG, n_jobs)
+                        src_with_subcortical, raw_fname, epo_fname, evo_fname, cor_fname, bad_channels,
+                        usingMEG, usingEEG, n_jobs=n_jobs)
                     mne.write_forward_solution(FWD_SUB, fwd_with_subcortical, overwrite=True)
         else:
             for cond in events_keys:
@@ -1718,7 +1721,8 @@ def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', 
                     fwd_cond_fname = get_cond_fname(fwd_fname, cond)
                     if overwrite_fwd or not op.isfile(fwd_cond_fname):
                         fwd = _make_forward_solution(
-                            src, raw_fname, get_cond_fname(evo_fname, cond), cor_fname, usingMEG, usingEEG, n_jobs)
+                            src, raw_fname, get_cond_fname(epo_fname, cond), get_cond_fname(evo_fname, cond),
+                            cor_fname, bad_channels, usingMEG, usingEEG, n_jobs=n_jobs)
                         mne.write_forward_solution(fwd_cond_fname, fwd, overwrite=True)
                 if calc_subcorticals and len(sub_corticals) > 0:
                     # add a subcortical volumes
@@ -1726,8 +1730,8 @@ def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', 
                     if overwrite_fwd or not op.isfile(fwd_cond_fname):
                         src_with_subcortical = add_subcortical_volumes(src, sub_corticals)
                         fwd_with_subcortical = _make_forward_solution(
-                            src_with_subcortical, raw_fname, get_cond_fname(evo_fname, cond), cor_fname, usingMEG,
-                            usingEEG, n_jobs)
+                            src_with_subcortical, raw_fname, get_cond_fname(epo_fname, cond),
+                            get_cond_fname(evo_fname, cond), cor_fname, bad_channels, usingMEG, usingEEG, n_jobs=n_jobs)
                         mne.write_forward_solution(fwd_cond_fname, fwd_with_subcortical, overwrite=True)
         flag = True
     except:
@@ -1738,19 +1742,24 @@ def make_forward_solution(mri_subject, events=None, raw_fname='', evo_fname='', 
     return flag, fwd, fwd_with_subcortical
 
 
-def make_forward_solution_to_specific_subcortrical(events, region, n_jobs=4, usingMEG=True, usingEEG=True):
+def make_forward_solution_to_specific_subcortrical(
+        events, region, bad_channels=[], usingMEG=True, usingEEG=True, n_jobs=4):
+    raise Exception('make_forward_solution_to_specific_subcortrical: Need to reimplement!')
     import nibabel as nib
     aseg_fname = op.join(SUBJECTS_MRI_DIR, MRI_SUBJECT, 'mri', 'aseg.mgz')
     aseg = nib.load(aseg_fname)
     aseg_hdr = aseg.get_header()
     for cond in events.keys():
         src = add_subcortical_volumes(None, [region])
-        fwd = _make_forward_solution(src, RAW, get_cond_fname(EPO, cond), COR, usingMEG, usingEEG, n_jobs)
+        fwd = _make_forward_solution(
+            src, RAW, get_cond_fname(EPO, cond), get_cond_fname(EVO, cond), COR, bad_channels,
+            usingMEG, usingEEG, n_jobs=n_jobs)
         mne.write_forward_solution(get_cond_fname(FWD_X, cond, region=region), fwd, overwrite=True)
     return fwd
 
 
-def make_forward_solution_to_specific_points(events, pts, region_name, epo_fname='', fwd_fname='',
+def make_forward_solution_to_specific_points(
+        events, pts, region_name, epo_fname='', evo_fname='', fwd_fname='', bad_channels=[],
         usingMEG=True, usingEEG=True, n_jobs=4):
     from mne.source_space import _make_discrete_source_space
 
@@ -1773,13 +1782,15 @@ def make_forward_solution_to_specific_points(events, pts, region_name, epo_fname
 
     src = mne.SourceSpaces([sp])
     for cond in events.keys():
-        fwd = _make_forward_solution(src, RAW, get_cond_fname(epo_fname, cond), COR, usingMEG, usingEEG, n_jobs)
+        fwd = _make_forward_solution(
+            src, RAW, get_cond_fname(epo_fname, cond), get_cond_fname(evo_fname, cond), COR, bad_channels,
+            usingMEG, usingEEG, n_jobs)
         mne.write_forward_solution(get_cond_fname(fwd_fname, cond, region=region_name), fwd, overwrite=True)
     return fwd
 
 
-def _make_forward_solution(src, raw_fname, epo_fname, cor_fname, usingMEG=True, usingEEG=True, n_jobs=6, bem=None,
-                           bem_fname=''):
+def _make_forward_solution(src, raw_fname='', epo_fname='', evo_fname='', cor_fname='', bad_channels=[],
+                           fwd_usingMEG=True, fwd_usingEEG=True, bem=None, bem_fname='', n_jobs=6):
     if bem is None:
         if bem_fname == '':
             bem_fname = BEM
@@ -1791,25 +1802,22 @@ def _make_forward_solution(src, raw_fname, epo_fname, cor_fname, usingMEG=True, 
             else:
                 raise Exception("Can't find the BEM file!")
 
-    # if op.isfile(evo_fname):
-    #     info_fname = evo_fname
-    if op.isfile(epo_fname):
-        info_fname = epo_fname
-    elif op.isfile(raw_fname):
-        info_fname = raw_fname
-    else:
+    info = get_info(epo_fname, evo_fname, raw_fname)
+    if info is None:
         raise Exception("Can't find info object for make_forward_solution!")
 
+    bad_channels = get_bad_channels(info, bad_channels, fwd_usingEEG, fwd_usingMEG)
+    info['bads'] = list((set(info['bads']).union(set(bad_channels))))
     bem = bem_fname if bem is None else bem
     try:
         fwd = mne.make_forward_solution(
-            info=info_fname, trans=cor_fname, src=src, bem=bem, meg=usingMEG, eeg=usingEEG, mindist=5.0,
+            info=info, trans=cor_fname, src=src, bem=bem, meg=fwd_usingMEG, eeg=fwd_usingEEG, mindist=5.0,
             n_jobs=n_jobs) #, overwrite=True)
     except:
         utils.print_last_error_line()
         print('Trying to create fwd only with MEG')
         fwd = mne.make_forward_solution(
-            info=info_fname, trans=cor_fname, src=src, bem=bem_fname, meg=usingMEG, eeg=False, mindist=5.0,
+            info=info, trans=cor_fname, src=src, bem=bem_fname, meg=fwd_usingMEG, eeg=False, mindist=5.0,
             n_jobs=n_jobs) #, overwrite=True)
 
     return fwd
@@ -2127,37 +2135,40 @@ def _calc_inverse_operator(
         fwd_name, inv_name, raw_fname, evoked_fname, epochs_fname, noise_cov, bad_channels, fwd_usingMEG, fwd_usingEEG,
         inv_loose=0.2, inv_depth=0.8, noise_cov_fname='', check_for_channels_inconsistency=True):
     fwd = mne.read_forward_solution(fwd_name)
-    # info = fwd['info']
-    if op.isfile(evoked_fname):
-        evoked = mne.read_evokeds(evoked_fname)[0]
-        info = evoked.info
-    elif op.isfile(epochs_fname):
-        epochs = mne.read_epochs(epochs_fname)
-        info = epochs.info
-    else:
-        raw_fname = get_raw_fname(raw_fname)
-        if op.isfile(raw_fname):
-            raw = mne.io.read_raw_fif(raw_fname)
-            info = raw.info
-        else:
-            raise Exception("Can't find info for calculating the inverse operator!")
-
-    non_exist_bad_channels = set(bad_channels) - {c['ch_name'] for c in info['chs']}
-    if len(non_exist_bad_channels) > 0:
-        print('Non existing bad channels were set in args.bad_channels! {}'.format(non_exist_bad_channels))
-        print('EEG: {}'.format({c['ch_name'] for c in info['chs'] if c['ch_name'].startswith('EEG')}))
-        print('MEG: {}'.format({c['ch_name'] for c in info['chs'] if c['ch_name'].startswith('MEG')}))
-        ret = input('Do you want to continue (y/n)? ')
-        if not au.is_true(ret):
-            raise Exception('Non existing bad channels')
-        else:
-            bad_channels = list(set(bad_channels) - non_exist_bad_channels)
-    info['bads'] = list((set(info['bads']).union(set(bad_channels))))
+    info = get_info(epochs_fname, evoked_fname, raw_fname, bad_channels)
+    if info is None:
+        raise Exception("Can't find info for calculating the inverse operator!")
+    noise_cov['bads'] = info['bads']
     noise_cov = check_noise_cov_channels(
         noise_cov, info, fwd, fwd_usingMEG, fwd_usingEEG, noise_cov_fname, check_for_channels_inconsistency)
     inverse_operator = make_inverse_operator(info, fwd, noise_cov,
         loose=inv_loose, depth=inv_depth)
     write_inverse_operator(inv_name, inverse_operator)
+
+
+def get_bad_channels(info, bad_channels, fwd_usingEEG=True, fwd_usingMEG=True):
+    channels = {c['ch_name'] for c in info['chs']}
+    non_exist_bad_channels_all = set(bad_channels) - channels
+    non_exist_bad_channels_eeg = {c for c in non_exist_bad_channels_all if c.startswith('EEG')}
+    non_exist_bad_channels_meg = {c for c in non_exist_bad_channels_all if c.startswith('MEG')}
+    non_exist_bad_channels = []
+    if fwd_usingEEG:
+        non_exist_bad_channels.extend(non_exist_bad_channels_eeg)
+    if fwd_usingMEG:
+        non_exist_bad_channels.extend(non_exist_bad_channels_meg)
+
+    if len(non_exist_bad_channels) > 0:
+        print('Non existing bad channels were set in args.bad_channels! {}'.format(non_exist_bad_channels))
+        if fwd_usingEEG and any([c.startswith('EEG') for c in non_exist_bad_channels]):
+            print('EEG: {}'.format([c for c in channels if c.startswith('EEG')]))
+        if fwd_usingMEG and any([c.startswith('MEG') for c in non_exist_bad_channels]):
+            print('MEG: {}'.format([c for c in channels if c.startswith('MEG')]))
+        ret = input('Do you want to continue (y/n)? ')
+        if not au.is_true(ret):
+            raise Exception('Non existing bad channels')
+
+    bad_channels = list(set(bad_channels) - non_exist_bad_channels_all)
+    return bad_channels
 
 
 def check_noise_cov_channels(noise_cov, info, fwd, fwd_usingMEG, fwd_usingEEG, noise_cov_fname='',
@@ -2896,7 +2907,7 @@ def calc_specific_subcortical_activity(region, inverse_methods, events, plot_all
         overwrite_fwd=False, overwrite_inv=False, overwrite_activity=False, inv_loose=0.2, inv_depth=0.8):
     raise Exception('calc_specific_subcortical_activity: Needed to be reimplemented!!!')
     if not x_opertor_exists(FWD_X, region, events) or overwrite_fwd:
-        make_forward_solution_to_specific_subcortrical(events, region)
+        make_forward_solution_to_specific_subcortrical(events, region, bad_channels)
     if not x_opertor_exists(INV_X, region, events) or overwrite_inv:
         calc_inverse_operator(events, '', '', '', '', '', '', '', inv_loose, inv_depth,
                               False, False, False, False, False, True, region=region)
@@ -3693,7 +3704,7 @@ def calc_power_spectrum(subject, events, args, do_plot=False):
     if do_plot:
         import matplotlib.pyplot as plt
 
-    info = get_info(args.info_fname, args.evo_fname, args.raw_fname)
+    info = get_info(args.epo_fname, args.evo_fname, args.raw_fname, args.info_fname)
     if info is None:
         print('calc_power_spectrum: Can\'t find the MEG info file!')
         return False
@@ -3748,24 +3759,32 @@ def get_labels_fname(subject, hemi, args):
     return labels_fname
 
 
-def get_info(info_fname='', evoked_fname='', raw_fname=''):
+def get_info(epochs_fname='', evoked_fname='', raw_fname='', bad_channels=[], info_fname=''):
     info = None
+    epochs_fname = get_epo_fname(epochs_fname)
     evoked_fname = get_evo_fname(evoked_fname)
     raw_fname = get_raw_fname(raw_fname)
-    if info_fname == '':
-        info_fname = INFO
-    if op.isfile(info_fname):
+    info_fname, info_exist = get_info_fname(info_fname)
+    if info_exist:
         info = utils.load(info_fname)
     if info is None and op.isfile(evoked_fname):
         evoked = mne.read_evokeds(evoked_fname)
         if isinstance(evoked, list):
             evoked = evoked[0]
         info = evoked.info
+    if info is None and op.isfile(epochs_fname):
+        epochs = mne.read_epochs(epochs_fname)
+        info = epochs.info
     if info is None and op.isfile(raw_fname):
         raw = mne.io.read_raw_fif(raw_fname)
         info = raw.info
-    if info is not None:
-        info = utils.Bag(info)
+    if info is None:
+        return None
+    bad_channels = get_bad_channels(info, bad_channels)
+    if set(info['bads']) != set(bad_channels):
+        info['bads'] = list((set(info['bads']).union(set(bad_channels))))
+        utils.save(info, info_fname)
+    #     info = utils.Bag(info)
     return info
 
 
@@ -4181,14 +4200,16 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
                 if file_exist:
                     break
             evo_fname = get_evo_fname(args.evo_fname)
+            epo_fname = get_epo_fname(args.epo_fname)
             get_meg_files(subject, [evo_fname], args, conditions)
             sub_corticals_codes_file = op.join(MMVT_DIR, 'sub_cortical_codes.txt')
             raw_fname = get_raw_fname(args.raw_fname)
             flags['make_forward_solution'], fwd, fwd_subs = make_forward_solution(
-                mri_subject, conditions, raw_fname, evo_fname, fwd_fname, args.cor_fname, sub_corticals_codes_file,
+                mri_subject, conditions, raw_fname, epo_fname, evo_fname, fwd_fname, args.cor_fname, args.bad_channels,
                 args.fwd_usingMEG, args.fwd_usingEEG, args.fwd_calc_corticals, args.fwd_calc_subcorticals,
-                args.fwd_recreate_source_space, args.recreate_bem_solution, args.bem_ico, args.recreate_src_spacing,
-                args.recreate_src_surface, args.overwrite_fwd, args.remote_subject_dir, args.n_jobs, args)
+                sub_corticals_codes_file, args.fwd_recreate_source_space, args.recreate_bem_solution, args.bem_ico,
+                args.recreate_src_spacing, args.recreate_src_surface, args.overwrite_fwd, args.remote_subject_dir,
+                args.n_jobs, args)
 
         if utils.should_run(args, 'calc_inverse_operator') and flags.get('make_forward_solution', True):
             epo_fname = get_epo_fname(args.epo_fname)
