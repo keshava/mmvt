@@ -128,6 +128,9 @@ def main(tup, remote_subject_dir, args, flags):
     flags = meg.calc_labels_avg_per_condition_wrapper(
         subject, conditions, args.atlas, inverse_method, stcs_conds, args, flags, stcs_num, None, epochs)
 
+    if 'calc_stc_zvals' in args.function:
+        flags['calc_stc_zvals'] = meg.calc_stc_zvals(subject, args.stc_name, args.baseline_stc_name, args.use_abs)
+
     if utils.should_run(args, 'create_helmet_mesh'):
         flags['create_helmet_mesh'] = create_helmet_mesh(mri_subject, args.eeg_electrodes_excluded_from_mesh)
 
@@ -136,17 +139,6 @@ def main(tup, remote_subject_dir, args, flags):
 
     if utils.should_run(args, 'calc_minmax'):
         flags['calc_minmax'] = calc_minmax(mri_subject, args)
-
-    # if utils.should_run(args, 'make_forward_solution') or utils.should_run(args, 'calc_inverse_operator') or \
-    #         utils.should_run(args, 'calc_stc'):
-    #     if not op.isfile(meg.COR):
-    #         eeg_cor = op.join(meg.SUBJECT_MEG_FOLDER, '{}-cor-trans.fif'.format(subject))
-    #         if op.isfile(eeg_cor):
-    #             meg.COR = eeg_cor
-    #             flags = meg.calc_fwd_inv_wrapper(subject, args, conditions, flags, mri_subject)
-    #             flags = meg.calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, flags)
-    #         else:
-    #             print("Can't find head-MRI transformation matrix. Should be in {} or in {}".format(meg.COR, eeg_cor))
 
     return flags
 
