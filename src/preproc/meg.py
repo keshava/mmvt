@@ -2142,6 +2142,16 @@ def _calc_inverse_operator(
         else:
             raise Exception("Can't find info for calculating the inverse operator!")
 
+    non_exist_bad_channels = set(bad_channels) - {c['ch_name'] for c in info['chs']}
+    if len(non_exist_bad_channels) > 0:
+        print('Non existing bad channels were set in args.bad_channels! {}'.format(non_exist_bad_channels))
+        print('EEG: {}'.format({c['ch_name'] for c in info['chs'] if c['ch_name'].startswith('EEG')}))
+        print('MEG: {}'.format({c['ch_name'] for c in info['chs'] if c['ch_name'].startswith('MEG')}))
+        ret = input('Do you want to continue (y/n)? ')
+        if not au.is_true(ret):
+            raise Exception('Non existing bad channels')
+        else:
+            bad_channels = list(set(bad_channels) - non_exist_bad_channels)
     info['bads'] = list((set(info['bads']).union(set(bad_channels))))
     noise_cov = check_noise_cov_channels(
         noise_cov, info, fwd, fwd_usingMEG, fwd_usingEEG, noise_cov_fname, check_for_channels_inconsistency)
