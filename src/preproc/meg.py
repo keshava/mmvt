@@ -5410,8 +5410,8 @@ def find_clusters_over_time(
 
     all_contours = {}
     indices = np.array_split(np.arange(len(times)), n_jobs)
-    chunks = [([times[ind] for ind in chunk_indices], subject, mri_subject, atlas, stc_name, threshold, stc, verts,
-               modality, verts_neighbors_dict, clusters_label, stc_name)
+    chunks = [([times[ind] for ind in chunk_indices], subject, mri_subject, atlas, stc_name, threshold,
+               min_cluster_size, stc, verts, connectivity, modality, verts_neighbors_dict, clusters_label, stc_name)
               for chunk_indices in indices]
     results = utils.run_parallel(_find_clusters_over_time_parallel, chunks, n_jobs)
     for chunk_contours in results:
@@ -5423,8 +5423,8 @@ def find_clusters_over_time(
 
 
 def _find_clusters_over_time_parallel(p):
-    (times, subject, mri_subject, atlas, stc_name, threshold, stc, verts, modality, verts_neighbors_dict,
-        clusters_label, stc_name) = p
+    (times, subject, mri_subject, atlas, stc_name, threshold, min_cluster_size, stc, verts, connectivity, modality,
+     verts_neighbors_dict, clusters_label, stc_name) = p
     all_contours = {}
     for t in times:
         print('find_functional_rois_in_stc for time {}'.format(t))
