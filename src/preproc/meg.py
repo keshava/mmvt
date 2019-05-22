@@ -3291,62 +3291,69 @@ def save_activity_map_minmax(stcs=None, events=None, stat=STAT_DIFF, stcs_conds=
     return op.isfile(output_fname)
 
 
-def calc_activity_significance(events, inverse_method, stcs_conds=None):
-    from mne import spatial_tris_connectivity, grade_to_tris
-    from mne.stats import (spatio_temporal_cluster_1samp_test)
-    from mne import bem
-    from scipy import stats as stats
-
-    paired_constart_fname = op.join(SUBJECT_MEG_FOLDER, 'paired_contrast.npy')
-    n_subjects = 1
-    if not op.isfile(paired_constart_fname):
-        stc_template = STC_HEMI_SMOOTH
-        if stcs_conds is None:
-            stcs_conds = {}
-            for cond_ind, cond in enumerate(events.keys()):
-                # Reading only the rh, the lh will be read too
-                print('Reading {}'.format(stc_template.format(cond=cond, method=inverse_method, hemi='lh')))
-                stcs_conds[cond] = mne.read_source_estimate(stc_template.format(cond=cond, method=inverse_method, hemi='lh'))
-
-        # Let's only deal with t > 0, cropping to reduce multiple comparisons
-        for cond in events.keys():
-            stcs_conds[cond].crop(0, None)
-        conds = sorted(list(events.keys()))
-        tmin = stcs_conds[conds[0]].tmin
-        tstep = stcs_conds[conds[0]].tstep
-        n_vertices_sample, n_times = stcs_conds[conds[0]].data.shape
-        X = np.zeros((n_vertices_sample, n_times, n_subjects, 2))
-        X[:, :, :, 0] += stcs_conds[conds[0]].data[:, :, np.newaxis]
-        X[:, :, :, 1] += stcs_conds[conds[1]].data[:, :, np.newaxis]
-        X = np.abs(X)  # only magnitude
-        X = X[:, :, :, 0] - X[:, :, :, 1]  # make paired contrast
-        #    Note that X needs to be a multi-dimensional array of shape
-        #    samples (subjects) x time x space, so we permute dimensions
-        X = np.transpose(X, [2, 1, 0])
-        np.save(paired_constart_fname, X)
-    else:
-        X = np.load(paired_constart_fname)
-
-    #    To use an algorithm optimized for spatio-temporal clustering, we
-    #    just pass the spatial connectivity matrix (instead of spatio-temporal)
-    print('Computing connectivity.')
-    # tris = get_subject_tris()
-    connectivity = None # spatial_tris_connectivity(tris)
-    #    Now let's actually do the clustering. This can take a long time...
-    #    Here we set the threshold quite high to reduce computation.
-    p_threshold = 0.2
-    t_threshold = -stats.distributions.t.ppf(p_threshold / 2., 10 - 1)
-    print('Clustering.')
-    T_obs, clusters, cluster_p_values, H0 = \
-        spatio_temporal_cluster_1samp_test(X, connectivity=connectivity, n_jobs=6,
-            threshold=t_threshold)
-    #    Now select the clusters that are sig. at p < 0.05 (note that this value
-    #    is multiple-comparisons corrected).
-    good_cluster_inds = np.where(cluster_p_values < 0.05)[0]
-    # utils.save((clu, good_cluster_inds), op.join(SUBJECT_MEG_FOLDER, 'spatio_temporal_ttest.npy'))
-    np.savez(op.join(SUBJECT_MEG_FOLDER, 'spatio_temporal_ttest'), T_obs=T_obs, clusters=clusters,
-             cluster_p_values=cluster_p_values, H0=H0, good_cluster_inds=good_cluster_inds)
-    print('good_cluster_inds: {}'.format(good_cluster_inds))
+# def calc_activity_significance(events, inverse_method, stcs_conds=None):
+#     from mne import spatial_tris_connectivity, grade_to_tris
+#     from mne.stats import (spatio_temporal_cluster_1samp_test)
+#     from mne import bem
+#     from scipy import stats as stats
+#
+#     paired_constart_fname = op.join(SUBJECT_MEG_FOLDER, 'paired_contrast.npy')
+#     n_subjects = 1def calc_activity_significance(events, inverse_method, stcs_conds=None):
+#     from mne import spatial_tris_connectivity, grade_to_tris
+#     from mne.stats import (spatio_temporal_cluster_1samp_test)
+#     from mne import bem
+#     from scipy import stats as stats
+#
+#     paired_constart_fname = op.join(SUBJECT_MEG_FOLDER, 'paired_contrast.npy')
+#     n_subjects = 1
+#     if not op.isfile(paired_constart_fname):
+#         stc_template = STC_HEMI_SMOOTH
+#         if stcs_conds is None:
+#             stcs_conds = {}
+#             for cond_ind, cond in enumerate(events.keys()):
+#                 # Reading only the rh, the lh will be read too
+#                 print('Reading {}'.format(stc_template.format(cond=cond, method=inverse_method, hemi='lh')))
+#                 stcs_conds[cond] = mne.read_source_estimate(stc_template.format(cond=cond, method=inverse_method, hemi='lh'))
+#
+#         # Let's only deal with t > 0, cropping to reduce multiple comparisons
+#         for cond in events.keys():
+#             stcs_conds[cond].crop(0, None)
+#         conds = sorted(list(events.keys()))
+#         tmin = stcs_conds[conds[0]].tmin
+#         tstep = stcs_conds[conds[0]].tstep
+#         n_vertices_sample, n_times = stcs_conds[conds[0]].data.shape
+#         X = np.zeros((n_vertices_sample, n_times, n_subjects, 2))
+#         X[:, :, :, 0] += stcs_conds[conds[0]].data[:, :, np.newaxis]
+#         X[:, :, :, 1] += stcs_conds[conds[1]].data[:, :, np.newaxis]
+#         X = np.abs(X)  # only magnitude
+#         X = X[:, :, :, 0] - X[:, :, :, 1]  # make paired contrast
+#         #    Note that X needs to be a multi-dimensional array of shape
+#         #    samples (subjects) x time x space, so we permute dimensions
+#         X = np.transpose(X, [2, 1, 0])
+#         np.save(paired_constart_fname, X)
+#     else:
+#         X = np.load(paired_constart_fname)
+#
+#     #    To use an algorithm optimized for spatio-temporal clustering, we
+#     #    just pass the spatial connectivity matrix (instead of spatio-temporal)
+#     print('Computing connectivity.')
+#     # tris = get_subject_tris()
+#     connectivity = None # spatial_tris_connectivity(tris)
+#     #    Now let's actually do the clustering. This can take a long time...
+#     #    Here we set the threshold quite high to reduce computation.
+#     p_threshold = 0.2
+#     t_threshold = -stats.distributions.t.ppf(p_threshold / 2., 10 - 1)
+#     print('Clustering.')
+#     T_obs, clusters, cluster_p_values, H0 = \
+#         spatio_temporal_cluster_1samp_test(X, connectivity=connectivity, n_jobs=6,
+#             threshold=t_threshold)
+#     #    Now select the clusters that are sig. at p < 0.05 (note that this value
+#     #    is multiple-comparisons corrected).
+#     good_cluster_inds = np.where(cluster_p_values < 0.05)[0]
+#     # utils.save((clu, good_cluster_inds), op.join(SUBJECT_MEG_FOLDER, 'spatio_temporal_ttest.npy'))
+#     np.savez(op.join(SUBJECT_MEG_FOLDER, 'spatio_temporal_ttest'), T_obs=T_obs, clusters=clusters,
+#              cluster_p_values=cluster_p_values, H0=H0, good_cluster_inds=good_cluster_inds)
+#     print('good_cluster_inds: {}'.format(good_cluster_inds))
 
 
 def get_subject_tris():
@@ -4758,7 +4765,7 @@ def find_functional_rois_in_stc(
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
         labels=None, verts_dict=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
         save_func_labels=True, recreate_src_spacing='oct6', calc_cluster_contours=True, save_results=True,
-        modality='meg', n_jobs=6):
+        clusters_output_name='', modality='meg', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, modality, 'clusters')
@@ -4790,9 +4797,10 @@ def find_functional_rois_in_stc(
             max_vert, time_index = find_pick_activity(
                 subject, stc, atlas, label_name_template, hemi='both', peak_mode=peak_mode)
             print('peak time index: {}'.format(time_index))
-    if stc_t_smooth is None or verts is None:
+    if stc_t_smooth is None:
         stc_t = create_stc_t(stc, time_index, subject)
         stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
+    if verts is None:
         verts = check_stc_with_ply(stc_t_smooth, subject=subject)
     if connectivity is None:
         connectivity = anat.load_connectivity(subject)
@@ -4854,13 +4862,15 @@ def find_functional_rois_in_stc(
                     verts_dict, verts_neighbors_dict)
             clusters_labels.values.extend(clusters_labels_hemi)
     if save_results:
-        clusters_labels_output_fname = op.join(clusters_root_fol, 'clusters_labels_{}.pkl'.format(stc_name, atlas))
-        print('Saving clusters labels: {}'.format(clusters_labels_output_fname))
+        if clusters_output_name == '':
+            clusters_output_name = 'clusters_labels_{}.pkl'.format(stc_name, atlas)
+        clusters_output_fname = op.join(clusters_root_fol, clusters_output_name)
+        print('Saving clusters labels: {}'.format(clusters_output_fname))
         # Change Bag to regular dict because we want to load the pickle file in Blender (argggg)
         for ind in range(len(clusters_labels.values)):
             clusters_labels.values[ind] = dict(**clusters_labels.values[ind])
         clusters_labels = dict(**clusters_labels)
-        utils.save(clusters_labels, clusters_labels_output_fname)
+        utils.save(clusters_labels, clusters_output_fname)
     return True, contours
 
 
@@ -5354,7 +5364,7 @@ def stc_to_contours(subject, stc_name, pick_t=0, thresholds_min=None, thresholds
     thresholds = np.arange(thresholds_min, thresholds_max + thresholds_dx, thresholds_dx)
     print('threshold: {}'.format(thresholds))
 
-    verts_neighbors_fname = op.join(MMVT_DIR, 'sample', 'verts_neighbors_{}.pkl')
+    verts_neighbors_fname = op.join(MMVT_DIR, subject, 'verts_neighbors_{}.pkl')
     verts_neighbors_dict = {hemi: utils.load(verts_neighbors_fname.format(hemi)) for hemi in utils.HEMIS}
 
     all_contours = {}
@@ -5373,6 +5383,46 @@ def stc_to_contours(subject, stc_name, pick_t=0, thresholds_min=None, thresholds
         for hemi in utils.HEMIS:
             if hemi in contours:
                 all_contours[key][hemi] = np.where(contours[hemi]['contours'])
+    print('Results are saved in {}'.format(output_fname))
+    utils.save(all_contours, output_fname)
+    return op.isfile(output_fname), all_contours
+
+
+def find_clusters_over_time(
+        subject, stc_name, threshold, times=None, min_cluster_size=10, atlas='', clusters_label='',
+        find_clusters_overlapped_labeles=False, mri_subject='', modality='meg', n_jobs=4):
+    if mri_subject == '':
+        mri_subject = subject
+    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality, 'clusters'))
+    output_fname = op.join(clusters_root_fol, '{}_clusters_times.pkl'.format(stc_name))
+    connectivity = anat.load_connectivity(subject)
+
+    stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
+    if not op.isfile(stc_fname):
+        raise Exception("Can't find the stc file! ({})".format(stc_name))
+    stc = mne.read_source_estimate(stc_fname)
+    verts = utils.get_pial_vertices(subject, MMVT_DIR)
+    if times is None:
+        times = range(stc.shape[1])
+
+    verts_neighbors_fname = op.join(MMVT_DIR, subject, 'verts_neighbors_{}.pkl')
+    verts_neighbors_dict = {hemi: utils.load(verts_neighbors_fname.format(hemi)) for hemi in utils.HEMIS}
+
+    all_contours = {}
+    now = time.time()
+    for run, t in enumerate(times):
+        all_contours[t] = {}
+        utils.time_to_go(now, run, len(times), 10)
+        flag, contours = find_functional_rois_in_stc(
+            subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=False,
+            min_cluster_size=min_cluster_size, time_index=t, extract_time_series_for_clusters=False,
+            stc=stc, verts=verts, connectivity=connectivity, verts_dict=verts,
+            find_clusters_overlapped_labeles=find_clusters_overlapped_labeles, modality=modality,
+            verts_neighbors_dict=verts_neighbors_dict, save_results=False, clusters_label=clusters_label,
+            clusters_output_name='clusters_t{}.pkl'.format(stc_name, t), n_jobs=n_jobs)
+        for hemi in utils.HEMIS:
+            if hemi in contours:
+                all_contours[t][hemi] = np.where(contours[hemi]['contours'])
     print('Results are saved in {}'.format(output_fname))
     utils.save(all_contours, output_fname)
     return op.isfile(output_fname), all_contours
@@ -5505,8 +5555,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'plot_sub_cortical_activity' in args.function:
         plot_sub_cortical_activity(conditions, sub_corticals_codes_file, inverse_method=inverse_method)
 
-    if 'calc_activity_significance' in args.function:
-        calc_activity_significance(conditions, inverse_method, stcs_conds)
+    # if 'calc_activity_significance' in args.function:
+    #     calc_activity_significance(conditions, inverse_method, stcs_conds)
 
     if 'save_activity_map_minmax' in args.function:
         flags['save_activity_map_minmax'] = save_activity_map_minmax(
@@ -5615,7 +5665,12 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'stc_to_contours' in args.function:
         flags['stc_to_contours'], _ = stc_to_contours(
             subject, args.stc_name, args.peak_stc_time_index, args.thresholds_min, args.thresholds_max,
-            args.thresholds_dx, args.mri_subject, 'meg', args.n_jobs)
+            args.thresholds_dx, mri_subject, 'meg', args.n_jobs)
+
+    if 'find_clusters_over_time' in args.function:
+        flags['find_clusters_over_time'], _ = find_clusters_over_time(
+            subject, args.stc_name, threshold=2, times=None, min_cluster_size=10,
+            mri_subject=mri_subject, n_jobs=args.n_jobs)
 
     return flags
 
