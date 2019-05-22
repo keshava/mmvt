@@ -1270,7 +1270,7 @@ def morph_electrodes(subject, atlas, subject_morph_to='fsaverage', specific_elec
     from src.preproc import ela_morph_electrodes
     ela_morph_electrodes.calc_elas(
         subject, subject_morph_to, specific_elecs_names, bipolar=bipolar, atlas=atlas, overwrite=overwrite)
-    ela_morph_electrodes.write_electrodes_pos(subject, subject_morph_to, specific_elecs_names)
+    return ela_morph_electrodes.write_electrodes_pos(subject, subject_morph_to, specific_elecs_names)
 
 
 def save_electrodes_coords(subject, elecs_names, elecs_coords, good_channels=None, bad_channels=None, fname_postfix=''):

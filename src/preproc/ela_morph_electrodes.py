@@ -283,6 +283,7 @@ def write_electrodes_pos(subject, subject_to, specific_elecs=[]):
     fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
     output_fname = op.join(fol, 'electrodes_positions_from_{}.npz'.format(subject))
     np.savez(output_fname, pos=pos, names=names, pos_org=[])
+    return op.isfile(output_fname)
 
 
 if __name__ == '__main__':
