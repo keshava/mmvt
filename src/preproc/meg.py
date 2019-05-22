@@ -4799,6 +4799,10 @@ def find_functional_rois_in_stc(
             print('peak time index: {}'.format(time_index))
     if stc_t_smooth is None:
         stc_t = create_stc_t(stc, time_index, subject)
+        _threshold = np.percentile(stc_t.data, threshold) if threshold_is_precentile else threshold
+        if np.max(stc_t.data) < _threshold:
+            print('stc_t max < {}, continue'.format(_threshold))
+            return True, {hemi:[] for hemi in utils.HEMIS}
         stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
     if verts is None:
         verts = check_stc_with_ply(stc_t_smooth, subject=subject)
