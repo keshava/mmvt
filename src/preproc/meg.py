@@ -3102,6 +3102,27 @@ def calc_stc_for_all_vertices(stc, subject='', morph_to_subject='', n_jobs=6):
     return mne.morph_data(subject, morph_to_subject, stc, n_jobs=n_jobs, grade=vertices_to)
 
 
+def morph_data(subject_from, subject_to, src, zooms=5,
+                         niter_affine=(100, 100, 10), niter_sdr=(5, 5, 3),
+                         spacing=5):
+    src_data = dict(vertices_from=copy.deepcopy(src.vertices))
+    vertices_from = src_data['vertices_from']
+    vertices_to = mne.grade_to_vertices(
+        subject_to, spacing, SUBJECTS_MRI_DIR, 1)
+    morph_mat = mne.morph._compute_morph_matrix(
+        subject_from=subject_from, subject_to=subject_to,
+        vertices_from=vertices_from, vertices_to=vertices_to,
+        subjects_dir=SUBJECTS_MRI_DIR, smooth=None,
+        xhemi=False)
+    n_verts = sum(len(v) for v in vertices_to)
+    assert morph_mat.shape[0] == n_verts
+
+    morph = mne.SourceMorph(subject_from, subject_to, 'surface', zooms,
+                        niter_affine, niter_sdr, spacing, None, False,
+                        morph_mat, None, None, None,
+                        None, None, src_data)
+    return morph
+
 # def create_stc_t(stc, t, subject=''):
 #     from mne import SourceEstimate
 #     subject = MRI_SUBJECT if subject == '' else MRI_SUBJECT
@@ -4802,7 +4823,7 @@ def find_functional_rois_in_stc(
         _threshold = np.percentile(stc_t.data, threshold) if threshold_is_precentile else threshold
         if np.max(stc_t.data) < _threshold:
             print('stc_t max < {}, continue'.format(_threshold))
-            return True, {hemi:[] for hemi in utils.HEMIS}
+            return True, {hemi: None for hemi in utils.HEMIS}
         stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
     if verts is None:
         verts = check_stc_with_ply(stc_t_smooth, subject=subject)
@@ -5429,7 +5450,7 @@ def find_clusters_over_time(
 def _find_clusters_over_time_parallel(p):
     (times, subject, mri_subject, atlas, stc_name, threshold, min_cluster_size, stc, verts, connectivity, modality,
      verts_neighbors_dict, clusters_label, stc_name) = p
-    all_contours = {}
+    all_contours = defaultdict(dict)
     for t in times:
         print('find_functional_rois_in_stc for time {}'.format(t))
         flag, contours = find_functional_rois_in_stc(
@@ -5441,7 +5462,7 @@ def _find_clusters_over_time_parallel(p):
             clusters_output_name='clusters_t{}.pkl'.format(stc_name, t), n_jobs=1)
         for hemi in utils.HEMIS:
             if hemi in contours:
-                all_contours[t][hemi] = np.where(contours[hemi]['contours'])
+                all_contours[t][hemi] = np.where(contours[hemi]['contours']) if contours[hemi] is not None else None
     return all_contours
 
 
