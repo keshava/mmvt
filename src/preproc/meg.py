@@ -5409,23 +5409,36 @@ def find_clusters_over_time(
     verts_neighbors_dict = {hemi: utils.load(verts_neighbors_fname.format(hemi)) for hemi in utils.HEMIS}
 
     all_contours = {}
-    now = time.time()
-    for run, t in enumerate(times):
-        all_contours[t] = {}
-        utils.time_to_go(now, run, len(times), 10)
+    indices = np.array_split(np.arange(len(times)), n_jobs)
+    chunks = [([times[ind] for ind in chunk_indices], subject, mri_subject, atlas, stc_name, threshold, stc, verts,
+               modality, verts_neighbors_dict, clusters_label, stc_name)
+              for chunk_indices in indices]
+    results = utils.run_parallel(_find_clusters_over_time_parallel, chunks, n_jobs)
+    for chunk_contours in results:
+        for t, contours in chunk_contours.items():
+            all_contours[t] = contours
+    print('Results are saved in {}'.format(output_fname))
+    utils.save(all_contours, output_fname)
+    return op.isfile(output_fname), all_contours
+
+
+def _find_clusters_over_time_parallel(p):
+    (times, subject, mri_subject, atlas, stc_name, threshold, stc, verts, modality, verts_neighbors_dict,
+        clusters_label, stc_name) = p
+    all_contours = {}
+    for t in times:
+        print('find_functional_rois_in_stc for time {}'.format(t))
         flag, contours = find_functional_rois_in_stc(
             subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=False,
             min_cluster_size=min_cluster_size, time_index=t, extract_time_series_for_clusters=False,
             stc=stc, verts=verts, connectivity=connectivity, verts_dict=verts,
-            find_clusters_overlapped_labeles=find_clusters_overlapped_labeles, modality=modality,
+            find_clusters_overlapped_labeles=False, modality=modality,
             verts_neighbors_dict=verts_neighbors_dict, save_results=False, clusters_label=clusters_label,
-            clusters_output_name='clusters_t{}.pkl'.format(stc_name, t), n_jobs=n_jobs)
+            clusters_output_name='clusters_t{}.pkl'.format(stc_name, t), n_jobs=1)
         for hemi in utils.HEMIS:
             if hemi in contours:
                 all_contours[t][hemi] = np.where(contours[hemi]['contours'])
-    print('Results are saved in {}'.format(output_fname))
-    utils.save(all_contours, output_fname)
-    return op.isfile(output_fname), all_contours
+    return all_contours
 
 
 def init_main(subject, mri_subject, remote_subject_dir, args):
