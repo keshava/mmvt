@@ -291,6 +291,12 @@ def _plot_labels(labels_plotted_tuple=None, faces_verts=None, choose_rand_colors
     _addon().show_activity()
 
 
+def plot_atlas(values, labels_names, atlas, data_min, data_max, cm=None):
+    colors_ratio = 256 / (data_max - data_min)
+    colors = _addon().coloring.calc_colors(values, data_min, colors_ratio, cm)
+    plot_labels(labels_names, colors, atlas)
+
+
 def plot_labels(labels_names, colors, atlas, atlas_labels_rh=[], atlas_labels_lh=[], do_plot=True):
     if len(atlas_labels_rh) == 0 and len(atlas_labels_lh) == 0: # or atlas == bpy.context.scene.atlas:
         atlas_labels_rh = mu.read_labels_from_annots(atlas, hemi='rh')
