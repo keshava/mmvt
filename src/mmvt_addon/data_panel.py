@@ -1123,7 +1123,10 @@ def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None
     now = time.time()
     N = len(meta_data['names'])
     T = all_data.shape[1] if window_len is None or not 'dt' in meta_data else int(window_len / meta_data['dt'])
-    conditions = [mu.to_str(c) for c in meta_data['conditions']] if conditions is None else conditions
+    if 'conditions' not in meta_data and conditions is None:
+        conditions = ['all']
+    else:
+        conditions = [mu.to_str(c) for c in meta_data['conditions']] if conditions is None else conditions
     # if isinstance(conditions[0], np.bytes_):
     #     conditions = [c.decode('utf_8') for c in meta_data['conditions']]
     # else:
