@@ -1163,7 +1163,7 @@ def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None
                 for t in range(T):
                     fcurve.keyframe_points[t + 1].co[1] = data[t, fcurve_ind]
 
-    conditions = meta_data['conditions']
+    conditions = meta_data['conditions'] if isinstance(meta_data, dict) and 'conditions' in meta_data else ['all']
     print('Finished keyframing!!')
     return conditions
 
