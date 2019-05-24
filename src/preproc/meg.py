@@ -2468,13 +2468,27 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
     return utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}'))
 
 
+def plot_max_stc(subject, stc_name, modality='meg'):
+    import matplotlib.pyplot as plt
+    stc_fname = op.join(MMVT_DIR, subject, modality, '{}-lh.stc'.format(stc_name))
+    if not op.isfile(stc_fname):
+        raise Exception("Can't find the stc file! ({})".format(stc_name))
+    stc = mne.read_source_estimate(stc_fname, subject)
+    data = np.max(stc.data, axis=0)
+    plt.plot(data.T)
+    plt.title(stc_name)
+    plt.show()
+    return True
+
+
 def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
                        calc_inducde_power_per_label=True, normalize_proj=True, overwrite_stc=False,
                        modality='meg', n_jobs=6):
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
     if bands is None or bands == '':
-        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+
+        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120]) # delta=[0.5, 4]
     # atlas = 'high.level.atlas'
     if normalize_proj:
         epochs.info.normalize_proj()
@@ -5429,7 +5443,7 @@ def find_clusters_over_time(
     output_fname = op.join(clusters_root_fol, '{}_clusters_times.pkl'.format(stc_name))
     connectivity = anat.load_connectivity(subject)
 
-    stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
+    stc_fname = op.join(MMVT_DIR, subject, modality, '{}-lh.stc'.format(stc_name))
     if not op.isfile(stc_fname):
         raise Exception("Can't find the stc file! ({})".format(stc_name))
     stc = mne.read_source_estimate(stc_fname)
@@ -5716,6 +5730,9 @@ def main(tup, remote_subject_dir, org_args, flags=None):
         flags['find_clusters_over_time'], _ = find_clusters_over_time(
             subject, args.stc_name, threshold=2, times=None, min_cluster_size=10,
             mri_subject=mri_subject, n_jobs=args.n_jobs)
+
+    if 'plot_max_stc' in args.function:
+        flags['plot_max_stc'] = plot_max_stc(subject, args.stc_name, args.modality)
 
     return flags
 

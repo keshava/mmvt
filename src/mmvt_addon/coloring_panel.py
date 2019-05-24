@@ -106,6 +106,20 @@ def plot_meg():
     return ret
 
 
+def plot_max_stc_graph():
+    stc_name = bpy.context.scene.meg_files
+    modality = ''
+    if mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+        modality = 'meg'
+    elif mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'eeg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+        modality = 'eeg'
+    else:
+        print('Can\'t find the stc file!')
+    if modality != '':
+        mu.run_mmvt_func(
+            'src.preproc.meg', 'plot_max_stc', flags='--stc_name {} --modality {}'.format(stc_name, modality))
+
+
 # def plot_meg(t=-1, save_image=False, view_selected=False):
 #     if t != -1:
 #         bpy.context.scene.frame_current = t
@@ -2159,6 +2173,18 @@ class ColorMeg(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class PlotMaxSTCGraph(bpy.types.Operator):
+    bl_idname = "mmvt.meg_plot_max_stc_graph"
+    bl_label = "mmvt meg_plot_max_stc_graph"
+    bl_description = 'Plots MEG max stc graph'
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        plot_max_stc_graph()
+        return {"FINISHED"}
+
+
 class ColorMegMax(bpy.types.Operator):
     bl_idname = "mmvt.meg_max_color"
     bl_label = "mmvt meg max color"
@@ -2356,7 +2382,9 @@ def draw(self, context):
             # mu.add_box_line(col, '', 'MEG', 0.4)
             col.prop(context.scene, 'meg_files', '')
             # col.label(text='T max: {}'.format(bpy.context.scene.meg_max_t))
-            col.operator(ColorMeg.bl_idname, text="Plot MEG ", icon='POTATO')
+            row = col.row(align=True)
+            row.operator(ColorMeg.bl_idname, text="Plot MEG ", icon='POTATO')
+            row.operator(PlotMaxSTCGraph.bl_idname, text="Plot max graph ", icon='POTATO')
             row = col.row(align=True)
             row.operator(ColorMegMax.bl_idname, text="Plot MEG peak", icon='POTATO')
             row.prop(context.scene, 'meg_peak_mode', '')
@@ -2860,6 +2888,7 @@ def register():
         bpy.utils.register_class(ColorGroupsManually)
         bpy.utils.register_class(ColorMeg)
         bpy.utils.register_class(ColorMegMax)
+        bpy.utils.register_class(PlotMaxSTCGraph)
         bpy.utils.register_class(ColorMegLabels)
         bpy.utils.register_class(ColorfMRI)
         bpy.utils.register_class(ColorfMRILabels)
@@ -2887,6 +2916,7 @@ def unregister():
         bpy.utils.unregister_class(ColorGroupsManually)
         bpy.utils.unregister_class(ColorMeg)
         bpy.utils.unregister_class(ColorMegMax)
+        bpy.utils.unregister_class(PlotMaxSTCGraph)
         bpy.utils.unregister_class(ColorMegLabels)
         bpy.utils.unregister_class(ColorfMRI)
         bpy.utils.unregister_class(ColorfMRILabels)
