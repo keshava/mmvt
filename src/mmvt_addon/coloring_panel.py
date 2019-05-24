@@ -2203,6 +2203,7 @@ class ColorMegMax(bpy.types.Operator):
             print('ColorMegMax: Both stc_file_chosen and activity_map_chosen are False!')
         return {"FINISHED"}
 
+
 class ColorMegLabels(bpy.types.Operator):
     bl_idname = "mmvt.meg_labels_color"
     bl_label = "mmvt meg labels color"
@@ -2384,7 +2385,7 @@ def draw(self, context):
             # col.label(text='T max: {}'.format(bpy.context.scene.meg_max_t))
             row = col.row(align=True)
             row.operator(ColorMeg.bl_idname, text="Plot MEG ", icon='POTATO')
-            row.operator(PlotMaxSTCGraph.bl_idname, text="Plot max graph ", icon='POTATO')
+            row.operator(PlotMaxSTCGraph.bl_idname, text="Plot max graph ", icon='IPO_ELASTIC')
             row = col.row(align=True)
             row.operator(ColorMegMax.bl_idname, text="Plot MEG peak", icon='POTATO')
             row.prop(context.scene, 'meg_peak_mode', '')
