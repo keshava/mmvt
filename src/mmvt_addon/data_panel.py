@@ -1121,7 +1121,8 @@ class AddfMRIDynamicsToBrain(bpy.types.Operator):
 def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None, clear_animation=False):
     print('Adding data to Electrodes')
     now = time.time()
-    N = len(meta_data['names'])
+    names = meta_data if isinstance(meta_data, list) else meta_data['names']
+    N = len(names)
     T = all_data.shape[1] if window_len is None or not 'dt' in meta_data else int(window_len / meta_data['dt'])
     if 'conditions' not in meta_data and conditions is None:
         conditions = ['all']
@@ -1133,8 +1134,8 @@ def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None
     #     conditions = [str(c) for c in meta_data['conditions']]
     # if isinstance(conditions, str):
     #     conditions = [conditions]
-    print('keyframing for {}'.format(meta_data['names']))
-    for obj_counter, (obj_name, data) in enumerate(zip(meta_data['names'], all_data)):
+    print('keyframing for {}'.format(names))
+    for obj_counter, (obj_name, data) in enumerate(zip(names, all_data)):
         mu.time_to_go(now, obj_counter, N, runs_num_to_print=10)
         obj_name = mu.to_str(obj_name)
         # print(obj_name)
