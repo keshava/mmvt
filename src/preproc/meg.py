@@ -2431,19 +2431,26 @@ def get_stc_fname(args):
 def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs=False, overwrite=False):
     fol = utils.make_dir(op.join(op.join(MMVT_DIR, subject, modality)))
     stc_zvals_fname = op.join(fol, '{}-zvals'.format(stc_name))
-    # if op.isfile(stc_zvals_fname) and not overwrite:
-    #     print('calc_stc_zvals: {} already exist'.format(stc_zvals_fname))
-    #     return True
-    for file_name in [stc_name, baseline_stc_name]:
-        if not utils.both_hemi_files_exist(
-                op.join(MMVT_DIR, subject, modality, '{}-{}.stc'.format(file_name, '{hemi}'))):
-            print('Can\'t find {}!'.format(file_name))
-            return False
-    stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, modality, '{}-rh.stc'.format(stc_name)))
-    baseline_stc = mne.read_source_estimate(
-        op.join(MMVT_DIR, subject, modality, '{}-rh.stc'.format(baseline_stc_name)))
-    baseline_std = np.std(baseline_stc.data) # np.std(baseline_stc.data * 10e-15) * 10e15
-    baseline_mean = np.mean(baseline_stc.data) #np.mean(baseline_stc.data * 10e-15) * 10e15
+    if op.isfile(stc_zvals_fname) and not overwrite:
+        print('calc_stc_zvals: {} already exist'.format(stc_zvals_fname))
+        return True
+    stc_template = {}
+    for file_name, key in zip([stc_name, baseline_stc_name], ['stc', 'baseline']):
+        stc_template[key] = op.join(MMVT_DIR, subject, modality, '{}-{}.stc'.format(file_name, '{hemi}'))
+        if not utils.both_hemi_files_exist(stc_template[key]):
+            stcs = glob.glob(op.join(MMVT_DIR, subject, modality, '**', '{}-?h.stc'.format(file_name)), recursive=True)
+            if len(stcs) == 2:
+                stc_template[key] = op.join(utils.get_parent_fol(stcs[0]), '{}-{}.stc'.format(file_name, '{hemi}'))
+                if not utils.both_hemi_files_exist(stc_template[key]):
+                    print('Can\'t find {}!'.format(file_name))
+                    return False
+            else:
+                print('Can\'t find {}!'.format(file_name))
+                return False
+    stc = mne.read_source_estimate(stc_template['stc'].format(hemi='rh'))
+    baseline_stc = mne.read_source_estimate(stc_template['baseline'].format(hemi='rh'))
+    baseline_std = np.std(baseline_stc.data * pow(10, -15)) * pow(10, 15)
+    baseline_mean = np.mean(baseline_stc.data * pow(10, -15)) * pow(10, 15)
     if np.isinf(baseline_std):
         print('std of baseline is inf!')
         return False
@@ -2454,11 +2461,11 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
     if use_abs:
         zvals = np.abs(zvals)
     stc_zvals = mne.SourceEstimate(zvals, stc.vertices, stc.tmin, stc.tstep, subject=subject)
-    print('stc: max: {}, min: {}, std: {}'.format(np.max(stc.data), np.min(stc.data), np.std(stc.data * 10e-15) * 10e15))
+    print('stc: max: {}, min: {}, std: {}'.format(np.max(stc.data), np.min(stc.data), np.std(stc.data)))
     print('baseline: max: {}, min: {}, std: {}'.format(np.max(baseline_stc.data), np.min(baseline_stc.data), baseline_std))
     print('stc_zvals: max: {}, min: {}'.format(np.max(stc_zvals.data), np.min(stc_zvals.data)))
     stc_zvals.save(stc_zvals_fname)
-    return op.isfile(stc_zvals_fname)
+    return utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}'))
 
 
 def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
