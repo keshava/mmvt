@@ -2541,8 +2541,8 @@ def combine_labels_stc_filse(subject, atlas, folder, stc_output_name, labels=Non
     stcs_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality, folder))
     combined_stcs_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality))
     output_fname = op.join(combined_stcs_fol, stc_output_name)
-    # if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not overwrite:
-    #     return True
+    if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not overwrite:
+        return True
     if not op.isdir(stcs_fol):
         print('The folder {} could not be found!'.format(stcs_fol))
         return False
