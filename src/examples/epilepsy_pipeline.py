@@ -7,7 +7,7 @@ def calc_induced_power(subject, windows_fnames):
 
     for window_fname in windows_fnames:
         # EEG
-        args = eeg.read_cmd_args(dict(
+        eeg_args = eeg.read_cmd_args(dict(
             subject=subject,
             mri_subject=subject,
             function='calc_stc',
@@ -18,9 +18,10 @@ def calc_induced_power(subject, windows_fnames):
             n_jobs=1,
             overwrite_stc=False
         ))
-        eeg.call_main(args)
+        eeg.call_main(eeg_args)
+        del eeg_args
         # MEG
-        args = meg.read_cmd_args(dict(
+        meg_args = meg.read_cmd_args(dict(
             subject=subject,
             mri_subject=subject,
             function='calc_stc',
@@ -32,7 +33,8 @@ def calc_induced_power(subject, windows_fnames):
             n_jobs=1,
             overwrite_stc=False
         ))
-        meg.call_main(args)
+        meg.call_main(meg_args)
+        del meg_args
 
 
 if __name__ == '__main__':
