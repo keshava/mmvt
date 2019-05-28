@@ -2779,6 +2779,10 @@ def both_hemi_files_exist(file_template):
                len(glob.glob(file_template.format(hemi='lh'))) == 1
 
 
+def stc_exist(file_template):
+    return both_hemi_files_exist('{}-{}.stc'.format(file_template, '{hemi}'))
+
+
 def delete_files(temp):
     for fname in glob.glob(temp):
         os.remove(fname)

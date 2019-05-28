@@ -101,7 +101,7 @@ def init(subject, args, mri_subject='', remote_subject_dir=''):
         mri_subject = subject
     fname_format, fname_format_cond, conditions = meg.init_main(subject, mri_subject, remote_subject_dir, args)
     meg.init_globals_args(subject, mri_subject, fname_format, fname_format_cond, args=args)
-    meg.MEG_DIR = SUBJECTS_EEG_DIR
+    # meg.MEG_DIR = SUBJECTS_EEG_DIR
     meg.FWD = meg.FWD_EEG
     meg.INV = meg.INV_EEG
     stat = meg.STAT_AVG if len(conditions) == 1 else meg.STAT_DIFF
@@ -156,6 +156,9 @@ def read_cmd_args(argv=None, subject='', mri_subject='', atlas=''):
     args.fwd_usingMEG = False
     args.fwd_usingEEG = True
     args.modality = 'eeg'
+    args.meg_dir = utils.get_link_dir(LINKS_DIR, 'eeg')
+    if not op.isdir(args.meg_dir):
+        raise Exception('EEG dir can\'t be found! Please rerun src.setup with -f create_links')
     return args
 
 

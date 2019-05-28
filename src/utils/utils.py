@@ -65,6 +65,7 @@ to_str = mu.to_str
 read_config_ini = mu.read_config_ini
 make_link = mu.make_link
 both_hemi_files_exist = mu.both_hemi_files_exist
+stc_exist = mu.stc_exist
 other_hemi = mu.other_hemi
 check_hemi = mu.check_hemi
 file_modification_time = mu.file_modification_time
@@ -1738,6 +1739,8 @@ def get_file_if_exist(files):
 
 
 def rename_files(source_fnames, dest_fname):
+    if isinstance(source_fnames, str):
+        source_fnames = [source_fnames]
     for source_fname in source_fnames:
         if op.isfile(source_fname):
             os.rename(source_fname, dest_fname)
@@ -1899,7 +1902,7 @@ def locating_file(default_fname, glob_pattern, parent_fols, raise_exception=Fals
                 fname = files[0]
             else:
                 files = sorted(files)
-                print('{}:'.format(inspect.stack()[1][3]))
+                print('{} -> {}:'.format(inspect.stack()[2][3], inspect.stack()[1][3]))
                 for ind, fname in enumerate(files):
                     print('{}) {}'.format(ind+1, fname))
                 ind = int(input('There are more than one {} files. Please choose the one you want to use: '.format(

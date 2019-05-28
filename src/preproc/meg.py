@@ -1955,7 +1955,7 @@ def get_inv_fname(inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, create_new
         inv_modal_fname = INV_MEEG
     else:
         inv_modal_fname = INV_EEG if fwd_usingEEG else INV_MEG
-    if op.isfile(inv_modal_fname) and inv_fname == '':
+    if op.isfile(inv_modal_fname) and not op.isfile(inv_fname) == '':
         print('get_inv_fname: using {}'.format(inv_modal_fname))
         return inv_modal_fname
     if create_new:
@@ -2431,7 +2431,7 @@ def get_stc_fname(args):
 def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs=False, overwrite=False):
     fol = utils.make_dir(op.join(op.join(MMVT_DIR, subject, modality)))
     stc_zvals_fname = op.join(fol, '{}-zvals'.format(stc_name))
-    if op.isfile(stc_zvals_fname) and not overwrite:
+    if utils.stc_exist(stc_zvals_fname) and not overwrite:
         print('calc_stc_zvals: {} already exist'.format(stc_zvals_fname))
         return True
     stc_template = {}
@@ -2487,7 +2487,6 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
     if bands is None or bands == '':
-
         bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120]) # delta=[0.5, 4]
     # atlas = 'high.level.atlas'
     if normalize_proj:
@@ -2517,11 +2516,10 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
                 band_stc_fname = op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band))
                 print('Saving {}'.format(band_stc_fname))
                 stc_band.save(band_stc_fname)
-        ret = True
-        for band in bands.keys():
-            ret = ret and combine_labels_stc_filse(
-                subject, atlas, fol, '{}_{}'.format(utils.namebase(stc_fname), band), labels, '{}_'.format(task),
-                '_{}_induced_power'.format(band), modality, overwrite_stc)
+        params = [(subject, atlas, task, band, stc_fname, labels, modality, fol, overwrite_stc)
+                  for band in bands.keys()]
+        results = utils.run_parallel(_combine_labels_stc_files_parallel, params, len(bands))
+        ret = all(results)
     else:
         stcs = source_band_induced_power(
             epochs, inverse_operator, bands, n_cycles=2, use_fft=False, lambda2=lambda2, pca=True,
@@ -2536,7 +2534,17 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
     return ret
 
 
-def combine_labels_stc_filse(subject, atlas, folder, stc_output_name, labels=None, pre_identifier='',
+def _combine_labels_stc_files_parallel(p):
+    subject, atlas, task, band, stc_fname, labels, modality, fol, overwrite_stc = p
+    stc_namebase = utils.namebase(stc_fname) if stc_fname.endswith('.stc') \
+        else utils.namebase_with_ext(stc_fname)
+    ret = combine_labels_stc_files(
+        subject, atlas, fol, '{}_{}'.format(stc_namebase, band), labels, '{}_'.format(task),
+        '_{}_induced_power'.format(band), modality, overwrite_stc)
+    return ret
+
+
+def combine_labels_stc_files(subject, atlas, folder, stc_output_name, labels=None, pre_identifier='',
                              post_identifier='', modality='meg', overwrite=False):
     stcs_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality, folder))
     combined_stcs_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality))
@@ -5552,7 +5560,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
 
     if 'calc_stc_zvals' in args.function:
         flags['calc_stc_zvals'] = calc_stc_zvals(
-            subject, args.stc_name, args.baseline_stc_name, args.modality, args.use_abs)
+            subject, args.stc_name, args.baseline_stc_name, args.modality, args.use_abs, args.overwrite_stc)
 
     if 'calc_power_spectrum' in args.function:
         flags['calc_power_spectrum'] = calc_power_spectrum(subject, conditions, args)
