@@ -114,6 +114,8 @@ def get_link_dir(links_dir, link_name, var_name='', default_val='', throw_except
 
         # return read_windows_dir_shortcut('{}.lnk'.format(val))
     ret = op.realpath(link)
+    # Ugly patch!!!! todo: Fix that!!!!
+    ret = ret.replace('local_mount', 'autofs').replace('thibault/1', 'thibault_001')
     if not op.isdir(ret) and default_val != '':
         ret = default_val
     if not op.isdir(ret):
