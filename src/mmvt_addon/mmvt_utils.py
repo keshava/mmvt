@@ -1275,6 +1275,10 @@ def get_user():
     return subject
 
 
+def get_subject_mri_dir():
+    return op.join(get_subjects_dir(), get_user())
+
+
 def current_path():
     return os.path.dirname(os.path.realpath(__file__))
 

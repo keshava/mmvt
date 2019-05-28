@@ -3123,10 +3123,9 @@ def calc_stc_for_all_vertices(stc, subject='', morph_to_subject='', n_jobs=6):
     return mne.morph_data(subject, morph_to_subject, stc, n_jobs=n_jobs, grade=vertices_to)
 
 
-def morph_data(subject_from, subject_to, src, zooms=5,
-                         niter_affine=(100, 100, 10), niter_sdr=(5, 5, 3),
-                         spacing=5):
-    src_data = dict(vertices_from=copy.deepcopy(src.vertices))
+def calc_source_morph_mat(subject_from, subject_to, src_vertices, zooms=5, niter_affine=(100, 100, 10),
+                          niter_sdr=(5, 5, 3), spacing=5):
+    src_data = dict(vertices_from=copy.deepcopy(src_vertices))
     vertices_from = src_data['vertices_from']
     vertices_to = mne.grade_to_vertices(
         subject_to, spacing, SUBJECTS_MRI_DIR, 1)
@@ -3137,11 +3136,9 @@ def morph_data(subject_from, subject_to, src, zooms=5,
         xhemi=False)
     n_verts = sum(len(v) for v in vertices_to)
     assert morph_mat.shape[0] == n_verts
-
-    morph = mne.SourceMorph(subject_from, subject_to, 'surface', zooms,
-                        niter_affine, niter_sdr, spacing, None, False,
-                        morph_mat, None, None, None,
-                        None, None, src_data)
+    morph = mne.SourceMorph(
+        subject_from, subject_to, 'surface', zooms, niter_affine, niter_sdr, spacing, None, False,
+        morph_mat, None, None, None, None, None, src_data)
     return morph
 
 # def create_stc_t(stc, t, subject=''):

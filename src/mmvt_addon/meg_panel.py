@@ -4,6 +4,7 @@ import glob
 import numpy as np
 from collections import defaultdict
 import importlib
+import copy
 
 import mmvt_utils as mu
 import coloring_panel
@@ -992,6 +993,13 @@ def plot_activity_contours(activity_contours_name, colormap='RdOrYl'):
         _addon().color_hemi_data(
             hemi, hemi_contours, 0.1, 256 / np.max(thresholds), override_current_mat=True,
             coloring_layer='contours', check_valid_verts=False)
+
+
+def calc_smooth_mat(stc):
+    mu.add_mmvt_code_root_to_path()
+    from src.preproc import meg
+    importlib.reload(meg)
+    return meg.calc_source_morph_mat(mu.get_user(), mu.get_user(), stc.vertices)
 
 
 def meg_draw(self, context):

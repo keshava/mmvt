@@ -202,7 +202,6 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
                 len(bpy.data.objects.get('inflated_lh').data.vertices) == len(stc_t.lh_vertno):
             stc_t_smooth = stc_t
         else:
-            vertices_to = mne.grade_to_vertices(subject, None, subjects_dir=subjects_dir)
             n_jobs = 1 # n_jobs if mu.IS_LINUX else 1 # Stupid OSX and Windows #$%#@$
             morph_name = '{0}-{0}-morph.fif'.format(subject)
             morph_maps_fol = mu.make_dir(op.join(mu.get_parent_fol(mu.get_user_fol()), 'morph_maps'))
@@ -210,8 +209,10 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
             morph_map_resources_fname = op.join(mu.get_resources_dir(), 'morph_maps', morph_name)
             if not op.isfile(morph_map_fname) and op.isfile(morph_map_resources_fname):
                 shutil.copyfile(morph_map_resources_fname, morph_map_fname)
-            stc_t_smooth = mne.morph_data(
-                subject, subject, stc_t, n_jobs=n_jobs, grade=vertices_to, subjects_dir=subjects_dir)
+            # vertices_to = mne.grade_to_vertices(subject, None, subjects_dir=subjects_dir)
+            # stc_t_smooth = mne.morph_data(
+            #     subject, subject, stc_t, n_jobs=n_jobs, grade=vertices_to, subjects_dir=subjects_dir)
+            stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc)
 
         stc_t_smooth.save(stc_t_fname)
 
@@ -1647,7 +1648,9 @@ def _meg_files_update(context):
             # ColoringMakerPanel.stc = mne.read_source_estimate(full_stc_fname)
             ColoringMakerPanel.stc = None
             # if not _addon().colorbar_values_are_locked():
-            data_min, data_max, data_len = calc_stc_minmax()
+            data_min, data_max, data_len = calc_stc_minmax() # Also set ColoringMakerPanel.stc if can be read
+            if ColoringMakerPanel.stc is not None:
+                ColoringMakerPanel.smooth_map = _addon().meg.calc_smooth_mat(ColoringMakerPanel.stc)
             if not _addon().colorbar_values_are_locked():
                 _addon().set_colorbar_max_min(data_max, data_min, force_update=True)
                 _addon().set_colorbar_title('MEG')
