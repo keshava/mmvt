@@ -13,6 +13,7 @@ def calc_induced_power(subject, windows_fnames):
             function='calc_stc',
             calc_source_band_induced_power=True,
             evo_fname=window_fname,
+            inv_fname='nmr00857-epilepsy-eeg-inv.fif',
             n_jobs=1,
             overwrite_stc=False
         ))
@@ -24,6 +25,7 @@ def calc_induced_power(subject, windows_fnames):
             function='calc_stc',
             calc_source_band_induced_power=True,
             evo_fname=window_fname,
+            inv_fname='nmr00857-epilepsy-meg-inv',
             fwd_usingEEG=False,
             n_jobs=1,
             overwrite_stc=False
