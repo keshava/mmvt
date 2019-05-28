@@ -39,5 +39,5 @@ def calc_meg_induced_power(subject, windows_fnames):
 
 if __name__ == '__main__':
     windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
-    calc_eeg_induced_power('nmr00857', windows)
+    # calc_eeg_induced_power('nmr00857', windows)
     calc_meg_induced_power('nmr00857', windows)
