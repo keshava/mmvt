@@ -32,7 +32,7 @@ def calc_induced_power(subject, windows_fnames):
             n_jobs=1,
             overwrite_stc=False
         ))
-        eeg.call_main(args)
+        meg.call_main(args)
 
 
 if __name__ == '__main__':
