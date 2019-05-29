@@ -2400,7 +2400,7 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
             if save_stc and (not op.isfile(stc_fname) or overwrite_stc) and \
                     not isinstance(stcs[cond_name], types.GeneratorType):
                 # MMVT reads stcs only from the 'meg' fol, need to change that
-                mmvt_fol = utils.make_dir(op.join(MMVT_DIR, MRI_SUBJECT, 'meg'))
+                mmvt_fol = utils.make_dir(op.join(MMVT_DIR, MRI_SUBJECT, modality))
                 mmvt_stc_fname = op.join(mmvt_fol, utils.namebase_with_ext(stc_fname))
                 print('Saving the source estimate to {} and\n {}'.format(
                     stc_fname, mmvt_stc_fname))
@@ -2473,6 +2473,7 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
     print('stc: max: {}, min: {}, std: {}'.format(np.max(stc.data), np.min(stc.data), np.std(stc.data)))
     print('baseline: max: {}, min: {}, std: {}'.format(np.max(baseline_stc.data), np.min(baseline_stc.data), baseline_std))
     print('stc_zvals: max: {}, min: {}'.format(np.max(stc_zvals.data), np.min(stc_zvals.data)))
+    print('Saving zvals stc to {}'.format(stc_zvals_fname))
     stc_zvals.save(stc_zvals_fname)
     return utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}'))
 
@@ -3575,22 +3576,22 @@ def calc_single_trial_labels_per_condition(atlas, events, stcs, extract_modes=('
             np.save(op.join(SUBJECT_MEG_FOLDER, 'labels_ts_{}_{}'.format(cond_name, extract_mode)), np.array(labels_ts))
 
 
-def get_stc_conds(events, inverse_method, stc_hemi_template, modal='meg'):
+def get_stc_conds(events, inverse_method, stc_hemi_template, modality='meg'):
     stcs = {}
     hemi = 'lh' # both will be loaded
     for cond in events.keys():
-        stc_fname = stc_hemi_template.format(cond=cond, method=inverse_method, hemi=hemi, modal=modal)
+        stc_fname = stc_hemi_template.format(cond=cond, method=inverse_method, hemi=hemi, modal=modality)
         if not op.isfile(stc_fname):
             if len(events.keys()) == 1:
                 template_mmvt = '{}.{}'.format(stc_hemi_template.format(
-                    cond='*', method=inverse_method, hemi='*-{}'.format(hemi), modal=modal), '{type}')
+                    cond='*', method=inverse_method, hemi='*-{}'.format(hemi), modal=modality), '{type}')
                 stc_fname = utils.select_one_file(
                     glob.glob(template_mmvt.format(type='stc')) + glob.glob(template_mmvt.format(type='h5')))
             else:
                 template_meg_stc = op.join(SUBJECT_MEG_FOLDER, '*-{}.stc'.format(hemi))
                 template_meg_h5 = op.join(SUBJECT_MEG_FOLDER, '*-stc.h5'.format(hemi))
-                template_mmvt_stc = op.join(MMVT_DIR, SUBJECT, 'meg', '*-{}.stc'.format(hemi))
-                template_mmvt_h5 = op.join(MMVT_DIR, SUBJECT, 'meg', '*-stc.h5'.format(hemi))
+                template_mmvt_stc = op.join(MMVT_DIR, SUBJECT, modality, '*-{}.stc'.format(hemi))
+                template_mmvt_h5 = op.join(MMVT_DIR, SUBJECT, modality, '*-stc.h5'.format(hemi))
                 stc_fname = utils.select_one_file(
                     glob.glob(template_meg_stc) + glob.glob(template_meg_h5) + glob.glob(template_mmvt_stc) +
                     glob.glob(template_mmvt_h5), template='stc/h5', files_desc='STC', print_title=True)
@@ -3601,7 +3602,7 @@ def get_stc_conds(events, inverse_method, stc_hemi_template, modal='meg'):
 
 
 def calc_labels_avg_per_cluster(subject, atlas, events, inverse_method, stc_names, extract_method,
-                                labels_output_fname_template='', task=''):
+                                labels_output_fname_template='', task='', modalitiy='meg'):
     if labels_output_fname_template == '':
         labels_output_fname_template = LBL
     labels_data = {hemi:{} for hemi in utils.HEMIS}
@@ -3610,8 +3611,8 @@ def calc_labels_avg_per_cluster(subject, atlas, events, inverse_method, stc_name
         labels_data[hemi][extract_method] = None
     conditions = list(events.keys())
     for stc_ind, stc_name in enumerate(stc_names):
-        clusters_fname = op.join(
-            MMVT_DIR, subject, 'meg', 'clusters', 'clusters_labels_{}.pkl'.format(stc_name))
+        clusters_fname = utils.make_dir(op.join(
+            MMVT_DIR, subject, modalitiy, 'clusters', 'clusters_labels_{}.pkl'.format(stc_name)))
         clusters = utils.load(clusters_fname)
         cond, inv_method, lfreq, hfreq = utils.namebase(clusters_fname)[len('clusters_labels_'):].split('-')
         cond_id = conditions.index(cond)
@@ -3627,7 +3628,7 @@ def calc_labels_avg_per_cluster(subject, atlas, events, inverse_method, stc_name
     for hemi in utils.HEMIS:
         labels_output_fname = get_labels_data_fname(
             labels_output_fname_template, inverse_method, task, atlas, extract_method, hemi)
-        lables_mmvt_fname = op.join(MMVT_DIR, MRI_SUBJECT, 'meg', op.basename(labels_output_fname))
+        lables_mmvt_fname = op.join(MMVT_DIR, MRI_SUBJECT, modalitiy, op.basename(labels_output_fname))
         np.savez(labels_output_fname, data=labels_data[hemi][extract_method],
                  names=labels_names, conditions=conditions)
         utils.copy_file(labels_output_fname, lables_mmvt_fname)
@@ -3637,13 +3638,13 @@ def calc_labels_avg_per_condition(
         atlas, hemi, events=None, surf_name='pial', labels_fol='', stcs=None, stcs_num={}, inverse_method='dSPM',
         extract_modes=['mean_flip'], positive=False, moving_average_win_size=0, labels_data_template='', src=None,
         factor=1, inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, read_only_from_annot=True, task='',
-        overwrite=False, stc_name='', do_plot=False, n_jobs=1):
+        modalitiy='meg', overwrite=False, stc_name='', do_plot=False, n_jobs=1):
 
     if do_plot:
         import matplotlib.pyplot as plt
 
     def _check_all_files_exist():
-        return all([op.isfile(op.join(MMVT_DIR, MRI_SUBJECT, 'meg', op.basename(
+        return all([op.isfile(op.join(MMVT_DIR, MRI_SUBJECT, modalitiy, op.basename(
             get_labels_data_fname(labels_data_template, im, task, atlas, em, hemi))))
             for em, im in product(extract_modes, inverse_method)])
 
@@ -3791,7 +3792,7 @@ def save_labels_data(labels_data, hemi, labels_names, atlas, conditions, extract
         np.savez(labels_output_fname, data=labels_data[em], names=labels_names, conditions=conditions)
 
 
-def calc_power_spectrum(subject, events, args, fwd_usingEEG=True, fwd_usingMEG=True, do_plot=False):
+def calc_power_spectrum(subject, events, args, fwd_usingEEG=True, fwd_usingMEG=True, modality='meg', do_plot=False):
     if do_plot:
         import matplotlib.pyplot as plt
 
@@ -3802,7 +3803,7 @@ def calc_power_spectrum(subject, events, args, fwd_usingEEG=True, fwd_usingMEG=T
         return False
     if args.labels_data_template == '':
         args.labels_data_template = LBL
-    output_template = op.join(MMVT_DIR, subject, 'meg', 'labels_data_power_spectrum_{}_{}_{}_{}_{}.npz'.format(
+    output_template = op.join(MMVT_DIR, subject, modality, 'labels_data_power_spectrum_{}_{}_{}_{}_{}.npz'.format(
         args.task, args.atlas, '{em}', '{im}', '{hemi}'))
     events_ids = [e - min(events.values()) for e in events.values()]
     for hemi, em, im in product(utils.HEMIS, args.extract_mode, args.inverse_method):
@@ -3840,8 +3841,8 @@ def calc_power_spectrum(subject, events, args, fwd_usingEEG=True, fwd_usingMEG=T
                    for em, im in product(args.extract_mode, args.inverse_method)])
 
 
-def get_labels_fname(subject, hemi, args):
-    labels_fnames = glob.glob(op.join(MMVT_DIR, subject, 'meg', 'labels_data*{}*{}_{}.npz'.format(
+def get_labels_fname(subject, hemi, args, modality='meg'):
+    labels_fnames = glob.glob(op.join(MMVT_DIR, subject, modality, 'labels_data*{}*{}_{}.npz'.format(
         args.atlas, args.extract_mode, hemi)))
     if args.task != '':
         labels_task_fnames = [l for l in labels_fnames if args.task.lower() in utils.namebase(l.lower())]

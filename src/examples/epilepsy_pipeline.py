@@ -110,8 +110,9 @@ def plot_stc_file(stc_fname, figures_fol):
 
 
 def plot_baseline(subject, baseline_name):
-    stc_fnames = glob.glob(op.join(MMVT_DIR, subject, 'meg', 'non-zvals', '{}-epilepsy-*-{}_*.stc'.format(
-        subject, baseline_name)))
+    stc_fnames = glob.glob(
+        op.join(MMVT_DIR, subject, 'meg', 'non-zvals', '{}-epilepsy-*-{}_*.stc'.format(subject, baseline_name))) + \
+        glob.glob(op.join(MMVT_DIR, subject, 'eeg', 'non-zvals', '{}-epilepsy-*-{}_*.stc'.format(subject, baseline_name)))
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'baseline'))
     for stc_fname in stc_fnames:
         plot_stc_file(stc_fname, figures_fol)
@@ -177,6 +178,33 @@ def plot_freqs(subject, windows, modality, inverse_method, max_t=0, subfol=''):
         plt.close()
 
 
+def plot_activity_modalities(subject, windows, modalities, inverse_method, max_t=0, overwrite=False):
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'amplitude'))
+    for window_fname in windows:
+        window_name = utils.namebase(window_fname)
+        fig_fname = op.join(figures_fol, '{}-amplitude.jpg'.format(window_name))
+        if op.isfile(fig_fname) and not overwrite:
+            print('{} already exist'.format(fig_fname))
+            break
+        plt.figure()
+        for modality in modalities:
+            modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+            stc_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}-zvals-lh.stc'.format(
+                subject, inverse_method, modality, window_name))
+            if not op.isfile(stc_fname):
+                print('Can\'t find {}!'.format(stc_fname))
+                break
+            stc = mne.read_source_estimate(stc_fname)
+            data = np.max(stc.data[:, :max_t], axis=0) if max_t > 0 else np.max(stc.data, axis=0)
+            plt.plot(data.T)
+        else:
+            plt.title('{} amplitude'.format(window_name))
+            plt.legend(modalities)
+            print('Saving {} amplitude'.format(window_name))
+            plt.savefig(fig_fname, dpi=300)
+            plt.close()
+
+
 def plot_modalities(subject, windows, modalities, inverse_method, max_t=0, n_jobs=4):
     from itertools import product
     bands = ['theta', 'alpha', 'beta', 'gamma', 'high_gamma']
@@ -236,4 +264,5 @@ if __name__ == '__main__':
         # plot_freqs(subject, frontal_windows, modality, inverse_method, max_t, 'frontal')
 
     # plot_modalities(subject, windows, modalities, inverse_method, max_t, n_jobs)
-    plot_baseline(subject, baseline_name)
+    plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
+    # plot_baseline(subject, baseline_name)
