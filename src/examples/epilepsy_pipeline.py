@@ -158,7 +158,6 @@ def plot_freqs(subject, windows, modality, inverse_method, max_t=0, subfol=''):
             figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-per-band-figures'))
             if subfol != '':
                 figures_fol = utils.make_dir(op.join(figures_fol, subfol))
-            # stc_name = '{}-epilepsy-{}-{}-{}'.format(subject, inverse_method, modality, window_name)
             fig_fname = op.join(figures_fol, '{}-{}.jpg'.format(modality, band))
             if op.isfile(fig_fname):
                 print('{} already exist'.format(fig_fname))
@@ -178,6 +177,41 @@ def plot_freqs(subject, windows, modality, inverse_method, max_t=0, subfol=''):
         plt.close()
 
 
+def plot_modalities(subject, windows, modalities, inverse_method, max_t=0, n_jobs=4):
+    from itertools import product
+    bands = ['theta', 'alpha', 'beta', 'gamma', 'high_gamma']
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-modalities-figures'))
+    params = [(subject, modalities, inverse_method, figures_fol, band, window_fname, max_t)
+              for (band, window_fname) in product(bands, windows)]
+    utils.run_parallel(_plot_modalities_parallel, params, n_jobs)
+
+
+def _plot_modalities_parallel(p):
+    subject, modalities, inverse_method, figures_fol, band, window_fname, max_t = p
+    window_name = utils.namebase(window_fname)
+    plt.figure()
+    for modality in modalities:
+        modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+        fig_fname = op.join(figures_fol, '{}-{}.jpg'.format(window_name, band))
+        if op.isfile(fig_fname):
+            print('{} already exist'.format(fig_fname))
+            break
+        stc_band_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-zvals-lh.stc'.format(
+            subject, inverse_method, modality, window_name, band))
+        if not op.isfile(stc_band_fname):
+            print('Can\'t find {}!'.format(stc_band_fname))
+            break
+        stc = mne.read_source_estimate(stc_band_fname)
+        data = np.max(stc.data[:, :max_t], axis=0) if max_t > 0 else np.max(stc.data, axis=0)
+        plt.plot(data.T)
+    else:
+        plt.title('{} {}'.format(window_name, band))
+        plt.legend(modalities)
+        print('Saving {} {}'.format(window_name, band))
+        plt.savefig(fig_fname, dpi=300)
+        plt.close()
+
+
 
 if __name__ == '__main__':
     subject = 'nmr00857'
@@ -191,8 +225,8 @@ if __name__ == '__main__':
     max_t = 7500
     modalities = ['eeg', 'meg', 'meeg']
     n_jobs = utils.get_n_jobs(-4)
-    for modality in ['meeg']:# modalities:
-        calc_induced_power(subject, windows, modality, inverse_method, check_for_labels_files)
+    # for modality in ['meeg']:# modalities:
+    #     calc_induced_power(subject, windows, modality, inverse_method, check_for_labels_files)
         # calc_induced_power_zvals(subject, windows, baseline_name, modality, inverse_method, n_jobs)
         # move_non_zvals_stcs(subject, modality)
 
@@ -201,4 +235,5 @@ if __name__ == '__main__':
         # plot_freqs(subject, windows, modality, inverse_method, max_t)
         # plot_freqs(subject, temporal_windows, modality, inverse_method, max_t, 'temporal')
         # plot_freqs(subject, frontal_windows, modality, inverse_method, max_t, 'frontal')
+    plot_modalities(subject, windows, modalities, inverse_method, max_t, n_jobs)
     # plot_baseline(subject, baseline_name)
