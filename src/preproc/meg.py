@@ -2492,12 +2492,14 @@ def plot_max_stc(subject, stc_name, modality='meg'):
 
 def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
                        calc_inducde_power_per_label=True, normalize_proj=True, overwrite_stc=False,
-                       modality='meg', n_jobs=6):
+                       modality='meg', df=1, n_cycles=2, n_jobs=6):
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
     if bands is None or bands == '':
-        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120]) # delta=[0.5, 4]
-    # atlas = 'high.level.atlas'
+        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120]) # delta=[0.5, 4]
+    ret = check_bands(epochs, bands, df, n_cycles)
+    if not ret:
+        return False
     if normalize_proj:
         epochs.info.normalize_proj()
     if calc_inducde_power_per_label:
@@ -2518,8 +2520,8 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
             utils.time_to_go(now, ind, len(labels), runs_num_to_print=1)
             # On a normal computer, you might want to set n_jobs to 1 (memory...)
             stcs = source_band_induced_power(
-                epochs, inverse_operator, bands, label, n_cycles=2, use_fft=False, lambda2=lambda2,
-                pca=True, n_jobs=n_jobs)
+                epochs, inverse_operator, bands, label, n_cycles=n_cycles, use_fft=False, lambda2=lambda2,
+                pca=True, df=df, n_jobs=n_jobs)
             for band, stc_band in stcs.items():
                 # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
                 band_stc_fname = op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band))
@@ -2531,8 +2533,8 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
         ret = all(results)
     else:
         stcs = source_band_induced_power(
-            epochs, inverse_operator, bands, n_cycles=2, use_fft=False, lambda2=lambda2, pca=True,
-            n_jobs=n_jobs)
+            epochs, inverse_operator, bands, n_cycles=n_cycles, use_fft=False, lambda2=lambda2, pca=True,
+            df=df, n_jobs=n_jobs)
         ret = True
         for band, stc_band in stcs.items():
             # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
@@ -2541,6 +2543,19 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
             stc_band.save(band_stc_fname)
             ret = ret and utils.both_hemi_files_exist('{}-{}.stc'.format(band_stc_fname, '{hemi}'))
     return ret
+
+
+def check_bands(epochs, bands, df=1, n_cycles=2):
+    from mne.time_frequency import morlet
+    freqs = np.concatenate([np.arange(band[0], band[1] + df / 2.0, df) for _, band in bands.items()])
+    ws = morlet(epochs.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
+    too_long = any([len(w) > len(epochs.times) for w in ws])
+    if too_long:
+        print('At least one of the wavelets is longer than the signal. ' +
+              'Consider padding the signal or using shorter wavelets.')
+        return False
+    else:
+        return True
 
 
 def _combine_labels_stc_files_parallel(p):

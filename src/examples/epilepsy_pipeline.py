@@ -16,14 +16,14 @@ MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 EEG_DIR = utils.get_link_dir(LINKS_DIR, 'eeg')
 
 
-def calc_induced_power_pipeline(
-        subject, windows_fnames, baseline_name, modality, inverse_method='dSPM', check_for_labels_files=True, n_jobs=4):
+def calc_induced_power(subject, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True):
     for window_fname in windows_fnames:
-        calc_induced_power(subject, window_fname, modality, inverse_method, check_for_labels_files)
-    # calc_induced_power_zvals in parallel
+        calc_induced_power_per_window(subject, window_fname, modality, inverse_method, check_for_labels_files)
+
+
+def calc_induced_power_zvals(subject, windows_fnames, baseline_name, modality, inverse_method='dSPM', n_jobs=4):
     params = [(subject, modality, window_fname, baseline_name, inverse_method) for window_fname in windows_fnames]
     utils.run_parallel(_calc_induced_power_zvals_parallel, params, n_jobs)
-    move_non_zvals_stcs(subject, modality)
 
 
 def _calc_induced_power_zvals_parallel(p):
@@ -31,7 +31,7 @@ def _calc_induced_power_zvals_parallel(p):
     calc_induced_power_zvals(subject, modality, window_fname, baseline_name, inverse_method)
 
 
-def calc_induced_power(subject, window_fname, modality, inverse_method='dSPM', check_for_labels_files=True):
+def calc_induced_power_per_window(subject, window_fname, modality, inverse_method='dSPM', check_for_labels_files=True):
     root_dir = EEG_DIR if modality == 'eeg' else MEG_DIR
     module = eeg if modality == 'eeg' else meg
     fol = op.join(root_dir, subject, '{}-epilepsy-{}-{}-{}-induced_power'.format(
@@ -148,18 +148,57 @@ def plot_windows(subject, windows, modality, inverse_method):
             plt.close()
 
 
+def plot_freqs(subject, windows, modality, inverse_method, max_t=0, subfol=''):
+    modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+    bands = ['theta', 'alpha', 'beta', 'gamma', 'high_gamma']
+    for band in bands:
+        plt.figure()
+        for window_fname in windows:
+            window_name = utils.namebase(window_fname)
+            figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-per-band-figures'))
+            if subfol != '':
+                figures_fol = utils.make_dir(op.join(figures_fol, subfol))
+            # stc_name = '{}-epilepsy-{}-{}-{}'.format(subject, inverse_method, modality, window_name)
+            fig_fname = op.join(figures_fol, '{}-{}.jpg'.format(modality, band))
+            if op.isfile(fig_fname):
+                print('{} already exist'.format(fig_fname))
+                break
+            stc_band_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-zvals-lh.stc'.format(
+                subject, inverse_method, modality, window_name, band))
+            if not op.isfile(stc_band_fname):
+                print('Can\'t find {}!'.format(stc_band_fname))
+                break
+            stc = mne.read_source_estimate(stc_band_fname)
+            data = np.max(stc.data[:, :max_t], axis=0) if max_t > 0 else np.max(stc.data, axis=0)
+            plt.plot(data.T)
+        plt.title('{} {}'.format(modality, band))
+        plt.legend([utils.namebase(w) for w in windows])
+        print('Saving {} {}'.format(modality, band))
+        plt.savefig(fig_fname, dpi=300)
+        plt.close()
+
+
+
 if __name__ == '__main__':
     subject = 'nmr00857'
     windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
     windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif']
+    temporal_windows = [w for w in windows if '_Ts' in utils.namebase(w)]
+    frontal_windows = [w for w in windows if '_Fs' in utils.namebase(w)]
     baseline_name = '37'
     inverse_method = 'dSPM'
-    check_for_labels_files = False
+    check_for_labels_files = True
+    max_t = 7500
     modalities = ['eeg', 'meg', 'meeg']
     n_jobs = utils.get_n_jobs(-4)
-    for modality in modalities:
-        # calc_induced_power_pipeline(
-        #     subject, windows, baseline_name, modality, inverse_method, check_for_labels_files, n_jobs)
-        plot_stcs_files(subject, modality, n_jobs)
+    for modality in ['meeg']:# modalities:
+        calc_induced_power(subject, windows, modality, inverse_method, check_for_labels_files)
+        # calc_induced_power_zvals(subject, windows, baseline_name, modality, inverse_method, n_jobs)
+        # move_non_zvals_stcs(subject, modality)
+
+        # plot_stcs_files(subject, modality, n_jobs)
         # plot_windows(subject, windows, modality, inverse_method)
+        # plot_freqs(subject, windows, modality, inverse_method, max_t)
+        # plot_freqs(subject, temporal_windows, modality, inverse_method, max_t, 'temporal')
+        # plot_freqs(subject, frontal_windows, modality, inverse_method, max_t, 'frontal')
     # plot_baseline(subject, baseline_name)
