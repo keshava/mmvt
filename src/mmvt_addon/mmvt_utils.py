@@ -2779,8 +2779,13 @@ def both_hemi_files_exist(file_template):
                len(glob.glob(file_template.format(hemi='lh'))) == 1
 
 
-def stc_exist(file_template):
-    return both_hemi_files_exist('{}-{}.stc'.format(file_template, '{hemi}'))
+def stc_exist(file_template, include_subdirs=False):
+    if include_subdirs:
+        stcs_files = glob.glob(op.join(
+            get_parent_fol(file_template), '**', '{}-?h.stc'.format(namebase_with_ext(file_template))))
+        return len(stcs_files) == 2
+    else:
+        return both_hemi_files_exist('{}-{}.stc'.format(file_template, '{hemi}'))
 
 
 def delete_files(temp):

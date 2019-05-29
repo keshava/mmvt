@@ -2445,8 +2445,17 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
                     print('Can\'t find {}!'.format(file_name))
                     return False
             else:
-                print('Can\'t find {}!'.format(file_name))
-                return False
+                if len(set([utils.namebase(f) for f in stcs])) == 2:
+                    fols = sorted(list(set([utils.get_parent_fol(f) for f in stcs])))
+                    print('stc files were found in more than one folder, please pick one:')
+                    fol = utils.select_one_file(fols, print_title=False)
+                    if fol != '':
+                        stc_template[key] = op.join(fol, '{}-{}.stc'.format(file_name, '{hemi}'))
+                    else:
+                        return False
+                else:
+                    print('Can\'t find {}!'.format(file_name))
+                    return False
     stc = mne.read_source_estimate(stc_template['stc'].format(hemi='rh'))
     baseline_stc = mne.read_source_estimate(stc_template['baseline'].format(hemi='rh'))
     baseline_std = np.std(baseline_stc.data * pow(10, -15)) * pow(10, 15)
@@ -2549,7 +2558,7 @@ def combine_labels_stc_files(subject, atlas, folder, stc_output_name, labels=Non
     stcs_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality, folder))
     combined_stcs_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality))
     output_fname = op.join(combined_stcs_fol, stc_output_name)
-    if utils.both_hemi_files_exist('{}-{}.stc'.format(output_fname, '{hemi}')) and not overwrite:
+    if utils.stc_exist(output_fname, include_subdirs=True) and not overwrite:
         return True
     if not op.isdir(stcs_fol):
         print('The folder {} could not be found!'.format(stcs_fol))

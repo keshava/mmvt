@@ -17,11 +17,18 @@ EEG_DIR = utils.get_link_dir(LINKS_DIR, 'eeg')
 
 
 def calc_induced_power_pipeline(
-        subject, windows_fnames, baseline_name, modality, inverse_method='dSPM', check_for_labels_files=True):
+        subject, windows_fnames, baseline_name, modality, inverse_method='dSPM', check_for_labels_files=True, n_jobs=4):
     for window_fname in windows_fnames:
         calc_induced_power(subject, window_fname, modality, inverse_method, check_for_labels_files)
-        calc_induced_power_zvals(subject, modality, window_fname, baseline_name, inverse_method)
+    # calc_induced_power_zvals in parallel
+    params = [(subject, modality, window_fname, baseline_name, inverse_method) for window_fname in windows_fnames]
+    utils.run_parallel(_calc_induced_power_zvals_parallel, params, n_jobs)
     move_non_zvals_stcs(subject, modality)
+
+
+def _calc_induced_power_zvals_parallel(p):
+    subject, modality, window_fname, baseline_name, inverse_method = p
+    calc_induced_power_zvals(subject, modality, window_fname, baseline_name, inverse_method)
 
 
 def calc_induced_power(subject, window_fname, modality, inverse_method='dSPM', check_for_labels_files=True):
@@ -66,20 +73,26 @@ def calc_induced_power_zvals(subject, modality, window_fname, baseline_name, inv
 def move_non_zvals_stcs(subject, modality):
     # Move not zvals stc files
     modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
-    non_zvlas_fol = utils.make_dir(op.join(modality_fol, 'non-zvlas'))
+    non_zvlas_fol = utils.make_dir(op.join(modality_fol, 'non-zvals'))
     stc_files = [f for f in glob.glob(op.join(modality_fol, '*.stc'))
                  if '-epilepsy-' in utils.namebase(f) and not '-zvals-' in utils.namebase(f)]
     for stc_fname in stc_files:
         utils.move_file(stc_fname, non_zvlas_fol, overwrite=True)
 
 
-def plot_stcs_files(subject, modality):
+def plot_stcs_files(subject, modality, n_jobs=4):
     modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
     stc_files = [f for f in glob.glob(op.join(modality_fol, '*-lh.stc'))
-                 if '-epilepsy-' in utils.namebase(f) and '-zvals-' in utils.namebase(f)]
-    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures'))
-    for stc_fname in stc_files:
-        plot_stc_file(stc_fname, figures_fol)
+                 if '-epilepsy-' in utils.namebase(f) and '-zvals-' in utils.namebase(f) and
+                 '-{}-'.format(modality) in utils.namebase(f)]
+    print('{} files for {}'.format(len(stc_files), modality))
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', modality))
+    utils.run_parallel(_plot_stcs_files_parallel, [(stc_fname, figures_fol) for stc_fname in stc_files], n_jobs)
+
+
+def _plot_stcs_files_parallel(p):
+    stc_fname, figures_fol = p
+    plot_stc_file(stc_fname, figures_fol)
 
 
 def plot_stc_file(stc_fname, figures_fol):
@@ -141,11 +154,12 @@ if __name__ == '__main__':
     windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif']
     baseline_name = '37'
     inverse_method = 'dSPM'
-    check_for_labels_files = True
+    check_for_labels_files = False
     modalities = ['eeg', 'meg', 'meeg']
-    for modality in ['meeg']:
-        calc_induced_power_pipeline(
-            subject, windows, baseline_name, modality, inverse_method, check_for_labels_files)
-        # plot_stcs_files(subject, modality)
+    n_jobs = utils.get_n_jobs(-4)
+    for modality in modalities:
+        # calc_induced_power_pipeline(
+        #     subject, windows, baseline_name, modality, inverse_method, check_for_labels_files, n_jobs)
+        plot_stcs_files(subject, modality, n_jobs)
         # plot_windows(subject, windows, modality, inverse_method)
     # plot_baseline(subject, baseline_name)
