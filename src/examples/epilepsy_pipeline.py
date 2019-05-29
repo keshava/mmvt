@@ -6,9 +6,8 @@ import os.path as op
 import mne
 import numpy as np
 
-import matplotlib
-matplotlib.pyplot.switch_backend('agg')
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 
 
 LINKS_DIR = utils.get_links_dir()
