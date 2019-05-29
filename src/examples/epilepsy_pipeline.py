@@ -48,8 +48,9 @@ def calc_induced_power(subject, windows_fnames, baseline_name, modality, inverse
             ))
             module.call_main(args)
     # Move not zvals stc files
-    non_zvlas_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality, 'non-zvlas'))
-    stc_files = [f for f in glob.glob(op.join(MMVT_DIR, subject, modality, '*.stc'))
+    modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+    non_zvlas_fol = utils.make_dir(op.join(modality_fol, 'non-zvlas'))
+    stc_files = [f for f in glob.glob(op.join(modality_fol, '*.stc'))
                  if '-epilepsy-' in utils.namebase(f) and not '-zvals-' in utils.namebase(f)]
     for stc_fname in stc_files:
         utils.move_file(stc_fname, non_zvlas_fol, overwrite=True)
@@ -57,7 +58,8 @@ def calc_induced_power(subject, windows_fnames, baseline_name, modality, inverse
 
 def plot_stcs_files(subject, modality):
     import matplotlib.pyplot as plt
-    stc_files = [f for f in glob.glob(op.join(MMVT_DIR, subject, modality, '*-lh.stc'))
+    modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+    stc_files = [f for f in glob.glob(op.join(modality_fol, '*-lh.stc'))
                  if '-epilepsy-' in utils.namebase(f) and '-zvals-' in utils.namebase(f)]
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures'))
     for stc_fname in stc_files:
@@ -81,6 +83,7 @@ if __name__ == '__main__':
     baseline_name = '37'
     inverse_method = 'dSPM'
     check_for_labels_files = False
-    for modality in ['eeg', 'meg']:
-        # calc_induced_power(subject, windows, baseline_name, modality, inverse_method, check_for_labels_files)
-        plot_stcs_files(subject, modality)
+    modalities = ['eeg', 'meg', 'meeg']
+    for modality in ['meeg']:
+        calc_induced_power(subject, windows, baseline_name, modality, inverse_method, check_for_labels_files)
+        # plot_stcs_files(subject, modality)
