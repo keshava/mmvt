@@ -110,13 +110,15 @@ def plot_windows(subject, windows, modality, inverse_method):
     for window_fname in windows:
         window_name = utils.namebase(window_fname)
         figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-per_window-figures'))
+        stc_name = '{}-epilepsy-{}-{}-{}'.format(subject, inverse_method, modality, window_name)
+        fig_fname = op.join(figures_fol, '{}.jpg'.format(stc_name))
+        if op.isfile(fig_fname):
+            continue
         plt.figure()
         for band in bands:
-            stc_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-zvals-lh.stc'.format(
+            stc_band_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-zvals-lh.stc'.format(
                 subject, inverse_method, modality, window_name, band))
-            stc_name = utils.namebase(stc_fname)[:-3]
-            fig_fname = op.join(figures_fol, '{}.jpg'.format(stc_name))
-            stc = mne.read_source_estimate(stc_fname)
+            stc = mne.read_source_estimate(stc_band_fname)
             data = np.max(stc.data, axis=0)
             plt.plot(data.T)
         plt.title(window_name)
@@ -129,6 +131,9 @@ def plot_windows(subject, windows, modality, inverse_method):
 if __name__ == '__main__':
     subject = 'nmr00857'
     windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
+    windows += '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif'
+    windows += '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/37.3_BGprSzs.fif '
+
     baseline_name = '37'
     inverse_method = 'dSPM'
     check_for_labels_files = False
