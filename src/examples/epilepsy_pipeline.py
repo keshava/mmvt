@@ -139,15 +139,13 @@ if __name__ == '__main__':
     subject = 'nmr00857'
     windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
     windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif']
-        # '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/37.3_BGprSzs.fif']
-
     baseline_name = '37'
     inverse_method = 'dSPM'
     check_for_labels_files = False
     modalities = ['eeg', 'meg', 'meeg']
     for modality in modalities:
-    #     calc_induced_power_pipeline(
-    #         subject, windows, baseline_name, modality, inverse_method, check_for_labels_files)
+        calc_induced_power_pipeline(
+            subject, windows, baseline_name, modality, inverse_method, check_for_labels_files)
         # plot_stcs_files(subject, modality)
-        plot_windows(subject, windows, modality, inverse_method)
+        # plot_windows(subject, windows, modality, inverse_method)
     # plot_baseline(subject, baseline_name)
