@@ -113,19 +113,26 @@ def plot_windows(subject, windows, modality, inverse_method):
         stc_name = '{}-epilepsy-{}-{}-{}'.format(subject, inverse_method, modality, window_name)
         fig_fname = op.join(figures_fol, '{}.jpg'.format(stc_name))
         if op.isfile(fig_fname):
+            print('{} already exist'.format(fig_fname))
             continue
         plt.figure()
+        all_found = True
         for band in bands:
             stc_band_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-zvals-lh.stc'.format(
                 subject, inverse_method, modality, window_name, band))
+            if not op.isfile(stc_band_fname):
+                print('Can\'t find {}!'.format(stc_band_fname))
+                all_found = False
+                break
             stc = mne.read_source_estimate(stc_band_fname)
             data = np.max(stc.data, axis=0)
             plt.plot(data.T)
-        plt.title(window_name)
-        plt.legend(bands)
-        print('Saving {}'.format(window_name))
-        plt.savefig(fig_fname)
-        plt.close()
+        if all_found:
+            plt.title(window_name)
+            plt.legend(bands)
+            print('Saving {}'.format(window_name))
+            plt.savefig(fig_fname)
+            plt.close()
 
 
 if __name__ == '__main__':
