@@ -86,7 +86,7 @@ def plot_stcs_files(subject, modality, n_jobs=4):
                  if '-epilepsy-' in utils.namebase(f) and '-zvals-' in utils.namebase(f) and
                  '-{}-'.format(modality) in utils.namebase(f)]
     print('{} files for {}'.format(len(stc_files), modality))
-    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', modality))
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'all_stcs', modality))
     utils.run_parallel(_plot_stcs_files_parallel, [(stc_fname, figures_fol) for stc_fname in stc_files], n_jobs)
 
 
@@ -105,14 +105,14 @@ def plot_stc_file(stc_fname, figures_fol):
         plt.plot(data.T)
         plt.title(utils.namebase(stc_fname)[:-3])
         print('Saving {}'.format(fig_fname))
-        plt.savefig(fig_fname)
+        plt.savefig(fig_fname, dpi=300)
         plt.close()
 
 
 def plot_baseline(subject, baseline_name):
     stc_fnames = glob.glob(op.join(MMVT_DIR, subject, 'meg', 'non-zvals', '{}-epilepsy-*-{}_*.stc'.format(
         subject, baseline_name)))
-    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-baseline-figures'))
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'baseline'))
     for stc_fname in stc_fnames:
         plot_stc_file(stc_fname, figures_fol)
 
@@ -122,7 +122,7 @@ def plot_windows(subject, windows, modality, inverse_method):
     bands = ['theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     for window_fname in windows:
         window_name = utils.namebase(window_fname)
-        figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-per_window-figures'))
+        figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'epilepsy-per_window-figures'))
         stc_name = '{}-epilepsy-{}-{}-{}'.format(subject, inverse_method, modality, window_name)
         fig_fname = op.join(figures_fol, '{}.jpg'.format(stc_name))
         if op.isfile(fig_fname):
@@ -144,7 +144,7 @@ def plot_windows(subject, windows, modality, inverse_method):
             plt.title(window_name)
             plt.legend(bands)
             print('Saving {}'.format(window_name))
-            plt.savefig(fig_fname)
+            plt.savefig(fig_fname, dpi=300)
             plt.close()
 
 
@@ -155,7 +155,7 @@ def plot_freqs(subject, windows, modality, inverse_method, max_t=0, subfol=''):
         plt.figure()
         for window_fname in windows:
             window_name = utils.namebase(window_fname)
-            figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-per-band-figures'))
+            figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'runs_frontal_temporal'))
             if subfol != '':
                 figures_fol = utils.make_dir(op.join(figures_fol, subfol))
             fig_fname = op.join(figures_fol, '{}-{}.jpg'.format(modality, band))
@@ -180,7 +180,7 @@ def plot_freqs(subject, windows, modality, inverse_method, max_t=0, subfol=''):
 def plot_modalities(subject, windows, modalities, inverse_method, max_t=0, n_jobs=4):
     from itertools import product
     bands = ['theta', 'alpha', 'beta', 'gamma', 'high_gamma']
-    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-modalities-figures'))
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'modalities'))
     params = [(subject, modalities, inverse_method, figures_fol, band, window_fname, max_t)
               for (band, window_fname) in product(bands, windows)]
     utils.run_parallel(_plot_modalities_parallel, params, n_jobs)
@@ -232,8 +232,8 @@ if __name__ == '__main__':
 
         # plot_stcs_files(subject, modality, n_jobs)
         # plot_windows(subject, windows, modality, inverse_method)
-        # plot_freqs(subject, windows, modality, inverse_method, max_t)
         # plot_freqs(subject, temporal_windows, modality, inverse_method, max_t, 'temporal')
         # plot_freqs(subject, frontal_windows, modality, inverse_method, max_t, 'frontal')
-    plot_modalities(subject, windows, modalities, inverse_method, max_t, n_jobs)
-    # plot_baseline(subject, baseline_name)
+
+    # plot_modalities(subject, windows, modalities, inverse_method, max_t, n_jobs)
+    plot_baseline(subject, baseline_name)
