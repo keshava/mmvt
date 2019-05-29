@@ -141,9 +141,9 @@ if __name__ == '__main__':
     windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif']
     baseline_name = '37'
     inverse_method = 'dSPM'
-    check_for_labels_files = False
+    check_for_labels_files = True
     modalities = ['eeg', 'meg', 'meeg']
-    for modality in modalities:
+    for modality in ['meeg']:
         calc_induced_power_pipeline(
             subject, windows, baseline_name, modality, inverse_method, check_for_labels_files)
         # plot_stcs_files(subject, modality)
