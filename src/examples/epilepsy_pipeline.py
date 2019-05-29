@@ -131,8 +131,8 @@ def plot_windows(subject, windows, modality, inverse_method):
 if __name__ == '__main__':
     subject = 'nmr00857'
     windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
-    windows += '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif'
-    windows += '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/37.3_BGprSzs.fif '
+    windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif',
+        '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/37.3_BGprSzs.fif']
 
     baseline_name = '37'
     inverse_method = 'dSPM'
