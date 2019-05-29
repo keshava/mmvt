@@ -5,7 +5,11 @@ import glob
 import os.path as op
 import mne
 import numpy as np
+
+import matplotlib
+matplotlib.pyplot.switch_backend('agg')
 import matplotlib.pyplot as plt
+
 
 LINKS_DIR = utils.get_links_dir()
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
@@ -109,7 +113,7 @@ def plot_windows(subject, windows, modality, inverse_method):
         figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-per_window-figures'))
         plt.figure()
         for band in bands:
-            stc_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}-{}-zvals-lh.stc'.format(
+            stc_fname = op.join(modality_fol, '{}-epilepsy-{}-{}_{}_{}-zvals-lh.stc'.format(
                 subject, inverse_method, modality, window_name, band))
             stc_name = utils.namebase(stc_fname)[:-3]
             fig_fname = op.join(figures_fol, '{}.jpg'.format(stc_name))
