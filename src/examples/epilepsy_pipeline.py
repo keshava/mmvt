@@ -112,7 +112,7 @@ def plot_windows(subject, windows, modality, inverse_method):
         figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-per_window-figures'))
         plt.figure()
         for band in bands:
-            stc_fname = op.join(modality_fol, '{}-epilepsy-{}-{}_{}_{}-zvals-lh.stc'.format(
+            stc_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-zvals-lh.stc'.format(
                 subject, inverse_method, modality, window_name, band))
             stc_name = utils.namebase(stc_fname)[:-3]
             fig_fname = op.join(figures_fol, '{}.jpg'.format(stc_name))
