@@ -48,8 +48,9 @@ def select_stc():
     coloring_panel.smooth_map = _mmvt().meg.calc_smooth_mat(coloring_panel.stc)
     if not _mmvt().colorbar_values_are_locked():
         _mmvt().set_colorbar_max_min(data_max, data_min, force_update=True)
-        _mmvt().set_colorbar_title('{} {}'.format(
-            bpy.context.scene.epilepsy_modalities.upper(), bpy.context.scene.epilepsy_bands))
+        _mmvt().set_colorbar_title('{} {} {}'.format(
+            bpy.context.scene.epilepsy_modalities.upper(), bpy.context.scene.epilepsy_bands,
+            bpy.context.scene.epilepsy_windows))
     T = data_len - 1
     bpy.data.scenes['Scene'].frame_preview_start = 0
     bpy.data.scenes['Scene'].frame_preview_end = T
