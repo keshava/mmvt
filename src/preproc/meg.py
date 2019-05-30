@@ -3162,7 +3162,8 @@ def calc_source_morph_mat(subject_from, subject_to, src_vertices=None, zooms=5, 
     import mne.morph
     output_fname = op.join(MMVT_DIR, subject_from, 'smooth_map.pkl')
     if op.isfile(output_fname) and not overwrite:
-        return True
+        morph = utils.load(output_fname)
+        return True, morph
     if not utils.both_hemi_files_exist(op.join(SUBJECTS_MRI_DIR, subject_from, 'surf', '{hemi}.sphere.reg')):
         print('Can\'t find {}!'.format(op.join(SUBJECTS_MRI_DIR, subject_from, 'surf', '{hemi}.sphere.reg')))
         return False
@@ -3171,7 +3172,7 @@ def calc_source_morph_mat(subject_from, subject_to, src_vertices=None, zooms=5, 
                     glob.glob(op.join(MEG_DIR, subject_from, '*.stc'))
         if len(stc_files) == 0:
             print('Can\'t find any stc files!')
-            return False
+            return False, None
         stc = mne.read_source_estimate(stc_files[0])
         src_vertices = stc.vertices
 
@@ -3190,7 +3191,7 @@ def calc_source_morph_mat(subject_from, subject_to, src_vertices=None, zooms=5, 
         subject_from, subject_to, 'surface', zooms, niter_affine, niter_sdr, spacing, None, False,
         morph_mat, vertices_to, None, None, None, None, src_data)
     utils.save(morph, output_fname)
-    return op.isfile(output_fname)
+    return op.isfile(output_fname), morph
 
 # def create_stc_t(stc, t, subject=''):
 #     from mne import SourceEstimate
@@ -5746,7 +5747,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.fwd_usingMEG, args.fwd_usingEEG, overwrite=args.overwrite_labels_induced_power, n_jobs=args.n_jobs)
 
     if 'calc_source_morph_mat' in args.function:
-        flags['calc_source_morph_mat'] = calc_source_morph_mat(subject, subject)
+        flags['calc_source_morph_mat'], _ = calc_source_morph_mat(subject, subject)
 
     if 'load_fieldtrip_volumetric_data' in args.function:
         flags['load_fieldtrip_volumetric_data'] = load_fieldtrip_volumetric_data(
