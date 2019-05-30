@@ -3158,12 +3158,14 @@ def calc_stc_for_all_vertices(stc, subject='', morph_to_subject='', n_jobs=6):
 
 @utils.files_needed({'surf': ['lh.sphere.reg', 'lh.sphere.reg']})
 def calc_source_morph_mat(subject_from, subject_to, src_vertices=None, zooms=5, niter_affine=(100, 100, 10),
-                          niter_sdr=(5, 5, 3), spacing=5):
+                          niter_sdr=(5, 5, 3), spacing=5, overwrite=False):
     import mne.morph
+    output_fname = op.join(MMVT_DIR, subject_from, 'smooth_map.pkl')
+    if op.isfile(output_fname) and not overwrite:
+        return True
     if not utils.both_hemi_files_exist(op.join(SUBJECTS_MRI_DIR, subject_from, 'surf', '{hemi}.sphere.reg')):
         print('Can\'t find {}!'.format(op.join(SUBJECTS_MRI_DIR, subject_from, 'surf', '{hemi}.sphere.reg')))
-        return None
-    output_fname = op.join(MMVT_DIR, subject_from, 'smooth_map.pkl')
+        return False
     if src_vertices is None:
         stc_files = glob.glob(op.join(MMVT_DIR, subject_from, 'meg', '*.stc')) + \
                     glob.glob(op.join(MEG_DIR, subject_from, '*.stc'))
