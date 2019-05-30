@@ -91,6 +91,9 @@ def select_stc():
 def plot_evoked():
     mu = _mmvt().mmvt_utils
     evoked_fname = op.join(mu.get_user_fol(), 'evoked', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
+    if not op.isfile(evoked_fname):
+        print('Couldn\'t find the evoked file! {}'.format(evoked_fname))
+        return
     pick_meg, pick_eeg = 1, 1
     ssp_proj, spatial_colors = 0, 1
     window_title = bpy.context.scene.epilepsy_windows
