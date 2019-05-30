@@ -19,9 +19,16 @@ def plot_stc_graph():
     _mmvt().coloring.plot_max_stc_graph(stc_name)
 
 
+def get_colorbar_title():
+    return '{} {} {}'.format(
+        bpy.context.scene.epilepsy_modalities.upper(), bpy.context.scene.epilepsy_bands,
+        bpy.context.scene.epilepsy_windows)
+
+
 def plot_stc():
     _mmvt().coloring.plot_stc(coloring_panel.stc, bpy.context.scene.frame_current,
              threshold=bpy.context.scene.coloring_lower_threshold, save_image=False)
+    _mmvt().set_colorbar_title(get_colorbar_title())
 
 
 def get_stc_name():
@@ -46,11 +53,8 @@ def select_stc():
     stc_name = get_stc_name()
     data_min, data_max, data_len = _mmvt().coloring.calc_stc_minmax(stc_name=stc_name)
     coloring_panel.smooth_map = _mmvt().meg.calc_smooth_mat(coloring_panel.stc)
-    if not _mmvt().colorbar_values_are_locked():
-        _mmvt().set_colorbar_max_min(data_max, data_min, force_update=True)
-        _mmvt().set_colorbar_title('{} {} {}'.format(
-            bpy.context.scene.epilepsy_modalities.upper(), bpy.context.scene.epilepsy_bands,
-            bpy.context.scene.epilepsy_windows))
+    _mmvt().set_colorbar_max_min(data_max, data_min, force_update=True)
+    _mmvt().set_colorbar_title(get_colorbar_title())
     T = data_len - 1
     bpy.data.scenes['Scene'].frame_preview_start = 0
     bpy.data.scenes['Scene'].frame_preview_end = T
@@ -69,7 +73,7 @@ def draw(self, context):
     layout.prop(context.scene, 'epilepsy_windows', 'Window')
     layout.operator(SelectSTC.bl_idname, text="Load File", icon='HAND')
     row = layout.row(align=True)
-    row.operator(EpilepsyPlot.bl_idname, text="Plot MEG ", icon='POTATO')
+    row.operator(EpilepsyPlot.bl_idname, text="Plot {}".format(bpy.context.scene.epilepsy_modalities), icon='POTATO')
     row.operator(PlotMaxSTCGraph.bl_idname, text="Plot max graph ", icon='IPO_ELASTIC')
 
 
