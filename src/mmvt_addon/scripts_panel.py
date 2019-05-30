@@ -78,6 +78,7 @@ def check_script(script_name, return_all=False):
         else:
             return None if return_all else False
     except:
+        mu.print_last_error_line()
         return None if return_all else False
 
 
