@@ -233,6 +233,23 @@ def _plot_modalities_parallel(p):
         plt.close()
 
 
+def fix_amplitude_fnames(subject, bands):
+    stcs_files = glob.glob(op.join(MMVT_DIR, subject, 'meg', '{}-epilepsy-*-zvals-?h.stc'.format(subject))) + \
+                 glob.glob(op.join(MMVT_DIR, subject, 'eeg', '{}-epilepsy-*-zvals-?h.stc'.format(subject)))
+    for stc_fname in stcs_files:
+        stc_name = utils.namebase(stc_fname)[len('{}-epilepsy-'.format(subject)):-len('-zvals-lh')]
+        if stc_name.endswith('amplitude'):
+            continue
+        if not any([stc_name.endswith(band) for band in bands]):
+            stc_name += '_amplitude'
+            stc_end = '-zvals-lh.stc' if stc_fname.endswith('-zvals-lh.stc') else '-zvals-rh.stc'
+            new_stc_fname = op.join(
+                utils.get_parent_fol(stc_fname), '{}-epilepsy-{}{}'.format(subject, stc_name, stc_end))
+            print('{} -> {}'.format(stc_fname, new_stc_fname))
+            utils.rename_files(stc_fname, new_stc_fname)
+
+
+
 if __name__ == '__main__':
     subject = 'nmr00857'
     windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
@@ -261,3 +278,4 @@ if __name__ == '__main__':
     # plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, n_jobs)
     # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
     # plot_baseline(subject, baseline_name)
+    fix_amplitude_fnames(subject, bands)

@@ -116,7 +116,7 @@ class EpilepsyPlot(bpy.types.Operator):
 def init(mmvt):
     mu = mmvt.mmvt_utils
     register()
-    bands_names = ['delta', 'theta', 'alpha', 'beta', 'high_gamma', 'gamma']
+    bands_names = ['amplitude', 'delta', 'theta', 'alpha', 'beta', 'high_gamma', 'gamma']
     user_fol = mu.get_user_fol()
     stcs_files = glob.glob(op.join(user_fol, 'meg', '{}-epilepsy-*-zvals-lh.stc'.format(mu.get_user()))) + \
                  glob.glob(op.join(user_fol, 'eeg', '{}-epilepsy-*-zvals-lh.stc'.format(mu.get_user())))
@@ -146,7 +146,7 @@ def init(mmvt):
     bpy.context.scene.epilepsy_inverse_methods = list(inverse_methods)[0]
 
     bands_items, bands_ind = [], 0
-    for band in ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']:
+    for band in ['amplitude', 'delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']:
         if band in bands:
             bands_items.append((band, band, '', bands_ind))
             bands_ind += 1
