@@ -106,15 +106,17 @@ def plot_meg():
     return ret
 
 
-def plot_max_stc_graph():
-    stc_name = bpy.context.scene.meg_files
-    modality = ''
-    if mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-        modality = 'meg'
-    elif mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'eeg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-        modality = 'eeg'
-    else:
-        print('Can\'t find the stc file!')
+def plot_max_stc_graph(stc_name='', modality=''):
+    if stc_name == '':
+        stc_name = bpy.context.scene.meg_files
+    if modality == '':
+        if mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+            modality = 'meg'
+        elif mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'eeg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+            modality = 'eeg'
+        else:
+            print('Can\'t find the stc file!')
+            return
     if modality != '':
         mu.run_mmvt_func(
             'src.preproc.meg', 'plot_max_stc', flags='--stc_name {} --modality {}'.format(stc_name, modality))

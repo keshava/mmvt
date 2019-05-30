@@ -606,7 +606,7 @@ def calc_epochs_bands_psd(mri_subject, events, precentiles=(1, 99), bands=None, 
     meg_fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
     if bands is None:
-        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     ret = True
     for cond_ind, cond_name in enumerate(events_keys):
         input_fname = op.join(meg_fol, '{}_sensors_psd.npz'.format(cond_name))
@@ -623,7 +623,7 @@ def calc_epochs_bands_psd(mri_subject, events, precentiles=(1, 99), bands=None, 
 def _calc_epochs_bands_psd(mri_subject, psds, freqs, bands=None, cond_name='all', precentiles=(1, 99), overwrite=False):
     meg_fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
     if bands is None:
-        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     ret = True
     for band, (lf, hf) in bands.items():
         output_fname = op.join(meg_fol, '{}_sensors_{}_psd.npz'.format(cond_name, band))
@@ -689,7 +689,7 @@ def calc_source_baseline_psd(subject, task, mri_subject='', raw_fname='', epo_fn
     if mri_subject == '':
         mri_subject = subject
     if bands is None:
-        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     if inv_fname == '':
         inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
     if not op.isfile(inv_fname):
@@ -875,7 +875,7 @@ def calc_vertices_data_power_bands(
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
     if bands is None:
-        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
 
     results_num = 0
     for (cond_ind, cond_name), em in product(enumerate(events_keys), extract_modes):
@@ -963,8 +963,8 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
         else ['all']
     lambda2 = 1.0 / snr ** 2
     if bands is None:
-        bands = dict(theta=np.arange(4, 8, 1), alpha=np.arange(8, 15, 1), beta=np.arange(15, 30, 2),
-                     gamma=np.arange(30, 55, 3), high_gamma=np.arange(65, 120, 5))
+        bands = dict(delta=np.arange(1, 4, 1), theta=np.arange(4, 8, 1), alpha=np.arange(8, 15, 1),
+                     beta=np.arange(15, 30, 2), gamma=np.arange(30, 55, 3), high_gamma=np.arange(65, 120, 5))
     labels = lu.read_labels(mri_subject, SUBJECTS_MRI_DIR, atlas, n_jobs=n_jobs)
     if len(labels) == 0:
         return False
@@ -1046,7 +1046,7 @@ def calc_labels_power_bands(mri_subject, atlas, events, inverse_method='dSPM', e
     meg_fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
     if bands is None:
-        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     if labels is None:
         labels = lu.read_labels(mri_subject, SUBJECTS_MRI_DIR, atlas, only_names=True, n_jobs=n_jobs)
     ret = True
@@ -1098,8 +1098,7 @@ def calc_labels_connectivity(
         else ['all']
     lambda2 = 1.0 / snr ** 2
     if bands is None or bands == '':
-        bands = [[4, 8], [8, 15], [15, 30], [30, 55], [65, 120]]
-        # bands = [[30, 55]]
+        bands = [[1, 4], [4, 8], [8, 15], [15, 30], [30, 55], [65, 120]]
     if cwt_frequencies is None or cwt_frequencies == '':
         cwt_frequencies = np.arange(4, 120, 2)
     fol = utils.make_dir(op.join(mmvt_dir, mri_subject, 'connectivity'))
@@ -1175,7 +1174,8 @@ def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file
     if cwt_frequencies is None or cwt_frequencies == '':
         cwt_frequencies = np.arange(4, 120, 2)
     if bands is None or bands == '':
-        bands = OrderedDict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+        bands = OrderedDict(
+            delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     info = load_file_for_info(meg_file_with_info)
     stc_fol = op.join(mmvt_dir, mri_subject, 'meg')
     stc_fname = op.join(stc_fol, '{}-rh.stc'.format(stc_name))

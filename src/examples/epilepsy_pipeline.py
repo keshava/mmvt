@@ -21,16 +21,6 @@ def calc_induced_power(subject, windows_fnames, modality, inverse_method='dSPM',
         calc_induced_power_per_window(subject, window_fname, modality, inverse_method, check_for_labels_files)
 
 
-def calc_induced_power_zvals(subject, windows_fnames, baseline_name, modality, inverse_method='dSPM', n_jobs=4):
-    params = [(subject, modality, window_fname, baseline_name, inverse_method) for window_fname in windows_fnames]
-    utils.run_parallel(_calc_induced_power_zvals_parallel, params, n_jobs)
-
-
-def _calc_induced_power_zvals_parallel(p):
-    subject, modality, window_fname, baseline_name, inverse_method = p
-    calc_induced_power_zvals(subject, modality, window_fname, baseline_name, inverse_method)
-
-
 def calc_induced_power_per_window(subject, window_fname, modality, inverse_method='dSPM', check_for_labels_files=True):
     root_dir = EEG_DIR if modality == 'eeg' else MEG_DIR
     module = eeg if modality == 'eeg' else meg
@@ -51,9 +41,15 @@ def calc_induced_power_per_window(subject, window_fname, modality, inverse_metho
         module.call_main(args)
 
 
-def calc_induced_power_zvals(subject, modality, window_fname, baseline_name, inverse_method):
+def calc_induced_power_zvals(subject, windows_fnames, baseline_name, modality, bands, inverse_method='dSPM', n_jobs=4):
+    params = [(subject, modality, window_fname, baseline_name, bands, inverse_method)
+              for window_fname in windows_fnames]
+    utils.run_parallel(_calc_induced_power_zvals_parallel, params, n_jobs)
+
+
+def _calc_induced_power_zvals_parallel(p):
+    subject, modality, window_fname, baseline_name, bands, inverse_method = p
     module = eeg if modality == 'eeg' else meg
-    bands = ['theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     for band in bands:
         stc_template = '{}-epilepsy-{}-{}-{}_{}'.format(subject, inverse_method, modality, '{window}', band)
         window_stc_name = stc_template.format(window=utils.namebase(window_fname))
@@ -118,9 +114,8 @@ def plot_baseline(subject, baseline_name):
         plot_stc_file(stc_fname, figures_fol)
 
 
-def plot_windows(subject, windows, modality, inverse_method):
+def plot_windows(subject, windows, modality, bands, inverse_method):
     modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
-    bands = ['theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     for window_fname in windows:
         window_name = utils.namebase(window_fname)
         figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'epilepsy-per_window-figures'))
@@ -149,9 +144,8 @@ def plot_windows(subject, windows, modality, inverse_method):
             plt.close()
 
 
-def plot_freqs(subject, windows, modality, inverse_method, max_t=0, subfol=''):
+def plot_freqs(subject, windows, modality, bands, inverse_method, max_t=0, subfol=''):
     modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
-    bands = ['theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     for band in bands:
         plt.figure()
         for window_fname in windows:
@@ -205,9 +199,8 @@ def plot_activity_modalities(subject, windows, modalities, inverse_method, max_t
             plt.close()
 
 
-def plot_modalities(subject, windows, modalities, inverse_method, max_t=0, n_jobs=4):
+def plot_modalities(subject, windows, modalities, bands, inverse_method, max_t=0, n_jobs=4):
     from itertools import product
-    bands = ['theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'modalities'))
     params = [(subject, modalities, inverse_method, figures_fol, band, window_fname, max_t)
               for (band, window_fname) in product(bands, windows)]
@@ -240,29 +233,31 @@ def _plot_modalities_parallel(p):
         plt.close()
 
 
-
 if __name__ == '__main__':
     subject = 'nmr00857'
     windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
     windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif']
+    baseline_windows = ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/37.3_BGprSzs.fif']
+    windows_with_baseline = windows + baseline_windows
     temporal_windows = [w for w in windows if '_Ts' in utils.namebase(w)]
     frontal_windows = [w for w in windows if '_Fs' in utils.namebase(w)]
-    baseline_name = '37'
+    baseline_name = '37.3_BGprSzs'
     inverse_method = 'dSPM'
-    check_for_labels_files = True
+    check_for_labels_files = False
     max_t = 7500
     modalities = ['eeg', 'meg', 'meeg']
+    bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     n_jobs = utils.get_n_jobs(-4)
-    # for modality in ['meeg']:# modalities:
-    #     calc_induced_power(subject, windows, modality, inverse_method, check_for_labels_files)
-        # calc_induced_power_zvals(subject, windows, baseline_name, modality, inverse_method, n_jobs)
+    # for modality in modalities:
+        # calc_induced_power(subject, baseline_windows, modality, inverse_method, check_for_labels_files)
+        # calc_induced_power_zvals(subject, windows, baseline_name, modality, bands, inverse_method, n_jobs)
         # move_non_zvals_stcs(subject, modality)
 
         # plot_stcs_files(subject, modality, n_jobs)
-        # plot_windows(subject, windows, modality, inverse_method)
-        # plot_freqs(subject, temporal_windows, modality, inverse_method, max_t, 'temporal')
-        # plot_freqs(subject, frontal_windows, modality, inverse_method, max_t, 'frontal')
+        # plot_windows(subject, windows, modality, bands, inverse_method)
+        # plot_freqs(subject, temporal_windows, modality, bands, inverse_method, max_t, 'temporal')
+        # plot_freqs(subject, frontal_windows, modality, bands, inverse_method, max_t, 'frontal')
 
-    # plot_modalities(subject, windows, modalities, inverse_method, max_t, n_jobs)
-    plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
+    # plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, n_jobs)
+    # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
     # plot_baseline(subject, baseline_name)
