@@ -44,21 +44,31 @@ def get_stc_fname():
         bpy.context.scene.epilepsy_windows, bpy.context.scene.epilepsy_bands))
 
 
+def get_image_fname(ind):
+    mu = _mmvt().mmvt_utils
+    fol = mu.make_dir(op.join(mu.get_user_fol(), 'epilepsy-figures', 'figures'))
+    return op.join(fol, '{}_{}_{}_{}_{}.jpg'.format(
+        bpy.context.scene.epilepsy_modalities.upper(), bpy.context.scene.epilepsy_bands,
+        bpy.context.scene.epilepsy_windows, bpy.context.scene.frame_current, ind))
+
+
+
 def save_image():
     mu = _mmvt().mmvt_utils
     _mmvt().render.switch_to_object_mode()
     mu.show_only_render(True)
-    fol = mu.make_dir(op.join(mu.get_user_fol(), 'epilepsy-figures', 'figures'))
-    image_name = op.join(fol, '{}_{}_{}_{}.jpg'.format(
-        bpy.context.scene.epilepsy_modalities.upper(), bpy.context.scene.epilepsy_bands,
-        bpy.context.scene.epilepsy_windows, bpy.context.scene.frame_current))
-    print('Image saved in {}'.format(image_name))
-    bpy.context.scene.render.filepath = image_name
+    image_ind = 1
+    image_fname = get_image_fname(image_ind)
+    while op.isfile(image_fname):
+        image_ind += 1
+        image_fname = get_image_fname(image_ind)
+    print('Image saved in {}'.format(image_fname))
+    bpy.context.scene.render.filepath = image_fname
     view3d_context = mu.get_view3d_context()
     bpy.ops.render.opengl(view3d_context, write_still=True)
     if bpy.context.scene.save_views_with_cb:
         _mmvt().render.add_colorbar_to_image(
-            image_name, bpy.context.scene.cb_ticks_num, bpy.context.scene.cb_ticks_font_size)
+            image_fname, bpy.context.scene.cb_ticks_num, bpy.context.scene.cb_ticks_font_size)
 
 
 def select_stc():
