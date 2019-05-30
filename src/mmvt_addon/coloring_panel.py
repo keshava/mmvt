@@ -209,12 +209,16 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
             morph_map_resources_fname = op.join(mu.get_resources_dir(), 'morph_maps', morph_name)
             if not op.isfile(morph_map_fname) and op.isfile(morph_map_resources_fname):
                 shutil.copyfile(morph_map_resources_fname, morph_map_fname)
-            # vertices_to = mne.grade_to_vertices(subject, None, subjects_dir=subjects_dir)
-            # stc_t_smooth = mne.morph_data(
-            #     subject, subject, stc_t, n_jobs=n_jobs, grade=vertices_to, subjects_dir=subjects_dir)
-            stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc)
+            if ColoringMakerPanel.smooth_map is None:
+                ColoringMakerPanel.smooth_map = _addon().meg.calc_smooth_mat(stc_t)
+            if ColoringMakerPanel.smooth_map is not None:
+                stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc_t)
+            else:
+                vertices_to = mne.grade_to_vertices(subject, None, subjects_dir=subjects_dir)
+                stc_t_smooth = mne.morph_data(
+                    subject, subject, stc_t, n_jobs=n_jobs, grade=vertices_to, subjects_dir=subjects_dir)
 
-        stc_t_smooth.save(stc_t_fname)
+        # stc_t_smooth.save(stc_t_fname)
 
     if _addon().colorbar_values_are_locked():
         data_max, data_min = _addon().get_colorbar_max_min()
@@ -2576,6 +2580,7 @@ class ColoringMakerPanel(bpy.types.Panel):
     run_meg_minmax_prec_update = True
     run_fmri_minmax_prec_update = True
     run_electrodes_minmax_prec_update = True
+    smooth_map = None
     # activity_map_coloring = activity_map_coloring
 
     def draw(self, context):

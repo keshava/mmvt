@@ -3156,12 +3156,27 @@ def calc_stc_for_all_vertices(stc, subject='', morph_to_subject='', n_jobs=6):
     return mne.morph_data(subject, morph_to_subject, stc, n_jobs=n_jobs, grade=vertices_to)
 
 
-def calc_source_morph_mat(subject_from, subject_to, src_vertices, zooms=5, niter_affine=(100, 100, 10),
+@utils.files_needed({'surf': ['lh.sphere.reg', 'lh.sphere.reg']})
+def calc_source_morph_mat(subject_from, subject_to, src_vertices=None, zooms=5, niter_affine=(100, 100, 10),
                           niter_sdr=(5, 5, 3), spacing=5):
+    import mne.morph
+    if not utils.both_hemi_files_exist(op.join(SUBJECTS_MRI_DIR, subject_from, 'surf', '{hemi}.sphere.reg')):
+        print('Can\'t find {}!'.format(op.join(SUBJECTS_MRI_DIR, subject_from, 'surf', '{hemi}.sphere.reg')))
+        return None
+    output_fname = op.join(MMVT_DIR, subject_from, 'smooth_map.pkl')
+    if src_vertices is None:
+        stc_files = glob.glob(op.join(MMVT_DIR, subject_from, 'meg', '*.stc')) + \
+                    glob.glob(op.join(MEG_DIR, subject_from, '*.stc'))
+        if len(stc_files) == 0:
+            print('Can\'t find any stc files!')
+            return False
+        stc = mne.read_source_estimate(stc_files[0])
+        src_vertices = stc.vertices
+
     src_data = dict(vertices_from=copy.deepcopy(src_vertices))
     vertices_from = src_data['vertices_from']
-    vertices_to = mne.grade_to_vertices(
-        subject_to, spacing, SUBJECTS_MRI_DIR, 1)
+    pial = utils.get_pial_vertices(subject_to, MMVT_DIR)
+    vertices_to = [np.arange(len(pial['lh'])), np.arange(len(pial['rh']))]
     morph_mat = mne.morph._compute_morph_matrix(
         subject_from=subject_from, subject_to=subject_to,
         vertices_from=vertices_from, vertices_to=vertices_to,
@@ -3171,8 +3186,9 @@ def calc_source_morph_mat(subject_from, subject_to, src_vertices, zooms=5, niter
     assert morph_mat.shape[0] == n_verts
     morph = mne.SourceMorph(
         subject_from, subject_to, 'surface', zooms, niter_affine, niter_sdr, spacing, None, False,
-        morph_mat, None, None, None, None, None, src_data)
-    return morph
+        morph_mat, vertices_to, None, None, None, None, src_data)
+    utils.save(morph, output_fname)
+    return op.isfile(output_fname)
 
 # def create_stc_t(stc, t, subject=''):
 #     from mne import SourceEstimate
@@ -5726,6 +5742,9 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.max_epochs_num, args.average_over_label_indices, args.cwt_n_cycles, MRI_SUBJECT, args.epo_fname,
             args.inv_fname, args.snr, args.pick_ori, args.apply_SSP_projection_vectors, args.add_eeg_ref,
             args.fwd_usingMEG, args.fwd_usingEEG, overwrite=args.overwrite_labels_induced_power, n_jobs=args.n_jobs)
+
+    if 'calc_source_morph_mat' in args.function:
+        flags['calc_source_morph_mat'] = calc_source_morph_mat(subject, subject)
 
     if 'load_fieldtrip_volumetric_data' in args.function:
         flags['load_fieldtrip_volumetric_data'] = load_fieldtrip_volumetric_data(

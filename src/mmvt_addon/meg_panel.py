@@ -996,10 +996,15 @@ def plot_activity_contours(activity_contours_name, colormap='RdOrYl'):
 
 
 def calc_smooth_mat(stc):
-    mu.add_mmvt_code_root_to_path()
-    from src.preproc import meg
-    importlib.reload(meg)
-    return meg.calc_source_morph_mat(mu.get_user(), mu.get_user(), stc.vertices)
+    smooth_map_fname = op.join(mu.get_user_fol(), 'smooth_map.pkl')
+    if op.isfile(smooth_map_fname):
+        return mu.load(smooth_map_fname)
+    else:
+        mu.add_mmvt_code_root_to_path()
+        from src.preproc import meg
+        importlib.reload(meg)
+        ret = meg.calc_source_morph_mat(mu.get_user(), mu.get_user(), stc.vertices)
+        return mu.load(smooth_map_fname) if ret else None
 
 
 def meg_draw(self, context):
