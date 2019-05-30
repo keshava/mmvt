@@ -44,6 +44,23 @@ def get_stc_fname():
         bpy.context.scene.epilepsy_windows, bpy.context.scene.epilepsy_bands))
 
 
+def save_image():
+    mu = _mmvt().mmvt_utils
+    _mmvt().render.switch_to_object_mode()
+    mu.show_only_render(True)
+    fol = mu.make_dir(op.join(mu.get_user_fol(), 'epilepsy-figures', 'figures'))
+    image_name = op.join(fol, '{}_{}_{}_{}.jpg'.format(
+        bpy.context.scene.epilepsy_modalities.upper(), bpy.context.scene.epilepsy_bands,
+        bpy.context.scene.epilepsy_windows, bpy.context.scene.frame_current))
+    print('Image saved in {}'.format(image_name))
+    bpy.context.scene.render.filepath = image_name
+    view3d_context = mu.get_view3d_context()
+    bpy.ops.render.opengl(view3d_context, write_still=True)
+    if bpy.context.scene.save_views_with_cb:
+        _mmvt().render.add_colorbar_to_image(
+            image_name, bpy.context.scene.cb_ticks_num, bpy.context.scene.cb_ticks_font_size)
+
+
 def select_stc():
     stc_fname = get_stc_fname()
     if not op.isfile(stc_fname):
@@ -73,8 +90,10 @@ def draw(self, context):
     layout.prop(context.scene, 'epilepsy_windows', 'Window')
     layout.operator(SelectSTC.bl_idname, text="Load File", icon='HAND')
     row = layout.row(align=True)
-    row.operator(EpilepsyPlot.bl_idname, text="Plot {}".format(bpy.context.scene.epilepsy_modalities), icon='POTATO')
+    row.operator(EpilepsyPlot.bl_idname, text="Plot {}".format(bpy.context.scene.epilepsy_modalities.upper()),
+                 icon='POTATO')
     row.operator(PlotMaxSTCGraph.bl_idname, text="Plot max graph ", icon='IPO_ELASTIC')
+    layout.operator(EpilepsySaveImage.bl_idname, text="Save image ", icon='ROTATE')
 
 
 class SelectSTC(bpy.types.Operator):
@@ -110,6 +129,18 @@ class EpilepsyPlot(bpy.types.Operator):
     @staticmethod
     def invoke(self, context, event=None):
         plot_stc()
+        return {"FINISHED"}
+
+
+class EpilepsySaveImage(bpy.types.Operator):
+    bl_idname = "mmvt.epilepsy_save_image"
+    bl_label = "mmvt epilepsy_sage_image"
+    bl_description = 'Save image'
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        save_image()
         return {"FINISHED"}
 
 
@@ -168,6 +199,7 @@ def register():
         bpy.utils.register_class(SelectSTC)
         bpy.utils.register_class(EpilepsyPlot)
         bpy.utils.register_class(PlotMaxSTCGraph)
+        bpy.utils.register_class(EpilepsySaveImage)
     except:
         pass
 
@@ -177,5 +209,6 @@ def unregister():
         bpy.utils.unregister_class(SelectSTC)
         bpy.utils.unregister_class(EpilepsyPlot)
         bpy.utils.unregister_class(PlotMaxSTCGraph)
+        bpy.utils.unregister_class(EpilepsySaveImage)
     except:
         pass
