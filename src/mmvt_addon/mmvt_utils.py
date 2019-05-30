@@ -2747,7 +2747,7 @@ def make_link(source, target, overwrite=False, copy_if_fails=True):
     try:
         if op.exists(source):
             ret = os.symlink(source, target)
-            if not ret and copy_if_fails:
+            if not ret and copy_if_fails and source != target:
                 shutil.copy(source, target)
             return True
         else:

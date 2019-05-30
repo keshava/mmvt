@@ -2491,6 +2491,20 @@ def plot_max_stc(subject, stc_name, modality='meg'):
     return True
 
 
+def plot_evoked(evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=True, pick_eog=False, ssp_proj=False,
+                spatial_colors=True, window_title='', hline=None, exclude='bads'):
+    evokes = mne.read_evokeds(evoked_fname)
+    evoked = evokes[evoked_key] if evoked_key is not None else evokes[0]
+    if len(exclude) == 0:
+        exclude = exclude[0]
+    picks = mne.pick_types(evoked.info, meg=pick_meg, eeg=pick_eeg, eog=pick_eog, exclude=exclude)
+    fig = evoked.plot(
+        picks=picks, proj=ssp_proj, hline=hline, window_title=window_title, spatial_colors=spatial_colors,
+        selectable=True)
+    fig.tight_layout()
+    return True
+
+
 def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
                        calc_inducde_power_per_label=True, normalize_proj=True, overwrite_stc=False,
                        modality='meg', df=1, n_cycles=2, n_jobs=6):
@@ -5786,6 +5800,11 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'plot_max_stc' in args.function:
         flags['plot_max_stc'] = plot_max_stc(subject, args.stc_name, args.modality)
 
+    if 'plot_evoked' in args.function:
+        flags['plot_evoked'] = plot_evoked(
+            args.evo_fname, args.evoked_key, args.pick_meg, args.pick_eeg, args.pick_eog, args.ssp_proj,
+            args.spatial_colors, args.window_title, args.hline, args.channels_to_exclude)
+
     return flags
 
 
@@ -5979,6 +5998,13 @@ def read_cmd_args(argv=None):
     parser.add_argument('--bad_ar_threshold', required=False, default=0.5, type=float)
     parser.add_argument('--ar_consensus_percs', required=False, default=None)
     parser.add_argument('--ar_n_interpolates', required=False, default=None)
+    # evoked plotting
+    parser.add_argument('--evoked_key', required=False, default=None, type=au.str_or_none)
+    parser.add_argument('--ssp_proj', required=False, default=0, type=au.is_true)
+    parser.add_argument('--spatial_colors', required=False, default=1, type=au.is_true)
+    parser.add_argument('--window_title', required=False, default='')
+    parser.add_argument('--hline', required=False, default=None, type=au.float_arr_type)
+    parser.add_argument('--channels_to_exclude', required=False, default='bads', type=au.str_arr_type)
 
     pu.add_common_args(parser)
     args = utils.Bag(au.parse_parser(parser, argv))

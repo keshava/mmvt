@@ -249,6 +249,15 @@ def fix_amplitude_fnames(subject, bands):
             utils.rename_files(stc_fname, new_stc_fname)
 
 
+def create_evokeds_links(subject, windows):
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'evoked'))
+    for window_fname in windows:
+        new_window_fname = op.join(fol, utils.namebase_with_ext(window_fname))
+        if op.isfile(new_window_fname) or op.islink(new_window_fname):
+            continue
+        utils.make_link(window_fname, new_window_fname)
+
+
 
 if __name__ == '__main__':
     subject = 'nmr00857'
@@ -279,3 +288,4 @@ if __name__ == '__main__':
     # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
     # plot_baseline(subject, baseline_name)
     fix_amplitude_fnames(subject, bands)
+    create_evokeds_links(subject, windows_with_baseline)

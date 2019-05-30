@@ -52,7 +52,6 @@ def get_image_fname(ind):
         bpy.context.scene.epilepsy_windows, bpy.context.scene.frame_current, ind))
 
 
-
 def save_image():
     mu = _mmvt().mmvt_utils
     _mmvt().render.switch_to_object_mode()
@@ -89,6 +88,21 @@ def select_stc():
         bpy.context.scene.frame_current = T
 
 
+def plot_evoked():
+    mu = _mmvt().mmvt_utils
+    evoked_fname = op.join(mu.get_user_fol(), 'evoked', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
+    pick_meg, pick_eeg = 1, 1
+    ssp_proj = 0
+    spatial_colors = 1
+    window_title = 'MMVT'
+    exclude = 'bads'
+    mu.run_mmvt_func(
+        'src.preproc.meg', 'plot_evoked', flags=
+        '--evo_fname "{}" --pick_meg {} --pick_eeg {} '.format(evoked_fname, pick_meg, pick_eeg) +
+        '--ssp_proj {} --spatial_colors {} --window_title {} --channels_to_exclude {}'.format(
+            ssp_proj, spatial_colors, window_title, exclude))
+
+
 def draw(self, context):
     layout = self.layout
     layout.prop(context.scene, 'coloring_lower_threshold', text="Threshold")
@@ -99,10 +113,12 @@ def draw(self, context):
         layout.prop(context.scene, 'epilepsy_inverse_methods', '')
     layout.prop(context.scene, 'epilepsy_windows', 'Window')
     layout.operator(SelectSTC.bl_idname, text="Load File", icon='HAND')
-    row = layout.row(align=True)
-    row.operator(EpilepsyPlot.bl_idname, text="Plot {}".format(bpy.context.scene.epilepsy_modalities.upper()),
+    layout.operator(EpilepsyPlot.bl_idname, text="Plot {}".format(bpy.context.scene.epilepsy_modalities.upper()),
                  icon='POTATO')
+    col = layout.box().column()
+    row = col.row(align=True)
     row.operator(PlotMaxSTCGraph.bl_idname, text="Plot max graph ", icon='IPO_ELASTIC')
+    row.operator(PlotEvoked.bl_idname, text="Plot evoked ", icon='IPO_ELASTIC')
     layout.operator(EpilepsySaveImage.bl_idname, text="Save image ", icon='ROTATE')
 
 
@@ -127,6 +143,18 @@ class PlotMaxSTCGraph(bpy.types.Operator):
     @staticmethod
     def invoke(self, context, event=None):
         plot_stc_graph()
+        return {"FINISHED"}
+
+
+class PlotEvoked(bpy.types.Operator):
+    bl_idname = "mmvt.epilepsy_plt_evoked"
+    bl_label = "mmvt epilepsy_plt_evoked"
+    bl_description = 'Plot evoked graph'
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        plot_evoked()
         return {"FINISHED"}
 
 
@@ -209,6 +237,7 @@ def register():
         bpy.utils.register_class(SelectSTC)
         bpy.utils.register_class(EpilepsyPlot)
         bpy.utils.register_class(PlotMaxSTCGraph)
+        bpy.utils.register_class(PlotEvoked)
         bpy.utils.register_class(EpilepsySaveImage)
     except:
         pass
@@ -219,6 +248,7 @@ def unregister():
         bpy.utils.unregister_class(SelectSTC)
         bpy.utils.unregister_class(EpilepsyPlot)
         bpy.utils.unregister_class(PlotMaxSTCGraph)
+        bpy.utils.unregister_class(PlotEvoked)
         bpy.utils.unregister_class(EpilepsySaveImage)
     except:
         pass

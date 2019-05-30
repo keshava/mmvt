@@ -159,7 +159,9 @@ class UpdateScripts(bpy.types.Operator):
     bl_options = {"UNDO"}
 
     def invoke(self, context, event=None):
+        current_script = context.scene.scripts_files
         init(_addon(), False)
+        context.scene.scripts_files = current_script
         return {'PASS_THROUGH'}
 
 
