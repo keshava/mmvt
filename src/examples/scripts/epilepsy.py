@@ -92,14 +92,13 @@ def plot_evoked():
     mu = _mmvt().mmvt_utils
     evoked_fname = op.join(mu.get_user_fol(), 'evoked', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
     pick_meg, pick_eeg = 1, 1
-    ssp_proj = 0
-    spatial_colors = 1
-    window_title = 'MMVT'
+    ssp_proj, spatial_colors = 0, 1
+    window_title = bpy.context.scene.epilepsy_windows
     exclude = 'bads'
     mu.run_mmvt_func(
         'src.preproc.meg', 'plot_evoked', flags=
         '--evo_fname "{}" --pick_meg {} --pick_eeg {} '.format(evoked_fname, pick_meg, pick_eeg) +
-        '--ssp_proj {} --spatial_colors {} --window_title {} --channels_to_exclude {}'.format(
+        '--ssp_proj {} --spatial_colors {} --window_title "{}" --channels_to_exclude {}'.format(
             ssp_proj, spatial_colors, window_title, exclude))
 
 
