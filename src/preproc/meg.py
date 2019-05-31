@@ -2493,6 +2493,10 @@ def plot_max_stc(subject, stc_name, modality='meg'):
 
 def plot_evoked(evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=True, pick_eog=False, ssp_proj=False,
                 spatial_colors=True, window_title='', hline=None, exclude='bads'):
+    if not op.isfile(evoked_fname):
+        print('plot_evoked: Can\'t find {}!'.format(evoked_fname))
+        return False, None
+
     evokes = mne.read_evokeds(evoked_fname)
     evoked = evokes[evoked_key] if evoked_key is not None else evokes[0]
     if len(exclude) == 0:
@@ -2502,7 +2506,40 @@ def plot_evoked(evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=True, pic
         picks=picks, proj=ssp_proj, hline=hline, window_title=window_title, spatial_colors=spatial_colors,
         selectable=True)
     fig.tight_layout()
-    return True
+    return True, fig
+
+
+def plot_topomap(evoked_fname, evoked_key=None, times='peaks', ch_type='all', proj=False,
+                 average=None, n_peaks=5, window_title=''):
+    # times : float | array of floats | "auto" | "peaks" | "interactive"
+    # ch_type : 'mag' | 'grad' | 'planar1' | 'planar2' | 'eeg' | None
+    # proj : bool | 'interactive'
+    # title : str | None
+    # average: float | None. 0.01 would translate into window that starts 5 ms before
+    #         and ends 5 ms after a given time point
+
+    import matplotlib.pyplot as plt
+    from mne.viz.utils import _find_peaks
+
+    if not op.isfile(evoked_fname):
+        print('plot_evoked: Can\'t find {}!'.format(evoked_fname))
+        return False, None
+
+    evokes = mne.read_evokeds(evoked_fname)
+    evoked = evokes[evoked_key] if evoked_key is not None else evokes[0]
+    if times == 'peaks':
+        times = _find_peaks(evoked, n_peaks)
+    if ch_type == 'all':
+        fig, ax = plt.subplots(4, n_peaks)
+        evoked.plot_topomap(axes=ax[0], times=times, ch_type='mag', proj=proj, average=average, show=False)
+        evoked.plot_topomap(axes=ax[1], times=times, ch_type='planar1', proj=proj, average=average, show=False)
+        evoked.plot_topomap(axes=ax[2], times=times, ch_type='planar2', proj=proj, average=average, show=False)
+        evoked.plot_topomap(axes=ax[3], times=times, ch_type='eeg', proj=proj, average=average, show=False)
+        plt.show()
+    else:
+        fig = evoked.plot_topomap(times=times, ch_type=ch_type, proj=proj, title=window_title, average=average)
+        fig.tight_layout()
+    return True, fig
 
 
 def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
@@ -5801,9 +5838,14 @@ def main(tup, remote_subject_dir, org_args, flags=None):
         flags['plot_max_stc'] = plot_max_stc(subject, args.stc_name, args.modality)
 
     if 'plot_evoked' in args.function:
-        flags['plot_evoked'] = plot_evoked(
+        flags['plot_evoked'], _ = plot_evoked(
             args.evo_fname, args.evoked_key, args.pick_meg, args.pick_eeg, args.pick_eog, args.ssp_proj,
             args.spatial_colors, args.window_title, args.hline, args.channels_to_exclude)
+
+    if 'plot_topomap' in args.function:
+        flags['plot_topomap'], _ = plot_topomap(
+            args.evo_fname, args.evoked_key, args.times, args.ch_type, args.ssp_proj, args.average, args.n_peaks,
+            args.window_title)
 
     return flags
 
@@ -6005,6 +6047,11 @@ def read_cmd_args(argv=None):
     parser.add_argument('--window_title', required=False, default='')
     parser.add_argument('--hline', required=False, default=None, type=au.float_arr_type)
     parser.add_argument('--channels_to_exclude', required=False, default='bads', type=au.str_arr_type)
+    # topoplot plotting
+    parser.add_argument('--times', required=False, default='peaks')
+    parser.add_argument('--n_peaks', required=False, default=5, type=int)
+    parser.add_argument('--average', required=False, default=None, type=au.float_or_none)
+    parser.add_argument('--ch_type', required=False, default=None, type=au.str_or_none)
 
     pu.add_common_args(parser)
     args = utils.Bag(au.parse_parser(parser, argv))
