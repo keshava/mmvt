@@ -1495,7 +1495,11 @@ def create_pial_volume_mask(subject, overwrite=True):
         print('The files are already exist! Use --overwrite 1 to overwrite')
         return True
     pial_verts = utils.load_surf(subject, MMVT_DIR, SUBJECTS_DIR)
-    dural_verts, _ = fu.read_surface(subject, SUBJECTS_DIR, 'dural')
+    try:
+        dural_verts, _ = fu.read_surface(subject, SUBJECTS_DIR, 'dural')
+    except:
+        print('create_pial_volume_mask: There is a problem with the dural surface creation!')
+        dural_verts = None
     t1_data, t1_header = get_data_and_header(subject, 'T1.mgz')
     if t1_header is None:
         return False
