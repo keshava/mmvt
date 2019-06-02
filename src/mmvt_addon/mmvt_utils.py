@@ -1114,6 +1114,8 @@ def copy_file(fname, fol):
         new_fname = op.join(fol, namebase_with_ext(fname))
         shutil.copy(fname, new_fname)
         return new_fname
+    else:
+        print('mmvt_utils.copy_file: Can\'t find {}!'.format(fname))
     return ''
 
 
