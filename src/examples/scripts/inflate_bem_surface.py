@@ -32,6 +32,19 @@ def surface_vis_update(self, context):
     mu.show_hide_obj(surface_obj, bpy.context.scene.inflate_bem_surface_show)
 
 
+def surface_show_all_update(self, context):
+    mu = _mmvt().mmvt_utils
+    for surf_item in bpy.types.Scene.bem_surfaces[1]['items']:
+        surf_name = surf_item[0]
+        surf_obj = bpy.data.objects.get(surf_name)
+        if surf_obj is None:
+            print('{} wasn\'t imported into MMVT!'.format(surf_name))
+            continue
+        mu.show_hide_obj(surf_obj, bpy.context.scene.inflate_bem_surface_show_all)
+    bpy.context.scene.inflate_bem_surface_show = bpy.context.scene.inflate_bem_surface_show_all
+
+
+
 def bem_surfaces_update(self, context):
     surface_obj = get_surface_obj()
     if surface_obj is None:
@@ -70,12 +83,15 @@ class ExportSurface(bpy.types.Operator):
 
 bpy.types.Scene.inflate_bem_surface_factor = bpy.props.FloatProperty(default=0)
 bpy.types.Scene.inflate_bem_surface_show = bpy.props.BoolProperty(default=True, update=surface_vis_update)
+bpy.types.Scene.inflate_bem_surface_show_all = bpy.props.BoolProperty(default=True, update=surface_show_all_update)
 
 
 def draw(self, context):
     layout = self.layout
     layout.prop(context.scene, 'bem_surfaces', '')
-    layout.prop(context.scene, 'inflate_bem_surface_show', 'Show')
+    row = layout.row(align=True)
+    row.prop(context.scene, 'inflate_bem_surface_show', 'Show')
+    row.prop(context.scene, 'inflate_bem_surface_show_all', 'Show all')
     layout.prop(context.scene, 'inflate_bem_surface_factor', text='inf factor')
     layout.operator(ExportSurface.bl_idname, text="Export BEM", icon='FORCE_TURBULENCE')
 
