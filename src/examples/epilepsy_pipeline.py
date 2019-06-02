@@ -260,22 +260,29 @@ def create_evokeds_links(subject, windows):
 
 
 if __name__ == '__main__':
-    subject = 'nmr00857'
-    windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
-    windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif']
-    baseline_windows = ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/37.3_BGprSzs.fif']
+    # subject = 'nmr00857'
+    # windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
+    # windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif']
+    # baseline_windows = ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/37.3_BGprSzs.fif']
+    # temporal_windows = [w for w in windows if '_Ts' in utils.namebase(w)]
+    # frontal_windows = [w for w in windows if '_Fs' in utils.namebase(w)]
+    # baseline_name = '37.3_BGprSzs'
+
+    subject = 'nmr01321'
+    windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs/run1*.fif')
+    baseline_windows = ['/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs/run1_Base_line__27.7s.fif']
+    windows.remove(baseline_windows[0])
+
     windows_with_baseline = windows + baseline_windows
-    temporal_windows = [w for w in windows if '_Ts' in utils.namebase(w)]
-    frontal_windows = [w for w in windows if '_Fs' in utils.namebase(w)]
-    baseline_name = '37.3_BGprSzs'
+    baseline_name = utils.namebase(baseline_windows[0])
     inverse_method = 'dSPM'
     check_for_labels_files = False
     max_t = 7500
     modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     n_jobs = utils.get_n_jobs(-4)
-    # for modality in modalities:
-        # calc_induced_power(subject, baseline_windows, modality, inverse_method, check_for_labels_files)
+    for modality in modalities:
+        calc_induced_power(subject, baseline_windows, modality, inverse_method, check_for_labels_files)
         # calc_induced_power_zvals(subject, windows, baseline_name, modality, bands, inverse_method, n_jobs)
         # move_non_zvals_stcs(subject, modality)
 
@@ -287,5 +294,5 @@ if __name__ == '__main__':
     # plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, n_jobs)
     # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
     # plot_baseline(subject, baseline_name)
-    fix_amplitude_fnames(subject, bands)
-    create_evokeds_links(subject, windows_with_baseline)
+    # fix_amplitude_fnames(subject, bands)
+    # create_evokeds_links(subject, windows_with_baseline)
