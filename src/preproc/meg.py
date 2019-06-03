@@ -63,7 +63,7 @@ def init_globals_args(subject, mri_subject, fname_format, fname_format_cond, arg
 def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='', raw_fname_format='',
                  fwd_fname_format='', inv_fname_format='', events_fname='', files_includes_cond=False,
                  cleaning_method='', contrast='', task='', subjects_meg_dir='', subjects_mri_dir='', mmvt_dir='',
-                 fwd_no_cond=False, inv_no_cond=False, data_per_task=False, sub_dirs_for_tasks=False):
+                 fwd_no_cond=False, inv_no_cond=False, data_per_task=False, sub_dirs_for_tasks=False, root_dir=''):
     global SUBJECT, MRI_SUBJECT, SUBJECT_MEG_FOLDER, RAW, RAW_ICA, INFO, EVO, EVE, COV, EPO, EPO_NOISE, FWD_EEG, FWD_MEG, FWD_MEEG, FWD_SUB,\
         FWD_X, FWD_SMOOTH, INV_EEG, INV_MEG, INV_MEEG, INV_SMOOTH, INV_EEG_SMOOTH, INV_SUB, INV_X, EMPTY_ROOM, MRI, SRC, SRC_SMOOTH,\
         BEM, STC, STC_HEMI, STC_HEMI_SAVE, STC_HEMI_SMOOTH, STC_HEMI_SMOOTH_SAVE, STC_ST, COR, AVE, LBL, STC_MORPH,\
@@ -86,6 +86,8 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
     else:
         SUBJECT_MEG_FOLDER = op.join(subjects_meg_dir, SUBJECT)
     locating_meg_file = partial(utils.locating_file, parent_fols=[SUBJECT_MEG_FOLDER])
+    if root_dir == '':
+        root_dir = SUBJECT_MEG_FOLDER
     # if not op.isdir(SUBJECT_MEG_FOLDER):
     #     SUBJECT_MEG_FOLDER = op.join(subjects_meg_dir)
     # if not op.isdir(SUBJECT_MEG_FOLDER):
@@ -97,7 +99,7 @@ def init_globals(subject, mri_subject='', fname_format='', fname_format_cond='',
     MMVT_SUBJECT_FOLDER = op.join(mmvt_dir, MRI_SUBJECT)
     _get_fif_name_cond = partial(get_file_name, fname_format=fname_format, file_type='fif',
         cleaning_method=cleaning_method, contrast=contrast, raw_fname_format=raw_fname_format,
-        fwd_fname_format=fwd_fname_format, inv_fname_format=inv_fname_format)
+        fwd_fname_format=fwd_fname_format, inv_fname_format=inv_fname_format, root_dir=root_dir)
     _get_fif_name_no_cond = partial(_get_fif_name_cond, cond='')
     _get_fif_name = _get_fif_name_cond if files_includes_cond else _get_fif_name_no_cond
     _get_txt_name = partial(get_file_name, fname_format=fname_format, file_type='txt',
