@@ -2520,8 +2520,9 @@ def plot_evoked(subject, evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=
     return True, fig
 
 
-def plot_topomap(evoked_fname, evoked_key=None, times='peaks', ch_type='all', proj=False,
-                 average=None, n_peaks=5, window_title=''):
+def plot_topomap(subject, evoked_fname, evoked_key=None, times=[], find_peaks=False, same_peaks=True,
+                 ch_types=['mag', 'grad', 'eeg'], proj=False, average=None, n_peaks=5, title='',
+                 bad_channels='bads', save_fig=False, fig_fname=''):
     # times : float | array of floats | "auto" | "peaks" | "interactive"
     # ch_type : 'mag' | 'grad' | 'planar1' | 'planar2' | 'eeg' | None
     # proj : bool | 'interactive'
@@ -2536,20 +2537,45 @@ def plot_topomap(evoked_fname, evoked_key=None, times='peaks', ch_type='all', pr
         print('plot_evoked: Can\'t find {}!'.format(evoked_fname))
         return False, None
 
+    if fig_fname == '':
+        fig_fname = op.join(MMVT_DIR, subject, 'figures', '{}.jpg'.format(utils.namebase(evoked_fname)))
+    if save_fig and op.isfile(fig_fname):
+        return True, None
+
     evokes = mne.read_evokeds(evoked_fname)
     evoked = evokes[evoked_key] if evoked_key is not None else evokes[0]
-    if times == 'peaks':
-        times = _find_peaks(evoked, n_peaks)
-    if ch_type == 'all':
-        fig, ax = plt.subplots(4, n_peaks)
-        evoked.plot_topomap(axes=ax[0], times=times, ch_type='mag', proj=proj, average=average, show=False)
-        evoked.plot_topomap(axes=ax[1], times=times, ch_type='planar1', proj=proj, average=average, show=False)
-        evoked.plot_topomap(axes=ax[2], times=times, ch_type='planar2', proj=proj, average=average, show=False)
-        evoked.plot_topomap(axes=ax[3], times=times, ch_type='eeg', proj=proj, average=average, show=False)
-        plt.show()
+    if find_peaks:
+        ch_peaks = {}
+        if same_peaks:
+            peaks = _find_peaks(evoked, n_peaks)
+            for ch_type in ch_types:
+                ch_peaks[ch_type] = peaks
+        else:
+            for ch_type in ch_types:
+                if ch_type == 'eeg':
+                    _evoked = evoked.copy().pick_types(meg=False, eeg=True, exclude=bad_channels)
+                elif ch_type in ['mag', 'grad', 'planar1', 'planar2']:
+                    _evoked = evoked.copy().pick_types(meg=ch_type, eeg=False, exclude=bad_channels)
+                else:
+                    raise Exception('Wrong channel type!')
+                ch_peaks[ch_type] = _find_peaks(_evoked, n_peaks)
+        for t, ch_type in product(times, ch_types):
+            ch_peaks[ch_type] = np.insert(ch_peaks[ch_type], ch_peaks[ch_type].searchsorted(t), t)
+        n_peaks += len(times)
+        times = ch_peaks
     else:
-        fig = evoked.plot_topomap(times=times, ch_type=ch_type, proj=proj, title=window_title, average=average)
-        fig.tight_layout()
+        n_peaks = len(times)
+    fig, ax = plt.subplots(len(ch_types), n_peaks)
+    for ind, ch_type in enumerate(ch_types):
+        ch_times = times[ch_type] if isinstance(times, dict) else times
+        ch_type = ch_type if ch_type != 'meg' else True
+        evoked.plot_topomap(axes=ax[ind], times=ch_times, ch_type=ch_type, proj=proj, average=average, show=False)
+        ax[ind][-2].text(0.5, 0.5, ch_type.upper(), fontsize=12)
+    plt.suptitle(title)
+    if not save_fig:
+        plt.show()
+    if save_fig:
+        plt.savefig(fig_fname, dpi=300)
     return True, fig
 
 
@@ -5855,8 +5881,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
 
     if 'plot_topomap' in args.function:
         flags['plot_topomap'], _ = plot_topomap(
-            args.evo_fname, args.evoked_key, args.times, args.ch_type, args.ssp_proj, args.average, args.n_peaks,
-            args.window_title)
+            subject, args.evo_fname, args.evoked_key, args.times, args.find_peaks, args.ch_type, args.ssp_proj, args.average,
+            args.n_peaks, args.window_title)
 
     return flags
 
@@ -6060,6 +6086,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--channels_to_exclude', required=False, default='bads', type=au.str_arr_type)
     # topoplot plotting
     parser.add_argument('--times', required=False, default='peaks')
+    parser.add_argument('--find_peaks', required=False, default=False, type=bool)
     parser.add_argument('--n_peaks', required=False, default=5, type=int)
     parser.add_argument('--average', required=False, default=None, type=au.float_or_none)
     parser.add_argument('--ch_type', required=False, default=None, type=au.str_or_none)

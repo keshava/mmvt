@@ -40,7 +40,6 @@ def calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channel
     module.call_main(args)
 
 
-
 def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True):
     for window_fname in windows_fnames:
         calc_induced_power_per_window(subject, run_num, window_fname, modality, inverse_method, check_for_labels_files)
@@ -297,20 +296,50 @@ def create_evokeds_links(subject, windows):
         utils.make_link(window_fname, new_window_fname)
 
 
-def plot_evokes(subject, modality, windows, bad_channels):
-    module = eeg if modality == 'eeg' else meg
+def plot_evokes(subject, modality, windows, bad_channels, n_jobs=4):
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'evokes'))
-    for window_fname in windows:
-        window = utils.namebase(window_fname)
-        evo_fname = op.join(MMVT_DIR, subject, 'evoked', '{}.fif'.format(window))
-        if not op.isfile(evo_fname):
-            utils.make_link(window_fname, evo_fname)
-        fig_fname = op.join(figs_fol, '{}.jpg'.format(window))
-        if op.isfile(fig_fname):
-            continue
-        module.plot_evoked(
-            subject,evo_fname, window_title=window, exclude=bad_channels.split(','), save_fig=True,
-            fig_fname=fig_fname)
+    params = [(subject, modality, window_fname, bad_channels, figs_fol) for window_fname in windows]
+    utils.run_parallel(_plot_topomaps_parallel, params, n_jobs)
+
+
+def _plot_evokes_parallel(p):
+    subject, modality, window_fname, bad_channels, figs_fol = p
+    module = eeg if modality == 'eeg' else meg
+    window = utils.namebase(window_fname)
+    evo_fname = op.join(MMVT_DIR, subject, 'evoked', '{}.fif'.format(window))
+    if not op.isfile(evo_fname):
+        utils.make_link(window_fname, evo_fname)
+    fig_fname = op.join(figs_fol, '{}.jpg'.format(window))
+    if op.isfile(fig_fname):
+        return
+    if bad_channels != 'bads':
+        bad_channels = bad_channels.split(',')
+    module.plot_evoked(
+        subject, evo_fname, window_title=window, exclude=bad_channels, save_fig=True,
+        fig_fname=fig_fname)
+
+
+def plot_topomaps(subject, modality, windows, bad_channels, n_jobs=4):
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'topomaps'))
+    params = [(subject, modality, window_fname, bad_channels, figs_fol) for window_fname in windows]
+    utils.run_parallel(_plot_topomaps_parallel, params, n_jobs)
+
+
+def _plot_topomaps_parallel(p):
+    subject, modality, window_fname, bad_channels, figs_fol = p
+    module = eeg if modality == 'eeg' else meg
+    window = utils.namebase(window_fname)
+    evo_fname = op.join(MMVT_DIR, subject, 'evoked', '{}.fif'.format(window))
+    if not op.isfile(evo_fname):
+        utils.make_link(window_fname, evo_fname)
+    fig_fname = op.join(figs_fol, '{}.jpg'.format(window))
+    if op.isfile(fig_fname):
+        return
+    if bad_channels != 'bads':
+        bad_channels = bad_channels.split(',')
+    module.plot_topomap(
+        subject, evo_fname, times=[0], find_peaks=True, same_peaks=False, n_peaks=5, bad_channels=bad_channels,
+        title=window, save_fig=True, fig_fname=fig_fname)
 
 
 def main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, baseline_template):
@@ -324,13 +353,14 @@ def main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_
     inverse_method = 'dSPM'
     check_for_labels_files = False
     max_t = 7500
-    n_jobs = utils.get_n_jobs(-4)
+    n_jobs = utils.get_n_jobs(-1)
     # create_evokeds_links(subject, windows_with_baseline)
     for modality in modalities:
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
         #              overwrite_inv=True, overwrite_fwd=True)
-        # plot_evokes(subject, modality, windows, bad_channels)
-        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files)
+        # plot_evokes(subject, modality, windows, bad_channels, n_jobs)
+        plot_topomaps(subject, modality, windows, bad_channels, 1)
+        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files)
         # calc_induced_power_zvals(subject, windows, baseline_name, modality, bands, inverse_method, n_jobs)
         # move_non_zvals_stcs(subject, modality)
 
@@ -376,3 +406,4 @@ if __name__ == '__main__':
         run_num = re.sub('\D', ',', run).split(',')[-1]
         raw_fname = glob.glob(op.join(meg_fol, '*_{}_raw.fif'.format(str(run_num).zfill(2))))[0]
         main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, 'Base_line')
+    print('Finish!')

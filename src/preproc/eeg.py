@@ -24,6 +24,7 @@ calc_evokes = meg.calc_evokes_wrapper
 calc_fwd_inv = meg.calc_fwd_inv_wrapper
 calc_stc_per_condition = meg.calc_stc_per_condition_wrapper
 plot_evoked = meg.plot_evoked
+plot_topomap = meg.plot_topomap
 
 
 def read_sensors_layout_args(mri_subject, args):
