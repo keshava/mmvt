@@ -16,6 +16,31 @@ MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 EEG_DIR = utils.get_link_dir(LINKS_DIR, 'eeg')
 
 
+def calc_fwd_inv(subject, modality, inverse_method='dSPM'):
+    # python -m src.preproc.eeg -s nmr00857 -f calc_inverse_operator,make_forward_solution
+    #     --overwrite_inv 0 --overwrite_fwd 0 -t epilepsy
+    #     --raw_fname  /autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123/5241495_01_raw.fif
+    #     --empty_fname /autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123/5241495_roomnoise_raw.fif
+    #     --use_empty_room_for_noise_cov 1
+    #     --bad_channels EEG061,EEG02,EEG042,MEG0112,MEG0113
+    root_dir = EEG_DIR if modality == 'eeg' else MEG_DIR
+    module = eeg if modality == 'eeg' else meg
+    args = module.read_cmd_args(dict(
+        subject=subject,
+        mri_subject=subject,
+        function='calc_inverse_operator,make_forward_solution ',
+        task='epilepsy',
+        overwrite_inv=False,
+        overwrite_fwd=False,
+        use_empty_room_for_noise_cov=True,
+        bad_channels=bad_channels,
+        raw_fname=raw_fname,
+        empty_fname=empty_fname
+    ))
+    module.call_main(args)
+
+
+
 def calc_induced_power(subject, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True):
     for window_fname in windows_fnames:
         calc_induced_power_per_window(subject, window_fname, modality, inverse_method, check_for_labels_files)
@@ -258,9 +283,9 @@ def create_evokeds_links(subject, windows):
         utils.make_link(window_fname, new_window_fname)
 
 
-def main(run):
+def main(run, baseline_template):
     windows = glob.glob(op.join(root_fol, '{}_*.fif'.format(run)))
-    baseline_windows = glob.glob(op.join(root_fol, '{}_Base_line*.fif'.format(run)))
+    baseline_windows = glob.glob(op.join(root_fol, '{}_{}*.fif'.format(run, baseline_template)))
     windows.remove(baseline_windows[0])
     windows_with_baseline = windows + baseline_windows
     baseline_name = utils.namebase(baseline_windows[0])
@@ -300,4 +325,4 @@ if __name__ == '__main__':
     root_fol = '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs'
     runs = set([utils.namebase(f).split('_')[0] for f in glob.glob(op.join(root_fol, 'run*_*.fif'))])
     for run in runs:
-        main(run)
+        main(run, 'Base_line')
