@@ -282,7 +282,7 @@ if __name__ == '__main__':
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     n_jobs = utils.get_n_jobs(-4)
     for modality in modalities:
-        calc_induced_power(subject, baseline_windows, modality, inverse_method, check_for_labels_files)
+        calc_induced_power(subject, windows_with_baseline, modality, inverse_method, check_for_labels_files)
         # calc_induced_power_zvals(subject, windows, baseline_name, modality, bands, inverse_method, n_jobs)
         # move_non_zvals_stcs(subject, modality)
 
