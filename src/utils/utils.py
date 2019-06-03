@@ -1705,7 +1705,7 @@ def get_n_jobs(n_jobs):
     elif n_jobs < 0:
         n_jobs = cpu_num + n_jobs
     if n_jobs < 1:
-        n_jobs == 1
+        n_jobs = 1
     return n_jobs
 
 
