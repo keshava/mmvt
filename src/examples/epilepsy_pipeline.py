@@ -5,10 +5,8 @@ import glob
 import os.path as op
 import mne
 import numpy as np
-
+import re
 import matplotlib.pyplot as plt
-# plt.switch_backend('agg')
-
 
 LINKS_DIR = utils.get_links_dir()
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
@@ -16,20 +14,22 @@ MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 EEG_DIR = utils.get_link_dir(LINKS_DIR, 'eeg')
 
 
-def calc_fwd_inv(subject, modality, raw_fname, empty_fname, bad_channels, overwrite_inv=False, overwrite_fwd=False):
+def calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels, overwrite_inv=False, overwrite_fwd=False):
     # python -m src.preproc.eeg -s nmr00857 -f calc_inverse_operator,make_forward_solution
     #     --overwrite_inv 0 --overwrite_fwd 0 -t epilepsy
     #     --raw_fname  /autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123/5241495_01_raw.fif
     #     --empty_fname /autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123/5241495_roomnoise_raw.fif
     #     --use_empty_room_for_noise_cov 1
     #     --bad_channels EEG061,EEG02,EEG042,MEG0112,MEG0113
-    root_dir = EEG_DIR if modality == 'eeg' else MEG_DIR
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
     args = module.read_cmd_args(dict(
         subject=subject,
         mri_subject=subject,
-        function='calc_inverse_operator,make_forward_solution ',
+        function='calc_inverse_operator,make_forward_solution',
         task='epilepsy',
+        inv_fname=op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality)),
+        fwd_fname=op.join(root_dir, '{}-epilepsy{}-{}-fwd.fif'.format(subject, run_num, modality)),
         overwrite_inv=overwrite_inv,
         overwrite_fwd=overwrite_fwd,
         use_empty_room_for_noise_cov=True,
@@ -41,15 +41,15 @@ def calc_fwd_inv(subject, modality, raw_fname, empty_fname, bad_channels, overwr
 
 
 
-def calc_induced_power(subject, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True):
+def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True):
     for window_fname in windows_fnames:
-        calc_induced_power_per_window(subject, window_fname, modality, inverse_method, check_for_labels_files)
+        calc_induced_power_per_window(subject, run_num, window_fname, modality, inverse_method, check_for_labels_files)
 
 
-def calc_induced_power_per_window(subject, window_fname, modality, inverse_method='dSPM', check_for_labels_files=True):
-    root_dir = EEG_DIR if modality == 'eeg' else MEG_DIR
+def calc_induced_power_per_window(subject, run_num, window_fname, modality, inverse_method='dSPM', check_for_labels_files=True):
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
-    fol = op.join(root_dir, subject, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+    fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
         subject, inverse_method, modality, utils.namebase(window_fname)))
     if check_for_labels_files or not op.isdir(fol):
         args = module.read_cmd_args(dict(
@@ -57,6 +57,8 @@ def calc_induced_power_per_window(subject, window_fname, modality, inverse_metho
             mri_subject=subject,
             function='calc_stc',
             task='epilepsy',
+            inv_fname=op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality)),
+            fwd_fname=op.join(root_dir, '{}-epilepsy{}-{}-fwd.fif'.format(subject, run_num, modality)),
             calc_source_band_induced_power=True,
             fwd_usingEEG=modality in ['eeg', 'meeg'],
             evo_fname=window_fname,
@@ -274,6 +276,18 @@ def fix_amplitude_fnames(subject, bands):
             utils.rename_files(stc_fname, new_stc_fname)
 
 
+def add_run_number_to_files(subject, run):
+    run_num = re.sub('\D', ',', run).split(',')[-1]
+    files = glob.glob(op.join(MEG_DIR, subject, '{}-epilepsy-*.fif'.format(subject))) + \
+            glob.glob(op.join(EEG_DIR, subject, '{}-epilepsy-*.fif'.format(subject)))
+            # glob.glob(op.join(MMVT_DIR, subject, 'meg', '{}-epilepsy-*.fif'.format(subject))) + \
+            # glob.glob(op.join(MMVT_DIR, subject, 'eeg', '{}-epilepsy-*.fif'.format(subject)))
+    for fname in files:
+        new_fname = fname.replace('-epilepsy-', '-epilepsy{}-'.format(run_num))
+        print('{} - > {}'.format(fname, new_fname))
+        utils.rename_files(fname, new_fname)
+
+
 def create_evokeds_links(subject, windows):
     fol = utils.make_dir(op.join(MMVT_DIR, subject, 'evoked'))
     for window_fname in windows:
@@ -283,22 +297,40 @@ def create_evokeds_links(subject, windows):
         utils.make_link(window_fname, new_window_fname)
 
 
-def main(run, modalities, bands, empty_fname, bad_channels, baseline_template):
-    raw_fname = '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123/5241495_01_raw.fif'
-    for modality in modalities:
-        calc_fwd_inv(subject, modality, raw_fname, empty_fname, bad_channels, overwrite_inv=False, overwrite_fwd=False)
+def plot_evokes(subject, modality, windows, bad_channels):
+    module = eeg if modality == 'eeg' else meg
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'evokes'))
+    for window_fname in windows:
+        window = utils.namebase(window_fname)
+        evo_fname = op.join(MMVT_DIR, subject, 'evoked', '{}.fif'.format(window))
+        if not op.isfile(evo_fname):
+            utils.make_link(window_fname, evo_fname)
+        fig_fname = op.join(figs_fol, '{}.jpg'.format(window))
+        if op.isfile(fig_fname):
+            continue
+        module.plot_evoked(
+            subject,evo_fname, window_title=window, exclude=bad_channels.split(','), save_fig=True,
+            fig_fname=fig_fname)
 
+
+def main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, baseline_template):
+    run_num = re.sub('\D', ',', run).split(',')[-1]
     windows = glob.glob(op.join(root_fol, '{}_*.fif'.format(run)))
     baseline_windows = glob.glob(op.join(root_fol, '{}_{}*.fif'.format(run, baseline_template)))
-    windows.remove(baseline_windows[0])
+    for baseline_window in baseline_windows:
+        windows.remove(baseline_window)
     windows_with_baseline = windows + baseline_windows
     baseline_name = utils.namebase(baseline_windows[0])
     inverse_method = 'dSPM'
     check_for_labels_files = False
     max_t = 7500
     n_jobs = utils.get_n_jobs(-4)
-    # for modality in modalities:
-        # calc_induced_power(subject, windows_with_baseline, modality, inverse_method, check_for_labels_files)
+    # create_evokeds_links(subject, windows_with_baseline)
+    for modality in modalities:
+        # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
+        #              overwrite_inv=True, overwrite_fwd=True)
+        # plot_evokes(subject, modality, windows, bad_channels)
+        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files)
         # calc_induced_power_zvals(subject, windows, baseline_name, modality, bands, inverse_method, n_jobs)
         # move_non_zvals_stcs(subject, modality)
 
@@ -311,7 +343,7 @@ def main(run, modalities, bands, empty_fname, bad_channels, baseline_template):
     # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
     # plot_baseline(subject, baseline_name)
     # fix_amplitude_fnames(subject, bands)
-    # create_evokeds_links(subject, windows_with_baseline)
+
 
 
 if __name__ == '__main__':
@@ -322,6 +354,7 @@ if __name__ == '__main__':
     # temporal_windows = [w for w in windows if '_Ts' in utils.namebase(w)]
     # frontal_windows = [w for w in windows if '_Fs' in utils.namebase(w)]
     # baseline_name = '37.3_BGprSzs'
+    # bad_channels = 'EEG061,EEG02,EEG042,MEG0112,MEG0113'
 
     modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
@@ -333,12 +366,13 @@ if __name__ == '__main__':
     meg_fol = [d for d in [
         '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
-    empty_fname = glob.glob(op.join(meg_fol, '*noiseroom*.fif'))[0]
-    bad_channels = 'EEG061,EEG02,EEG042,MEG0112,MEG0113'
-
+    empty_fname = glob.glob(op.join(meg_fol, '*roomnoise_raw.fif'))[0]
+    bad_channels = 'EEG004,EEG005,EEG008,EEG060,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'
     runs = set([utils.namebase(f).split('_')[0] for f in glob.glob(op.join(root_fol, 'run*_*.fif'))])
     if len(runs) == 0:
         print('No run were found!')
         runs = ['no_runs']
     for run in runs:
-        main(run, modalities, bands, empty_fname, bad_channels, 'Base_line')
+        run_num = re.sub('\D', ',', run).split(',')[-1]
+        raw_fname = glob.glob(op.join(meg_fol, '*_{}_raw.fif'.format(str(run_num).zfill(2))))[0]
+        main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, 'Base_line')

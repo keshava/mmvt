@@ -23,6 +23,7 @@ SUBJECT_EEG_DIR = ''
 calc_evokes = meg.calc_evokes_wrapper
 calc_fwd_inv = meg.calc_fwd_inv_wrapper
 calc_stc_per_condition = meg.calc_stc_per_condition_wrapper
+plot_evoked = meg.plot_evoked
 
 
 def read_sensors_layout_args(mri_subject, args):
@@ -140,6 +141,11 @@ def main(tup, remote_subject_dir, args, flags):
 
     if utils.should_run(args, 'calc_minmax'):
         flags['calc_minmax'] = calc_minmax(mri_subject, args)
+
+    if 'plot_evoked' in args.function:
+        flags['plot_evoked'], _ = plot_evoked(
+            args.evo_fname, args.evoked_key, args.pick_meg, args.pick_eeg, args.pick_eog, args.ssp_proj,
+            args.spatial_colors, args.window_title, args.hline, args.channels_to_exclude)
 
     return flags
 

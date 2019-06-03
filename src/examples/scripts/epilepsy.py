@@ -14,6 +14,10 @@ def run(mmvt):
     pass
 
 
+def epilepsy_only_zvals_update(self, context):
+    init(_mmvt())
+
+
 def plot_stc_graph():
     stc_name = get_stc_name()
     _mmvt().coloring.plot_max_stc_graph(stc_name)
@@ -39,9 +43,10 @@ def get_stc_name():
 def get_stc_fname():
     mu = _mmvt().mmvt_utils
     modality_fol = op.join(mu.get_user_fol(), 'eeg' if bpy.context.scene.epilepsy_modalities == 'eeg' else 'meg')
-    return op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-zvals-lh.stc'.format(
+    suffix = 'zvals-lh' if bpy.context.scene.epilepsy_only_zvals else 'lh'
+    return op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-{}.stc'.format(
         mu.get_user(), bpy.context.scene.epilepsy_inverse_methods, bpy.context.scene.epilepsy_modalities,
-        bpy.context.scene.epilepsy_windows, bpy.context.scene.epilepsy_bands))
+        bpy.context.scene.epilepsy_windows, bpy.context.scene.epilepsy_bands, suffix))
 
 
 def get_image_fname(ind):
@@ -100,7 +105,7 @@ def plot_evoked():
     exclude = 'bads'
     mu.run_mmvt_func(
         'src.preproc.meg', 'plot_evoked', flags=
-        '--evo_fname "{}" --pick_meg {} --pick_eeg {} '.format(evoked_fname, pick_meg, pick_eeg) +
+        '-s {} --evo_fname "{}" --pick_meg {} --pick_eeg {} '.format(mu.get_user(), evoked_fname, pick_meg, pick_eeg) +
         '--ssp_proj {} --spatial_colors {} --window_title "{}" --channels_to_exclude {}'.format(
             ssp_proj, spatial_colors, window_title, exclude))
 
@@ -114,6 +119,7 @@ def draw(self, context):
     if len(bpy.types.Scene.epilepsy_inverse_methods[1]['items']) > 1:
         layout.prop(context.scene, 'epilepsy_inverse_methods', '')
     layout.prop(context.scene, 'epilepsy_windows', 'Window')
+    layout.prop(context.scene, 'epilepsy_only_zvals', 'Only z-vals')
     layout.operator(SelectSTC.bl_idname, text="Load File", icon='HAND')
     layout.operator(EpilepsyPlot.bl_idname, text="Plot {}".format(bpy.context.scene.epilepsy_modalities.upper()),
                  icon='POTATO')
@@ -184,16 +190,20 @@ class EpilepsySaveImage(bpy.types.Operator):
         return {"FINISHED"}
 
 
+bpy.types.Scene.epilepsy_only_zvals = bpy.props.BoolProperty(default=True, update=epilepsy_only_zvals_update)
+
+
 def init(mmvt):
     mu = mmvt.mmvt_utils
     register()
     bands_names = ['amplitude', 'delta', 'theta', 'alpha', 'beta', 'high_gamma', 'gamma']
     user_fol = mu.get_user_fol()
-    stcs_files = glob.glob(op.join(user_fol, 'meg', '{}-epilepsy-*-zvals-lh.stc'.format(mu.get_user()))) + \
-                 glob.glob(op.join(user_fol, 'eeg', '{}-epilepsy-*-zvals-lh.stc'.format(mu.get_user())))
+    suffix = 'zvals-lh' if bpy.context.scene.epilepsy_only_zvals else 'lh'
+    stcs_files = glob.glob(op.join(user_fol, 'meg', '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix))) + \
+                 glob.glob(op.join(user_fol, 'eeg', '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix)))
     windows, inverse_methods, modalities, bands = set(), set(), set(), set()
     for stc_fname in stcs_files:
-        stc_name = mu.namebase(stc_fname)[len('{}-epilepsy-'.format(mu.get_user())):-len('-zvals-lh')]
+        stc_name = mu.namebase(stc_fname)[len('{}-epilepsy-'.format(mu.get_user())):-len('-{}'.format(suffix))]
         ind = stc_name.find('-')
         inverse_methods.add(stc_name[:ind])
         stc_name = stc_name[ind + 1:]
@@ -209,12 +219,14 @@ def init(mmvt):
 
     windows_items = sorted([(c, c, '', ind) for ind, c in enumerate(list(windows))])
     bpy.types.Scene.epilepsy_windows = bpy.props.EnumProperty(items=windows_items, description="Windows")
-    bpy.context.scene.epilepsy_windows = windows_items[0][0]
+    if len(windows) > 0:
+        bpy.context.scene.epilepsy_windows = windows_items[0][0]
 
     inverse_methods_items = sorted([(c, c, '', ind) for ind, c in enumerate(list(inverse_methods))])
     bpy.types.Scene.epilepsy_inverse_methods = bpy.props.EnumProperty(
         items=inverse_methods_items, description="Inverse Methods")
-    bpy.context.scene.epilepsy_inverse_methods = list(inverse_methods)[0]
+    if len(inverse_methods) > 0:
+        bpy.context.scene.epilepsy_inverse_methods = list(inverse_methods)[0]
 
     bands_items, bands_ind = [], 0
     for band in ['amplitude', 'delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']:
@@ -222,7 +234,8 @@ def init(mmvt):
             bands_items.append((band, band, '', bands_ind))
             bands_ind += 1
     bpy.types.Scene.epilepsy_bands = bpy.props.EnumProperty(items=bands_items, description="Bands")
-    bpy.context.scene.epilepsy_bands = bands_items[0][0]
+    if len(bands) > 0:
+        bpy.context.scene.epilepsy_bands = bands_items[0][0]
 
     modalities_items, modalities_ind = [], 0
     for modality in ['eeg', 'meg', 'meeg']:
@@ -231,7 +244,8 @@ def init(mmvt):
             modalities_ind += 1
     bpy.types.Scene.epilepsy_modalities = bpy.props.EnumProperty(
         items=modalities_items, description="Modalities")
-    bpy.context.scene.epilepsy_modalities = modalities_items[0][0]
+    if len(modalities) > 0:
+        bpy.context.scene.epilepsy_modalities = modalities_items[0][0]
 
 
 def register():

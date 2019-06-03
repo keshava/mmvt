@@ -1963,9 +1963,9 @@ def get_inv_fname(inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, create_new
     if create_new:
         return inv_fname if inv_fname != '' else  inv_modal_fname
     inv_fname, inv_exist = locating_meg_file(inv_fname, '*inv.fif')
-    if inv_exist and inv_fname != inv_modal_fname:
-        ret = input('Can\'t find {}, do you want to use {} instead? '.format(inv_modal_fname, inv_fname))
-        if not au.is_true(ret):
+    if op.isfile(inv_modal_fname) and not inv_exist:
+        ret = input('Can\'t find {}, do you want to use {} instead? '.format(inv_fname, inv_modal_fname))
+        if au.is_true(ret):
             return inv_modal_fname
     if not inv_exist:
         files = glob.glob(op.join(SUBJECT_MEG_FOLDER, '*{}*'.format(inv_fname)))
@@ -1996,9 +1996,9 @@ def get_fwd_fname(fwd_fname='', fwd_usingMEG=True, fwd_usingEEG=True, create_new
     if create_new:
         return fwd_fname if fwd_fname != '' else  fwd_modal_fname
     fwd_fname, fwd_exist = locating_meg_file(fwd_fname, '*fwd.fif')
-    if not op.isfile(fwd_modal_fname) and fwd_exist:
-        ret = input('Can\'t find {}, do you want to use {} instead? '.format(fwd_modal_fname, fwd_fname))
-        fwd_fname = fwd_fname if au.is_true(ret) else fwd_modal_fname
+    if fwd_exist and op.isfile(fwd_modal_fname):
+        ret = input('Can\'t find {}, do you want to use {} instead? '.format(fwd_fname, fwd_modal_fname))
+        fwd_fname = fwd_modal_fname if au.is_true(ret) else fwd_fname
     return fwd_fname
 
 
@@ -2493,11 +2493,16 @@ def plot_max_stc(subject, stc_name, modality='meg'):
     return True
 
 
-def plot_evoked(evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=True, pick_eog=False, ssp_proj=False,
-                spatial_colors=True, window_title='', hline=None, exclude='bads'):
+def plot_evoked(subject, evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=True, pick_eog=False, ssp_proj=False,
+                spatial_colors=True, window_title='', hline=None, exclude='bads', save_fig=False, fig_fname=''):
     if not op.isfile(evoked_fname):
         print('plot_evoked: Can\'t find {}!'.format(evoked_fname))
         return False, None
+
+    if fig_fname == '':
+        fig_fname = op.join(MMVT_DIR, subject, 'figures', '{}_evoked.jpg'.format(utils.namebase(evoked_fname)))
+    if save_fig and op.isfile(fig_fname):
+        return True, None
 
     evokes = mne.read_evokeds(evoked_fname)
     evoked = evokes[evoked_key] if evoked_key is not None else evokes[0]
@@ -2506,8 +2511,12 @@ def plot_evoked(evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=True, pic
     picks = mne.pick_types(evoked.info, meg=pick_meg, eeg=pick_eeg, eog=pick_eog, exclude=exclude)
     fig = evoked.plot(
         picks=picks, proj=ssp_proj, hline=hline, window_title=window_title, spatial_colors=spatial_colors,
-        selectable=True)
+        selectable=True, show=not save_fig)
     fig.tight_layout()
+    if save_fig:
+        import matplotlib.pyplot as plt
+        plt.savefig(fig_fname, dpi=300)
+        plt.close()
     return True, fig
 
 

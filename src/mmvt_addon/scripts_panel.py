@@ -78,8 +78,9 @@ def check_script(script_name, return_all=False):
         else:
             return None if return_all else False
     except:
-        print('Problem with loading {}!'.format(script_name))
-        mu.print_last_error_line()
+        if script_name != '__init__':
+            print('Problem with loading {}!'.format(script_name))
+            mu.print_last_error_line()
         return None if return_all else False
 
 

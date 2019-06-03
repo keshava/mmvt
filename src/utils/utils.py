@@ -1763,6 +1763,7 @@ def vstack(arr1, arr2):
 def should_run(args, func_name):
     if 'exclude' not in args:
         args.exclude = []
+    func_name = func_name.strip()
     return ('all' in args.function or func_name in args.function) and func_name not in args.exclude
 
 
