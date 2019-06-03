@@ -258,21 +258,10 @@ def create_evokeds_links(subject, windows):
         utils.make_link(window_fname, new_window_fname)
 
 
-
-if __name__ == '__main__':
-    # subject = 'nmr00857'
-    # windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
-    # windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif']
-    # baseline_windows = ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/37.3_BGprSzs.fif']
-    # temporal_windows = [w for w in windows if '_Ts' in utils.namebase(w)]
-    # frontal_windows = [w for w in windows if '_Fs' in utils.namebase(w)]
-    # baseline_name = '37.3_BGprSzs'
-
-    subject = 'nmr01321'
-    windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs/run1*.fif')
-    baseline_windows = ['/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs/run1_Base_line__27.7s.fif']
+def main(run):
+    windows = glob.glob(op.join(root_fol, '{}_*.fif'.format(run)))
+    baseline_windows = glob.glob(op.join(root_fol, '{}_Base_line*.fif'.format(run)))
     windows.remove(baseline_windows[0])
-
     windows_with_baseline = windows + baseline_windows
     baseline_name = utils.namebase(baseline_windows[0])
     inverse_method = 'dSPM'
@@ -296,3 +285,19 @@ if __name__ == '__main__':
     # plot_baseline(subject, baseline_name)
     # fix_amplitude_fnames(subject, bands)
     # create_evokeds_links(subject, windows_with_baseline)
+
+
+if __name__ == '__main__':
+    # subject = 'nmr00857'
+    # windows = glob.glob('/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/EPI_interictal/*.fif')
+    # windows += ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif']
+    # baseline_windows = ['/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/37.3_BGprSzs.fif']
+    # temporal_windows = [w for w in windows if '_Ts' in utils.namebase(w)]
+    # frontal_windows = [w for w in windows if '_Fs' in utils.namebase(w)]
+    # baseline_name = '37.3_BGprSzs'
+
+    subject = 'nmr01321'
+    root_fol = '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs'
+    runs = set([utils.namebase(f).split('_')[0] for f in glob.glob(op.join(root_fol, 'run*_*.fif'))])
+    for run in runs:
+        main(run)
