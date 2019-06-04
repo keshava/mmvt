@@ -74,7 +74,7 @@ def run_on_subjects(args, main_func, subjects_itr=None, subject_func=None):
         flags = dict()
         try:
             args.atlas = utils.fix_atlas_name(subject, args.atlas, SUBJECTS_DIR)
-            print('Setting th atlas to: {}'.format(args.atlas))
+            print('Setting the atlas to: {}'.format(args.atlas))
             # if utils.should_run(args, 'prepare_subject_folder'):
             # I think we always want to run this
             # *) Prepare the local subject's folder

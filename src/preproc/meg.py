@@ -2430,9 +2430,10 @@ def get_stc_fname(args):
         STC[:-4].format(cond=args.conditions[0], method=args.inverse_method[0]), '{hemi}')
 
 
-def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs=False, overwrite=False):
+def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs=False, from_index=None, to_index=None,
+                   stc_zvals_name='', overwrite=False):
     fol = utils.make_dir(op.join(op.join(MMVT_DIR, subject, modality)))
-    stc_zvals_fname = op.join(fol, '{}-zvals'.format(stc_name))
+    stc_zvals_fname = op.join(fol, stc_zvals_name if stc_zvals_name != '' else '{}-zvals'.format(stc_name))
     if utils.stc_exist(stc_zvals_fname) and not overwrite:
         print('calc_stc_zvals: {} already exist'.format(stc_zvals_fname))
         return True
@@ -2460,8 +2461,11 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
                     return False
     stc = mne.read_source_estimate(stc_template['stc'].format(hemi='rh'))
     baseline_stc = mne.read_source_estimate(stc_template['baseline'].format(hemi='rh'))
-    baseline_std = np.std(baseline_stc.data * pow(10, -15)) * pow(10, 15)
-    baseline_mean = np.mean(baseline_stc.data * pow(10, -15)) * pow(10, 15)
+    from_index = 0 if from_index is None else from_index
+    to_index = baseline_stc.data.shape[1] if to_index is None else to_index
+    baseline_data = baseline_stc.data[:, from_index:to_index]
+    baseline_std = np.std(baseline_data * pow(10, -15)) * pow(10, 15)
+    baseline_mean = np.mean(baseline_data * pow(10, -15)) * pow(10, 15)
     if np.isinf(baseline_std):
         print('std of baseline is inf!')
         return False
@@ -5692,7 +5696,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
 
     if 'calc_stc_zvals' in args.function:
         flags['calc_stc_zvals'] = calc_stc_zvals(
-            subject, args.stc_name, args.baseline_stc_name, args.modality, args.use_abs, args.overwrite_stc)
+            subject, args.stc_name, args.baseline_stc_name, args.modality, args.use_abs,
+            args.from_index, args.to_index, args.stc_zvals_name, args.overwrite_stc)
 
     if 'calc_power_spectrum' in args.function:
         flags['calc_power_spectrum'] = calc_power_spectrum(subject, conditions, args)
@@ -6025,6 +6030,9 @@ def read_cmd_args(argv=None):
     parser.add_argument('--precentiles', required=False, default='1,99', type=au.str_arr_type)
     parser.add_argument('--check_for_channels_inconsistency', required=False, default=1, type=au.is_true)
     parser.add_argument('--save_tmp_files', required=False, default=0, type=au.is_true)
+    parser.add_argument('--from_index', required=False, default=None, type=au.int_or_none)
+    parser.add_argument('--to_index', required=False, default=None, type=au.int_or_none)
+    parser.add_argument('--stc_zvals_name', required=False, default='')
 
     # parser.add_argument('--sftp_sso', help='ask for sftp pass only once', required=False, default=0, type=au.is_true)
     parser.add_argument('--eeg_electrodes_excluded_from_mesh', help='', required=False, default='', type=au.str_arr_type)

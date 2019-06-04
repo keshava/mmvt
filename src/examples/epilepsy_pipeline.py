@@ -40,22 +40,81 @@ def calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channel
     module.call_main(args)
 
 
-def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True):
-    for window_fname in windows_fnames:
-        calc_induced_power_per_window(subject, run_num, window_fname, modality, inverse_method, check_for_labels_files)
+def calc_amplitude(subject, modality, run_num, windows_fnames, inverse_method='dSPM', n_jobs=4):
+    params = [(subject, window_fname, modality, run_num, windows_fnames, inverse_method)
+              for window_fname in windows_fnames]
+    utils.run_parallel(_calc_amplitude_parallel, params, n_jobs)
 
 
-def calc_induced_power_per_window(subject, run_num, window_fname, modality, inverse_method='dSPM', check_for_labels_files=True):
+def _calc_amplitude_parallel(p):
+    # python3 -m src.preproc.meg -s nmr00857 -f calc_stc -i dSPM -t epilepsy
+    #   --evo_fname /autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif
+    #   --overwrite_stc 1
+    subject, window_fname, modality, run_num, windows_fnames, inverse_method = p
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
-    fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
-        subject, inverse_method, modality, utils.namebase(window_fname)))
-    if check_for_labels_files or not op.isdir(fol):
+    args = module.read_cmd_args(dict(
+        subject=subject,
+        mri_subject=subject,
+        function='calc_stc',
+        task='epilepsy',
+        inverse_method=inverse_method,
+        inv_fname=op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality)),
+        fwd_fname=op.join(root_dir, '{}-epilepsy{}-{}-fwd.fif'.format(subject, run_num, modality)),
+        fwd_usingEEG=modality in ['eeg', 'meeg'],
+        evo_fname=window_fname,
+        n_jobs=1,
+        overwrite_stc=False
+    ))
+    module.call_main(args)
+
+
+def calc_amplitude_zvals(subject, windows_fnames, baseline_name, modality, from_index=None, to_index=None,
+                         inverse_method='dSPM', parallel=True, overwrite=False):
+    params = [(subject, modality, window_fname, baseline_name, from_index, to_index, inverse_method, overwrite)
+              for window_fname in windows_fnames]
+    utils.run_parallel(_calc_amplitude_zvals_parallel, params, len(windows_fnames) if parallel else 1)
+
+
+def _calc_amplitude_zvals_parallel(p):
+    # python3 -m src.preproc.meg -s nmr00857 -f calc_stc_zvals --stc_name nmr00857-epilepsy-dSPM-meeg-43.9s
+    #   --baseline_stc_name nmr00857-epilepsy-dSPM-meeg-37.3_BGprSzs --use_abs 1 --overwrite_stc 1
+    subject, modality, window_fname, baseline_name, from_index, to_index, inverse_method, overwrite = p
+    module = eeg if modality == 'eeg' else meg
+    window = utils.namebase(window_fname)
+    stc_template = '{}-epilepsy-{}-{}-{}{}'.format(subject, inverse_method, modality, '{window}', '{suffix}')
+    window_stc_name = stc_template.format(window=window, suffix='')
+    args = module.read_cmd_args(dict(
+        subject=subject,
+        mri_subject=subject,
+        function='calc_stc_zvals',
+        task='epilepsy',
+        stc_name=window_stc_name,
+        baseline_stc_name=stc_template.format(window=baseline_name, suffix=''),
+        stc_zvals_name=stc_template.format(window=window, suffix='_amplitude-zvals'),
+        from_index=from_index,
+        to_index=to_index,
+        use_abs=1,
+        overwrite_stc=overwrite
+    ))
+    module.call_main(args)
+
+
+def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True):
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    module = eeg if modality == 'eeg' else meg
+    for window_fname in windows_fnames:
+        fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+            subject, inverse_method, modality, utils.namebase(window_fname)))
+        if op.isdir(fol) and not check_for_labels_files:
+            print('{} already exist'.format(fol))
+            continue
         args = module.read_cmd_args(dict(
             subject=subject,
             mri_subject=subject,
             function='calc_stc',
             task='epilepsy',
+            inverse_method=inverse_method,
             inv_fname=op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality)),
             fwd_fname=op.join(root_dir, '{}-epilepsy{}-{}-fwd.fif'.format(subject, run_num, modality)),
             calc_source_band_induced_power=True,
@@ -67,14 +126,16 @@ def calc_induced_power_per_window(subject, run_num, window_fname, modality, inve
         module.call_main(args)
 
 
-def calc_induced_power_zvals(subject, windows_fnames, baseline_name, modality, bands, inverse_method='dSPM', n_jobs=4):
-    params = [(subject, modality, window_fname, baseline_name, bands, inverse_method)
+def calc_induced_power_zvals(
+        subject, windows_fnames, baseline_name, modality, bands, from_index=None, to_index=None, inverse_method='dSPM',
+        parallel=True, overwrite=False):
+    params = [(subject, modality, window_fname, baseline_name, bands, from_index, to_index, inverse_method, overwrite)
               for window_fname in windows_fnames]
-    utils.run_parallel(_calc_induced_power_zvals_parallel, params, n_jobs)
+    utils.run_parallel(_calc_induced_power_zvals_parallel, params, len(windows_fnames) if parallel else 1)
 
 
 def _calc_induced_power_zvals_parallel(p):
-    subject, modality, window_fname, baseline_name, bands, inverse_method = p
+    subject, modality, window_fname, baseline_name, bands, from_index, to_index, inverse_method, overwrite = p
     module = eeg if modality == 'eeg' else meg
     for band in bands:
         stc_template = '{}-epilepsy-{}-{}-{}_{}'.format(subject, inverse_method, modality, '{window}', band)
@@ -86,8 +147,10 @@ def _calc_induced_power_zvals_parallel(p):
             task='epilepsy',
             stc_name=window_stc_name,
             baseline_stc_name=stc_template.format(window=baseline_name),
+            from_index=from_index,
+            to_index=to_index,
             use_abs=1,
-            overwrite_stc=False
+            overwrite_stc=overwrite
         ))
         module.call_main(args)
 
@@ -131,13 +194,20 @@ def plot_stc_file(stc_fname, figures_fol):
         plt.close()
 
 
+
 def plot_baseline(subject, baseline_name):
     stc_fnames = glob.glob(
-        op.join(MMVT_DIR, subject, 'meg', 'non-zvals', '{}-epilepsy-*-{}_*.stc'.format(subject, baseline_name))) + \
+        op.join(MMVT_DIR, subject, 'meg', '{}-epilepsy-*-{}_*.stc'.format(subject, baseline_name))) + \
         glob.glob(op.join(MMVT_DIR, subject, 'eeg', 'non-zvals', '{}-epilepsy-*-{}_*.stc'.format(subject, baseline_name)))
+    if len(stc_fnames) == 0:
+        stc_fnames = glob.glob(
+            op.join(MMVT_DIR, subject, 'meg', 'non-zvals', '{}-epilepsy-*-{}_*.stc'.format(subject, baseline_name))) + \
+            glob.glob(op.join(MMVT_DIR, subject, 'eeg', 'non-zvals', '{}-epilepsy-*-{}_*.stc'.format(subject, baseline_name)))
+    if len(stc_fnames) == 0:
+        print('No baselines stc files were found!')
+        return
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'baseline'))
-    for stc_fname in stc_fnames:
-        plot_stc_file(stc_fname, figures_fol)
+    utils.run_parallel(_plot_stcs_files_parallel, [(stc_fname, figures_fol) for stc_fname in stc_fnames], n_jobs)
 
 
 def plot_windows(subject, windows, modality, bands, inverse_method):
@@ -296,10 +366,10 @@ def create_evokeds_links(subject, windows):
         utils.make_link(window_fname, new_window_fname)
 
 
-def plot_evokes(subject, modality, windows, bad_channels, n_jobs=4):
+def plot_evokes(subject, modality, windows, bad_channels, parallel=True):
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'evokes'))
     params = [(subject, modality, window_fname, bad_channels, figs_fol) for window_fname in windows]
-    utils.run_parallel(_plot_topomaps_parallel, params, n_jobs)
+    utils.run_parallel(_plot_topomaps_parallel, params, len(windows) if parallel else 1)
 
 
 def _plot_evokes_parallel(p):
@@ -319,10 +389,10 @@ def _plot_evokes_parallel(p):
         fig_fname=fig_fname)
 
 
-def plot_topomaps(subject, modality, windows, bad_channels, n_jobs=4):
+def plot_topomaps(subject, modality, windows, bad_channels, parallel=True):
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'topomaps'))
     params = [(subject, modality, window_fname, bad_channels, figs_fol) for window_fname in windows]
-    utils.run_parallel(_plot_topomaps_parallel, params, n_jobs)
+    utils.run_parallel(_plot_topomaps_parallel, params, len(windows) if parallel else 1)
 
 
 def _plot_topomaps_parallel(p):
@@ -342,7 +412,9 @@ def _plot_topomaps_parallel(p):
         title=window, save_fig=True, fig_fname=fig_fname)
 
 
-def main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, baseline_template):
+@utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
+def main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, baseline_template,
+         inverse_method='dSPM', n_jobs=4):
     run_num = re.sub('\D', ',', run).split(',')[-1]
     windows = glob.glob(op.join(root_fol, '{}_*.fif'.format(run)))
     baseline_windows = glob.glob(op.join(root_fol, '{}_{}*.fif'.format(run, baseline_template)))
@@ -350,27 +422,34 @@ def main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_
         windows.remove(baseline_window)
     windows_with_baseline = windows + baseline_windows
     baseline_name = utils.namebase(baseline_windows[0])
-    inverse_method = 'dSPM'
     check_for_labels_files = False
-    max_t = 7500
-    n_jobs = utils.get_n_jobs(-1)
+    overwrite_induced_power_zvals = False
+    from_index, to_index = 2000, 10000
+    max_t = 0 #7500
+
     # create_evokeds_links(subject, windows_with_baseline)
     for modality in modalities:
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
         #              overwrite_inv=True, overwrite_fwd=True)
-        # plot_evokes(subject, modality, windows, bad_channels, n_jobs)
-        plot_topomaps(subject, modality, windows, bad_channels, 1)
+        # plot_evokes(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
+        # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
+        # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, n_jobs)
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files)
-        # calc_induced_power_zvals(subject, windows, baseline_name, modality, bands, inverse_method, n_jobs)
+        # calc_amplitude_zvals(
+        #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
+        #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
+        # calc_induced_power_zvals(
+        #     subject, windows, baseline_name, modality, bands, from_index, to_index, inverse_method,
+        #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
         # move_non_zvals_stcs(subject, modality)
 
         # plot_stcs_files(subject, modality, n_jobs)
         # plot_windows(subject, windows, modality, bands, inverse_method)
-        # plot_freqs(subject, temporal_windows, modality, bands, inverse_method, max_t, 'temporal')
-        # plot_freqs(subject, frontal_windows, modality, bands, inverse_method, max_t, 'frontal')
+        # plot_freqs(subject, temporal_windows, modality, bands, inverse_method, max_t)
+        pass
 
     # plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, n_jobs)
-    # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
+    plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
     # plot_baseline(subject, baseline_name)
     # fix_amplitude_fnames(subject, bands)
 
@@ -390,6 +469,7 @@ if __name__ == '__main__':
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
 
     subject = 'nmr01321'
+    inverse_method = 'dSPM'
     root_fol = [d for d in [
         '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
@@ -402,8 +482,11 @@ if __name__ == '__main__':
     if len(runs) == 0:
         print('No run were found!')
         runs = ['no_runs']
+    n_jobs = 5 # utils.get_n_jobs(-5)
+    print('n_jobs: {}'.format(n_jobs))
     for run in runs:
         run_num = re.sub('\D', ',', run).split(',')[-1]
         raw_fname = glob.glob(op.join(meg_fol, '*_{}_raw.fif'.format(str(run_num).zfill(2))))[0]
-        main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, 'Base_line')
+        main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, 'Base_line',
+             inverse_method, n_jobs)
     print('Finish!')
