@@ -96,18 +96,19 @@ def select_stc():
 def plot_evoked():
     mu = _mmvt().mmvt_utils
     evoked_fname = op.join(mu.get_user_fol(), 'evoked', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
+    bad_channels_fname = op.join(mu.get_user_fol(), 'meg', 'bad_channels.pkl')
+    bad_channels = ','.join(mu.load(bad_channels_fname)) if op.isfile(bad_channels_fname) else []
     if not op.isfile(evoked_fname):
         print('Couldn\'t find the evoked file! {}'.format(evoked_fname))
         return
     pick_meg, pick_eeg = 1, 1
     ssp_proj, spatial_colors = 0, 1
     window_title = bpy.context.scene.epilepsy_windows
-    exclude = 'bads'
     mu.run_mmvt_func(
         'src.preproc.meg', 'plot_evoked', flags=
         '-s {} --evo_fname "{}" --pick_meg {} --pick_eeg {} '.format(mu.get_user(), evoked_fname, pick_meg, pick_eeg) +
         '--ssp_proj {} --spatial_colors {} --window_title "{}" --channels_to_exclude {}'.format(
-            ssp_proj, spatial_colors, window_title, exclude))
+            ssp_proj, spatial_colors, window_title, bad_channels))
 
 
 def draw(self, context):
@@ -216,6 +217,10 @@ def init(mmvt):
                 stc_name = stc_name[:-(len(band) + 1)]
                 break
         windows.add(stc_name)
+
+    # todo: add a checkbox
+    for window_fname in glob.glob(op.join(mu.get_user_fol(), 'evoked', '*.fif')):
+        windows.add(mu.namebase(window_fname))
 
     windows_items = sorted([(c, c, '', ind) for ind, c in enumerate(list(windows))])
     bpy.types.Scene.epilepsy_windows = bpy.props.EnumProperty(items=windows_items, description="Windows")

@@ -1,3 +1,7 @@
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+
 from src.preproc import eeg
 from src.preproc import meg
 from src.utils import utils
@@ -6,7 +10,6 @@ import os.path as op
 import mne
 import numpy as np
 import re
-import matplotlib.pyplot as plt
 
 LINKS_DIR = utils.get_links_dir()
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
@@ -14,7 +17,8 @@ MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 EEG_DIR = utils.get_link_dir(LINKS_DIR, 'eeg')
 
 
-def calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels, overwrite_inv=False, overwrite_fwd=False):
+def calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels, overwrite_inv=False,
+                 overwrite_fwd=False):
     # python -m src.preproc.eeg -s nmr00857 -f calc_inverse_operator,make_forward_solution
     #     --overwrite_inv 0 --overwrite_fwd 0 -t epilepsy
     #     --raw_fname  /autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123/5241495_01_raw.fif
@@ -30,18 +34,34 @@ def calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channel
         task='epilepsy',
         inv_fname=op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality)),
         fwd_fname=op.join(root_dir, '{}-epilepsy{}-{}-fwd.fif'.format(subject, run_num, modality)),
+        fwd_usingEEG=modality in ['eeg', 'meeg'],
         overwrite_inv=overwrite_inv,
         overwrite_fwd=overwrite_fwd,
         use_empty_room_for_noise_cov=True,
         bad_channels=bad_channels,
         raw_fname=raw_fname,
-        empty_fname=empty_fname
+        empty_fname=empty_fname,
     ))
     module.call_main(args)
 
 
-def calc_amplitude(subject, modality, run_num, windows_fnames, inverse_method='dSPM', n_jobs=4):
-    params = [(subject, window_fname, modality, run_num, windows_fnames, inverse_method)
+def check_inv_fwd(subject, modality, run_num):
+    import mne.minimum_norm
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
+    fwd_fname = op.join(root_dir, '{}-epilepsy{}-{}-fwd.fif'.format(subject, run_num, modality))
+    fwd = mne.read_forward_solution(fwd_fname)
+    inv = mne.minimum_norm.read_inverse_operator(inv_fname)
+    fwd_meg_channels = [c for c in fwd['sol']['row_names'] if c.startswith('MEG')]
+    fwd_eeg_channels = [c for c in fwd['sol']['row_names'] if c.startswith('EEG')]
+    inv_meg_channels = [c for c in inv['info']['ch_names'] if c.startswith('MEG')]
+    inv_eeg_channels = [c for c in inv['info']['ch_names'] if c.startswith('EEG')]
+    print('{}: using {}/{} EEG sensors and {}/{} MEG sensors'.format(
+        modality, len(inv_eeg_channels), len(fwd_eeg_channels), len(inv_meg_channels), len(fwd_meg_channels)))
+
+
+def calc_amplitude(subject, modality, run_num, windows_fnames, inverse_method='dSPM', overwrite=False, n_jobs=4):
+    params = [(subject, window_fname, modality, run_num, windows_fnames, inverse_method, overwrite)
               for window_fname in windows_fnames]
     utils.run_parallel(_calc_amplitude_parallel, params, n_jobs)
 
@@ -50,7 +70,7 @@ def _calc_amplitude_parallel(p):
     # python3 -m src.preproc.meg -s nmr00857 -f calc_stc -i dSPM -t epilepsy
     #   --evo_fname /autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif
     #   --overwrite_stc 1
-    subject, window_fname, modality, run_num, windows_fnames, inverse_method = p
+    subject, window_fname, modality, run_num, windows_fnames, inverse_method, overwrite = p
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
     args = module.read_cmd_args(dict(
@@ -63,8 +83,8 @@ def _calc_amplitude_parallel(p):
         fwd_fname=op.join(root_dir, '{}-epilepsy{}-{}-fwd.fif'.format(subject, run_num, modality)),
         fwd_usingEEG=modality in ['eeg', 'meeg'],
         evo_fname=window_fname,
+        overwrite_stc=overwrite,
         n_jobs=1,
-        overwrite_stc=False
     ))
     module.call_main(args)
 
@@ -100,7 +120,8 @@ def _calc_amplitude_zvals_parallel(p):
     module.call_main(args)
 
 
-def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True):
+def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True,
+                       overwrite=False):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
     for window_fname in windows_fnames:
@@ -121,7 +142,7 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
             fwd_usingEEG=modality in ['eeg', 'meeg'],
             evo_fname=window_fname,
             n_jobs=1,
-            overwrite_stc=False
+            overwrite_stc=overwrite
         ))
         module.call_main(args)
 
@@ -273,21 +294,23 @@ def plot_activity_modalities(subject, windows, modalities, inverse_method, max_t
     for window_fname in windows:
         window_name = utils.namebase(window_fname)
         fig_fname = op.join(figures_fol, '{}-amplitude.jpg'.format(window_name))
-        if op.isfile(fig_fname) and not overwrite:
-            print('{} already exist'.format(fig_fname))
-            break
+        # if op.isfile(fig_fname) and not overwrite:
+        #     print('{} already exist'.format(fig_fname))
+        #     break
         plt.figure()
+        all_files_found = True
         for modality in modalities:
             modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
-            stc_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}-zvals-lh.stc'.format(
+            stc_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}_amplitude-zvals-lh.stc'.format(
                 subject, inverse_method, modality, window_name))
             if not op.isfile(stc_fname):
                 print('Can\'t find {}!'.format(stc_fname))
+                all_files_found = False
                 break
             stc = mne.read_source_estimate(stc_fname)
             data = np.max(stc.data[:, :max_t], axis=0) if max_t > 0 else np.max(stc.data, axis=0)
             plt.plot(data.T)
-        else:
+        if all_files_found:
             plt.title('{} amplitude'.format(window_name))
             plt.legend(modalities)
             print('Saving {} amplitude'.format(window_name))
@@ -366,27 +389,27 @@ def create_evokeds_links(subject, windows):
         utils.make_link(window_fname, new_window_fname)
 
 
-def plot_evokes(subject, modality, windows, bad_channels, parallel=True):
+def plot_evokes(subject, modality, windows, bad_channels, parallel=True, overwrite=False):
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'evokes'))
-    params = [(subject, modality, window_fname, bad_channels, figs_fol) for window_fname in windows]
-    utils.run_parallel(_plot_topomaps_parallel, params, len(windows) if parallel else 1)
+    params = [(subject, modality, window_fname, bad_channels, figs_fol, overwrite) for window_fname in windows]
+    utils.run_parallel(_plot_evokes_parallel, params, len(windows) if parallel else 1)
 
 
 def _plot_evokes_parallel(p):
-    subject, modality, window_fname, bad_channels, figs_fol = p
+    subject, modality, window_fname, bad_channels, figs_fol, overwrite = p
     module = eeg if modality == 'eeg' else meg
     window = utils.namebase(window_fname)
     evo_fname = op.join(MMVT_DIR, subject, 'evoked', '{}.fif'.format(window))
     if not op.isfile(evo_fname):
         utils.make_link(window_fname, evo_fname)
     fig_fname = op.join(figs_fol, '{}.jpg'.format(window))
-    if op.isfile(fig_fname):
+    if op.isfile(fig_fname) and not overwrite:
         return
     if bad_channels != 'bads':
         bad_channels = bad_channels.split(',')
     module.plot_evoked(
         subject, evo_fname, window_title=window, exclude=bad_channels, save_fig=True,
-        fig_fname=fig_fname)
+        fig_fname=fig_fname, overwrite=overwrite)
 
 
 def plot_topomaps(subject, modality, windows, bad_channels, parallel=True):
@@ -413,28 +436,34 @@ def _plot_topomaps_parallel(p):
 
 
 @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
-def main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, baseline_template,
+def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
          inverse_method='dSPM', n_jobs=4):
     run_num = re.sub('\D', ',', run).split(',')[-1]
-    windows = glob.glob(op.join(root_fol, '{}_*.fif'.format(run)))
-    baseline_windows = glob.glob(op.join(root_fol, '{}_{}*.fif'.format(run, baseline_template)))
+    windows = glob.glob(op.join(evokes_fol, '{}_*.fif'.format(run)))
+    baseline_windows = glob.glob(op.join(evokes_fol, '{}_{}*.fif'.format(run, baseline_template)))
     for baseline_window in baseline_windows:
         windows.remove(baseline_window)
     windows_with_baseline = windows + baseline_windows
     baseline_name = utils.namebase(baseline_windows[0])
+    overwrite_inv = False
+    overwrite_fwd = False
+    overwrite_evokes = True
     check_for_labels_files = False
-    overwrite_induced_power_zvals = False
+    overwrite_induced_power_zvals = True
+    overwrite_stc = True
     from_index, to_index = 2000, 10000
     max_t = 0 #7500
 
     # create_evokeds_links(subject, windows_with_baseline)
-    for modality in modalities:
+    for modality in ['eeg', 'meeg']: #modalities:
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
-        #              overwrite_inv=True, overwrite_fwd=True)
-        # plot_evokes(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
+        #              overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
+        # check_inv_fwd(subject, modality, run_num)
+        # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
-        # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, n_jobs)
-        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files)
+        # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
+        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+                           overwrite_stc)
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
         #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
@@ -449,7 +478,7 @@ def main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_
         pass
 
     # plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, n_jobs)
-    plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
+    # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
     # plot_baseline(subject, baseline_name)
     # fix_amplitude_fnames(subject, bands)
 
@@ -470,15 +499,17 @@ if __name__ == '__main__':
 
     subject = 'nmr01321'
     inverse_method = 'dSPM'
-    root_fol = [d for d in [
-        '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
+    evokes_fol = [d for d in [
+        # '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
+        '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     meg_fol = [d for d in [
         '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     empty_fname = glob.glob(op.join(meg_fol, '*roomnoise_raw.fif'))[0]
-    bad_channels = 'EEG004,EEG005,EEG008,EEG060,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'
-    runs = set([utils.namebase(f).split('_')[0] for f in glob.glob(op.join(root_fol, 'run*_*.fif'))])
+    bad_channels = 'EEG001,EEG003,EEG004,EEG005,EEG008,EEG034,EEG045,EEG051,EEG057,EEG058,EEG060,EEG061,EEG062,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'
+
+    runs = set([utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))])
     if len(runs) == 0:
         print('No run were found!')
         runs = ['no_runs']
@@ -487,6 +518,6 @@ if __name__ == '__main__':
     for run in runs:
         run_num = re.sub('\D', ',', run).split(',')[-1]
         raw_fname = glob.glob(op.join(meg_fol, '*_{}_raw.fif'.format(str(run_num).zfill(2))))[0]
-        main(subject, run, modalities, bands, root_fol, raw_fname, empty_fname, bad_channels, 'Base_line',
+        main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, 'Base_line',
              inverse_method, n_jobs)
     print('Finish!')

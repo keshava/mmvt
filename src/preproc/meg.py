@@ -2485,27 +2485,44 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
 
 
 def plot_max_stc(subject, stc_name, modality='meg'):
+    def onclick(event):
+        print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              ('double' if event.dblclick else 'single', event.button,
+               event.x, event.y, event.xdata, event.ydata))
+        # if mmvt_agent is not None:
+        #     mmvt_agent.play.set_current_t(int(event.xdata))
+
     import matplotlib.pyplot as plt
+    from src.mmvt_addon.scripts import scripts_utils as su
+
+    # mmvt_agent = su.get_mmvt_object(subject)
+    # if mmvt_agent is not None:
+    #     print('We got the mmvt object ({})!'.format(list(mmvt_agent._proxy_agent.connections.keys())[0]))
+    #     mmvt_agent.play.set_current_t(0)
+
     stc_fname = op.join(MMVT_DIR, subject, modality, '{}-lh.stc'.format(stc_name))
     if not op.isfile(stc_fname):
-        raise Exception("Can't find the stc file! ({})".format(stc_name))
+        raise Exception("Can't find the stc file! ({}-lh.stc)".format(stc_name))
     stc = mne.read_source_estimate(stc_fname, subject)
     data = np.max(stc.data, axis=0)
+    fig, ax = plt.subplots()
     plt.plot(data.T)
     plt.title(stc_name)
+    fig.canvas.mpl_connect('button_press_event', onclick)
     plt.show()
     return True
 
 
 def plot_evoked(subject, evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=True, pick_eog=False, ssp_proj=False,
-                spatial_colors=True, window_title='', hline=None, exclude='bads', save_fig=False, fig_fname=''):
+                spatial_colors=True, window_title='', hline=None, exclude='bads', save_fig=False, fig_fname='',
+                overwrite=False):
     if not op.isfile(evoked_fname):
         print('plot_evoked: Can\'t find {}!'.format(evoked_fname))
         return False, None
 
     if fig_fname == '':
         fig_fname = op.join(MMVT_DIR, subject, 'figures', '{}_evoked.jpg'.format(utils.namebase(evoked_fname)))
-    if save_fig and op.isfile(fig_fname):
+    if save_fig and op.isfile(fig_fname) and not overwrite:
         return True, None
 
     evokes = mne.read_evokeds(evoked_fname)
@@ -2513,6 +2530,8 @@ def plot_evoked(subject, evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=
     if len(exclude) == 0:
         exclude = exclude[0]
     picks = mne.pick_types(evoked.info, meg=pick_meg, eeg=pick_eeg, eog=pick_eog, exclude=exclude)
+    if len(set([evoked.info['ch_names'][k] for k in picks]).intersection(set(exclude))) > 0:
+        print('Not all the bad channels were excluded!')
     fig = evoked.plot(
         picks=picks, proj=ssp_proj, hline=hline, window_title=window_title, spatial_colors=spatial_colors,
         selectable=True, show=not save_fig)
@@ -4376,6 +4395,9 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
     inv_fname = get_inv_fname(args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG, True)
     fwd_fname = get_fwd_fname(args.fwd_fname, args.fwd_usingMEG, args.fwd_usingEEG, True)
     get_meg_files(subject, [inv_fname], args, conditions)
+    # todo: do something smarter
+    bad_channels_fname = op.join(MMVT_DIR, subject, 'meg', 'bad_channels.pkl')
+    utils.save(args.bad_channels, bad_channels_fname)
     if args.overwrite_inv or args.overwrite_fwd or not op.isfile(inv_fname) or \
             (args.inv_calc_subcorticals and not op.isfile(INV_SUB)):
         if utils.should_run(args, 'make_forward_solution') and (not op.isfile(fwd_fname) or args.overwrite_fwd):
@@ -5881,7 +5903,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
 
     if 'plot_evoked' in args.function:
         flags['plot_evoked'], _ = plot_evoked(
-            args.evo_fname, args.evoked_key, args.pick_meg, args.pick_eeg, args.pick_eog, args.ssp_proj,
+            subject, args.evo_fname, args.evoked_key, args.pick_meg, args.pick_eeg, args.pick_eog, args.ssp_proj,
             args.spatial_colors, args.window_title, args.hline, args.channels_to_exclude)
 
     if 'plot_topomap' in args.function:
