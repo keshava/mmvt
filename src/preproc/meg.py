@@ -2630,10 +2630,15 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
                 continue
             print('Calculating source_band_induced_power for {}'.format(label.name))
             utils.time_to_go(now, ind, len(labels), runs_num_to_print=1)
+            powers_fname = op.join(fol, '{}_{}_induced_power.npy'.format(task, label.name))
             # On a normal computer, you might want to set n_jobs to 1 (memory...)
-            stcs = source_band_induced_power(
+            # !!! We changed the mne-python implementation, to return the powers !!!
+            # todo: copy the function instead of chaging it
+            stcs, powers = source_band_induced_power(
                 epochs, inverse_operator, bands, label, n_cycles=n_cycles, use_fft=False, lambda2=lambda2,
                 pca=True, df=df, n_jobs=n_jobs)
+            print('Saving powers to {}'.format(powers_fname))
+            np.save(powers_fname, powers)
             for band, stc_band in stcs.items():
                 # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
                 band_stc_fname = op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band))

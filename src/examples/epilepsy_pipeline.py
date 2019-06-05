@@ -474,8 +474,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
-        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-        #                    overwrite_stc)
+        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+                           overwrite_stc)
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
         #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
@@ -489,8 +489,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plot_freqs(subject, temporal_windows, modality, bands, inverse_method, max_t)
         pass
 
-    plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, overwrite_modalities_figures, n_jobs)
-    # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
+    # plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, overwrite_modalities_figures, n_jobs)
+    # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=overwrite_modalities_figures)
     # plot_baseline(subject, baseline_name)
     # fix_amplitude_fnames(subject, bands)
 
