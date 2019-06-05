@@ -124,7 +124,12 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
                        overwrite=False):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
+    output_fname = op.join(MMVT_DIR, 'eeg' if modality == 'eeg' else 'meg', '{}-epilepsy-{}-{}-{}_{}'.format(
+        subject, inverse_method, modality, '{window}', '{band}'))
     for window_fname in windows_fnames:
+        if all([utils.stc_exist(output_fname.format(window=utils.namebase(window_fname), band=band))
+                for band in bands]) and not overwrite:
+            continue
         fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
             subject, inverse_method, modality, utils.namebase(window_fname)))
         if op.isdir(fol) and not check_for_labels_files:
@@ -158,16 +163,21 @@ def calc_induced_power_zvals(
 def _calc_induced_power_zvals_parallel(p):
     subject, modality, window_fname, baseline_name, bands, from_index, to_index, inverse_method, overwrite = p
     module = eeg if modality == 'eeg' else meg
+    stc_template = '{}-epilepsy-{}-{}-{}_{}'.format(subject, inverse_method, modality, '{window}', '{band}')
+    root_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+    if all([utils.stc_exist(op.join(root_fol, '{}-zvals'.format(
+            stc_template.format(window=utils.namebase(window_fname), band=band)))) \
+            for band in bands]) and not overwrite:
+        return
     for band in bands:
-        stc_template = '{}-epilepsy-{}-{}-{}_{}'.format(subject, inverse_method, modality, '{window}', band)
-        window_stc_name = stc_template.format(window=utils.namebase(window_fname))
+        window_stc_name = stc_template.format(window=utils.namebase(window_fname), band=band)
         args = module.read_cmd_args(dict(
             subject=subject,
             mri_subject=subject,
             function='calc_stc_zvals',
             task='epilepsy',
             stc_name=window_stc_name,
-            baseline_stc_name=stc_template.format(window=baseline_name),
+            baseline_stc_name=stc_template.format(window=baseline_name, band=band),
             from_index=from_index,
             to_index=to_index,
             use_abs=1,
@@ -318,22 +328,22 @@ def plot_activity_modalities(subject, windows, modalities, inverse_method, max_t
             plt.close()
 
 
-def plot_modalities(subject, windows, modalities, bands, inverse_method, max_t=0, n_jobs=4):
+def plot_modalities(subject, windows, modalities, bands, inverse_method, max_t=0, overwrite=False, n_jobs=4):
     from itertools import product
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'modalities'))
-    params = [(subject, modalities, inverse_method, figures_fol, band, window_fname, max_t)
+    params = [(subject, modalities, inverse_method, figures_fol, band, window_fname, max_t, overwrite)
               for (band, window_fname) in product(bands, windows)]
     utils.run_parallel(_plot_modalities_parallel, params, n_jobs)
 
 
 def _plot_modalities_parallel(p):
-    subject, modalities, inverse_method, figures_fol, band, window_fname, max_t = p
+    subject, modalities, inverse_method, figures_fol, band, window_fname, max_t, overwrite = p
     window_name = utils.namebase(window_fname)
     plt.figure()
     for modality in modalities:
         modality_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
         fig_fname = op.join(figures_fol, '{}-{}.jpg'.format(window_name, band))
-        if op.isfile(fig_fname):
+        if op.isfile(fig_fname) and not overwrite:
             print('{} already exist'.format(fig_fname))
             break
         stc_band_fname = op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-zvals-lh.stc'.format(
@@ -341,6 +351,7 @@ def _plot_modalities_parallel(p):
         if not op.isfile(stc_band_fname):
             print('Can\'t find {}!'.format(stc_band_fname))
             break
+        print('Loading {} ({})'.format(stc_band_fname, utils.file_modification_time(stc_band_fname)))
         stc = mne.read_source_estimate(stc_band_fname)
         data = np.max(stc.data[:, :max_t], axis=0) if max_t > 0 else np.max(stc.data, axis=0)
         plt.plot(data.T)
@@ -435,7 +446,7 @@ def _plot_topomaps_parallel(p):
         title=window, save_fig=True, fig_fname=fig_fname)
 
 
-@utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
+# @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
          inverse_method='dSPM', n_jobs=4):
     run_num = re.sub('\D', ',', run).split(',')[-1]
@@ -449,27 +460,28 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     overwrite_fwd = False
     overwrite_evokes = True
     check_for_labels_files = False
-    overwrite_induced_power_zvals = True
+    overwrite_induced_power_zvals = False
     overwrite_stc = True
+    overwrite_modalities_figures = False
     from_index, to_index = 2000, 10000
     max_t = 0 #7500
 
     # create_evokeds_links(subject, windows_with_baseline)
-    for modality in ['eeg', 'meeg']: #modalities:
+    for modality in modalities:
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
         #              overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
         # check_inv_fwd(subject, modality, run_num)
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
-        calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
+        # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite_stc)
-        calc_amplitude_zvals(
-            subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
-            parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
-        calc_induced_power_zvals(
-            subject, windows, baseline_name, modality, bands, from_index, to_index, inverse_method,
-            parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
+        # calc_amplitude_zvals(
+        #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
+        #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
+        # calc_induced_power_zvals(
+        #     subject, windows, baseline_name, modality, bands, from_index, to_index, inverse_method,
+        #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
         # move_non_zvals_stcs(subject, modality)
 
         # plot_stcs_files(subject, modality, n_jobs)
@@ -477,7 +489,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plot_freqs(subject, temporal_windows, modality, bands, inverse_method, max_t)
         pass
 
-    # plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, n_jobs)
+    plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, overwrite_modalities_figures, n_jobs)
     # plot_activity_modalities(subject, windows, modalities, inverse_method, overwrite=True)
     # plot_baseline(subject, baseline_name)
     # fix_amplitude_fnames(subject, bands)
@@ -501,8 +513,8 @@ if __name__ == '__main__':
     inverse_method = 'dSPM'
     evokes_fol = [d for d in [
         # '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
-        '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
-        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+        # '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
+        op.join(MMVT_DIR, subject, 'evoked')] if op.isdir(d)][0]
     meg_fol = [d for d in [
         '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]

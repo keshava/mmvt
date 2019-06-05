@@ -368,9 +368,9 @@ def color_eeg_helmet(use_abs=None, threshold=None):
     data_t = data[:, bpy.context.scene.frame_current]
 
     eeg_helmet = bpy.data.objects['eeg_helmet']
-    indices = meta.channels_sensors_dict
-    helmet_data = np.zeros(len(eeg_helmet.data.vertices))
-    helmet_data[indices] = data_t
+    # indices = meta.channels_sensors_dict
+    # helmet_data = np.zeros(len(eeg_helmet.data.vertices))
+    # helmet_data[indices] = data_t
 
     _addon().coloring.activity_map_obj_coloring(
         eeg_helmet, data_t, lookup, threshold, True, data_min=data_min,
@@ -384,8 +384,8 @@ def color_meg_helmet(use_abs=None, threshold=None):
         use_abs = bpy.context.scene.coloring_use_abs
     fol = mu.get_user_fol()
     data, meta = get_meg_sensors_data()
-    indices = meta.picks.item()[bpy.context.scene.meg_sensors_types]
-    data = data[indices]
+    # indices = meta.picks.item()[bpy.context.scene.meg_sensors_types]
+    # data = data[indices]
 
     if data.ndim == 2:
         if not _addon().colorbar_values_are_locked():
@@ -414,9 +414,9 @@ def color_meg_helmet(use_abs=None, threshold=None):
     data_t = data[:, bpy.context.scene.frame_current]
 
     meg_helmet = bpy.data.objects['meg_helmet']
-    indices = meta.channels_sensors_dict.item()[bpy.context.scene.meg_sensors_types]
-    helmet_data = np.zeros(len(meg_helmet.data.vertices))
-    helmet_data[indices] = data_t
+    # indices = meta.channels_sensors_dict.item()[bpy.context.scene.meg_sensors_types]
+    # helmet_data = np.zeros(len(meg_helmet.data.vertices))
+    # helmet_data[indices] = data_t
 
     _addon().coloring.activity_map_obj_coloring(
         meg_helmet, data_t, lookup, threshold, True, data_min=data_min,
@@ -433,8 +433,8 @@ def color_meg_sensors(threshold=None):
     # sensors_dict = mu.Bag(np.load(
     #     op.join(mu.get_user_fol(), 'meg', 'meg_{}_sensors_positions.npz'.format(bpy.context.scene.meg_sensors_types))))
     # inds = np.unique(MEGPanel.meg_helmet_indices[bpy.context.scene.meg_sensors_types])
-    indices = meta.picks.item()[bpy.context.scene.meg_sensors_types]
-    data = data[indices, :, :] if data.ndim == 3 else data[indices, :]
+    # indices = meta.picks #.item()[bpy.context.scene.meg_sensors_types]
+    # data = data[indices, :, :] if data.ndim == 3 else data[indices, :]
     # names = np.array(meta.names)[indices]
 
     if data.ndim == 2:
@@ -462,15 +462,15 @@ def color_meg_sensors(threshold=None):
 
     meg_sensors_obj = bpy.data.objects['MEG_{}_sensors'.format(bpy.context.scene.meg_sensors_types)]
     names = [o.name for o in meg_sensors_obj.children]
-    indices = meta.channels_sensors_dict.item()[bpy.context.scene.meg_sensors_types]
-    sensors_data = np.zeros((len(names), data.shape[1]))
-    sensors_data[indices] = data
+    # indices = meta.channels_sensors_dict.item()[bpy.context.scene.meg_sensors_types]
+    # sensors_data = np.zeros((len(names), data.shape[1]))
+    # sensors_data[indices] = data
 
     # names = np.array([obj.name for obj in bpy.data.objects['MEG_sensors'].children])[inds]
     if threshold > data_max:
         print('threshold is bigger than data_max ({})! Setting to 0.'.format(data_max))
         threshold = 0
-    _addon().coloring.color_objects_homogeneously(sensors_data, names, meta['conditions'], data_min, colors_ratio, threshold)
+    _addon().coloring.color_objects_homogeneously(data, names, meta['conditions'], data_min, colors_ratio, threshold)
 
     if not bpy.data.objects.get('meg_helmet', None) is None:
         color_meg_helmet()
@@ -514,12 +514,12 @@ def color_eeg_sensors(threshold=None):
 
     eeg_sensors_obj = bpy.data.objects['EEG_sensors']
     names = [o.name for o in eeg_sensors_obj.children]
-    indices = meta.channels_sensors_dict
-    sensors_data = np.zeros((len(names), data.shape[1]))
-    sensors_data[indices] = data
+    # indices = meta.channels_sensors_dict
+    # sensors_data = np.zeros((len(names), data.shape[1]))
+    # sensors_data[indices] = data
 
     _addon().coloring.color_objects_homogeneously(
-        sensors_data, names, meta['conditions'], data_min, colors_ratio, threshold)
+        data, names, meta['conditions'], data_min, colors_ratio, threshold)
 
     if not bpy.data.objects.get('eeg_helmet', None) is None:
         color_eeg_helmet()
