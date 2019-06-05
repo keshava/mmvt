@@ -460,7 +460,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #              overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
         # check_inv_fwd(subject, modality, run_num)
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
-        plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
+        # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite_stc)
