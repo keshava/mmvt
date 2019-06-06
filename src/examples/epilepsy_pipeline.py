@@ -461,7 +461,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     overwrite_evokes = True
     check_for_labels_files = False
     overwrite_induced_power_zvals = False
-    overwrite_stc = True
+    overwrite_stc = False
     overwrite_modalities_figures = False
     from_index, to_index = 2000, 10000
     max_t = 0 #7500
