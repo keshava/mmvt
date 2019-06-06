@@ -2608,8 +2608,9 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
     if bands is None or bands == '':
-        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
-        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 120, 5)])
+        min_delta = 1 if n_cycles <= 2 else 2
+        bands = dict(delta=[min_delta, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 125, 5)])
     ret = check_bands(epochs, bands, df, n_cycles)
     if not ret:
         return False
@@ -2645,12 +2646,11 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
                 method='dSPM', n_cycles=n_cycles, n_jobs=n_jobs)
             if powers.shape[2] % 2 == 1:
                 powers = powers[:, :, :-1]
-            powers = utils.downsample_3d(powers, downsample)
-            norm = np.max(powers, axis=(0, 2))
-            norm = norm[np.newaxis, :, np.newaxis]
-            powers_norm = powers / norm
+            if downsample > 1:
+                powers = utils.downsample_3d(powers, downsample)
+            powers_db = 10 * np.log10(powers) # dB/Hz should be baseline corrected!!!
             print('Saving powers to {}'.format(powers_fname))
-            np.save(powers_fname, powers_norm.astype(np.float16))
+            np.save(powers_fname, powers_db.astype(np.float16))
 
             # for band, stc_band in stcs.items():
                 # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
@@ -2674,6 +2674,7 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
             stc_band.save(band_stc_fname)
             ret = ret and utils.both_hemi_files_exist('{}-{}.stc'.format(band_stc_fname, '{hemi}'))
     return ret
+
 
 
 def check_bands(epochs, bands, df=1, n_cycles=2):

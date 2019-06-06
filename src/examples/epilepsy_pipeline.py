@@ -152,6 +152,73 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
         module.call_main(args)
 
 
+def calc_max_powers(subject, windows_fnames, modality, inverse_method='dSPM', overwrite=False, parallel=True):
+    params = [(subject, window_fname, modality, inverse_method, overwrite)
+              for window_fname in windows_fnames]
+    utils.run_parallel(_calc_max_powers_parallel, params, len(windows_fnames) if parallel else 1)
+
+
+def _calc_max_powers_parallel(p):
+    subject, window_fname, modality, inverse_method, overwrite = p
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_max_power.npy'.format(
+        subject, inverse_method, modality, utils.namebase(window_fname)))
+    if op.isfile(output_fname) and not overwrite:
+        return
+    fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+        subject, inverse_method, modality, utils.namebase(window_fname)))
+    if not op.isdir(fol):
+        print('{} does not exist!'.format(fol))
+        return
+    powers_files = glob.glob(op.join(fol, 'epilepsy_*_induced_power.npy'))
+    print('Calculating max power for {}'.format(fol))
+    max_powers = np.max(np.concatenate([np.load(powers_fname) for powers_fname in powers_files]), axis=0)
+    print('Saving to {}'.format(output_fname))
+    np.save(output_fname, max_powers)
+
+
+def plot_max_powers(subject, windows_fnames, modality, inverse_method='dSPM', overwrite=False, parallel=True):
+    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 120, 5)])
+    params = [(subject, window_fname, modality, inverse_method, freqs, overwrite)
+              for window_fname in windows_fnames]
+    utils.run_parallel(_plot_max_powers_parllel, params, len(windows_fnames) if parallel else 1)
+
+
+def _plot_max_powers_parllel(p):
+    subject, window_fname, modality, inverse_method, freqs, overwrite = p
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_max_power.npy'.format(
+        subject, inverse_method, modality, utils.namebase(window_fname)))
+    if not op.isfile(fname):
+        print('Can\'t find {}!'.format(fname))
+        return
+    # /homes/5/npeled/space1/mmvt/nmr01321/epilepsy-figures/power-spectrum
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
+    figure_fname = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_max_power.jpg'.format(
+        subject, inverse_method, modality, utils.namebase(window_fname)))
+    # if op.isfile(figure_fname) and not overwrite:
+    #     return
+    powers = np.load(fname)
+    times = np.arange(1, powers.shape[1])
+    plot_power_spectrum(powers.astype(np.float32).T, times, freqs, figure_fname)
+
+
+def plot_power_spectrum(powers, times, freqs, figure_fname):
+    def extents(f):
+        delta = f[1] - f[0]
+        return [f[0] - delta / 2, f[-1] + delta / 2]
+
+    plt.figure()
+    plt.imshow(np.flip(powers.T, 0), aspect='auto', interpolation='nearest', extent=extents(times) + extents(freqs), cmap='hot')
+    plt.ylabel('frequency (Hz)')
+    plt.xlabel('time (seconds)')
+    plt.tight_layout()
+    plt.savefig(figure_fname)
+    plt.figure()
+    plt.plot(powers)
+    print('asdf')
+
+
 def calc_induced_power_zvals(
         subject, windows_fnames, baseline_name, modality, bands, from_index=None, to_index=None, inverse_method='dSPM',
         parallel=True, overwrite=False):
@@ -476,6 +543,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
         calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
                            overwrite_stc)
+        # calc_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=True)
+        # plot_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=False)
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
         #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
@@ -529,6 +598,8 @@ if __name__ == '__main__':
     print('n_jobs: {}'.format(n_jobs))
     for run in runs:
         run_num = re.sub('\D', ',', run).split(',')[-1]
+        if int(run_num) != 1:
+            continue
         raw_fname = glob.glob(op.join(meg_fol, '*_{}_raw.fif'.format(str(run_num).zfill(2))))[0]
         main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, 'Base_line',
              inverse_method, n_jobs)
