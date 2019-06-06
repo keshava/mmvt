@@ -627,9 +627,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
-        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-        #                    overwrite_stc)
-        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, overwrite=False, parallel=True)
+        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+                           overwrite_stc)
+        # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, overwrite=False, parallel=True)
+
         # calc_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=True)
         # plot_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=False)
         # calc_amplitude_zvals(
@@ -685,8 +686,8 @@ if __name__ == '__main__':
     print('n_jobs: {}'.format(n_jobs))
     for run in runs:
         run_num = re.sub('\D', ',', run).split(',')[-1]
-        if int(run_num) != 1:
-            continue
+        # if int(run_num) != 1:
+        #     continue
         raw_fname = glob.glob(op.join(meg_fol, '*_{}_raw.fif'.format(str(run_num).zfill(2))))[0]
         main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, 'Base_line',
              inverse_method, n_jobs)
