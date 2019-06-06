@@ -474,14 +474,14 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
-        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-                           overwrite_stc)
+        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+        #                    overwrite_stc)
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
         #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
-        # calc_induced_power_zvals(
-        #     subject, windows, baseline_name, modality, bands, from_index, to_index, inverse_method,
-        #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
+        calc_induced_power_zvals(
+            subject, windows, baseline_name, modality, bands, from_index, to_index, inverse_method,
+            parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
         # move_non_zvals_stcs(subject, modality)
 
         # plot_stcs_files(subject, modality, n_jobs)
