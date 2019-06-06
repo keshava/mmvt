@@ -2648,6 +2648,7 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
             powers_norm = powers / norm
             print('Saving powers to {}'.format(powers_fname))
             np.save(powers_fname, powers_norm.astype(np.float16))
+            raise Exception('halas')
             # for band, stc_band in stcs.items():
                 # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
                 # band_stc_fname = op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band))
