@@ -2634,6 +2634,8 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
             # On a normal computer, you might want to set n_jobs to 1 (memory...)
             # !!! We changed the mne-python implementation, to return the powers !!!
             # todo: copy the function instead of chaging it
+            freqs = np.concatenate([np.arange(band[0], band[1] + df / 2.0, df)
+                                    for _, band in bands.items()])
             stcs, powers = source_band_induced_power(
                 epochs, inverse_operator, bands, label, n_cycles=n_cycles, use_fft=False, lambda2=lambda2,
                 pca=True, df=df, n_jobs=n_jobs)
