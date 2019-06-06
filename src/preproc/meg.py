@@ -2604,7 +2604,7 @@ def plot_topomap(subject, evoked_fname, evoked_key=None, times=[], find_peaks=Fa
 
 def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
                        calc_inducde_power_per_label=True, normalize_proj=True, overwrite_stc=False,
-                       modality='meg', df=1, n_cycles=2, n_jobs=6):
+                       modality='meg', df=1, n_cycles=2, downsample=2, n_jobs=6):
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
     if bands is None or bands == '':
@@ -2643,6 +2643,9 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
             powers, _, _ = mne.minimum_norm.time_frequency._source_induced_power(
                 epochs, inverse_operator, freqs, label=label, lambda2=lambda2,
                 method='dSPM', n_cycles=n_cycles, n_jobs=n_jobs)
+            if powers.shape[2] % 2 == 1:
+                powers = powers[:, :, :-1]
+            powers = utils.downsample_3d(powers, downsample)
             norm = np.max(powers, axis=(0, 2))
             norm = norm[np.newaxis, :, np.newaxis]
             powers_norm = powers / norm
