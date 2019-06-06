@@ -2609,6 +2609,7 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
     from mne.minimum_norm import source_band_induced_power
     if bands is None or bands == '':
         bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 120, 5)])
     ret = check_bands(epochs, bands, df, n_cycles)
     if not ret:
         return False
@@ -2634,22 +2635,29 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
             # On a normal computer, you might want to set n_jobs to 1 (memory...)
             # !!! We changed the mne-python implementation, to return the powers !!!
             # todo: copy the function instead of chaging it
-            freqs = np.concatenate([np.arange(band[0], band[1] + df / 2.0, df)
-                                    for _, band in bands.items()])
-            stcs, powers = source_band_induced_power(
-                epochs, inverse_operator, bands, label, n_cycles=n_cycles, use_fft=False, lambda2=lambda2,
-                pca=True, df=df, n_jobs=n_jobs)
+            # stcs, powers = source_band_induced_power(
+            #     epochs, inverse_operator, bands, label, n_cycles=n_cycles, use_fft=False, lambda2=lambda2,
+            #     pca=True, df=df, n_jobs=n_jobs)
+            import mne.minimum_norm.time_frequency
+            # vertno, src_sel = mne.minimum_norm.inverse.label_src_vertno_sel(label, inv['src'])
+            powers, _, _ = mne.minimum_norm.time_frequency._source_induced_power(
+                epochs, inverse_operator, freqs, label=label, lambda2=lambda2,
+                method='dSPM', n_cycles=n_cycles, n_jobs=n_jobs)
+            norm = np.max(powers, axis=(0, 2))
+            norm = norm[np.newaxis, : np.newaxis]
+            powers_norm = powers / norm
             print('Saving powers to {}'.format(powers_fname))
-            np.save(powers_fname, powers)
-            for band, stc_band in stcs.items():
+            np.save(powers_fname, powers_norm.astype(np.float16))
+            # for band, stc_band in stcs.items():
                 # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
-                band_stc_fname = op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band))
-                print('Saving {}'.format(band_stc_fname))
-                stc_band.save(band_stc_fname)
-        params = [(subject, atlas, task, band, stc_fname, labels, modality, fol, overwrite_stc)
-                  for band in bands.keys()]
-        results = utils.run_parallel(_combine_labels_stc_files_parallel, params, len(bands))
-        ret = all(results)
+                # band_stc_fname = op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band))
+                # print('Saving {}'.format(band_stc_fname))
+                # stc_band.save(band_stc_fname)
+        # params = [(subject, atlas, task, band, stc_fname, labels, modality, fol, overwrite_stc)
+        #           for band in bands.keys()]
+        # results = utils.run_parallel(_combine_labels_stc_files_parallel, params, len(bands))
+        # ret = all(results)
+        ret = True
     else:
         stcs = source_band_induced_power(
             epochs, inverse_operator, bands, n_cycles=n_cycles, use_fft=False, lambda2=lambda2, pca=True,
