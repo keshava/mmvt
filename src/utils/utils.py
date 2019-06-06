@@ -196,6 +196,11 @@ def calc_abs_minmax(x, norm_percs=None):
     return max(map(abs, [x_min, x_max]))
 
 
+def calc_signed_abs_minmax(x, norm_percs=None):
+    x_min, x_max = calc_min_max(x, norm_percs=norm_percs)
+    return x_min if abs(x_min) > abs(x_max) else x_max
+
+
 def calc_minmax_abs_from_minmax(data_min, data_max):
     minmax = max(map(abs, [data_min, data_max]))
     return -minmax, minmax

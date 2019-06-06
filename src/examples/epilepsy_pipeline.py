@@ -152,6 +152,60 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
         module.call_main(args)
 
 
+def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse_method='dSPM', overwrite=False, parallel=True):
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_mean_norm_power.npy'.format(
+        subject, inverse_method, modality, '{window}'))
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
+    figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_mean_norm_power.jpg'.format(
+            subject, inverse_method, modality, '{window}'))
+    if not all([op.isfile(output_fname.format(window=utils.namebase(window_fname)))
+                for window_fname in windows_fnames]) or overwrite:
+            #  or not op.isfile(figures_template.format(window=utils.namebase(baseline_window)))
+        baseline_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+                subject, inverse_method, modality, utils.namebase(baseline_window)))
+        baseline = concatenate_powers(baseline_fol) # (vertices x freqs x time)
+        # if calc_zvals:
+        #     baseline = np.power(10, baseline / 10)
+        baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
+        baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
+        baseline_mean_over_vertices = np.mean(baseline, axis=0)
+        plot_power_spectrum(baseline_mean_over_vertices, figures_template.format(window=utils.namebase(baseline_window)),
+                            remove_non_sig=False)
+    for window_fname in windows_fnames:
+        window = utils.namebase(window_fname)
+        figure_fname = figures_template.format(window=window)
+        window_output_fname = output_fname.format(window=window)
+        fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(subject, inverse_method, modality, window))
+        if not op.isfile(window_output_fname) or overwrite:
+            powers = concatenate_powers(fol)
+            # if calc_zvals:
+            #     powers_pow = np.power(10, powers / 10)
+            # dividing by the mean of baseline values, taking the log, and
+            #           dividing by the standard deviation of log baseline values
+            #           ('zlogratio')
+            powers = (powers - baseline_mean) / baseline_std
+            powers_min = np.min(powers, axis=0) # over vertices
+            powers_max = np.max(powers, axis=0) # over vertices
+            min_indices = np.where(np.abs(powers_min) > powers_max)
+            powers_abs_minmax = powers_max
+            powers_abs_minmax[min_indices] = powers_min[min_indices]
+            np.save(window_output_fname, powers_abs_minmax)
+        else:
+            powers_abs_minmax = np.load(window_output_fname)
+        plot_power_spectrum(powers_abs_minmax, figure_fname)
+
+
+def concatenate_powers(fol):
+    print('Concatenate powers in {}'.format(fol))
+    powers_files = glob.glob(op.join(fol, 'epilepsy_*_induced_power.npy'))
+    if len(powers_files) != 62: # Should calc number of lables
+        print('{}: Not all the files were created!'.format(fol))
+        return None
+    powers = np.concatenate([np.load(powers_fname) for powers_fname in powers_files]).astype(np.float32)
+    return powers
+
+
 def calc_max_powers(subject, windows_fnames, modality, inverse_method='dSPM', overwrite=False, parallel=True):
     params = [(subject, window_fname, modality, inverse_method, overwrite)
               for window_fname in windows_fnames]
@@ -171,52 +225,84 @@ def _calc_max_powers_parallel(p):
         print('{} does not exist!'.format(fol))
         return
     powers_files = glob.glob(op.join(fol, 'epilepsy_*_induced_power.npy'))
+    if len(powers_files) != 62: # Should calc number of lables
+        print('{}: Not all the files were created!'.format(fol))
+        return
     print('Calculating max power for {}'.format(fol))
-    max_powers = np.max(np.concatenate([np.load(powers_fname) for powers_fname in powers_files]), axis=0)
+    max_powers = np.max(concatenate_powers(fol), axis=0)
     print('Saving to {}'.format(output_fname))
     np.save(output_fname, max_powers)
 
 
 def plot_max_powers(subject, windows_fnames, modality, inverse_method='dSPM', overwrite=False, parallel=True):
-    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 120, 5)])
-    params = [(subject, window_fname, modality, inverse_method, freqs, overwrite)
+    params = [(subject, window_fname, modality, inverse_method, overwrite)
               for window_fname in windows_fnames]
     utils.run_parallel(_plot_max_powers_parllel, params, len(windows_fnames) if parallel else 1)
 
 
 def _plot_max_powers_parllel(p):
-    subject, window_fname, modality, inverse_method, freqs, overwrite = p
+    subject, window_fname, modality, inverse_method, overwrite = p
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_max_power.npy'.format(
         subject, inverse_method, modality, utils.namebase(window_fname)))
     if not op.isfile(fname):
         print('Can\'t find {}!'.format(fname))
         return
-    # /homes/5/npeled/space1/mmvt/nmr01321/epilepsy-figures/power-spectrum
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
     figure_fname = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_max_power.jpg'.format(
         subject, inverse_method, modality, utils.namebase(window_fname)))
     # if op.isfile(figure_fname) and not overwrite:
     #     return
     powers = np.load(fname)
-    times = np.arange(1, powers.shape[1])
-    plot_power_spectrum(powers.astype(np.float32).T, times, freqs, figure_fname)
+    plot_power_spectrum(powers, figure_fname)
 
 
-def plot_power_spectrum(powers, times, freqs, figure_fname):
+def plot_power_spectrum(powers, figure_fname, remove_non_sig=True):
+    # powers: (freqs x time)
+    from src.utils import color_maps_utils as cmu
+    BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
+    F, T = powers.shape
+
     def extents(f):
         delta = f[1] - f[0]
         return [f[0] - delta / 2, f[-1] + delta / 2]
 
-    plt.figure()
-    plt.imshow(np.flip(powers.T, 0), aspect='auto', interpolation='nearest', extent=extents(times) + extents(freqs), cmap='hot')
+    print('Plotting {}'.format(figure_fname))
+    # if remove_non_sig:
+    #     powers[np.where(np.abs(powers) < 2)] = 0
+    powers -= np.mean(powers[:, 0])
+    times = np.arange(1, powers.shape[1])
+    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 120, 5)])
+    bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    vmax, vmin = np.max(powers), np.min(powers)
+    if vmin > 0:
+        cmap = 'YlOrRd'
+        vmin = 0
+    elif vmax < 0:
+        cmap = 'BuPu'
+        vmax = 0
+    else:
+        cmap = BuPu_YlOrRd_cm
+        powers_minmax = 10 # utils.calc_abs_minmax(powers, [0, 100])
+        vmin, vmax = -powers_minmax, powers_minmax
+
+    plt.subplot(211)
+    plt.imshow(np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
+               extent=extents(times) + extents(freqs), cmap=cmap)
     plt.ylabel('frequency (Hz)')
-    plt.xlabel('time (seconds)')
-    plt.tight_layout()
-    plt.savefig(figure_fname)
-    plt.figure()
-    plt.plot(powers)
-    print('asdf')
+    plt.xlabel('time points')
+    # plt.colorbar()
+    # plt.tight_layout()
+    plt.subplot(212)
+    for band_name, band_freqs in bands.items():
+        idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
+        band_power = np.mean(powers[idx, :], axis=0)
+        plt.plot(band_power.T, label=band_name)
+    plt.xlim([0, T])
+    plt.legend()
+    plt.savefig(figure_fname, dpi=300)
+    plt.close()
+
 
 
 def calc_induced_power_zvals(
@@ -541,8 +627,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
-        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-                           overwrite_stc)
+        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+        #                    overwrite_stc)
+        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, overwrite=False, parallel=True)
         # calc_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=True)
         # plot_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=False)
         # calc_amplitude_zvals(
