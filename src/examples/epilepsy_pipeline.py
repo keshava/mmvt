@@ -15,6 +15,7 @@ LINKS_DIR = utils.get_links_dir()
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 EEG_DIR = utils.get_link_dir(LINKS_DIR, 'eeg')
+SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects')
 
 
 def calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels, overwrite_inv=False,
@@ -247,7 +248,7 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             subject, inverse_method, modality, '{window}'))
     not_norm_output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_minmax_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
-    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum-percentiles'))
     figs_fol_not_norm = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum-not-norm'))
     figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_mean_norm_power.jpg'.format(
             subject, inverse_method, modality, '{window}'))
@@ -286,13 +287,13 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
                 label_norm_powers = glob.glob(op.join(fol, 'epilepsy_*_induced_norm_power.npy'))
             else:
                 label_norm_powers = None
-            norm_powers_abs_minmax = calc_powers_abs_minmax(norm_powers, label_norm_powers)# percentiles=[3, 97])
+            norm_powers_abs_minmax = calc_powers_abs_minmax(norm_powers, percentiles=[3, 97])#label_norm_powers)# percentiles=[3, 97])
             np.save(window_output_fname, norm_powers_abs_minmax)
         else:
             norm_powers_abs_minmax = np.load(window_output_fname)
             if calc_also_non_norm_powers:
                 powers_abs_minmax = np.load(window_not_norm_fname)
-        plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window))
+        plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window), remove_non_sig=False, vmax=5)
         if calc_also_non_norm_powers:
             plot_power_spectrum(
                 powers_abs_minmax, figures_template_not_norm.format(window=window), vmax=1,
@@ -365,8 +366,17 @@ def _calc_label_power_over_windows(label_name, modality, baseline_mean, baseline
         # plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window))
 
 
-def calc_powers_abs_minmax(powers, label_norm_powers_files=None, percentiles=None):
+def calc_powers_abs_minmax(powers, label_norm_powers_files=None, percentiles=None, atlas='aparc.DKTatlas40'):
+    from src.utils import labels_utils as lu
     if label_norm_powers_files is not None:
+        # labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
+        # labels_norm_powers = []
+        # for fname in label_norm_powers_files:
+        #     label_name = utils.namebase(fname).split('_')[1]
+        #     label = [l for l in labels if l.name == label_name][0]
+        #     label_mean_power = np.mean(powers[label.vertices], axis=0, keepdims=True)
+        #     labels_norm_powers.append(label_mean_power)
+        # labels_norm_powers = np.concatenate(labels_norm_powers)
         labels_norm_powers = np.concatenate(
             [np.mean(np.load(f), axis=0, keepdims=True) for f in label_norm_powers_files])
         powers_min = np.min(labels_norm_powers, axis=0)
@@ -451,6 +461,7 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=10, vmin
     from src.utils import color_maps_utils as cmu
     BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
     F, T = powers.shape
+    powers = powers.astype(np.float32)
 
     def extents(f):
         delta = f[1] - f[0]
@@ -485,6 +496,7 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=10, vmin
             maxmin = vmax
         vmin, vmax = -maxmin, maxmin
 
+    print('vmin: {}, vmax: {}'.format(vmin, vmax))
     plt.subplot(211)
     clean_powers = powers.copy()
     if remove_non_sig:
@@ -850,12 +862,14 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite=True)
-        # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=True,
-        #                  overwrite=False)
-        plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
-                                   calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
+        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=True,
+                         overwrite=False)
+        # plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
+        #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         pass
 
+    # files = glob.glob('/autofs/space/thibault_001/users/npeled/EEG/nmr01321/nmr01321-epilepsy-dSPM-eeg-run1_szMEG_213s-induced_power/epilepsy_*_induced_norm_power.npy')
+    # calc_powers_abs_minmax(None, label_norm_powers_files=files)
 
     # Old stuff
     # for modality in modalities:
