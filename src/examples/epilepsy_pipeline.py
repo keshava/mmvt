@@ -235,7 +235,7 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
         module.call_main(args)
 
 
-def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse_method='dSPM', overwrite=False, parallel=True):
+def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse_method='dSPM', overwrite=False):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_mean_norm_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
@@ -705,33 +705,30 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
     # create_evokeds_links(subject, windows_with_baseline)
     for modality in modalities:
+        # 1) Sensors
+        # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
+        # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
+
+        # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
+        #                    downsample=2, parallel=True, overwrite=True)
+        # plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
+        #                     overwrite=False, parallel=False)
+
+        # 2) calc fwd and inv
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
         #              overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
         # check_inv_fwd(subject, modality, run_num)
-        # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
-        # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
-        # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
-        #                    downsample=2, parallel=True, overwrite=True)
-        plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
-                            overwrite=False, parallel=False)
-        # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
-        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-        #                    overwrite_stc)
-        # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, overwrite=False, parallel=True)
 
-        # calc_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=True)
-        # plot_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=False)
+        # 3) Amplitude
+        # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
         #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
-        # calc_induced_power_zvals(
-        #     subject, windows, baseline_name, modality, bands, from_index, to_index, inverse_method,
-        #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
-        # move_non_zvals_stcs(subject, modality)
 
-        # plot_stcs_files(subject, modality, n_jobs)
-        # plot_windows(subject, windows, modality, bands, inverse_method)
-        # plot_freqs(subject, temporal_windows, modality, bands, inverse_method, max_t)
+        # 4) Induced power
+        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+        #                    overwrite_stc)
+        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, overwrite=False)
         pass
 
     # plot_modalities(subject, windows, modalities, bands, inverse_method, max_t, overwrite_modalities_figures, n_jobs)
@@ -739,6 +736,17 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     # plot_baseline(subject, baseline_name)
     # fix_amplitude_fnames(subject, bands)
 
+    # Old stuff
+    # for modality in modalities:
+        # calc_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=True)
+        # plot_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=False)
+        # calc_induced_power_zvals(
+        #     subject, windows, baseline_name, modality, bands, from_index, to_index, inverse_method,
+        #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
+        # move_non_zvals_stcs(subject, modality)
+        # plot_stcs_files(subject, modality, n_jobs)
+        # plot_windows(subject, windows, modality, bands, inverse_method)
+        # plot_freqs(subject, temporal_windows, modality, bands, inverse_method, max_t)
 
 
 if __name__ == '__main__':
