@@ -120,9 +120,17 @@ def _calc_amplitude_zvals_parallel(p):
     module.call_main(args)
 
 
-def calc_sensors_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', bad_channels=[],
-                       downsample=2, overwrite=False):
+def calc_sensors_power(subject, windows_fnames, modality, inverse_method='dSPM', bad_channels=[],
+                       downsample=2, parallel=False, overwrite=False):
+    params = [(subject, window_fname, modality, inverse_method, bad_channels, downsample, overwrite)
+              for window_fname in windows_fnames]
+    utils.run_parallel(_calc_sensors_power_parallel, params, len(windows_fnames) if parallel else 1)
+
+
+def _calc_sensors_power_parallel(p):
     from mne.time_frequency import tfr_array_morlet
+
+    subject, window_fname, modality, inverse_method, bad_channels, downsample, overwrite = p
 
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     output_fname_template = op.join(root_dir, '{}-epilepsy-{}-{}-{}-sensors_power.npy'.format(
@@ -131,31 +139,68 @@ def calc_sensors_power(subject, run_num, windows_fnames, modality, inverse_metho
     bad_channels = bad_channels.split(',')
     n_cycles = freqs / 2.
 
+    window = utils.namebase(window_fname)
+    output_fname = output_fname_template.format(window=window)
+    if op.isfile(output_fname) and not overwrite:
+        print('{} already exist'.format(output_fname))
+    evoked = mne.read_evokeds(window_fname)[0]
+    if modality == 'eeg':
+        picks = mne.pick_types(evoked.info, meg=False, eeg=True, exclude=bad_channels)
+    elif modality == 'meg':
+        picks = mne.pick_types(evoked.info, meg=True, eeg=False, exclude=bad_channels)
+    elif modality == 'meeg':
+        picks = mne.pick_types(evoked.info, meg=True, eeg=True, exclude=bad_channels)
+    else:
+        raise Exception('Wrong modality!')
+
+    evoked_data = evoked.data[np.newaxis, picks, :]
+    powers = tfr_array_morlet(
+        evoked_data, sfreq=evoked.info['sfreq'], freqs=freqs, n_cycles=n_cycles, output='power')
+    if powers.shape[2] % 2 == 1:
+        powers = powers[:, :, :-1]
+    if downsample > 1:
+        powers = utils.downsample_3d(powers, downsample)
+    powers_db = 10 * np.log10(powers)  # dB/Hz should be baseline corrected!!!
+    print('Saving {}'.format(output_fname))
+    np.save(output_fname, powers_db.astype(np.float16))
+
+
+def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality, inverse_method='dSPM',
+                        overwrite=False, parallel=True):
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    input_fname_template = op.join(root_dir, '{}-epilepsy-{}-{}-{}-sensors_power.npy'.format(
+        subject, inverse_method, modality, '{window}'))
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'sensors-power-spectrum'))
+    figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-sensors-power.jpg'.format(
+            subject, inverse_method, modality, '{window}'))
+
+    baseline_window = utils.namebase(baseline_window_fname)
+    if not op.isfile(input_fname_template.format(window=baseline_window)):
+        print('No baseline powers! {}'.format(input_fname_template.format(window=baseline_window)))
+        return
+    baseline = np.load(input_fname_template.format(window=baseline_window)).astype(np.float32)
+    baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
+    baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
+    baseline_mean_over_sensors = np.mean(baseline, axis=0)
+    plot_power_spectrum(baseline_mean_over_sensors, figures_template.format(window=baseline_window),
+                        remove_non_sig=False)
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
-        output_fname = output_fname_template.format(window=window)
-        if op.isfile(output_fname) and not overwrite:
-            print('{} already exist'.format(output_fname))
-        evoked = mne.read_evokeds(window_fname)[0]
-        if modality == 'eeg':
-            picks = mne.pick_types(evoked.info, meg=False, eeg=True, exclude=bad_channels)
-        elif modality == 'meg':
-            picks = mne.pick_types(evoked.info, meg=True, eeg=False, exclude=bad_channels)
-        elif modality == 'meeg':
-            picks = mne.pick_types(evoked.info, meg=True, eeg=True, exclude=bad_channels)
-        else:
-            raise Exception('Wrong modality!')
-
-        evoked_data = evoked.data[np.newaxis, picks, :]
-        powers = tfr_array_morlet(
-            evoked_data, sfreq=evoked.info['sfreq'], freqs=freqs, n_cycles=n_cycles, output='avg_power')
-        if powers.shape[2] % 2 == 1:
-            powers = powers[:, :, :-1]
-        if downsample > 1:
-            powers = utils.downsample_3d(powers, downsample)
-        powers_db = 10 * np.log10(powers)  # dB/Hz should be baseline corrected!!!
-        print('Saving {}'.format(output_fname))
-        np.save(output_fname, powers_db.astype(np.float16))
+        figure_fname = figures_template.format(window=window)
+        # dividing by the mean of baseline values, taking the log, and
+        #           dividing by the standard deviation of log baseline values
+        #           ('zlogratio')
+        if not op.isfile(input_fname_template.format(window=window)):
+            print('No window powers! {}'.format(input_fname_template.format(window=window)))
+            continue
+        powers = np.load(input_fname_template.format(window=window)).astype(np.float32)
+        powers = (powers - baseline_mean) / baseline_std
+        powers_min = np.min(powers, axis=0) # over vertices
+        powers_max = np.max(powers, axis=0) # over vertices
+        min_indices = np.where(np.abs(powers_min) > powers_max)
+        powers_abs_minmax = powers_max
+        powers_abs_minmax[min_indices] = powers_min[min_indices]
+        plot_power_spectrum(powers_abs_minmax, figure_fname)
 
 
 def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True,
@@ -665,8 +710,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # check_inv_fwd(subject, modality, run_num)
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
-        calc_sensors_power(subject, run_num, windows_with_baseline, modality, inverse_method, bad_channels,
-                           downsample=2, overwrite=True)
+        # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
+        #                    downsample=2, parallel=True, overwrite=True)
+        plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
+                            overwrite=False, parallel=False)
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite_stc)
