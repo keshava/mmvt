@@ -2609,8 +2609,9 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
     from mne.minimum_norm import source_band_induced_power
     if bands is None or bands == '':
         min_delta = 1 if n_cycles <= 2 else 2
-        bands = dict(delta=[min_delta, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
-        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 125, 5)])
+        max_high_gamma = 120 # 300
+        bands = dict(delta=[min_delta, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, max_high_gamma])
+        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
     ret = check_bands(epochs, bands, df, n_cycles)
     if not ret:
         return False
