@@ -120,6 +120,44 @@ def _calc_amplitude_zvals_parallel(p):
     module.call_main(args)
 
 
+def calc_sensors_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', bad_channels=[],
+                       downsample=2, check_for_labels_files=True, overwrite=False):
+    from mne.time_frequency import tfr_array_morlet
+
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    output_fname_template = op.join(root_dir, '{}-epilepsy-{}-{}-{}-sensors_power.npy'.format(
+        subject, inverse_method, modality, '{window}'))
+    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 125, 5)])
+    bad_channels = bad_channels.split(',')
+    n_cycles = freqs / 2.
+
+    for window_fname in windows_fnames:
+        window = utils.namebase(window_fname)
+        output_fname = output_fname_template.format(window=window)
+        if op.isfile(output_fname) and not overwrite:
+            print('{} already exist'.format(output_fname))
+        evoked = mne.read_evokeds(window_fname)[0]
+        if modality == 'eeg':
+            picks = mne.pick_types(evoked.info, meg=False, eeg=True, exclude=bad_channels)
+        elif modality == 'meg':
+            picks = mne.pick_types(evoked.info, meg=True, eeg=False, exclude=bad_channels)
+        elif modality == 'meeg':
+            picks = mne.pick_types(evoked.info, meg=True, eeg=True, exclude=bad_channels)
+        else:
+            raise Exception('Wrong modality!')
+
+        evoked_data = evoked.data[np.newaxis, picks, :]
+        powers = tfr_array_morlet(
+            evoked_data, sfreq=evoked.info['sfreq'], freqs=freqs, n_cycles=n_cycles, output='avg_power')
+        if powers.shape[2] % 2 == 1:
+            powers = powers[:, :, :-1]
+        if downsample > 1:
+            powers = utils.downsample_3d(powers, downsample)
+        powers_db = 10 * np.log10(powers)  # dB/Hz should be baseline corrected!!!
+        print('Saving {}'.format(output_fname))
+        np.save(output_fname, powers_db)
+
+
 def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True,
                        overwrite=False):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
@@ -627,10 +665,12 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # check_inv_fwd(subject, modality, run_num)
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
+        calc_sensors_power(subject, run_num, windows_with_baseline, modality, inverse_method, bad_channels,
+                           downsample=2, check_for_labels_files=True, overwrite=False)
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite_stc)
-        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, overwrite=False, parallel=True)
+        # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, overwrite=False, parallel=True)
 
         # calc_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=True)
         # plot_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=False)
@@ -672,7 +712,7 @@ if __name__ == '__main__':
     evokes_fol = [d for d in [
         # '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
         # '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
-        op.join(MMVT_DIR, subject, 'evoked')] if op.isdir(d)][0]
+        op.join(MEG_DIR, subject, 'evokes')] if op.isdir(d)][0]
     meg_fol = [d for d in [
         '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
@@ -689,7 +729,10 @@ if __name__ == '__main__':
         run_num = re.sub('\D', ',', run).split(',')[-1]
         # if int(run_num) != 1:
         #     continue
-        raw_fname = glob.glob(op.join(meg_fol, '*_{}_raw.fif'.format(str(run_num).zfill(2))))[0]
+        raw_run_files = glob.glob(op.join(meg_fol, '*_{}_*raw*.fif'.format(str(run_num).zfill(2))))
+        if len(raw_run_files) == 0:
+            continue
+        raw_fname = raw_run_files[0]
         main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, 'Base_line',
              inverse_method, n_jobs)
     print('Finish!')
