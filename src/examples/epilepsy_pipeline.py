@@ -627,9 +627,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
-        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-                           overwrite_stc)
-        # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, overwrite=False, parallel=True)
+        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+        #                    overwrite_stc)
+        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, overwrite=False, parallel=True)
 
         # calc_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=True)
         # plot_max_powers(subject, windows_with_baseline, modality, inverse_method, overwrite=False, parallel=False)
