@@ -257,6 +257,7 @@ def _plot_max_powers_parllel(p):
     plot_power_spectrum(powers, figure_fname)
 
 
+@utils.tryit()
 def plot_power_spectrum(powers, figure_fname, remove_non_sig=True):
     # powers: (freqs x time)
     from src.utils import color_maps_utils as cmu
