@@ -121,7 +121,7 @@ def _calc_amplitude_zvals_parallel(p):
 
 
 def calc_sensors_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', bad_channels=[],
-                       downsample=2, check_for_labels_files=True, overwrite=False):
+                       downsample=2, overwrite=False):
     from mne.time_frequency import tfr_array_morlet
 
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
@@ -155,7 +155,7 @@ def calc_sensors_power(subject, run_num, windows_fnames, modality, inverse_metho
             powers = utils.downsample_3d(powers, downsample)
         powers_db = 10 * np.log10(powers)  # dB/Hz should be baseline corrected!!!
         print('Saving {}'.format(output_fname))
-        np.save(output_fname, powers_db)
+        np.save(output_fname, powers_db.astype(np.float16))
 
 
 def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True,
@@ -666,7 +666,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         calc_sensors_power(subject, run_num, windows_with_baseline, modality, inverse_method, bad_channels,
-                           downsample=2, check_for_labels_files=True, overwrite=False)
+                           downsample=2, overwrite=True)
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite_stc)
