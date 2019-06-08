@@ -244,7 +244,7 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
         output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power_labels.npy'.format(
             subject, inverse_method, modality, '{window}'))
     else:
-        output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power_percentiles.npy'.format(
+        output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_mean_norm_power.npy'.format(
             subject, inverse_method, modality, '{window}'))
     not_norm_output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_minmax_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
@@ -262,9 +262,9 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
         baseline = concatenate_powers(baseline_fol) # (vertices x freqs x time)
         baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
         baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the mean (over time) of log baseline values
-        baseline_mean_over_vertices = np.mean(baseline, axis=0)
-        plot_power_spectrum(baseline_mean_over_vertices, figures_template.format(window=utils.namebase(baseline_window)),
-                            remove_non_sig=False)
+        # baseline_mean_over_vertices = np.mean(baseline, axis=0)
+        # plot_power_spectrum(baseline_mean_over_vertices, figures_template.format(window=utils.namebase(baseline_window)),
+        #                     remove_non_sig=False)
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
         window_output_fname = output_fname.format(window=window)
@@ -281,13 +281,13 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             # dividing by the mean of baseline values, taking the log, and  dividing by the standard deviation of
             # log baseline values ('zlogratio')
             norm_powers = (powers - baseline_mean) / baseline_std
-            if use_norm_labels_powers:
-                fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
-                    subject, inverse_method, modality, window))
-                label_norm_powers = glob.glob(op.join(fol, 'epilepsy_*_induced_norm_power.npy'))
-            else:
-                label_norm_powers = None
-            norm_powers_abs_minmax = calc_powers_abs_minmax(norm_powers, percentiles=[3, 97])#label_norm_powers)# percentiles=[3, 97])
+            # if use_norm_labels_powers:
+            #     fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+            #         subject, inverse_method, modality, window))
+            #     label_norm_powers = glob.glob(op.join(fol, 'epilepsy_*_induced_norm_power.npy'))
+            # else:
+            #     label_norm_powers = None
+            norm_powers_abs_minmax = calc_powers_abs_minmax(norm_powers)#label_norm_powers)# percentiles=[3, 97])
             np.save(window_output_fname, norm_powers_abs_minmax)
         else:
             norm_powers_abs_minmax = np.load(window_output_fname)
@@ -367,39 +367,31 @@ def _calc_label_power_over_windows(label_name, modality, baseline_mean, baseline
 
 
 def calc_powers_abs_minmax(powers, label_norm_powers_files=None, percentiles=None, atlas='aparc.DKTatlas40'):
-    from src.utils import labels_utils as lu
-    if label_norm_powers_files is not None:
-        # labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
-        # labels_norm_powers = []
-        # for fname in label_norm_powers_files:
-        #     label_name = utils.namebase(fname).split('_')[1]
-        #     label = [l for l in labels if l.name == label_name][0]
-        #     label_mean_power = np.mean(powers[label.vertices], axis=0, keepdims=True)
-        #     labels_norm_powers.append(label_mean_power)
-        # labels_norm_powers = np.concatenate(labels_norm_powers)
-        labels_norm_powers = np.concatenate(
-            [np.mean(np.load(f), axis=0, keepdims=True) for f in label_norm_powers_files])
-        powers_min = np.min(labels_norm_powers, axis=0)
-        powers_max = np.max(labels_norm_powers, axis=0)
-    else:
-        if percentiles is None:
-            powers_min = np.min(powers, axis=0)  # over vertices
-            powers_max = np.max(powers, axis=0)  # over vertices
-        else:
-            powers_min = np.percentile(powers, percentiles[0], axis=0)  # over vertices
-            powers_max = np.percentile(powers, percentiles[0], axis=0)  # over vertices
-    min_indices = np.where(np.abs(powers_min) > powers_max)
-    powers_abs_minmax = powers_max
-    powers_abs_minmax[min_indices] = powers_min[min_indices]
-    return powers_abs_minmax
+    # from src.utils import labels_utils as lu
+    # if label_norm_powers_files is not None:
+    #     labels_norm_powers = np.concatenate(
+    #         [np.mean(np.load(f), axis=0, keepdims=True) for f in label_norm_powers_files])
+    #     powers_min = np.min(labels_norm_powers, axis=0)
+    #     powers_max = np.max(labels_norm_powers, axis=0)
+    # else:
+    min_vertice = np.argmin(np.min(powers, axis=(1, 2)))
+    max_vertice = np.argmax(np.max(powers, axis=(1, 2)))
+    powers_max = np.max(powers, axis=(1, 2))[max_vertice]
+    powers_min = np.min(powers, axis=(1, 2))[min_vertice]
+    minmax_vertice = max_vertice if powers_max > abs(powers_min) else min_vertice
+    return powers[minmax_vertice]
+    # min_indices = np.where(np.abs(powers_min) > powers_max)
+    # powers_abs_minmax = powers_max
+    # powers_abs_minmax[min_indices] = powers_min[min_indices]
+    # return powers_abs_minmax
 
 
 def concatenate_powers(fol):
     print('Concatenate powers in {}'.format(fol))
     powers_files = glob.glob(op.join(fol, 'epilepsy_*_induced_power.npy'))
-    if len(powers_files) != 62: # Should calc number of lables
-        print('{}: Not all the files were created!'.format(fol))
-        return None
+    # if len(powers_files) != 62: # Should calc number of lables
+    #     print('{}: Not all the files were created!'.format(fol))
+    #     return None
     powers = np.concatenate([np.load(powers_fname).astype(np.float32) for powers_fname in powers_files])
     return powers
 
@@ -862,8 +854,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite=True)
-        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=True,
-                         overwrite=False)
+        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
+                         overwrite=True)
         # plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         pass
@@ -890,7 +882,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
-    modalities = ['eeg', 'meg', 'meeg']
+    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
 
