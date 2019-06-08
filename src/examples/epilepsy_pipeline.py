@@ -378,7 +378,7 @@ def calc_powers_abs_minmax(powers, label_norm_powers_files=None, percentiles=Non
     max_vertice = np.argmax(np.max(powers, axis=(1, 2)))
     powers_max = np.max(powers, axis=(1, 2))[max_vertice]
     powers_min = np.min(powers, axis=(1, 2))[min_vertice]
-    minmax_vertice = max_vertice if powers_max > abs(powers_min) else min_vertice
+    minmax_vertice = max_vertice # if powers_max > abs(powers_min) else min_vertice
     return powers[minmax_vertice]
     # min_indices = np.where(np.abs(powers_min) > powers_max)
     # powers_abs_minmax = powers_max
