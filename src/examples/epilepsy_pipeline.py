@@ -248,7 +248,7 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             subject, inverse_method, modality, '{window}'))
     not_norm_output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_minmax_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
-    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum-percentiles'))
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
     figs_fol_not_norm = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum-not-norm'))
     figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_mean_norm_power.jpg'.format(
             subject, inverse_method, modality, '{window}'))
