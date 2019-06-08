@@ -244,7 +244,7 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
         output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power_labels.npy'.format(
             subject, inverse_method, modality, '{window}'))
     else:
-        output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_mean_norm_power.npy'.format(
+        output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npy'.format(
             subject, inverse_method, modality, '{window}'))
     not_norm_output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_minmax_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
@@ -380,6 +380,7 @@ def calc_powers_abs_minmax(powers, label_norm_powers_files=None, percentiles=Non
     powers_min = np.min(powers, axis=(1, 2))[min_vertice]
     minmax_vertice = max_vertice # if powers_max > abs(powers_min) else min_vertice
     print('max vertice {} -> {}'.format(minmax_vertice, powers_max))
+    print(np.unravel_index(powers[minmax_vertice].argmax(), powers[minmax_vertice].shape))
     return powers[minmax_vertice]
     # min_indices = np.where(np.abs(powers_min) > powers_max)
     # powers_abs_minmax = powers_max
@@ -883,7 +884,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
-    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
+    modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
 
@@ -915,8 +916,8 @@ if __name__ == '__main__':
     n_jobs = 5 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     for run in runs:
-        if run != 'run1':
-            continue
+        # if run != 'run1':
+        #     continue
         if len(runs) > 0:
             run_num = re.sub('\D', ',', run).split(',')[-1]
             raw_run_files = glob.glob(op.join(meg_fol, '*_{}_*raw*.fif'.format(str(run_num).zfill(2))))
