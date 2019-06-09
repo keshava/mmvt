@@ -564,9 +564,9 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vm
 def plot_power_spectrum_two_layers(powers1, powers2, title='', figure_fname=''):
     fig, ax = plt.subplots()
     im1 = _plot_powers(powers1, ax)
-    cba = plt.colorbar(im1, shrink=0.25)
+    # cba = plt.colorbar(im1, shrink=0.25)
     im2 = _plot_powers(powers2, ax)
-    cbb = plt.colorbar(im2, shrink=0.25)
+    # cbb = plt.colorbar(im2, shrink=0.25)
     plt.ylabel('frequency (Hz)')
     plt.xlabel('time points')
     plt.title(title)
