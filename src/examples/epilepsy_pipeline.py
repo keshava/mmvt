@@ -301,8 +301,8 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             if calc_also_non_norm_powers:
                 powers_abs_minmax = np.load(window_not_norm_fname)
         plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax'))
-        plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min'))
-        plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max'))
+        plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min'), baseline_correction=False)
+        plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max'), baseline_correction=False)
         if calc_also_non_norm_powers:
             plot_power_spectrum(
                 powers_abs_minmax, figures_template_not_norm.format(window=window), vmax=1,
@@ -493,6 +493,7 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vm
         print('powers.shape[0] != len(freqs)!!!')
         return
     _vmax, _vmin = np.max(powers), np.min(powers)
+    print('vmin: {}, vmax: {}'.format(_vmin, _vmax))
     if _vmin > 0:
         cmap = 'YlOrRd'
         vmax = _vmax if vmax is None else vmax
@@ -511,7 +512,6 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vm
             maxmin = vmax
         vmin, vmax = -maxmin, maxmin
 
-    print('vmin: {}, vmax: {}'.format(vmin, vmax))
     plt.subplot(211)
     clean_powers = powers.copy()
     if remove_non_sig:
@@ -520,7 +520,7 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vm
                extent=extents(times) + extents(freqs), cmap=cmap)
     plt.ylabel('frequency (Hz)')
     plt.xlabel('time points')
-    # plt.colorbar()
+    plt.colorbar()
     # plt.tight_layout()
     plt.subplot(212)
     for band_name, band_freqs in bands.items():
@@ -905,7 +905,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
-    modalities = ['eeg'] # ['eeg', 'meg', 'meeg']
+    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
 
