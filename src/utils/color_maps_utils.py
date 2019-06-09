@@ -13,6 +13,7 @@ MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 def create_BuPu_YlOrRd_cm(n=128):
     colors1 = plt.cm.PuBu(np.linspace(1, 0, n))
     colors2 = plt.cm.YlOrRd(np.linspace(0, 1, n))
+    colors1[-1] = colors2[0] = [1., 1., 1., 1.]
     colors = np.vstack((colors1, colors2))
     colors_map = mcolors.LinearSegmentedColormap.from_list('BuPu_YlOrRd', colors)
     return colors_map
