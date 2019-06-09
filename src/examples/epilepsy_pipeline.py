@@ -570,7 +570,7 @@ def plot_power_spectrum_two_layers(powers1, powers2, title='', figure_fname=''):
     plt.ylabel('frequency (Hz)')
     plt.xlabel('time points')
     plt.title(title)
-    if fig_name != '':
+    if figure_fname != '':
         plt.savefig(figure_fname, dpi=300)
         plt.close()
     else:
