@@ -303,13 +303,6 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
         plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax'), baseline_correction=False)
         plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min'), baseline_correction=False)
         plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max'), baseline_correction=False)
-        plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min-dt'),
-                            baseline_correction=False, calc_dt=True, remove_non_sig=False)
-        plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max-dt'),
-                            baseline_correction=False, calc_dt=True, remove_non_sig=False)
-        plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax-dt'),
-                            baseline_correction=False, calc_dt=True, remove_non_sig=False)
-
         if calc_also_non_norm_powers:
             plot_power_spectrum(
                 powers_abs_minmax, figures_template_not_norm.format(window=window), vmax=1,
@@ -918,7 +911,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
-    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
+    modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
 
@@ -950,8 +943,8 @@ if __name__ == '__main__':
     n_jobs = 5 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     for run in runs:
-        if run != 'run1':
-            continue
+        # if run != 'run1':
+        #     continue
         if len(runs) > 0:
             run_num = re.sub('\D', ',', run).split(',')[-1]
             raw_run_files = glob.glob(op.join(meg_fol, '*_{}_*raw*.fif'.format(str(run_num).zfill(2))))
