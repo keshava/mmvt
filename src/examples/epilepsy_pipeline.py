@@ -314,7 +314,8 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
         # x1, x2 = nans(norm_powers_max.shape), nans(norm_powers_max.shape)
         # x1[max_inds] = norm_powers_max[max_inds]
         # x2[min_inds] = norm_powers_min[min_inds]
-        plot_power_spectrum_two_layers(x1, x2, '{} {}'.format(modality, window))
+        plot_power_spectrum_two_layers(x1, x2, '{} {}'.format(modality, window),
+                                       figures_template.format(window=window, method='minmax_two_layers'))
 
         # plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax'), baseline_correction=False)
         # plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min'), baseline_correction=False)
@@ -560,7 +561,7 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vm
     plt.close()
 
 
-def plot_power_spectrum_two_layers(powers1, powers2, title=''):
+def plot_power_spectrum_two_layers(powers1, powers2, title='', figure_fname=''):
     fig, ax = plt.subplots()
     im1 = _plot_powers(powers1, ax)
     cba = plt.colorbar(im1, shrink=0.25)
@@ -569,7 +570,11 @@ def plot_power_spectrum_two_layers(powers1, powers2, title=''):
     plt.ylabel('frequency (Hz)')
     plt.xlabel('time points')
     plt.title(title)
-    plt.show()
+    if fig_name != '':
+        plt.savefig(figure_fname, dpi=300)
+        plt.close()
+    else:
+        plt.show()
 
 
 def _plot_powers(powers, ax):
