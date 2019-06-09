@@ -396,6 +396,7 @@ def calc_powers_abs_minmax(powers, label_norm_powers_files=None, both_min_and_ma
     # -- Can be different vertice for each time and freq
     powers_min = np.min(powers, axis=0)  # over vertices
     powers_max = np.max(powers, axis=0)  # over vertices
+    print('minmin: {}, maxmax: {}'.format(np.min(powers_min), np.max(powers_max)))
     if both_min_and_max:
         return powers_min, powers_max
     else:
@@ -470,7 +471,7 @@ def _plot_max_powers_parllel(p):
 
 
 @utils.tryit()
-def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=10, vmin=None, baseline_correction=True):
+def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vmin=None, baseline_correction=True):
     # powers: (freqs x time)
     from src.utils import color_maps_utils as cmu
     BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
