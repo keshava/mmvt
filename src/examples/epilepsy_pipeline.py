@@ -904,7 +904,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
-    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
+    modalities = ['eeg'] # ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
 
