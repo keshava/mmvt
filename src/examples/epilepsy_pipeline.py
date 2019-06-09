@@ -300,14 +300,35 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             norm_powers_min, norm_powers_max = d['min'], d['max']
             if calc_also_non_norm_powers:
                 powers_abs_minmax = np.load(window_not_norm_fname)
-        plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax'), baseline_correction=False)
-        plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min'), baseline_correction=False)
-        plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max'), baseline_correction=False)
+
+        minmax_powers = np.zeros(norm_powers_max.shape)
+        min_inds = np.where(norm_powers_min < np.percentile(norm_powers_min, 5))
+        max_inds = np.where(norm_powers_max > np.percentile(norm_powers_max, 95))
+        minmax_powers[max_inds] = norm_powers_max[max_inds]
+        minmax_powers[min_inds] = norm_powers_min[min_inds]
+
+        from numpy.ma import masked_array
+        x1 = masked_array(minmax_powers, minmax_powers < np.percentile(norm_powers_min, 5))
+        x2 = masked_array(minmax_powers, minmax_powers > np.percentile(norm_powers_max, 95))
+
+        # x1, x2 = nans(norm_powers_max.shape), nans(norm_powers_max.shape)
+        # x1[max_inds] = norm_powers_max[max_inds]
+        # x2[min_inds] = norm_powers_min[min_inds]
+        plot_power_spectrum_two_layers(x1, x2, '{} {}'.format(modality, window))
+
+        # plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax'), baseline_correction=False)
+        # plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min'), baseline_correction=False)
+        # plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max'), baseline_correction=False)
         if calc_also_non_norm_powers:
             plot_power_spectrum(
                 powers_abs_minmax, figures_template_not_norm.format(window=window), vmax=1,
                 baseline_correction=False, remove_non_sig=False)
 
+
+def nans(shape, dtype=np.float32):
+    x = np.empty(shape, dtype)
+    x.fill(np.nan)
+    return x
 
 def plot_norm_powers_per_label(subject, windows_fnames, baseline_window, modality, inverse_method='dSPM',
                                calc_also_non_norm_powers=False, overwrite=False, n_jobs=4):
@@ -537,6 +558,50 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vm
     plt.legend()
     plt.savefig(figure_fname, dpi=300)
     plt.close()
+
+
+def plot_power_spectrum_two_layers(powers1, powers2, title=''):
+    fig, ax = plt.subplots()
+    im1 = _plot_powers(powers1, ax)
+    cba = plt.colorbar(im1, shrink=0.25)
+    im2 = _plot_powers(powers2, ax)
+    cbb = plt.colorbar(im2, shrink=0.25)
+    plt.ylabel('frequency (Hz)')
+    plt.xlabel('time points')
+    plt.title(title)
+    plt.show()
+
+
+def _plot_powers(powers, ax):
+    from src.utils import color_maps_utils as cmu
+    BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
+
+    def extents(f):
+        delta = f[1] - f[0]
+        return [f[0] - delta / 2, f[-1] + delta / 2]
+
+    times = np.arange(powers.shape[1])
+    high_gamma_top = 120 if powers.shape[0] == 51 else 125
+    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_top, 5)])
+    if powers.shape[0] != len(freqs):
+        print('powers.shape[0] != len(freqs)!!!')
+        return
+
+    vmax, vmin = np.ma.masked_array.max(powers), np.ma.masked_array.min(powers)
+    if vmin > 0:
+        cmap = matplotlib.cm.YlOrRd
+        # cmap = 'YlOrRd'
+    elif vmax < 0:
+        cmap = matplotlib.cm.BuPu
+        # cmap = 'BuPu'
+    else:
+        cmap = BuPu_YlOrRd_cm
+        maxmin = max(map(abs, [vmax, vmin]))
+        vmin, vmax = -maxmin, maxmin
+    # cmap.set_bad(color='white')
+    im = ax.imshow(np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
+               extent=extents(times) + extents(freqs), cmap=cmap)
+    return im
 
 
 
@@ -884,7 +949,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite=True)
         plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
-                         overwrite=True)
+                         overwrite=False)
         # plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         pass
@@ -911,7 +976,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
-    modalities = ['eeg', 'meg', 'meeg']
+    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
 
@@ -943,8 +1008,8 @@ if __name__ == '__main__':
     n_jobs = 5 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     for run in runs:
-        # if run != 'run1':
-        #     continue
+        if run != 'run1':
+            continue
         if len(runs) > 0:
             run_num = re.sub('\D', ',', run).split(',')[-1]
             raw_run_files = glob.glob(op.join(meg_fol, '*_{}_*raw*.fif'.format(str(run_num).zfill(2))))
