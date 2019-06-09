@@ -300,9 +300,16 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             norm_powers_min, norm_powers_max = d['min'], d['max']
             if calc_also_non_norm_powers:
                 powers_abs_minmax = np.load(window_not_norm_fname)
-        plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax'))
+        plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax'), baseline_correction=False)
         plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min'), baseline_correction=False)
         plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max'), baseline_correction=False)
+        plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min-dt'),
+                            baseline_correction=False, calc_dt=True, remove_non_sig=False)
+        plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max-dt'),
+                            baseline_correction=False, calc_dt=True, remove_non_sig=False)
+        plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax-dt'),
+                            baseline_correction=False, calc_dt=True, remove_non_sig=False)
+
         if calc_also_non_norm_powers:
             plot_power_spectrum(
                 powers_abs_minmax, figures_template_not_norm.format(window=window), vmax=1,
@@ -471,7 +478,8 @@ def _plot_max_powers_parllel(p):
 
 
 @utils.tryit()
-def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vmin=None, baseline_correction=True):
+def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vmin=None, baseline_correction=True,
+                        calc_dt=False):
     # powers: (freqs x time)
     from src.utils import color_maps_utils as cmu
     BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
@@ -485,7 +493,12 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vm
     print('Plotting {}'.format(figure_fname))
     if baseline_correction:
         powers -= np.mean(powers[:, 0])
-    times = np.arange(powers.shape[1])
+    if calc_dt:
+        powers = np.diff(powers, axis=1)
+        times = np.arange(powers.shape[1] - 1)
+    else:
+        times = np.arange(powers.shape[1])
+
     high_gamma_top = 120 if powers.shape[0] == 51 else 125
     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_top, 5)])
     bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
