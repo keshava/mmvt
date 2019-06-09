@@ -571,6 +571,7 @@ def plot_power_spectrum_two_layers(powers1, powers2, title='', figure_fname=''):
     plt.xlabel('time points')
     plt.title(title)
     if figure_fname != '':
+        print('Saving figure to {}'.format(figure_fname))
         plt.savefig(figure_fname, dpi=300)
         plt.close()
     else:
