@@ -995,8 +995,8 @@ if __name__ == '__main__':
     #
     # subject = 'nmr01321'
     # evokes_fol = [d for d in [
-        '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
-        '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
+    #     '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
+    #     '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
         # op.join(MMVT_DIR, subject, 'evoked')] if op.isdir(d)][0]
     # meg_fol = [d for d in [
     #     '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
