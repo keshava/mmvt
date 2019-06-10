@@ -986,24 +986,24 @@ if __name__ == '__main__':
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
 
-    # subject = 'nmr00857'
-    # evokes_fol = op.join(MEG_DIR, subject, 'evoked')
-    # meg_fol = '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123'
-    # empty_fname = glob.glob(op.join(meg_fol, '*roomnoise_raw.fif'))[0]
-    # bad_channels = 'EEG061,EEG02,EEG042,MEG0112,MEG0113'
-    # baseline_name = 'BaseLINE'
-
-    subject = 'nmr01321'
-    evokes_fol = [d for d in [
-        # '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
-        # '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
-        op.join(MMVT_DIR, subject, 'evoked')] if op.isdir(d)][0]
-    meg_fol = [d for d in [
-        '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
-        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+    subject = 'nmr00857'
+    evokes_fol = op.join(MEG_DIR, subject, 'evoked')
+    meg_fol = '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123'
     empty_fname = glob.glob(op.join(meg_fol, '*roomnoise_raw.fif'))[0]
-    bad_channels = 'EEG001,EEG003,EEG004,EEG005,EEG008,EEG034,EEG045,EEG051,EEG057,EEG058,EEG060,EEG061,EEG062,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'
-    baseline_name = 'Base_line'
+    bad_channels = 'EEG061,EEG02,EEG042,MEG0112,MEG0113'
+    baseline_name = 'BaseLINE'
+    #
+    # subject = 'nmr01321'
+    # evokes_fol = [d for d in [
+        '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
+        '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
+        # op.join(MMVT_DIR, subject, 'evoked')] if op.isdir(d)][0]
+    # meg_fol = [d for d in [
+    #     '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
+    #     op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+    # empty_fname = glob.glob(op.join(meg_fol, '*roomnoise_raw.fif'))[0]
+    # bad_channels = 'EEG001,EEG003,EEG004,EEG005,EEG008,EEG034,EEG045,EEG051,EEG057,EEG058,EEG060,EEG061,EEG062,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'
+    # baseline_name = 'Base_line'
 
     no_runs = False
     runs = set([utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))])
