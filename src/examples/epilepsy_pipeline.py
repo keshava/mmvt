@@ -561,15 +561,35 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vm
     plt.close()
 
 
-def plot_power_spectrum_two_layers(powers1, powers2, title='', figure_fname=''):
-    fig, ax = plt.subplots()
-    im1 = _plot_powers(powers1, ax)
+def plot_power_spectrum_two_layers(powers_negative, powers_positive, title='', figure_fname=''):
+    fig, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
+    F, T = powers_negative.shape
+    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 125, 5)])
+    bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+
+
+    im1 = _plot_powers(powers_negative, ax1)
     # cba = plt.colorbar(im1, shrink=0.25)
-    im2 = _plot_powers(powers2, ax)
+    im2 = _plot_powers(powers_positive, ax1)
     # cbb = plt.colorbar(im2, shrink=0.25)
     plt.ylabel('frequency (Hz)')
     plt.xlabel('time points')
     plt.title(title)
+    for band_name, band_freqs in bands.items():
+        idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
+        band_power = np.mean(powers_negative[idx, :], axis=0)
+        ax2.plot(band_power.T, label=band_name)
+    ax2.set_xlim([0, T])
+    # ax2.legend()
+
+    for band_name, band_freqs in bands.items():
+        idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
+        band_power = np.mean(powers_positive[idx, :], axis=0)
+        ax3.plot(band_power.T, label=band_name)
+    ax3.set_xlim([0, T])
+    # ax3.legend()
+
+
     if figure_fname != '':
         print('Saving figure to {}'.format(figure_fname))
         plt.savefig(figure_fname, dpi=300)
@@ -604,6 +624,7 @@ def _plot_powers(powers, ax):
         cmap = BuPu_YlOrRd_cm
         maxmin = max(map(abs, [vmax, vmin]))
         vmin, vmax = -maxmin, maxmin
+    # powers[np.where(powers == 0)] = np.nan
     # cmap.set_bad(color='white')
     im = ax.imshow(np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
                extent=extents(times) + extents(freqs), cmap=cmap)
@@ -986,24 +1007,24 @@ if __name__ == '__main__':
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
 
-    subject = 'nmr00857'
-    evokes_fol = op.join(MEG_DIR, subject, 'evoked')
-    meg_fol = '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123'
-    empty_fname = glob.glob(op.join(meg_fol, '*roomnoise_raw.fif'))[0]
-    bad_channels = 'EEG061,EEG02,EEG042,MEG0112,MEG0113'
-    baseline_name = 'BaseLINE'
-    #
-    # subject = 'nmr01321'
-    # evokes_fol = [d for d in [
-    #     '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
-    #     '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
-        # op.join(MMVT_DIR, subject, 'evoked')] if op.isdir(d)][0]
-    # meg_fol = [d for d in [
-    #     '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
-    #     op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+    # subject = 'nmr00857'
+    # evokes_fol = op.join(MEG_DIR, subject, 'evoked')
+    # meg_fol = '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123'
     # empty_fname = glob.glob(op.join(meg_fol, '*roomnoise_raw.fif'))[0]
-    # bad_channels = 'EEG001,EEG003,EEG004,EEG005,EEG008,EEG034,EEG045,EEG051,EEG057,EEG058,EEG060,EEG061,EEG062,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'
-    # baseline_name = 'Base_line'
+    # bad_channels = 'EEG061,EEG02,EEG042,MEG0112,MEG0113'
+    # baseline_name = 'BaseLINE'
+
+    subject = 'nmr01321'
+    evokes_fol = [d for d in [
+        '/autofs/space/frieda_001/users/valia/epilepsy/4272326_01321/MMVT_epochs',
+        '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
+        op.join(MMVT_DIR, subject, 'evoked')] if op.isdir(d)][0]
+    meg_fol = [d for d in [
+        '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
+        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+    empty_fname = glob.glob(op.join(meg_fol, '*roomnoise_raw.fif'))[0]
+    bad_channels = 'EEG001,EEG003,EEG004,EEG005,EEG008,EEG034,EEG045,EEG051,EEG057,EEG058,EEG060,EEG061,EEG062,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'
+    baseline_name = 'Base_line'
 
     no_runs = False
     runs = set([utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))])
