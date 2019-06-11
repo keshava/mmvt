@@ -677,10 +677,6 @@ def plot_modalities_power_spectrums_with_graph(subject, modalities, window_fname
     for ind, modality in enumerate(modalities):
         powers_ax = ax[0, ind]
         powers_ax.set_title(modality.upper(), fontdict={'fontsize': 18})
-                # 'fontweight' : rcParams['axes.titleweight'],
-                # 'verticalalignment': 'baseline',
-                # 'horizontalalignment': loc}})
-        #
         positive_powers_ax = ax[1, ind]
         negative_powers_ax = ax[2, ind]
         root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
@@ -691,23 +687,16 @@ def plot_modalities_power_spectrums_with_graph(subject, modalities, window_fname
         d = np.load(window_output_fname)
         powers_negative, powers_positive = calc_masked_negative_and_positive_powers(d['min'], d['max'], percentiles)
 
-        _plot_powers(powers_negative, powers_ax, times)
-        _plot_powers(powers_positive, powers_ax, times)
+        im1 = _plot_powers(powers_negative, powers_ax, times)
+        im2 = _plot_powers(powers_positive, powers_ax, times)
         if ind == 0:
             powers_ax.set_ylabel('Frequency (Hz)')
         else:
             powers_ax.set_yticks([])
-            # from mpl_toolkits.axes_grid1 import make_axes_locatable
-            # divider = make_axes_locatable(powers_ax)
-            # cax = divider.append_axes("right", size="5%", pad=1)
-            # plt.colorbar(im2, cax=cax)
-            # fig.colorbar(im2, ax=powers_ax)
-            # plt.colorbar(im2, shrink=0.25)
-            # fig.colorbar(im2, ax=ax[0, :].ravel().tolist(), location='right', shrink=0.6)
-            # from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-            # axins = inset_axes(powers_ax, width="10%", height="100%", loc='right',
-            #                    bbox_to_anchor=(0.5, 0, 1, 1), bbox_transform=ax.transAxes)
-            # plt.colorbar(im2, cax=axins)
+            from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+            axins = inset_axes(powers_ax, width="5%", height="100%", loc=5,
+                               bbox_to_anchor=(1.15, 0, 1, 1), bbox_transform=powers_ax.transAxes)
+            plt.colorbar(im2, cax=axins)
 
         # for powers, axis, positive in zip([powers_positive, powers_negative], ax[1:2, ind], [True, False]):
         #     for band_name, band_freqs in bands.items():
@@ -1223,17 +1212,17 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite=True)
-        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
-                         overwrite=False, figures_type='eps')
+        # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
+        #                  overwrite=False, figures_type='eps')
         # plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(subject, modality, windows[0], baseline_window)
         pass
 
     # find_vertices(subject)
-    # for window_fname in windows:
-    #     figure_name = '' # '{}-modalities-power-spectrum-with-grpahs'.format(utils.namebase(window_fname))
-    #     plot_modalities_power_spectrums_with_graph(subject, modalities, window_fname, figure_name, file_type='eps')
+    for window_fname in windows:
+        figure_name = '' #'{}-modalities-power-spectrum-with-grpahs'.format(utils.namebase(window_fname))
+        plot_modalities_power_spectrums_with_graph(subject, modalities, window_fname, figure_name, file_type='eps')
 
     # files = glob.glob('/autofs/space/thibault_001/users/npeled/EEG/nmr01321/nmr01321-epilepsy-dSPM-eeg-run1_szMEG_213s-induced_power/epilepsy_*_induced_norm_power.npy')
     # calc_powers_abs_minmax(None, label_norm_powers_files=files)
@@ -1257,7 +1246,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
-    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
+    modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
 
