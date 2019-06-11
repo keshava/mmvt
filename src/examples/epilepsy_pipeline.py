@@ -652,7 +652,7 @@ def calc_masked_negative_and_positive_powers(norm_powers_min, norm_powers_max, p
 
 def plot_modalities_power_spectrums_with_graph(
         subject, modalities, window_fname, figure_name='', percentiles=[5, 95], inverse_method='dSPM', ylims=[-18, 6],
-        file_type='jpg', cb_ticks = [], cb_ticks_font_size=12):
+        file_type='jpg', cb_ticks = [], cb_ticks_font_size=12, figure_fol=''):
 
     evoked = mne.read_evokeds(window_fname)[0]
     times = evoked.times if len(evoked.times) % 2 == 0 else evoked.times[:-1]
@@ -661,6 +661,8 @@ def plot_modalities_power_spectrums_with_graph(
     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 125, 5)])
     # bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     bands = dict(delta=[1, 4], high_gamma=[65, 120])
+    if figure_fol == '':
+        figure_fol = op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum')
 
     fig, ax = plt.subplots(3, len(modalities), figsize=(20, 10))
     for ind, modality in enumerate(modalities):
