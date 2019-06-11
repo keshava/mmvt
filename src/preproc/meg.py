@@ -2619,7 +2619,7 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
         epochs.info.normalize_proj()
     if calc_inducde_power_per_label:
         fol = utils.make_dir(op.join(SUBJECT_MEG_FOLDER, '{}-induced_power'.format(stc_fname)))
-        labels = lu.read_labels(MRI_SUBJECT, SUBJECTS_MRI_DIR, atlas)
+        labels = lu.read_labels(subject, SUBJECTS_MRI_DIR, atlas)
         if len(labels) == 0:
             raise Exception('No labels found for {}!'.format(atlas))
         now = time.time()
