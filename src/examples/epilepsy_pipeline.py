@@ -650,23 +650,10 @@ def calc_masked_negative_and_positive_powers(norm_powers_min, norm_powers_max, p
     return negative_powers, positive_powers
 
 
-def plot_modalities_power_spectrums_with_graph(subject, modalities, window_fname, figure_name='', percentiles=[5, 95],
-                                               inverse_method='dSPM', ylims=[-18, 6], file_type='jpg'):
-    from src.utils import figures_utils as fu
-    from src.utils import color_maps_utils as cmu
+def plot_modalities_power_spectrums_with_graph(
+        subject, modalities, window_fname, figure_name='', percentiles=[5, 95], inverse_method='dSPM', ylims=[-18, 6],
+        file_type='jpg', cb_ticks = [], cb_ticks_font_size=12):
 
-    fig, ax = plt.subplots(3, len(modalities), figsize=(20, 10))
-
-    figure_fol = op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum')
-    colorbar_fname = op.join(figure_fol, 'BuPu_YlOrRd_colorbar.{}'.format(file_type))
-    if not op.isfile(colorbar_fname):
-        BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
-        fu.plot_color_bar(20, -20, BuPu_YlOrRd_cm, ax=None, fol=figure_fol, do_save=True, file_type='eps',
-                          background_color='white', cb_ticks_font_size=12, cb_title='dBhz Z-Scores', dpi=fig.dpi,
-                          h=None, w=None, set_cb_max_min_using_ticks=True, cb_ticks_perc=5)
-
-    # fig.figsize = (20,10)
-    # fig.dpi = 300
     evoked = mne.read_evokeds(window_fname)[0]
     times = evoked.times if len(evoked.times) % 2 == 0 else evoked.times[:-1]
     times = utils.downsample(times, 2)
@@ -674,6 +661,8 @@ def plot_modalities_power_spectrums_with_graph(subject, modalities, window_fname
     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 125, 5)])
     # bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     bands = dict(delta=[1, 4], high_gamma=[65, 120])
+
+    fig, ax = plt.subplots(3, len(modalities), figsize=(20, 10))
     for ind, modality in enumerate(modalities):
         powers_ax = ax[0, ind]
         powers_ax.set_title(modality.upper(), fontdict={'fontsize': 18})
@@ -696,7 +685,11 @@ def plot_modalities_power_spectrums_with_graph(subject, modalities, window_fname
             from mpl_toolkits.axes_grid1.inset_locator import inset_axes
             axins = inset_axes(powers_ax, width="5%", height="100%", loc=5,
                                bbox_to_anchor=(1.15, 0, 1, 1), bbox_transform=powers_ax.transAxes)
-            plt.colorbar(im2, cax=axins)
+            cb = plt.colorbar(im2, cax=axins)
+            if cb_ticks != []:
+                cb.set_ticks(cb_ticks)
+            cb.ax.tick_params(labelsize=cb_ticks_font_size)
+            cb.ax.set_ylabel('dBHZ Z-Score', color='black', fontsize=cb_ticks_font_size)
 
         # for powers, axis, positive in zip([powers_positive, powers_negative], ax[1:2, ind], [True, False]):
         #     for band_name, band_freqs in bands.items():
