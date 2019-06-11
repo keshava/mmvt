@@ -331,7 +331,7 @@ def install_blender_reqs(blender_fol='', gui=True):
         current_dir = os.getcwd()
         os.chdir(blender_bin_fol)
         # install blender reqs:
-        reqs = 'matplotlib zmq pizco scipy mne joblib tqdm nibabel pdfkit decorator Pillow scikit-learn gitpython decorator'
+        reqs = 'matplotlib zmq pizco scipy mne joblib tqdm nibabel pdfkit decorator Pillow scikit-learn gitpython decorator tqdm'
         pip_cmd = '{} {}'.format(op.join('bin', python_exe), op.join(resource_fol, 'get-pip.py'))
         if not utils.is_windows():
             utils.run_script(pip_cmd)
