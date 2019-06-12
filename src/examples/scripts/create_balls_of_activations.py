@@ -17,7 +17,8 @@ def run(mmvt):
     for ind, line in enumerate(lines):
         mu.time_to_go(now, ind, len(lines), runs_num_to_print=10)
         mni305_ras = np.array([float(x) for x in line[:3]])
-        cond, primary = int(line[3]), int(line[4])
+        cond = int(line[3]) if len(line) > 3 else 1
+        primary = int(line[4]) if len(line) > 4 else 2
         subject_tkreg_ras = mmvt.where_am_i.mni305_ras_to_subject_tkreg_ras(mni305_ras)
         inflated_pos = mmvt.where_am_i.pos_to_current_inflation(subject_tkreg_ras, subject_tkreg_ras=True)
         ball_name = 'peak_{}_{}_{}'.format(ind, cond, primary)
