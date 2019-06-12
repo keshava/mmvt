@@ -18,11 +18,14 @@ def trans_tal_coords(files, template='colin27', overwrite=False):
     else:
         rois = utils.load(output_fname)
     for roi in rois.keys():
-        csv_fname = op.join(output_fol, '{}.csv'.format(roi))
-        with open(csv_fname, 'w') as csv_file:
-            csv_writer = csv.writer(csv_file, delimiter=',')
-            for mni_coordinates in rois[roi]['mni']:
-                csv_writer.writerow(mni_coordinates)
+        csv_fname = op.join(output_fol, '{}_mni.csv'.format(roi))
+        csv_tal_fname = op.join(output_fol, '{}_tal.csv'.format(roi))
+        with open(csv_fname, 'w') as csv_file_mni, open(csv_tal_fname, 'w') as csv_file_tal:
+            csv_mni_writer = csv.writer(csv_file_mni, delimiter=',')
+            csv_tal_writer = csv.writer(csv_file_tal, delimiter=',')
+            for mni, tal in zip(rois[roi]['mni'], rois[roi]['tal']):
+                csv_mni_writer.writerow(mni)
+                csv_tal_writer.writerow(tal)
 
 
 def get_tal_coordaintes(files):
