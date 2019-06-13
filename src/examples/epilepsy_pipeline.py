@@ -1257,9 +1257,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                     overwrite=True, parallel=False)
 
         # 2) calc fwd and inv
-        calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
-                     overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
-        check_inv_fwd(subject, modality, run_num)
+        # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
+        #              overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
+        # check_inv_fwd(subject, modality, run_num)
 
         # 3) Amplitude
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
@@ -1268,8 +1268,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
 
         # 4) Induced power
-        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-        #                    overwrite=True)
+        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+                           overwrite=True)
         # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
         #                  overwrite=False, figures_type='eps')
         # plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
