@@ -206,7 +206,7 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
         # plot_power_spectrum(powers_abs_minmax, figure_fname, high_gamma_max=high_gamma_max)
 
         norm_powers[np.where(np.abs(norm_powers) < sig_threshold)] = 0
-        norm_powers_min, norm_powers_max = calc_powers_abs_minmax(norm_powers)
+        norm_powers_min, norm_powers_max, min_vertices, max_vertices = calc_powers_abs_minmax(norm_powers)
         np.save(op.join(root_dir, 'norm_powers_max.npy'), norm_powers_max)
         # negative_powers, positive_powers = calc_masked_negative_and_positive_powers(
         #     norm_powers_min, norm_powers_max, percentiles)
@@ -434,13 +434,13 @@ def calc_powers_abs_minmax(powers, label_norm_powers_files=None, both_min_and_ma
     # return powers[minmax_vertice]
 
     # -- Can be different vertice for each time and freq
-    # max_vertices = powers.reshape(powers.shape[0], -1).argmax(0).reshape((powers.shape[1], -1))
-    # min_vertices = powers.reshape(powers.shape[0], -1).argmin(0).reshape((powers.shape[1], -1))
+    max_vertices = powers.reshape(powers.shape[0], -1).argmax(0).reshape((powers.shape[1], -1))
+    min_vertices = powers.reshape(powers.shape[0], -1).argmin(0).reshape((powers.shape[1], -1))
     powers_min = np.min(powers, axis=0)  # over vertices
     powers_max = np.max(powers, axis=0)  # over vertices
     print('minmin: {}, maxmax: {}'.format(np.min(powers_min), np.max(powers_max)))
     if both_min_and_max:
-        return powers_min, powers_max #, min_vertices, max_vertices
+        return powers_min, powers_max, min_vertices, max_vertices
     else:
         min_indices = np.where(np.abs(powers_min) > powers_max)
         powers_abs_minmax = powers_max
