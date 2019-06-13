@@ -279,9 +279,9 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             return
         baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
         baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the mean (over time) of log baseline values
-        baseline_mean_over_vertices = np.mean(baseline, axis=0)
-        plot_power_spectrum(baseline_mean_over_vertices, figures_template.format(window=utils.namebase(baseline_window)),
-                            remove_non_sig=False)
+        # baseline_mean_over_vertices = np.mean(baseline, axis=0)
+        # plot_power_spectrum(baseline_mean_over_vertices, figures_template.format(window=utils.namebase(baseline_window)),
+        #                     remove_non_sig=False)
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
         window_output_fname = output_fname.format(window=window)
