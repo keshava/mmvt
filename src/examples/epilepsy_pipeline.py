@@ -1227,7 +1227,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         baseline_windows = glob.glob(op.join(evokes_fol, '*{}*.fif'.format(baseline_template)))
     else:
         windows = glob.glob(op.join(evokes_fol, '{}_*.fif'.format(run)))
-        baseline_windows = glob.glob(op.join(evokes_fol, '{}_{}*.fif'.format(run, baseline_template)))
+        baseline_windows = glob.glob(op.join(evokes_fol, '{}*.fif'.format(run, baseline_template)))
     for baseline_window in baseline_windows:
         windows.remove(baseline_window)
     windows_with_baseline = windows + baseline_windows
@@ -1252,14 +1252,14 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
         #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
-        plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
-                            high_gamma_max=high_gamma_max, percentiles=percentiles,
-                            overwrite=True, parallel=False)
+        # plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
+        #                     high_gamma_max=high_gamma_max, percentiles=percentiles,
+        #                     overwrite=True, parallel=False)
 
         # 2) calc fwd and inv
-        # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
-        #              overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
-        # check_inv_fwd(subject, modality, run_num)
+        calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
+                     overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
+        check_inv_fwd(subject, modality, run_num)
 
         # 3) Amplitude
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
@@ -1332,10 +1332,10 @@ def subject_nmr01325():
     subject = 'nmr01325'
     evokes_fol = [d for d in [
         '/cluster/neuromind/valia/epilepsy/6645962_01325',
-        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+        op.join(MEG_DIR, subject, 'evokes')] if op.isdir(d)][0]
     meg_fol = [d for d in [
         '/cluster/neuromind/valia/epilepsy/6645962_01325/190523',
-        op.join(MEG_DIR, subject, 'evokes')] if op.isdir(d)][0]
+        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG020,EEG021,EEG050,EEG051'
     baseline_name = 'baseline'
@@ -1358,7 +1358,7 @@ def find_room_noise(fol):
 
 
 if __name__ == '__main__':
-    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
+    modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name = subject_nmr01325()

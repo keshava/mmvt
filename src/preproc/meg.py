@@ -1662,7 +1662,8 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
     bem_files_exist = np.all([op.isfile(op.join(bem_fol, bem_fname)) for bem_fname in bem_files])
     watershed_files_exist = watershed_exist(bem_fol)
     if not watershed_files_exist:
-        watershed_files_exist = watershed_exist(op.join(remote_subject_dir, 'bem'))
+        remote_bem_fol = op.join(remote_subject_dir, 'bem')
+        watershed_files_exist = watershed_exist(remote_bem_fol)
         if watershed_files_exist:
             utils.make_link(op.join(remote_bem_fol, 'watershed'), op.join(bem_fol, 'watershed'))
     if not bem_files_exist and not watershed_files_exist:
