@@ -279,9 +279,9 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             return
         baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
         baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the mean (over time) of log baseline values
-        # baseline_mean_over_vertices = np.mean(baseline, axis=0)
-        # plot_power_spectrum(baseline_mean_over_vertices, figures_template.format(window=utils.namebase(baseline_window)),
-        #                     remove_non_sig=False)
+        baseline_mean_over_vertices = np.mean(baseline, axis=0)
+        plot_power_spectrum(baseline_mean_over_vertices, figures_template.format(window=utils.namebase(baseline_window)),
+                            remove_non_sig=False)
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
         window_output_fname = output_fname.format(window=window)
@@ -1257,9 +1257,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
         #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
-        plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
-                            high_gamma_max=high_gamma_max, percentiles=percentiles,
-                            sig_threshold=sig_threshold, overwrite=True, parallel=False)
+        # plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
+        #                     high_gamma_max=high_gamma_max, percentiles=percentiles,
+        #                     sig_threshold=sig_threshold, overwrite=True, parallel=False)
 
         # 2) calc fwd and inv
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
@@ -1275,8 +1275,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite=True)
-        # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
-        #                  overwrite=False, figures_type='eps')
+        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
+                         overwrite=False, figures_type='eps')
         # plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(subject, modality, windows[0], baseline_window)
@@ -1363,7 +1363,7 @@ def find_room_noise(fol):
 
 
 if __name__ == '__main__':
-    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
+    modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name = subject_nmr01325()
