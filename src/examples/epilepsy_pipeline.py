@@ -211,7 +211,7 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
         # negative_powers, positive_powers = calc_masked_negative_and_positive_powers(
         #     norm_powers_min, norm_powers_max, percentiles)
         times = get_window_times(window_fname, downsample=2)
-        figure_fname = '' # figures_template.format(window=window, method='minmax_two_layers')
+        figure_fname = figures_template.format(window=window, method='minmax_two_layers')
         plot_positive_and_negative_power_spectrum(
             norm_powers_min, norm_powers_max, times,  '{} {}'.format(modality, window),
             figure_fname=figure_fname, high_gamma_max=high_gamma_max)
@@ -324,9 +324,9 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
         # x1[max_inds] = norm_powers_max[max_inds]
         # x2[min_inds] = norm_powers_min[min_inds]
         times = get_window_times(window_fname, downsample=2)
-
-        plot_power_spectrum_two_layers(positive_powers, negative_powers, times, '{} {}'.format(modality, window),
-                                       figures_template.format(window=window, method='minmax_two_layers'))
+        figure_fname = ''# figures_template.format(window=window, method='minmax_two_layers')
+        plot_power_spectrum_two_layers(
+            negative_powers, positive_powers, times, '{} {}'.format(modality, window), figure_fname)
 
         # plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax'), baseline_correction=False)
         # plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min'), baseline_correction=False)
@@ -607,7 +607,7 @@ def plot_positive_and_negative_power_spectrum(
         neg_graph_ax.plot(times, band_power.T, label=band_name)
     neg_graph_ax.set_xlim([min_t, max_t])
     neg_graph_ax.set_ylim([None, -2])
-    # neg_graph_ax.legend()
+    neg_graph_ax.legend()
 
     for band_name, band_freqs in bands.items():
         idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
@@ -615,7 +615,7 @@ def plot_positive_and_negative_power_spectrum(
         pos_graph_ax.plot(times, band_power.T, label=band_name)
     pos_graph_ax.set_xlim([min_t, max_t])
     pos_graph_ax.set_ylim([2, None])
-    pos_graph_ax.legend()
+    # pos_graph_ax.legend()
     plt.suptitle(title)
 
     if figure_fname != '':
@@ -1118,7 +1118,8 @@ def find_vertices(subject, modality='meg', atlas='aparc.DKTatlas'):
     return vertices
 
 
-def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, inverse_method='dSPM', atlas='aparc.DKTatlas'):
+def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, run_num, inverse_method='dSPM',
+                            atlas='aparc.DKTatlas', high_gamma_max=120):
     from src.utils import labels_utils as lu
     from collections import defaultdict
     import time
@@ -1128,19 +1129,27 @@ def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, in
     output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npz'.format(
         subject, inverse_method, modality, '{window}'))
     window_output_fname = output_fname.format(window=window)
+    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
 
     d = np.load(window_output_fname)
     min_indeices, max_indices = d['min_vertices'], d['max_vertices']
-    x = d['max'][:5, 4000:4050]
+    times = get_window_times(window_fname, downsample=2)
+    t_max = np.where(times > 0.15)[0][0]
+    t_min = np.where(times > 0)[0][0]
+    x = d['max'][:12, t_min:t_max]
     max_val = np.max(x)
     f, t = np.unravel_index(x.argmax(), x.shape)
-    t += 4000
-    print('{} in {}f {}t'.format(max_val, f, t))
+    t += t_min
     vertices_ind = max_indices[f, t]
 
-    # this_vertno = np.intersect1d(vertno, label.vertices)
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
     inv = mne.minimum_norm.read_inverse_operator(inv_fname)
+    labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
+    # max_vert_label = find_vert_label(vertices_ind, modality, window, labels, inv)
+    vertices_ind_to_no_lookup, vertices_labels_lookup = \
+        calc_vertices_lookup_tables(modality, window, labels, inv)
+    max_vert_label = vertices_labels_lookup[vertices_ind]
+    print('{:.4f} in {}Hz {:.4f}s in {}'.format(max_val, freqs[f], times[t], max_vert_label.name))
 
     labels_norm_data_fol = utils.make_dir(op.join(root_dir, 'labels_norm_all_baseline'))
     baseline_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
@@ -1165,7 +1174,6 @@ def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, in
 
     # norm_labels_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
     #     subject, inverse_method, modality, window))
-    labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
     vertices, vertices_data = defaultdict(list), defaultdict(list)
     # labels_data = []
     start_ind = 0
@@ -1183,49 +1191,68 @@ def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, in
             subject, inverse_method, modality, window, label_name))
         vertno, src_sel = mne.minimum_norm.inverse.label_src_vertno_sel(label, inv['src'])
         if not op.isfile(label_fname):
-            print('Reading norm_powers ({}) from {}:{}'.format(norm_powers.shape[0], start_ind, start_ind+len(src_sel)))
+            print('Reading norm_powers ({}) from {}:{} for label {}'.format(
+                norm_powers.shape[0], start_ind, start_ind+len(src_sel), label.name))
             label_powers = norm_powers[start_ind: start_ind+len(src_sel)]
             np.save(label_fname, label_powers)
         else:
             label_powers = np.load(label_fname, mmap_mode='r')
-        start_ind += len(src_sel)
         labels_powers_per_freq_per_time = label_powers[:, f, t]
-        # if vertices_ind in label.vertices:
+        if start_ind <= vertices_ind < start_ind+len(src_sel):
+            print('vertices_ind: label {}, for {}Hz and {:.3f}s: {}'.format(
+                label_name, freqs[f], times[t], label_powers[vertices_ind - start_ind, f, t]))
+            if label_powers[vertices_ind - start_ind, f, t] != max_val:
+                raise Exception('@#%$#$%@#$%@#$%@%$')
         if np.isclose(max_val, np.max(labels_powers_per_freq_per_time)):
-            print('label {}, for {}f and {}t: {}'.format(label_name, f, t, np.max(labels_powers_per_freq_per_time)))
+            print('isclose: label {}, for {}Hz and {:.3f}s: {}'.format(
+                label_name, freqs[f], times[t], np.max(labels_powers_per_freq_per_time)))
+        start_ind += len(src_sel)
         vertices[label.hemi].extend(vertno[0] if label.hemi == 'lh' else vertno[1])
         vertices_data[label.hemi].extend(labels_powers_per_freq_per_time)
         del label_powers
 
-    evoked = mne.read_evokeds(window_fname)[0]
     combined_stc = meg.creating_stc_obj(
-        vertices_data, vertices, subject, tmin=evoked.times[0], tstep=evoked.times[1] - evoked.times[0])
+        vertices_data, vertices, subject, tmin=times[0], tstep=times[1] - times[0])
     output_stc_fname = op.join(
         MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg',
-        'epilepsy-{}-{}-{}-{}t-{}f-induced_norm_power'.format(inverse_method, modality, window, t, f))
+        'epilepsy-{}-{}-{:.3f}s-{}Hz-{}-induced_norm_power'.format(
+            modality, window, times[t], freqs[f], inverse_method))
     print('Saving stc file for t {} and f {} in {}'.format(t, f, output_stc_fname))
     combined_stc.save(output_stc_fname)
 
 
-    # label_baseline = np.load(op.join(baseline_fol, 'epilepsy_{}_induced_power.npy'.format(max_label.name))).astype(np.float32)
-    # # label_baseline_std = np.std(label_baseline, axis=2, keepdims=True)  # the standard deviation (over time) of log baseline values
-    # # label_baseline_mean = np.mean(label_baseline, axis=2, keepdims=True)  # the mean (over time) of log baseline values
-    #
-    # label_baseline_std = np.std(label_baseline * pow(10, -15), axis=2, keepdims=True) * pow(10, 15)
-    # label_baseline_mean = np.mean(label_baseline * pow(10, -15), axis=2, keepdims=True) * pow(10, 15)
-    #
-    #
-
-    # label_powers = np.load(op.join(powers_fol, 'epilepsy_{}_induced_power.npy'.format(max_label.name))).astype(np.float32)
-    # norm_powers = (label_powers - label_baseline_mean) / label_baseline_std
-
-    print('sadf')
+def calc_vertices_lookup_tables(modality, window, labels, inv):
+    output_fname = op.join(MMVT_DIR, subject, 'vertices_lookup_tables.pkl')
+    # if op.isfile(output_fname):
+    #     vertices_ind_to_no_lookup, vertices_no_to_ind_lookup, vertices_labels_lookup = utils.load(output_fname)
+    #     return vertices_lookup, vertices_labels_lookup
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    powers_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+        subject, inverse_method, modality, window))
+    powers_files = glob.glob(op.join(powers_fol, 'epilepsy_*_induced_power.npy'))
+    start_ind = 0
+    vertice_label = None
+    vertices_ind_to_no_lookup = {}
+    vertices_labels_lookup = {}
+    for file_ind, powers_fname in enumerate(powers_files):
+        label_name = utils.namebase(powers_fname).split('_')[1]
+        label = [l for l in labels if l.name == label_name][0]
+        vertno, src_sel = mne.minimum_norm.inverse.label_src_vertno_sel(label, inv['src'])
+        for vert_ind, vert_num in zip(range(start_ind, start_ind + len(src_sel)), vertno[0] if label.hemi == 'lh' else vertno[1]):
+            vertices_ind_to_no_lookup[vert_ind] = vert_num
+            vertices_labels_lookup[vert_ind] = label
+        # if start_ind <= vertices_ind < start_ind + len(src_sel):
+        #     vertice_label = label
+        #     break
+        start_ind += len(src_sel)
+    utils.save((vertices_ind_to_no_lookup, vertices_labels_lookup), output_fname)
+    return vertices_ind_to_no_lookup, vertices_labels_lookup
 
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
          inverse_method='dSPM', no_runs=False, n_jobs=4):
-    run_num = re.sub('\D', ',', run).split(',')[-1]
+    run_num = re.sub('\D', ',', run).split(',')[-1].zfill(2)
     if no_runs:
         windows = glob.glob(op.join(evokes_fol, '*.fif'))
         baseline_windows = glob.glob(op.join(evokes_fol, '*{}*.fif'.format(baseline_template)))
@@ -1275,11 +1302,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite=True)
-        plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
-                         overwrite=False, figures_type='eps')
+        # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
+        #                  overwrite=False, figures_type='eps')
         # plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
-        # calc_stc_power_specturm(subject, modality, windows[0], baseline_window)
+        calc_stc_power_specturm(subject, modality, windows[0], baseline_window, run_num)
         pass
 
     # find_vertices(subject)
@@ -1336,7 +1363,7 @@ def subject_nmr01321():
 def subject_nmr01325():
     subject = 'nmr01325'
     evokes_fol = [d for d in [
-        '/cluster/neuromind/valia/epilepsy/6645962_01325',
+        # '/cluster/neuromind/valia/epilepsy/6645962_01325',
         op.join(MEG_DIR, subject, 'evokes')] if op.isdir(d)][0]
     meg_fol = [d for d in [
         '/cluster/neuromind/valia/epilepsy/6645962_01325/190523',
@@ -1362,6 +1389,22 @@ def find_room_noise(fol):
         return fname
 
 
+def find_raw_fname(meg_fol, run):
+    raw_fname = ''
+    run_num = re.sub('\D', ',', run).split(',')[-1]
+    raw_files = glob.glob(op.join(meg_fol, '*_{}_*raw*.fif'.format(str(run_num).zfill(2))))
+    if not op.isfile(raw_fname):
+        raw_run_files = [f for f in raw_files if 'annot' not in utils.namebase(f) and 'eve' not in utils.namebase(f)]
+        if len(raw_run_files) == 0:
+            return ''
+        ssst_raw_files = [f for f in raw_run_files if 'ssst' in utils.namebase(f)]
+        if len(ssst_raw_files) > 0:
+            raw_fname = utils.select_one_file(ssst_raw_files, 'raw file for run {}'.format(run_num))
+        else:
+            raw_fname = utils.select_one_file(raw_run_files, 'raw file for run {}'.format(run_num))
+    return raw_fname, run_num
+
+
 if __name__ == '__main__':
     modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
@@ -1378,20 +1421,8 @@ if __name__ == '__main__':
     for run in runs:
         # if run != 'run1':
         #     continue
+        raw_fname, run_num = find_raw_fname(meg_fol, run)
         if len(runs) > 0:
-            raw_fname = ''
-            run_num = re.sub('\D', ',', run).split(',')[-1]
-            raw_files = glob.glob(op.join(meg_fol, '*_{}_*raw*.fif'.format(str(run_num).zfill(2))))
-            ssst_raw_files = [f for f in raw_files if 'ssst' in utils.namebase(f)]
-            if not op.isfile(raw_fname):
-                raw_run_files = [f for f in raw_files if 'annot' not in utils.namebase(f) and 'eve' not in utils.namebase(f)]
-                if len(raw_run_files) == 0:
-                    continue
-                ssst_raw_files = [f for f in raw_run_files if 'ssst' in utils.namebase(f)]
-                if len(ssst_raw_files) > 0:
-                    raw_fname = utils.select_one_file(ssst_raw_files, 'raw file for run {}'.format(run_num))
-                else:
-                    raw_fname = utils.select_one_file(raw_run_files, 'raw file for run {}'.format(run_num))
                 if not op.isfile(raw_fname):
                     continue
         main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
