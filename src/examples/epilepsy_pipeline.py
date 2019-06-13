@@ -185,8 +185,8 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
     baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
     baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
     baseline_mean_over_sensors = np.mean(baseline, axis=0)
-    plot_power_spectrum(baseline_mean_over_sensors, figures_template.format(window=baseline_window),
-                        remove_non_sig=False, high_gamma_max=high_gamma_max)
+    # plot_power_spectrum(baseline_mean_over_sensors, figures_template.format(window=baseline_window),
+    #                     remove_non_sig=False, high_gamma_max=high_gamma_max)
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
         figure_fname = figures_template.format(window=window)
@@ -207,12 +207,14 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
 
         norm_powers[np.where(np.abs(norm_powers) < sig_threshold)] = 0
         norm_powers_min, norm_powers_max = calc_powers_abs_minmax(norm_powers)
+        np.save(op.join(root_dir, 'norm_powers_max.npy'), norm_powers_max)
         # negative_powers, positive_powers = calc_masked_negative_and_positive_powers(
         #     norm_powers_min, norm_powers_max, percentiles)
         times = get_window_times(window_fname, downsample=2)
+        figure_fname = '' # figures_template.format(window=window, method='minmax_two_layers')
         plot_positive_and_negative_power_spectrum(
             norm_powers_min, norm_powers_max, times,  '{} {}'.format(modality, window),
-            figures_template.format(window=window, method='minmax_two_layers'), high_gamma_max=high_gamma_max)
+            figure_fname=figure_fname, high_gamma_max=high_gamma_max)
         # plot_power_spectrum_two_layers(
         #     positive_powers, negative_powers, times, '{} {}'.format(modality, window),
         #     figures_template.format(window=window, method='minmax_two_layers'), high_gamma_max=high_gamma_max)
@@ -587,9 +589,9 @@ def plot_positive_and_negative_power_spectrum(
         only_power_spectrum=True, high_gamma_max=120):
 
     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-    bands = dict(delta=[1, 4], gamma=[30, 55], # theta=[4, 8], alpha=[8, 15], beta=[15, 30],
+    bands = dict(delta=[1, 4], gamma=[30, 55], theta=[4, 8], alpha=[8, 15], beta=[15, 30],
                  high_gamma=[55, 100], hfo=[100, high_gamma_max])
-    min_t, max_t = round(times[0]), round(times[-1])
+    min_t, max_t = round(times[0], 1), round(times[-1], 1)
 
     fig, axs = plt.subplots(2, 2)
     pos_powers_ax, neg_powers_ax = axs[0, 0], axs[0, 1]
@@ -604,6 +606,7 @@ def plot_positive_and_negative_power_spectrum(
         band_power = np.mean(powers_negative[idx, :], axis=0)
         neg_graph_ax.plot(times, band_power.T, label=band_name)
     neg_graph_ax.set_xlim([min_t, max_t])
+    neg_graph_ax.set_ylim([None, -2])
     # neg_graph_ax.legend()
 
     for band_name, band_freqs in bands.items():
@@ -611,6 +614,7 @@ def plot_positive_and_negative_power_spectrum(
         band_power = np.mean(powers_positive[idx, :], axis=0)
         pos_graph_ax.plot(times, band_power.T, label=band_name)
     pos_graph_ax.set_xlim([min_t, max_t])
+    pos_graph_ax.set_ylim([2, None])
     pos_graph_ax.legend()
     plt.suptitle(title)
 
@@ -1242,7 +1246,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     from_index, to_index = 2000, 10000
     max_t = 0 #7500
     high_gamma_max = 300
-    percentiles = [50, 50] # [5, 95]
+    percentiles = [5, 95]
+    sig_threshold = 3
 
     # create_evokeds_links(subject, windows_with_baseline)
     for modality in modalities:
@@ -1252,9 +1257,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
         #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
-        # plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
-        #                     high_gamma_max=high_gamma_max, percentiles=percentiles,
-        #                     overwrite=True, parallel=False)
+        plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
+                            high_gamma_max=high_gamma_max, percentiles=percentiles,
+                            sig_threshold=sig_threshold, overwrite=True, parallel=False)
 
         # 2) calc fwd and inv
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
@@ -1268,8 +1273,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
 
         # 4) Induced power
-        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-                           overwrite=True)
+        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+        #                    overwrite=True)
         # plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
         #                  overwrite=False, figures_type='eps')
         # plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
@@ -1358,7 +1363,7 @@ def find_room_noise(fol):
 
 
 if __name__ == '__main__':
-    modalities = ['eeg', 'meg', 'meeg']
+    modalities = ['meg'] # ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name = subject_nmr01325()
