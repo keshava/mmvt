@@ -1,15 +1,11 @@
 import matplotlib
 matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
 
 import os.path as op
-import numpy as np
-import mne
 
 from src.preproc import eeg
 from src.preproc import meg
 from src.utils import utils
-from src.preproc.epilepsy import utils as epi_utils
 
 LINKS_DIR = utils.get_links_dir()
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')

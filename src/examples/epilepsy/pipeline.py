@@ -1,9 +1,6 @@
 from src.preproc import eeg
 from src.preproc import meg
 from src.utils import utils
-from src.preproc.epilepsy import plots
-from src.preproc.epilepsy import power_spectrums_plots as psplots
-from src.preproc.epilepsy import utils as epi_utils
 import glob
 import os.path as op
 import mne
@@ -450,7 +447,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
-    from src.preproc.epilepsy import init_files
+    from src.examples.epilepsy import init_files, power_spectrums_plots as psplots, utils as epi_utils
+
     modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
