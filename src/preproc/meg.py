@@ -1645,6 +1645,11 @@ def read_bem_solution(bem_fname):
 
 
 def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
+
+    def watershed_exist(fol):
+        return np.all([op.isfile(op.join(fol, 'watershed', watershed_fname.format(mri_subject)))
+                       for watershed_fname in watershed_files])
+
     bem_files = ['brain.surf', 'inner_skull.surf', 'outer_skin.surf', 'outer_skull.surf']
     watershed_files = ['{}_brain_surface', '{}_inner_skull_surface', '{}_outer_skin_surface',
                        '{}_outer_skull_surface']
@@ -1655,17 +1660,14 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
             mri_subject, remote_subject_dir, SUBJECTS_MRI_DIR,
             {'bem': [f for f in bem_files]}, args)
     bem_files_exist = np.all([op.isfile(op.join(bem_fol, bem_fname)) for bem_fname in bem_files])
-    watershed_files_exist = np.all(
-        [op.isfile(op.join(bem_fol, 'watershed', watershed_fname.format(mri_subject))) for watershed_fname in
-         watershed_files])
+    watershed_files_exist = watershed_exist(bem_fol)
     if not watershed_files_exist:
-        remote_bem_fol = op.join(remote_subject_dir, 'bem')
-        watershed_files_exist = np.all(
-            [op.isfile(op.join(remote_bem_fol, 'watershed', watershed_fname.format(mri_subject))) for watershed_fname in
-             watershed_files])
+        watershed_files_exist = watershed_exist(op.join(remote_subject_dir, 'bem'))
         if watershed_files_exist:
             utils.make_link(op.join(remote_bem_fol, 'watershed'), op.join(bem_fol, 'watershed'))
     if not bem_files_exist and not watershed_files_exist:
+        os.environ['SUBJECT'] = mri_subject
+        utils.run_script('mne_watershed_bem')
         err_msg = '''BEM files don't exist, you should create it first using mne_watershed_bem.
             For that you need to open a terminal, define SUBJECTS_DIR, SUBJECT, source MNE, and run
             mne_watershed_bem.
@@ -1673,7 +1675,8 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
             basrc: export SUBJECT={0}
             You can take a look here:
             http://perso.telecom-paristech.fr/~gramfort/mne/MRC/mne_anatomical_workflow.pdf '''.format(mri_subject)
-        raise Exception(err_msg)
+        # raise Exception(err_msg)
+    watershed_files_exist = watershed_exist(bem_fol)
     if not bem_files_exist and watershed_files_exist:
         for bem_file, watershed_file in zip(bem_files, watershed_files):
             utils.remove_file(op.join(bem_fol, bem_file))

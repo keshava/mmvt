@@ -1330,8 +1330,12 @@ def subject_nmr01321():
 
 def subject_nmr01325():
     subject = 'nmr01325'
-    evokes_fol = '/cluster/neuromind/valia/epilepsy/6645962_01325'
-    meg_fol = '/cluster/neuromind/valia/epilepsy/6645962_01325/190523'
+    evokes_fol = [d for d in [
+        '/cluster/neuromind/valia/epilepsy/6645962_01325',
+        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+    meg_fol = [d for d in [
+        '/cluster/neuromind/valia/epilepsy/6645962_01325/190523',
+        op.join(MEG_DIR, subject, 'evokes')] if op.isdir(d)][0]
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG020,EEG021,EEG050,EEG051'
     baseline_name = 'baseline'
