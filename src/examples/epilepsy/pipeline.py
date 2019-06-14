@@ -7,6 +7,10 @@ import mne
 import numpy as np
 import re
 
+from src.examples.epilepsy import utils as epi_utils
+from src.examples.epilepsy import plots
+from src.examples.epilepsy import power_spectrums_plots as psplots
+
 LINKS_DIR = utils.get_links_dir()
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
@@ -362,8 +366,8 @@ def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, ru
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
-         inverse_method='dSPM', no_runs=False, n_jobs=4):
-    run_num = re.sub('\D', ',', run).split(',')[-1].zfill(2)
+         inverse_method='dSPM', specific_window='', no_runs=False, n_jobs=4):
+    # run_num = re.sub('\D', ',', run).split(',')[-1].zfill(2)
     if no_runs:
         windows = glob.glob(op.join(evokes_fol, '*.fif'))
         baseline_windows = glob.glob(op.join(evokes_fol, '*{}*.fif'.format(baseline_template)))
@@ -371,9 +375,17 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         windows = glob.glob(op.join(evokes_fol, '{}_*.fif'.format(run)))
         baseline_windows = glob.glob(op.join(evokes_fol, '{}*.fif'.format(run, baseline_template)))
     for baseline_window in baseline_windows:
-        windows.remove(baseline_window)
+        if baseline_window in windows:
+            windows.remove(baseline_window)
+    if specific_window != '':
+        windows = [w for w in windows if specific_window in utils.namebase(w)]
+        if len(windows) == 0:
+            print('No windows!')
+            return
+    baseline_window = utils.select_one_file(baseline_windows, 'baseline')
+    baseline_windows = [baseline_window]
     windows_with_baseline = windows + baseline_windows
-    baseline_name = utils.namebase(baseline_windows[0])
+    baseline_name = utils.namebase(baseline_window)
     overwrite_inv = False
     overwrite_fwd = False
     overwrite_evokes = True
@@ -383,9 +395,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     overwrite_modalities_figures = False
     from_index, to_index = 2000, 10000
     max_t = 0 #7500
-    high_gamma_max = 300
+    high_gamma_max = 120
     percentiles = [5, 95]
     sig_threshold = 3
+    figures_type = 'jpg'
 
     # create_evokeds_links(subject, windows_with_baseline)
     for modality in modalities:
@@ -395,9 +408,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
         #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
-        # psplots.plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
-        #                     high_gamma_max=high_gamma_max, percentiles=percentiles,
-        #                     sig_threshold=sig_threshold, overwrite=True, parallel=False)
+        psplots.plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
+                            high_gamma_max=high_gamma_max, percentiles=percentiles,
+                            sig_threshold=sig_threshold, overwrite=True, parallel=False)
 
         # 2) calc fwd and inv
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
@@ -413,8 +426,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite=True)
-        psplots.plot_norm_powers(subject, windows, baseline_window, modality, inverse_method, use_norm_labels_powers=False,
-                         overwrite=False, figures_type='jpg')
+        # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
+        #         overwrite=False)
+        # psplots.plot_norm_powers(
+        #     subject, windows, baseline_window, modality, inverse_method, overwrite=True, figures_type=figures_type)
         # psplots.plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(subject, modality, windows[0], baseline_window, run_num)
@@ -447,7 +462,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
-    from src.examples.epilepsy import init_files, power_spectrums_plots as psplots, utils as epi_utils
+    from src.examples.epilepsy import init_files
 
     modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
@@ -462,9 +477,10 @@ if __name__ == '__main__':
     if len(runs) == 0:
         print('No run were found!')
         runs = ['01']
-        no_runs = True
+    no_runs = True
     n_jobs = 1 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
+    specific_window = '550_20sec' # 'bl_474s' # 'run2_bl_248s'
     for run in runs:
         # if run != 'run1':
         #     continue
@@ -473,5 +489,5 @@ if __name__ == '__main__':
                 if not op.isfile(raw_fname):
                     continue
         main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
-             inverse_method, no_runs, n_jobs)
+             inverse_method, specific_window, no_runs, n_jobs)
     print('Finish!')

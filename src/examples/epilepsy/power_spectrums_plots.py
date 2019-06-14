@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import os.path as op
 import numpy as np
 import glob
+import mne
 
 from src.utils import utils
 from src.examples.epilepsy import utils as epi_utils
@@ -22,8 +23,8 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
     input_fname_template = op.join(root_dir, '{}-epilepsy-{}-{}-{}-sensors_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'sensors-power-spectrum'))
-    figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-sensors-power.jpg'.format(
-            subject, inverse_method, modality, '{window}'))
+    figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-{}-sensors-power.jpg'.format(
+            subject, inverse_method, modality, '{window}', '{method}'))
 
     baseline_window = utils.namebase(baseline_window_fname)
     if not op.isfile(input_fname_template.format(window=baseline_window)):
@@ -32,12 +33,13 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
     baseline = np.load(input_fname_template.format(window=baseline_window)).astype(np.float32)
     baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
     baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
-    baseline_mean_over_sensors = np.mean(baseline, axis=0)
-    # plot_power_spectrum(baseline_mean_over_sensors, figures_template.format(window=baseline_window),
-    #                     remove_non_sig=False, high_gamma_max=high_gamma_max)
+    times = epi_utils.get_window_times(baseline_window_fname, downsample=2)
+    plot_power_spectrum(
+        np.max(baseline, axis=0), times, figures_template.format(
+            window=utils.namebase(baseline_window_fname), method='max'),
+        baseline_correction=False, high_gamma_max=high_gamma_max)
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
-        figure_fname = figures_template.format(window=window)
         # dividing by the mean of baseline values, taking the log, and
         #           dividing by the standard deviation of log baseline values
         #           ('zlogratio')
@@ -45,6 +47,12 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
             print('No window powers! {}'.format(input_fname_template.format(window=window)))
             continue
         powers = np.load(input_fname_template.format(window=window)).astype(np.float32)
+        times = epi_utils.get_window_times(window_fname, downsample=2)
+        powers_max = np.max(powers, axis=0)  # over vertices
+        plot_power_spectrum(
+            powers_max, times, figures_template.format(window=window, method='max'),
+            baseline_correction=False, high_gamma_max=high_gamma_max)
+
         norm_powers = (powers - baseline_mean) / baseline_std
         # powers_min = np.min(powers, axis=0) # over vertices
         # powers_max = np.max(powers, axis=0) # over vertices
@@ -58,14 +66,40 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
         np.save(op.join(root_dir, 'norm_powers_max.npy'), norm_powers_max)
         # negative_powers, positive_powers = calc_masked_negative_and_positive_powers(
         #     norm_powers_min, norm_powers_max, percentiles)
-        times = epi_utils.get_window_times(window_fname, downsample=2)
-        figure_fname = figures_template.format(window=window, method='minmax_two_layers')
+        figure_fname = figures_template.format(window=window, method='pos_and_neg')
         plot_positive_and_negative_power_spectrum(
             norm_powers_min, norm_powers_max, times,  '{} {}'.format(modality, window),
-            figure_fname=figure_fname, high_gamma_max=high_gamma_max)
+            figure_fname=figure_fname, high_gamma_max=high_gamma_max, show_only_sig_in_graph=False)
         # plot_power_spectrum_two_layers(
         #     positive_powers, negative_powers, times, '{} {}'.format(modality, window),
         #     figures_template.format(window=window, method='minmax_two_layers'), high_gamma_max=high_gamma_max)
+
+
+def plot_powers(subject, windows_fnames, modality, inverse_method='dSPM', high_gamma_max=120, figures_type='jpg',
+                overwrite=False):
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power.npz'.format(
+        subject, inverse_method, modality, '{window}'))
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
+    figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_power.{}'.format(
+            subject, inverse_method, modality, '{window}', figures_type))
+    for window_fname in windows_fnames:
+        window_name = utils.namebase(window_fname)
+        figure_fname = figures_template.format(window=utils.namebase(window_name))
+        # if op.isfile(figure_fname) and not overwrite:
+        #     continue
+        if op.isfile(output_fname.format(window=window_name)) and not overwrite:
+            d = np.load(output_fname.format(window=window_name))
+            powers_max, times = d['max'], d['times']
+        else:
+            fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+                subject, inverse_method, modality, window_name))
+            powers = epi_utils.concatenate_powers(fol) # (vertices x freqs x time)
+            powers_max = np.max(powers, axis=0)  # over vertices
+            times = epi_utils.get_window_times(window_fname, downsample=2)
+            np.savez(output_fname.format(window=window_name),  max=powers_max, times=times)
+        plot_power_spectrum(
+            powers_max, times, figure_fname, baseline_correction=False, high_gamma_max=high_gamma_max)
 
 
 def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse_method='dSPM', figures_type='jpg',
@@ -77,6 +111,8 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
     else:
         output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npz'.format(
             subject, inverse_method, modality, '{window}'))
+    baseline_stat_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power_stat.npz'.format(
+            subject, inverse_method, modality, utils.namebase(baseline_window)))
     not_norm_output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_minmax_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
@@ -85,9 +121,10 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             subject, inverse_method, modality, '{window}', '{method}', figures_type))
     figures_template_not_norm = op.join(figs_fol_not_norm, '{}-epilepsy-{}-{}-{}-induced_mean_norm_power.jpg'.format(
             subject, inverse_method, modality, '{window}'))
-    if not all([op.isfile(output_fname.format(window=utils.namebase(window_fname)))
-                for window_fname in windows_fnames]) or overwrite:
-            #  or not op.isfile(figures_template.format(window=utils.namebase(baseline_window)))
+    # if not all([op.isfile(output_fname.format(window=utils.namebase(window_fname)))
+    #             for window_fname in windows_fnames]) or overwrite:
+    #          or not op.isfile(figures_template.format(window=utils.namebase(baseline_window)))
+    if not op.isfile(baseline_stat_fname) and not overwrite:
         baseline_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
                 subject, inverse_method, modality, utils.namebase(baseline_window)))
         baseline = epi_utils.concatenate_powers(baseline_fol) # (vertices x freqs x time)
@@ -95,9 +132,14 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             return
         baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
         baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the mean (over time) of log baseline values
+        np.savez(baseline_stat_fname, mean=baseline_mean, std=baseline_std)
         # baseline_mean_over_vertices = np.mean(baseline, axis=0)
         # plot_power_spectrum(baseline_mean_over_vertices, figures_template.format(window=utils.namebase(baseline_window)),
         #                     remove_non_sig=False)
+    else:
+        d = np.load(baseline_stat_fname)
+        baseline_mean, baseline_std = d['mean'], d['std']
+
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
         window_output_fname = output_fname.format(window=window)
@@ -151,7 +193,7 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
         # plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max'), baseline_correction=False)
         if calc_also_non_norm_powers:
             plot_power_spectrum(
-                powers_abs_minmax, figures_template_not_norm.format(window=window), vmax=1,
+                powers_abs_minmax, times, figures_template_not_norm.format(window=window), vmax=1,
                 baseline_correction=False, remove_non_sig=False)
 
 
@@ -242,30 +284,19 @@ def _plot_max_powers_parllel(p):
     # if op.isfile(figure_fname) and not overwrite:
     #     return
     powers = np.load(fname)
-    plot_power_spectrum(powers, figure_fname)
+    plot_power_spectrum(powers, times, figure_fname)
 
 
-@utils.tryit()
-def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vmin=None, baseline_correction=True,
-                        calc_dt=False, high_gamma_max=120):
+# @utils.tryit()
+def plot_power_spectrum(powers, times, figure_fname, remove_non_sig=True, baseline_correction=True,
+                        high_gamma_max=120):
     # powers: (freqs x time)
-    from src.utils import color_maps_utils as cmu
-    BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
-    F, T = powers.shape
     powers = powers.astype(np.float32)
-
-    def extents(f):
-        delta = f[1] - f[0]
-        return [f[0] - delta / 2, f[-1] + delta / 2]
+    min_t, max_t = times[0], times[-1]
 
     print('Plotting {}'.format(figure_fname))
     if baseline_correction:
         powers -= np.mean(powers[:, 0])
-    if calc_dt:
-        powers = np.diff(powers, axis=1)
-        times = np.arange(powers.shape[1] - 1)
-    else:
-        times = np.arange(powers.shape[1])
 
     # high_gamma_top = 120 if powers.shape[0] == 51 else 125
     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
@@ -273,43 +304,28 @@ def plot_power_spectrum(powers, figure_fname, remove_non_sig=True, vmax=None, vm
     if powers.shape[0] != len(freqs):
         print('powers.shape[0] != len(freqs)!!!')
         return
-    _vmax, _vmin = np.max(powers), np.min(powers)
-    print('vmin: {}, vmax: {}'.format(_vmin, _vmax))
-    if _vmin > 0:
-        cmap = 'YlOrRd'
-        vmax = _vmax if vmax is None else vmax
-        vmin = _vmin if vmin is None else vmin
-    elif _vmax < 0:
-        cmap = 'BuPu'
-        vmax = _vmax if vmax is None else vmax
-        vmin = _vmin if vmin is None else vmin
-    else:
-        cmap = BuPu_YlOrRd_cm
-        if vmax is None and vmin is None:
-            maxmin = max(map(abs, [_vmax, _vmin]))
-        elif vmax is None:
-            maxmin = abs(vmin)
-        elif vmin is None:
-            maxmin = vmax
-        vmin, vmax = -maxmin, maxmin
-
-    plt.subplot(211)
-    clean_powers = powers.copy()
+    vmax, vmin = np.max(powers), np.min(powers)
+    print('vmin: {}, vmax: {}'.format(vmin, vmax))
+    cmap, vmin, vmax = get_cm(vmin, vmax)
     if remove_non_sig:
-        clean_powers[np.where(np.abs(powers) < 2)] = 0
-    plt.imshow(np.flip(clean_powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
-               extent=extents(times) + extents(freqs), cmap=cmap)
-    plt.ylabel('frequency (Hz)')
-    plt.xlabel('time points')
-    plt.colorbar()
-    # plt.tight_layout()
-    plt.subplot(212)
+        powers[np.where(np.abs(powers) < 2)] = 0
+
+    fig, (powers_ax, graph_ax) = plt.subplots(2)  # , sharex=True)
+    im = powers_ax.imshow(
+        np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
+        extent=extents(times) + extents(freqs), cmap=cmap)
+    powers_ax.set_ylabel('Frequency (Hz)')
+    add_colorbar(powers_ax, im)
     for band_name, band_freqs in bands.items():
         idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
         band_power = np.mean(powers[idx, :], axis=0)
-        plt.plot(band_power.T, label=band_name)
-    plt.xlim([0, T])
-    plt.legend()
+        graph_ax.plot(times, band_power.T, label=band_name)
+    graph_ax.set_xlim([min_t, max_t])
+    graph_ax.set_xlabel('Time (s)')
+    # graph_ax.legend() #    add_legend(graph_ax)
+
+    plt.tight_layout()
+    plt.subplots_adjust(left=None, bottom=None, right=0.92, top=None, wspace=None, hspace=None)
     plt.savefig(figure_fname, dpi=300)
     plt.close()
 
@@ -357,8 +373,6 @@ def plot_power_spectrum_two_layers(powers_negative, powers_positive, times, titl
 
 
 def _plot_powers(powers, ax, xaxis=None, high_gamma_max=120):
-    from src.utils import color_maps_utils as cmu
-    BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
 
     def extents(f):
         delta = f[1] - f[0]
@@ -374,16 +388,7 @@ def _plot_powers(powers, ax, xaxis=None, high_gamma_max=120):
         vmax, vmin = np.max(powers), np.min(powers)
     else:
         vmax, vmin = np.ma.masked_array.max(powers), np.ma.masked_array.min(powers)
-    if vmin > 0:
-        cmap = matplotlib.cm.YlOrRd
-        # cmap = 'YlOrRd'
-    elif vmax < 0:
-        cmap = matplotlib.cm.BuPu
-        # cmap = 'BuPu'
-    else:
-        cmap = BuPu_YlOrRd_cm
-        maxmin = max(map(abs, [vmax, vmin]))
-        vmin, vmax = -maxmin, maxmin
+    cmap, vmin, vmax = get_cm(vmin, vmax)
     # powers[np.where(powers == 0)] = np.nan
     # cmap.set_bad(color='white')
     im = ax.imshow(np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
@@ -393,16 +398,22 @@ def _plot_powers(powers, ax, xaxis=None, high_gamma_max=120):
 
 def plot_positive_and_negative_power_spectrum(
         powers_negative, powers_positive, times, title='', figure_fname='',
-        only_power_spectrum=True, high_gamma_max=120):
+        only_power_spectrum=True, show_only_sig_in_graph=True, high_gamma_max=120):
 
     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-    bands = dict(delta=[1, 4], gamma=[30, 55], theta=[4, 8], alpha=[8, 15], beta=[15, 30],
-                 high_gamma=[55, 100], hfo=[100, high_gamma_max])
-    min_t, max_t = round(times[0], 1), round(times[-1], 1)
+    bands = dict(delta=[1, 4], gamma=[30, 55], theta=[4, 8], alpha=[8, 15], beta=[15, 30])
+    if high_gamma_max <= 120:
+        bands['high_gamma'] = [55, high_gamma_max]
+    else:
+        bands['high_gamma'] = [55, 120]
+        bands['hfo'] = [120, high_gamma_max]
 
+    min_t, max_t = round(times[0], 1), round(times[-1], 1)
     fig, axs = plt.subplots(2, 2)
     pos_powers_ax, neg_powers_ax = axs[0, 0], axs[0, 1]
     pos_graph_ax, neg_graph_ax = axs[1, 0], axs[1, 1]
+    pos_powers_ax.title.set_text('Positives')
+    neg_powers_ax.title.set_text('Negatives')
     im1 = _plot_powers(powers_negative, neg_powers_ax, times, high_gamma_max)
     # cba = plt.colorbar(im1, ax=neg_powers_ax,  shrink=0.25)
     im2 = _plot_powers(powers_positive, pos_powers_ax, times, high_gamma_max)
@@ -413,7 +424,7 @@ def plot_positive_and_negative_power_spectrum(
         band_power = np.mean(powers_negative[idx, :], axis=0)
         neg_graph_ax.plot(times, band_power.T, label=band_name)
     neg_graph_ax.set_xlim([min_t, max_t])
-    neg_graph_ax.set_ylim([None, -2])
+    neg_graph_ax.set_ylim([None, -2 if show_only_sig_in_graph else 0])
     neg_graph_ax.legend()
 
     for band_name, band_freqs in bands.items():
@@ -421,7 +432,8 @@ def plot_positive_and_negative_power_spectrum(
         band_power = np.mean(powers_positive[idx, :], axis=0)
         pos_graph_ax.plot(times, band_power.T, label=band_name)
     pos_graph_ax.set_xlim([min_t, max_t])
-    pos_graph_ax.set_ylim([2, None])
+    pos_graph_ax.set_ylim([2 if show_only_sig_in_graph else 0, None])
+
     # pos_graph_ax.legend()
     plt.suptitle(title)
 
@@ -467,14 +479,7 @@ def plot_modalities_power_spectrums_with_graph(
             powers_ax.set_ylabel('Frequency (Hz)')
         else:
             powers_ax.set_yticks([])
-            from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-            axins = inset_axes(powers_ax, width="5%", height="100%", loc=5,
-                               bbox_to_anchor=(1.15, 0, 1, 1), bbox_transform=powers_ax.transAxes)
-            cb = plt.colorbar(im2, cax=axins)
-            if cb_ticks != []:
-                cb.set_ticks(cb_ticks)
-            cb.ax.tick_params(labelsize=cb_ticks_font_size)
-            cb.ax.set_ylabel('dBHZ Z-Score', color='black', fontsize=cb_ticks_font_size)
+            add_colorbar(powers_ax, im2, cb_ticks, cb_ticks_font_size)
 
         # for powers, axis, positive in zip([powers_positive, powers_negative], ax[1:2, ind], [True, False]):
         #     for band_name, band_freqs in bands.items():
@@ -503,7 +508,7 @@ def plot_modalities_power_spectrums_with_graph(
         else:
             positive_powers_ax.set_yticks([])
         if ind == len(modalities) - 1:
-            positive_powers_ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            add_legend(positive_powers_ax)
 
         for band_name, band_freqs in bands.items():
             idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
@@ -517,7 +522,7 @@ def plot_modalities_power_spectrums_with_graph(
         else:
             negative_powers_ax.set_yticks([])
         if ind == len(modalities) - 1:
-            negative_powers_ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            add_legend(negative_powers_ax)
         negative_powers_ax.set_xlabel('Time (s)')
 
     plt.tight_layout()
@@ -528,3 +533,37 @@ def plot_modalities_power_spectrums_with_graph(
     else:
         plt.show()
 
+
+def add_colorbar(powers_ax, im, cb_ticks=[], cb_ticks_font_size=12):
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    axins = inset_axes(powers_ax, width="5%", height="100%", loc=5,
+                       bbox_to_anchor=(1.15, 0, 1, 1), bbox_transform=powers_ax.transAxes)
+    cb = plt.colorbar(im, cax=axins)
+    if cb_ticks != []:
+        cb.set_ticks(cb_ticks)
+    cb.ax.tick_params(labelsize=cb_ticks_font_size)
+    cb.ax.set_ylabel('dBHZ Z-Score', color='black', fontsize=cb_ticks_font_size)
+
+
+def add_legend(powers_ax):
+    powers_ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+
+def get_cm(vmin, vmax):
+    from src.utils import color_maps_utils as cmu
+    BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
+
+    if vmin > 0:
+        cmap = matplotlib.cm.YlOrRd
+    elif vmax < 0:
+        cmap = matplotlib.cm.BuPu
+    else:
+        cmap = BuPu_YlOrRd_cm
+        maxmin = max(map(abs, [vmax, vmin]))
+        vmin, vmax = -maxmin, maxmin
+    return cmap, vmin, vmax
+
+
+def extents(f):
+    delta = f[1] - f[0]
+    return [f[0] - delta / 2, f[-1] + delta / 2]

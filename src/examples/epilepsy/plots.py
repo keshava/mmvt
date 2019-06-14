@@ -47,7 +47,8 @@ def _plot_evokes_parallel(p):
     subject, modality, window_fname, bad_channels, figs_fol, overwrite = p
     module = eeg if modality == 'eeg' else meg
     window = utils.namebase(window_fname)
-    evo_fname = op.join(MMVT_DIR, subject, 'evoked', '{}.fif'.format(window))
+    evo_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'evoked'))
+    evo_fname = op.join(evo_fol, '{}.fif'.format(window))
     if not op.isfile(evo_fname):
         utils.make_link(window_fname, evo_fname)
     fig_fname = op.join(figs_fol, '{}.jpg'.format(window))
