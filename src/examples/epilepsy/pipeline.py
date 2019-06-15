@@ -464,7 +464,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 if __name__ == '__main__':
     from src.examples.epilepsy import init_files
 
-    modalities = ['meg'] #'['eeg', 'meg']#, 'meeg']
+    modalities = ['eeg', 'meg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name = init_files.subject_nmr01325()
