@@ -397,7 +397,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     max_t = 0 #7500
     high_gamma_max = 120
     percentiles = [5, 95]
-    sig_threshold = 3
+    sig_threshold = 2
     figures_type = 'jpg'
 
     # create_evokeds_links(subject, windows_with_baseline)
@@ -408,9 +408,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
         #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
-        psplots.plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
-                            high_gamma_max=high_gamma_max, percentiles=percentiles,
-                            sig_threshold=sig_threshold, overwrite=True, parallel=False)
+        # psplots.plot_sensors_powers(subject, windows, baseline_window, modality, inverse_method,
+        #                     high_gamma_max=high_gamma_max, percentiles=percentiles,
+        #                     sig_threshold=sig_threshold, overwrite=False, parallel=False)
 
         # 2) calc fwd and inv
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
@@ -428,8 +428,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                    overwrite=True)
         # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
         #         overwrite=False)
-        # psplots.plot_norm_powers(
-        #     subject, windows, baseline_window, modality, inverse_method, overwrite=True, figures_type=figures_type)
+        psplots.plot_norm_powers(
+            subject, windows, baseline_window, modality, inverse_method, overwrite=True, figures_type=figures_type)
         # psplots.plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(subject, modality, windows[0], baseline_window, run_num)
@@ -464,7 +464,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 if __name__ == '__main__':
     from src.examples.epilepsy import init_files
 
-    modalities = ['eeg', 'meg', 'meeg']
+    modalities = ['meg'] #'['eeg', 'meg']#, 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name = init_files.subject_nmr01325()
@@ -480,7 +480,7 @@ if __name__ == '__main__':
     no_runs = True
     n_jobs = 1 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = '550_20sec' # 'bl_474s' # 'run2_bl_248s'
+    specific_window = 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     for run in runs:
         # if run != 'run1':
         #     continue
