@@ -18,7 +18,7 @@ SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects')
 
 
 def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality, inverse_method='dSPM',
-                        high_gamma_max=120, percentiles=[5, 95], sig_threshold= 2, overwrite=False, parallel=True):
+                        high_gamma_max=120, percentiles=[5, 95], sig_threshold=2, overwrite=False, parallel=True):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     input_fname_template = op.join(root_dir, '{}-epilepsy-{}-{}-{}-sensors_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
