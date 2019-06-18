@@ -37,9 +37,16 @@ def import_csv(mmvt, csv_fname, balls_c=None, balls_r=None, suffix=''):
         mni305_ras = np.array([float(x) for x in line[:3]])
         cond = int(line[3]) if len(line) > 3 else 1
         primary = int(line[4]) if len(line) > 4 else 2
-        subject_tkreg_ras = mmvt.where_am_i.mni305_ras_to_subject_tkreg_ras(mni305_ras)
+        # subject_tkreg_ras = mmvt.where_am_i.mni305_ras_to_subject_tkreg_ras(mni305_ras)
         if bpy.context.scene.balls_of_activations_pos_to_current_inflation:
             subject_tkreg_ras = mmvt.where_am_i.pos_to_current_inflation(subject_tkreg_ras, subject_tkreg_ras=True)
+        else:
+            import mathutils
+            matrix_world = mu.get_matrix_world()
+            subject_tkreg_ras = mathutils.Vector(mni305_ras) * matrix_world
+
+        subject_tkreg_ras[0] *= -1
+        subject_tkreg_ras[1] *= -1
         ball_name = 'peak_{}_{}_{}{}'.format(ind, cond, primary, '_{}'.format(suffix) if suffix != '' else '')
         mmvt.data.create_electrode(
             subject_tkreg_ras, ball_name, balls_r[primary], color=balls_c[cond], subject_tkreg_ras=True)
