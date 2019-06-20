@@ -63,7 +63,7 @@ def subject_nmr01321():
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG001,EEG003,EEG004,EEG005,EEG008,EEG034,EEG045,EEG051,EEG057,EEG058,EEG060,EEG061,EEG062,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'
     baseline_name = 'Base_line'
-    return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name
+    return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, True
 
 
 def subject_nmr01325():
@@ -76,5 +76,5 @@ def subject_nmr01325():
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG020,EEG021,EEG050,EEG051'
-    baseline_name = 'baseline'
-    return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name
+    baseline_name = 'baseline_607' # '33_35secAWAKE' #'108_35secSLEEP' # 'baseline_607' # 'bl_502s' # 'bl_474s' #  #  '108_35secSLEEP' '33_35secAWAKE' '550_20sec'
+    return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, True

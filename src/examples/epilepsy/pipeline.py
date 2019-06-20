@@ -137,7 +137,7 @@ def _calc_sensors_power_parallel(p):
     output_fname_template = op.join(root_dir, '{}-epilepsy-{}-{}-{}-sensors_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-    bad_channels = bad_channels.split(',')
+    # bad_channels = bad_channels.split(',')
     n_cycles = freqs / 2.
 
     window = utils.namebase(window_fname)
@@ -373,7 +373,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         baseline_windows = glob.glob(op.join(evokes_fol, '*{}*.fif'.format(baseline_template)))
     else:
         windows = glob.glob(op.join(evokes_fol, '{}_*.fif'.format(run)))
-        baseline_windows = glob.glob(op.join(evokes_fol, '{}*.fif'.format(run, baseline_template)))
+        baseline_windows = glob.glob(op.join(evokes_fol, '{}_{}*.fif'.format(run, baseline_template)))
     for baseline_window in baseline_windows:
         if baseline_window in windows:
             windows.remove(baseline_window)
@@ -389,6 +389,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     overwrite_inv = False
     overwrite_fwd = False
     overwrite_evokes = True
+    overwrite_plots = False
     check_for_labels_files = False
     overwrite_induced_power_zvals = False
     overwrite_stc = False
@@ -399,6 +400,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     percentiles = [5, 95]
     sig_threshold = 2
     figures_type = 'jpg'
+    save_fig = False
+    plot_baseline_stat = False
+    bad_channels = bad_channels.split(',')
 
     # create_evokeds_links(subject, windows_with_baseline)
     for modality in modalities:
@@ -407,10 +411,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
 
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
-        #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=False)
-        psplots.plot_sensors_powers(
-            subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_gamma_max,
-            percentiles=percentiles, sig_threshold=sig_threshold, overwrite=True, parallel=False)
+        #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
+        # psplots.plot_sensors_powers(
+        #     subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_gamma_max,
+        #     percentiles=percentiles, sig_threshold=sig_threshold, save_fig=save_fig,
+        #     plot_baseline_stat=plot_baseline_stat, bad_channels=bad_channels, overwrite=True, parallel=False)
 
         # 2) calc fwd and inv
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
@@ -428,8 +433,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                    overwrite=True)
         # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
         #         overwrite=False)
-        # psplots.plot_norm_powers(
-        #     subject, windows, baseline_window, modality, inverse_method, overwrite=True, figures_type=figures_type)
+        # psplots.plot_baseline_source_powers(
+        #     subject, baseline_window, modality, inverse_method, high_gamma_max, figures_type, overwrite_plots)
+        psplots.plot_norm_powers(
+            subject, windows, baseline_window, modality, inverse_method, overwrite=True, figures_type=figures_type)
         # psplots.plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(subject, modality, windows[0], baseline_window, run_num)
@@ -467,27 +474,25 @@ if __name__ == '__main__':
     modalities = ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
-    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name = init_files.subject_nmr01321()
-    no_runs = False
+    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01325()
     run_files = [utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))]
     evokes_files = glob.glob(op.join(evokes_fol, '*.fif'))
     runs = []
     if len(run_files) == len(evokes_files):
         runs = set(run_files)
-    if len(runs) == 0:
+    if len(runs) == 0 or no_runs:
         print('No run were found!')
         runs = ['01']
-    no_runs = True
     n_jobs = 1 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = '' # '550_20sec'# 'sz_1.3s' #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_window = 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     for run in runs:
         # if run != 'run1':
         #     continue
         raw_fname, run_num = init_files.find_raw_fname(meg_fol, run)
         if len(runs) > 0:
-                if not op.isfile(raw_fname):
-                    continue
+            if not op.isfile(raw_fname):
+                continue
         main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
              inverse_method, specific_window, no_runs, n_jobs)
     print('Finish!')

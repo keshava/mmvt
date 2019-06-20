@@ -76,7 +76,7 @@ def anatomy_preproc(args, subject=''):
         function='create_annotation',
         overwrite_fs_files=args.overwrite,
         atlas='laus125',
-        ignore_missing=False
+        ignore_missing=True
     ))
     anat.call_main(args)
 
@@ -281,7 +281,7 @@ def meg_sensors_psd(args):
 def meg_preproc_power(args):
     inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
     # bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
-    times = (-2, 4)
+    baseline = (-2, 0)
     subjects_with_error = []
     good_subjects = get_good_subjects(args)
     args.subject = good_subjects
@@ -332,7 +332,9 @@ def meg_preproc_power(args):
             if not op.isfile(local_epo_fname) and not op.isfile(remote_epo_fname):
                 print('Can\'t find {}!'.format(local_epo_fname))
                 continue
-            if not op.isfile(local_epo_fname):
+            if not op.isfile(local_epo_fname) and not op.exists(local_epo_fname):
+                if op.islink(local_epo_fname):
+                    os.remove(local_epo_fname)
                 utils.make_link(remote_epo_fname, local_epo_fname)
 
             meg_args = meg.read_cmd_args(dict(
@@ -344,6 +346,8 @@ def meg_preproc_power(args):
                 fname_format=args.epo_template.format(subject=subject, task=task)[:-len('-epo.fif')],
                 raw_fname=op.join(MEG_DIR, task, subject, args.raw_template.format(subject=subject, task=task)),
                 epo_fname=local_epo_fname,
+                fwd_fname=op.join(MEG_DIR, task, subject, '{}_{}_Onset-fwd.fif'.format(subject, task)),
+                inv_fname=op.join(MEG_DIR, task, subject, '{}_{}_Onset-inv.fif'.format(subject, task)),
                 empty_fname=empty_fnames.get(task, '') if empty_fnames != '' else '',
                 function=function,
                 conditions=task.lower(),
@@ -356,7 +360,7 @@ def meg_preproc_power(args):
                 ica_overwrite_raw=False,
                 normalize_data=False,
                 fwd_recreate_source_space=True,
-                t_min=times[0], t_max=times[1],
+                baseline_min=baseline[0], baseline_max=baseline[1],
                 read_events_from_file=False, stim_channels='STI001',
                 use_empty_room_for_noise_cov=True,
                 read_only_from_annot=False,
@@ -1041,7 +1045,7 @@ if __name__ == '__main__':
     parser.add_argument('--remote_root_dir', required=False,
                         default='/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/')
     meg_dirs = ['/home/npeled/meg/{task}',
-                '/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/epochs']
+                '/autofs/space/cassia_004/users/MSIT_ECR_Preprocesing_for_Noam/epochs']
     meg_dir = [d for d in meg_dirs if op.isdir(d.format(task='MSIT'))][0]
     parser.add_argument('--meg_dir', required=False, default=meg_dir)
                         # default='/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/raw_preprocessed')
