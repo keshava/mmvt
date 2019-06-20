@@ -775,7 +775,7 @@ def calc_source_power_spectrum(
         fmin=1, fmax=120, bandwidth=2., bands=None, max_epochs_num=0,
         mri_subject='', epo_fname='', inv_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, surf_name='pial', precentiles=(1, 99),
-        epochs=None, src=None, overwrite=False, do_plot=False, save_tmp_files=False, n_jobs=6):
+        baseline_times=(None, None), epochs=None, src=None, overwrite=False, do_plot=False, save_tmp_files=False, n_jobs=6):
     if isinstance(events, str):
         events = {events:1}
     if mri_subject == '':
@@ -791,29 +791,39 @@ def calc_source_power_spectrum(
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
     plots_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'plots'))
     tmp_fol = utils.make_dir(op.join(fol, 'labels_power'))
-    power_spectrum = None
+    power_spectrum, power_spectrum_baseline = None, None
     first_time = True
     labels = None
+    freqs = None
     for (cond_ind, cond_name), em in product(enumerate(events_keys), extract_modes):
         vertices_data = {hemi: dict() for hemi in utils.HEMIS}
+        vertices_baseline_data = {hemi: dict() for hemi in utils.HEMIS}
         vertices_data_fname = op.join(fol, '{}_{}_{}_vertices_power_spectrum.pkl'.format(cond_name, inverse_method, em))
         output_fname = op.join(fol, '{}_{}_{}_power_spectrum.npz'.format(cond_name, inverse_method, em))
         if op.isfile(output_fname) and not overwrite:
             print('{} already exist'.format(output_fname))
+            d = np.load(output_fname)
             if do_plot:
-                d = np.load(output_fname)
                 labels = lu.read_labels(mri_subject, SUBJECTS_MRI_DIR, atlas, surf_name=surf_name, n_jobs=n_jobs)
                 plot_psds(subject, d['power_spectrum'], d['frequencies'], labels, cond_ind, cond_name, plots_fol)
-            continue
+            if not (baseline_times[0] is None and baseline_times[1] is None) and \
+                    'power_spectrum_basline' not in d or d['power_spectrum_basline'] is None:
+                print('Baseline needed to be computed')
+            else:
+                continue
 
         if epochs is None:
             epo_cond_fname = get_cond_fname(epo_fname, cond_name)
             print('Reading epochs from {}'.format(epo_cond_fname))
-            return True
             if not op.isfile(epo_cond_fname):
                 print('single_trial_stc and not epochs file was found! ({})'.format(epo_cond_fname))
                 return False
-            epochs = mne.read_epochs(epo_cond_fname, apply_SSP_projection_vectors, add_eeg_ref)
+            epochs = mne.read_epochs(epo_cond_fname, apply_SSP_projection_vectors) #, preload=False) # add_eeg_ref
+            if not (baseline_times[0] is None and baseline_times[1] is None):
+                baseline = epochs.copy().crop(baseline_times[0], baseline_times[1])
+                epochs = epochs.crop(baseline_times[1], None)
+            else:
+                baseline = None
 
         if first_time:
             first_time = False
@@ -839,33 +849,51 @@ def calc_source_power_spectrum(
             stcs = mne.minimum_norm.compute_source_psd_epochs(
                 epochs, inverse_operator, lambda2=lambda2, method=inverse_method, fmin=fmin, fmax=fmax,
                 bandwidth=bandwidth, label=label, return_generator=True, n_jobs=n_jobs)
-            for epoch_ind, stc in enumerate(stcs):
+            if baseline is not None:
+                baseline_stcs = mne.minimum_norm.compute_source_psd_epochs(
+                    baseline, inverse_operator, lambda2=lambda2, method=inverse_method, fmin=fmin, fmax=fmax,
+                    bandwidth=bandwidth, label=label, return_generator=True, n_jobs=n_jobs)
+            else:
+                baseline_stcs = [None] * epochs_num
+            for epoch_ind, (stc, baseline_stc) in enumerate(zip(stcs, baseline_stcs)):
                 if epoch_ind >= epochs_num:
                     break
                 freqs = stc.times
+                baseline_freqs = baseline_stc.times if baseline is not None else None
                 label_vertices = stc.lh_vertno if label.hemi == 'lh' else stc.rh_vertno
                 if power_spectrum is None:
                     power_spectrum = np.empty((epochs_num, len(labels), len(freqs), len(events)))
+                    if baseline is not None:
+                        power_spectrum_baseline = np.empty((epochs_num, len(labels), len(baseline_freqs), len(events)))
                 power_spectrum[epoch_ind, label_ind, :, cond_ind] = np.mean(stc.data, axis=0)
+                if baseline is not None:
+                    power_spectrum_baseline[epoch_ind, label_ind, :, cond_ind] = np.mean(baseline_stc.data, axis=0)
                 if epoch_ind == 0:
                     for vert_ind, vert_no in enumerate(label_vertices):
                         vertices_data[label.hemi][vert_no] = np.zeros((epochs_num, len(freqs)))
+                        if baseline is not None:
+                            vertices_baseline_data[label.hemi][vert_no] = np.zeros((epochs_num, len(baseline_freqs)))
                 for vert_ind, vert_no in enumerate(label_vertices):
                     vertices_data[label.hemi][vert_no][epoch_ind] = stc.data[vert_ind]
+                    if baseline is not None:
+                        vertices_baseline_data[label.hemi][vert_no][epoch_ind] = baseline_stc.data[vert_ind]
             if save_tmp_files:
+                bsp = power_spectrum_baseline[:, label_ind, :, cond_ind] if baseline is not None else None
                 np.savez(output_fname, power_spectrum=power_spectrum[:, label_ind, :, cond_ind], frequencies=freqs,
-                         label=label.name, cond=cond_name)
+                         label=label.name, cond=cond_name, power_spectrum_basline=bsp, baseline_freqs=baseline_freqs)
             if do_plot:
                 plot_label_psd(power_spectrum[:, label_ind, :, cond_ind], freqs, label, cond_name, plots_fol)
         # for hemi in utils.HEMIS:
         #     for vert_no in vertices_data[hemi].keys():
         #         vertices_data[hemi][vert_no]
-        utils.save((vertices_data, freqs), vertices_data_fname)
-        np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs)
+        utils.save((vertices_data, vertices_baseline_data, freqs, baseline_freqs), vertices_data_fname)
+        bsp = power_spectrum_baseline[:, label_ind, :, cond_ind] if baseline is not None else None
+        np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs, power_spectrum_basline=bsp,
+                 baseline_freqs=baseline_freqs)
 
-    calc_vertices_data_power_bands(subject, events, mri_subject, inverse_method, extract_modes, vertices_data, freqs)
-    calc_labels_power_bands(
-        mri_subject, atlas, events, inverse_method, extract_modes, precentiles, bands, labels, overwrite, n_jobs=n_jobs)
+    # calc_vertices_data_power_bands(subject, events, mri_subject, inverse_method, extract_modes, vertices_data, freqs)
+    # calc_labels_power_bands(
+    #     mri_subject, atlas, events, inverse_method, extract_modes, precentiles, bands, labels, overwrite, n_jobs=n_jobs)
     return True
 
 
@@ -1063,8 +1091,8 @@ def calc_labels_power_bands(mri_subject, atlas, events, inverse_method='dSPM', e
         freqs = d.frequencies
         for band, (lf, hf) in bands.items():
             output_fname = op.join(fol, '{}_labels_{}_{}_{}_power.npz'.format(cond_name, inverse_method, em, band))
-            # if op.isfile(output_fname) and not overwrite:
-            #     return True
+            if op.isfile(output_fname) and not overwrite:
+                return True
             band_mask = np.where((freqs >= lf) & (freqs <= hf))
             band_power = np.empty((len(labels), psd.shape[0]))
             for label_ind, label_name in enumerate(labels):
@@ -5867,8 +5895,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             subject, conditions, args.atlas, inverse_method, args.extract_mode, args.fmin, args.fmax, args.bandwidth,
             args.bands, args.max_epochs_num, MRI_SUBJECT, args.epo_fname, args.inv_fname, args.snr, args.pick_ori,
             args.apply_SSP_projection_vectors, args.add_eeg_ref, args.fwd_usingMEG, args.fwd_usingEEG, args.surf_name,
-            args.precentiles, overwrite=args.overwrite_labels_power_spectrum, save_tmp_files=args.save_tmp_files,
-            n_jobs=args.n_jobs)
+            args.precentiles, (args.baseline_min, args.baseline_max), overwrite=args.overwrite_labels_power_spectrum,
+            save_tmp_files=args.save_tmp_files, n_jobs=args.n_jobs)
 
     if 'calc_vertices_data_power_bands' in args.function:
         flags['calc_vertices_data_power_bands'] = calc_vertices_data_power_bands(

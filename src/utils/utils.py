@@ -1891,7 +1891,7 @@ def locating_file(default_fname, glob_pattern, parent_fols, raise_exception=Fals
         if '{cond}' in fname:
             exist = len(glob.glob(fname.replace('{cond}', '*'))) > 1
         else:
-            exist = op.isfile(fname)
+            exist = op.isfile(fname) or op.islink(fname)
         if exist:
             break
     if not exist:
