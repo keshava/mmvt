@@ -36,6 +36,7 @@ except:
 from src.mmvt_addon import mmvt_utils as mu
 # links to mmvt_utils
 Bag = mu.Bag
+copy_file = mu.copy_file
 make_dir = mu.make_dir
 hemi_files_exists = mu.hemi_files_exists
 get_hemi_from_full_fname = mu.get_hemi_from_full_fname
@@ -2322,12 +2323,3 @@ def extract_numpy_values_with_zero_dimensions(x):
     return x.item()
 
 
-def copy_file(src, dst):
-    if src != dst:
-        if op.islink(get_parent_fol(dst)):
-            fol = os.readlink(get_parent_fol(dst))
-            dst = op.join(fol, namebase_with_ext(dst))
-        try:
-            shutil.copyfile(src, dst)
-        except:
-            print_last_error_line()
