@@ -295,9 +295,9 @@ def meg_preproc_power_how_many(args):
             good_subjects.append(subject)
         else:
             bad_subjects.append(subject)
-    print('Good subjects:')
+    print('Good subjects ({}):'.format(len(good_subjects)))
     print(good_subjects)
-    print('Bad subjects:')
+    print('Bad subjects ({}):'.format(len(bad_subjects)))
     print(bad_subjects)
 
 
