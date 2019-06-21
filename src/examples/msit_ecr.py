@@ -278,6 +278,28 @@ def meg_sensors_psd(args):
             ret = meg.call_main(meg_args)
 
 
+def meg_preproc_power_how_many(args):
+    inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
+    good_subjects, bad_subjects = [], []
+    for subject in args.subject:
+        fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg'))
+        good_subject = False
+        for task in args.tasks:
+            output_fname = op.join(fol, '{}_dSPM_{}_power_spectrum.npz'.format(task.lower(), inv_method, em))
+            if op.isfile(output_fname):
+                d = np.load(output_fname)
+                if 'power_spectrum_basline' in d and d['power_spectrum_basline'] is not None:
+                    good_subject = True
+        if good_subject:
+            good_subjects.append(subject)
+        else:
+            bad_subjects.append(subject)
+    print('Good subjects:')
+    print(good_subjects)
+    print('Bad subjects:')
+    print(bad_subjects)
+
+
 def meg_preproc_power(args):
     inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
     # bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
@@ -1028,6 +1050,8 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--function', help='function name', required=False, default='meg_preproc_power')
     parser.add_argument('-a', '--atlas', help='atlas name', required=False, default='laus125') #darpa-atlas')
     parser.add_argument('-t', '--tasks', help='tasks', required=False, default='MSIT,ECR', type=au.str_arr_type)
+    parser.add_argument('-i', '--inverse_method', help='inverse_method', required=False, default='dSPM',
+                        type=au.str_arr_type)
     parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
     parser.add_argument('--overwrite_output_files', required=False, default=False, type=au.is_true)
     parser.add_argument('--overwrite_local_files', required=False, default=False, type=au.is_true)
