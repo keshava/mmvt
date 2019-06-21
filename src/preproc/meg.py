@@ -4476,7 +4476,7 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
                 args.recreate_src_spacing[:3], args.recreate_src_spacing[-1])])
             create_src_dic = dict(surf=['lh.{}'.format(args.recreate_src_surface), 'rh.{}'.format(args.recreate_src_surface),
                        'lh.sphere', 'rh.sphere'])
-            for nec_file in [src_dic, create_src_dic]:
+            for nec_file in [create_src_dic]: # src_dic
                 file_exist = prepare_subject_folder(
                     mri_subject, args.remote_subject_dir, SUBJECTS_MRI_DIR,
                     nec_file, args)
