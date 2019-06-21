@@ -147,6 +147,51 @@ def get_empty_fnames(subject, tasks, args, overwrite=False):
 #         meg.call_main(args)
 
 
+def calc_fwd_inv(args):
+    inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
+    subjects = get_good_subjects(args)
+    args.subject = subjects
+    prepare_files(args)
+    good_subjects, bad_subjects = [], []
+
+    for subject in subjects:
+        args.subject = subject
+        empty_fnames, cors, days = get_empty_fnames(subject, args.tasks, args)
+        good_subject = True
+        for task in args.tasks:
+            meg_args = meg.read_cmd_args(dict(
+                subject=args.subject, mri_subject=args.subject,
+                task=task, inverse_method=inv_method, atlas=atlas,
+                remote_subject_dir=args.remote_subject_dir, # Needed for finding COR
+                get_task_defaults=False,
+                fname_format=args.epo_template.format(subject=subject, task=task)[:-len('-epo.fif')],
+                raw_fname=op.join(MEG_DIR, task, subject, args.raw_template.format(subject=subject, task=task)),
+                empty_fname=empty_fnames[task] if empty_fnames != '' else '',
+                function='make_forward_solution,calc_inverse_operator',
+                conditions=task.lower(),
+                cor_fname=cors[task].format(subject=subject) if cors != '' else '',
+                average_per_event=False,
+                data_per_task=True,
+                use_empty_room_for_noise_cov=True,
+                read_only_from_annot=False,
+                check_for_channels_inconsistency=args.check_for_channels_inconsistency,
+                overwrite_fwd=args.overwrite,
+                overwrite_inv=args.overwrite,
+                n_jobs=args.n_jobs
+            ))
+            ret = meg.call_main(meg_args)
+            good_subject = good_subject and ret[subject]['make_forward_solution'] and \
+                           ret[subject]['calc_inverse_operator']
+        if good_subject:
+            good_subjects.append(subject)
+        else:
+            bad_subjects.append(subject)
+    print('Good subjects ({}):'.format(len(good_subjects)))
+    print(good_subjects)
+    print('Bad subjects ({}):'.format(len(bad_subjects)))
+    print(bad_subjects)
+
+
 def meg_preproc_evoked(args):
     inv_method, em, atlas= 'dSPM', 'mean_flip', args.atlas
     # bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
