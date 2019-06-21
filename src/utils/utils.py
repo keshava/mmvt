@@ -2324,4 +2324,10 @@ def extract_numpy_values_with_zero_dimensions(x):
 
 def copy_file(src, dst):
     if src != dst:
-        shutil.copyfile(src, dst)
+        if op.islink(get_parent_fol(dst)):
+            fol = os.readlink(get_parent_fol(dst))
+            dst = op.join(fol, namebase_with_ext(dst))
+        try:
+            shutil.copyfile(src, dst)
+        except:
+            print_last_error_line()
