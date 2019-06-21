@@ -159,6 +159,7 @@ def calc_fwd_inv(args):
         empty_fnames, cors, days = get_empty_fnames(subject, args.tasks, args)
         good_subject = True
         for task in args.tasks:
+            utils.make_dir(op.join(MEG_DIR, task.upper(), subject, 'bem'))
             meg_args = meg.read_cmd_args(dict(
                 subject=args.subject, mri_subject=args.subject,
                 task=task, inverse_method=inv_method, atlas=atlas,
