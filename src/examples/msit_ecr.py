@@ -288,6 +288,10 @@ def meg_preproc_power_how_many(args):
         for task in args.tasks:
             output_fname = op.join(fol, '{}_{}_{}_power_spectrum.npz'.format(task.lower(), inv_method, em))
             if op.isfile(output_fname):
+                file_mod_time = utils.file_modification_time_struct(output_fname)
+                if file_mod_time.tm_year < 2019 or file_mod_time.tm_mon < 6 or (file_mod_time.tm_mon == 6 and
+                                                                                file_mod_time.tm_mday < 20):
+                    break
                 d = np.load(output_fname)
                 if 'power_spectrum_basline' in d and d['power_spectrum_basline'] is not None:
                     good_subject = True
