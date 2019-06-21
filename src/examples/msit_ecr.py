@@ -281,7 +281,8 @@ def meg_sensors_psd(args):
 def meg_preproc_power_how_many(args):
     inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
     good_subjects, bad_subjects = [], []
-    for subject in args.subject:
+    good_subjects = get_good_subjects(args)
+    for subject in good_subjects:
         fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg'))
         good_subject = False
         for task in args.tasks:
