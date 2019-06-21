@@ -289,10 +289,8 @@ def meg_preproc_power(args):
     calc_power_spectrum = True
 
     function = 'make_forward_solution,calc_inverse_operator'
-    if calc_power_spectrum:
-        function += ',calc_source_power_spectrum'
-    else:
-        function += ',calc_labels_induced_power'
+    func_name = 'calc_source_power_spectrum' if calc_power_spectrum else 'calc_labels_induced_power'
+    function += ',{}'.format(func_name)
 
     for subject in good_subjects:
         args.subject = subject
@@ -379,22 +377,26 @@ def meg_preproc_power(args):
                 n_jobs=args.n_jobs
             ))
             ret = meg.call_main(meg_args)
+            if ret[subject][func_name]:
+                good_subjects.append(subject)
+            else:
+                subjects_with_error.append(subject)
             output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'labels', 'labels_data'))
             join_res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr', subject))
             for res_fname in glob.glob(op.join(output_fol, '{}_labels_{}_{}_*_power.npz'.format(
                     task.lower(), inv_method, em))):
                 utils.copy_file(res_fname, op.join(join_res_fol, utils.namebase_with_ext(res_fname)))
-            if not ret:
-                if args.throw:
-                    raise Exception("errors!")
-                else:
-                    subjects_with_error.append(subject)
+            # if not ret:
+            #     if args.throw:
+            #         raise Exception("errors!")
+            #     else:
+            #         subjects_with_error.append(subject)
 
-    good_subjects = [s for s in good_subjects if
-           op.isfile(op.join(MMVT_DIR, subject, 'meg',
-                             'labels_data_msit_{}_{}_{}_minmax.npz'.format(atlas, inv_method, em))) and
-           op.isfile(op.join(MMVT_DIR, subject, 'meg',
-                             'labels_data_ecr_{}_{}_{}_minmax.npz'.format(atlas, inv_method, em)))]
+    # good_subjects = [s for s in good_subjects if
+    #        op.isfile(op.join(MMVT_DIR, subject, 'meg',
+    #                          'labels_data_msit_{}_{}_{}_minmax.npz'.format(atlas, inv_method, em))) and
+    #        op.isfile(op.join(MMVT_DIR, subject, 'meg',
+    #                          'labels_data_ecr_{}_{}_{}_minmax.npz'.format(atlas, inv_method, em)))]
     print('Good subjects:')
     print(good_subjects)
     print('subjects_with_error:')
