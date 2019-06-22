@@ -1165,7 +1165,7 @@ if __name__ == '__main__':
                  op.isfile(op.join(d, args.epo_template.format(subject=utils.namebase(d), task='MSIT')))])
         print('{} subjects were found with both tasks!'.format(len(args.subject)))
         print(sorted(args.subject))
-        bad_subjects = ['ep004']
+        bad_subjects = ['ep004', 'ep016']
         for bad_subject in bad_subjects:
             if bad_subject in args.subject:
                 args.subject.remove(bad_subject)
