@@ -4495,6 +4495,8 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
                 sub_corticals_codes_file, args.fwd_recreate_source_space, args.recreate_bem_solution, args.bem_ico,
                 args.recreate_src_spacing, args.recreate_src_surface, args.overwrite_fwd, args.remote_subject_dir,
                 args.n_jobs, args)
+        else:
+            flags['make_forward_solution'] = True
 
         if utils.should_run(args, 'calc_inverse_operator') and flags.get('make_forward_solution', True):
             epo_fname = get_epo_fname(args.epo_fname)
@@ -4514,6 +4516,11 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
                 args.use_empty_room_for_noise_cov, args.use_raw_for_noise_cov,
                 args.overwrite_noise_cov, args.inv_calc_cortical, args.inv_calc_subcorticals,
                 args.fwd_usingMEG, args.fwd_usingEEG, args.check_for_channels_inconsistency, args=args)
+        else:
+            flags['calc_inverse_operator'] = True
+    else:
+        flags['make_forward_solution'] = True
+        flags['calc_inverse_operator'] = True
     return flags
 
 
