@@ -1144,6 +1144,7 @@ if __name__ == '__main__':
     args.n_jobs = utils.get_n_jobs(args.n_jobs)
 
     inv_method, em = 'dSPM', 'mean_flip'
+    bad_subjects = ['ep006', 'ep005', 'sp004', 'ep007', 'hc004']  # ['ep004', 'ep016', 'ep006', 'ep005', 'sp004', 'ep007', 'hc004']
     if args.subject[0] == 'all':
         if args.function == 'post_analysis':
             res_fol = op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr')
@@ -1165,7 +1166,6 @@ if __name__ == '__main__':
                  op.isfile(op.join(d, args.epo_template.format(subject=utils.namebase(d), task='MSIT')))])
         print('{} subjects were found with both tasks!'.format(len(args.subject)))
         print(sorted(args.subject))
-        bad_subjects = ['ep004', 'ep016']
         for bad_subject in bad_subjects:
             if bad_subject in args.subject:
                 args.subject.remove(bad_subject)
