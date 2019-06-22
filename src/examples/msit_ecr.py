@@ -1144,7 +1144,7 @@ if __name__ == '__main__':
     args.n_jobs = utils.get_n_jobs(args.n_jobs)
 
     inv_method, em = 'dSPM', 'mean_flip'
-    bad_subjects = ['ep006', 'ep005', 'sp004', 'ep007', 'hc004']  # ['ep004', 'ep016', 'ep006', 'ep005', 'sp004', 'ep007', 'hc004']
+    bad_subjects = ['ep006', 'ep005', 'sp004', 'ep007', 'hc004', 'ep004', 'ep016'] #, 'ep006', 'ep005', 'sp004', 'ep007', 'hc004']
     if args.subject[0] == 'all':
         if args.function == 'post_analysis':
             res_fol = op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr')
