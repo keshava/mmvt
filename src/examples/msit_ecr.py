@@ -1165,6 +1165,10 @@ if __name__ == '__main__':
                  op.isfile(op.join(d, args.epo_template.format(subject=utils.namebase(d), task='MSIT')))])
         print('{} subjects were found with both tasks!'.format(len(args.subject)))
         print(sorted(args.subject))
+        bad_subjects = ['ep004']
+        for bad_subject in bad_subjects:
+            if bad_subject in args.subject:
+                args.subject.remove(bad_subject)
     elif '*' in args.subject[0]:
         args.subject = utils.shuffle(
             [utils.namebase(d) for d in glob.glob(op.join(args.meg_dir, args.subject[0])) if op.isdir(d) and
