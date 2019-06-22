@@ -173,6 +173,8 @@ def calc_fwd_inv(args):
                 empty_fname=empty_fnames[task] if empty_fnames != '' else '',
                 function='make_forward_solution,calc_inverse_operator',
                 conditions=task.lower(),
+                fwd_fname=op.join(MEG_DIR, task, subject, '{}_{}_Onset-fwd.fif'.format(subject, task)),
+                inv_fname=op.join(MEG_DIR, task, subject, '{}_{}_Onset-inv.fif'.format(subject, task)),
                 cor_fname=cors[task].format(subject=subject) if cors != '' else '',
                 average_per_event=False,
                 data_per_task=True,

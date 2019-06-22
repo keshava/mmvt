@@ -4472,11 +4472,13 @@ def calc_fwd_inv_wrapper(subject, args, conditions=None, flags={}, mri_subject='
                     if trans_file != COR:
                         utils.copy_file(trans_file, local_cor_fname)
                 args.cor_fname = local_cor_fname
-            src_dic = dict(bem=['*-{}-{}*-src.fif'.format(
+            src_dic = dict(bem=['*-{}-{}-src.fif'.format(
+                args.recreate_src_spacing[:3], args.recreate_src_spacing[-1])])
+            src_dic_ast = dict(bem=['*-{}-{}*-src.fif'.format(
                 args.recreate_src_spacing[:3], args.recreate_src_spacing[-1])])
             create_src_dic = dict(surf=['lh.{}'.format(args.recreate_src_surface), 'rh.{}'.format(args.recreate_src_surface),
                        'lh.sphere', 'rh.sphere'])
-            for nec_file in [src_dic, create_src_dic]:
+            for nec_file in [src_dic, src_dic_ast,  create_src_dic]:
                 file_exist, _ = prepare_subject_folder(
                     mri_subject, args.remote_subject_dir, SUBJECTS_MRI_DIR,
                     nec_file, args)
