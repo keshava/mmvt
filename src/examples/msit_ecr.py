@@ -87,10 +87,12 @@ def get_empty_fnames(subject, tasks, args, overwrite=False):
         os.remove(op.join(SUBJECTS_DIR, subject, 'bem'))
     utils.make_link(op.join(args.remote_subject_dir.format(subject=subject), 'bem'),
                     op.join(SUBJECTS_DIR, subject, 'bem'), overwrite=overwrite)
-    # for task in tasks:
-    #     utils.make_dir(op.join(MEG_DIR, task, subject))
-    #     utils.make_link(op.join(MEG_DIR, subject, 'bem'), op.join(MEG_DIR, task, subject, 'bem'), overwrite=overwrite)
-    # utils.make_link(op.join(MEG_DIR, subject, 'bem'), op.join(SUBJECTS_DIR, subject, 'bem'), overwrite=overwrite)
+    utils.make_link(op.join(MEG_DIR, subject, 'bem'),
+                    op.join(SUBJECTS_DIR, subject, 'bem'), overwrite=overwrite)
+    for task in tasks:
+        utils.make_dir(op.join(MEG_DIR, task, subject))
+        utils.make_link(op.join(MEG_DIR, subject, 'bem'), op.join(SUBJECTS_DIR, subject, 'bem'), overwrite=overwrite)
+    utils.make_link(op.join(MEG_DIR, subject, 'bem'), op.join(SUBJECTS_DIR, subject, 'bem'), overwrite=overwrite)
 
     remote_meg_fol = op.join(args.remote_meg_dir, subject)
     csv_fname = op.join(remote_meg_fol, 'cfg.txt')

@@ -2759,6 +2759,8 @@ def make_link(source, target, overwrite=False, copy_if_fails=True):
         except:
             print(traceback.format_exc())
     try:
+        if op.islink(target):
+            os.remove(target)
         if op.exists(source):
             ret = os.symlink(source, target)
             if not ret and copy_if_fails and source != target:
