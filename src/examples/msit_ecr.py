@@ -372,9 +372,14 @@ def meg_preproc_power(args):
 
     for subject in good_subjects:
         args.subject = subject
+        fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg'))
         empty_fnames, cors, days = get_empty_fnames(subject, args.tasks, args)
         input_fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
         for task in args.tasks:
+            vertices_data_fname = op.join(
+                fol, '{}_{}_{}_vertices_power_spectrum.pkl'.format(task.lower(), inv_method, em))
+            if op.isfile(vertices_data_fname):
+                os.remove(vertices_data_fname)
             # output_fname = op.join(MMVT_DIR, subject, 'meg', '{}_{}_{}_power_spectrum.npz'.format(
             #     task.lower(), inv_method, em))
             # if op.isfile(output_fname) and args.check_file_modification_time:
