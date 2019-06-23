@@ -366,9 +366,9 @@ def meg_preproc_power(args):
     prepare_files(args)
     calc_power_spectrum = True
 
-    function = 'make_forward_solution,calc_inverse_operator'
+    # function = 'make_forward_solution,calc_inverse_operator'
     func_name = 'calc_source_power_spectrum' if calc_power_spectrum else 'calc_labels_induced_power'
-    function += ',{}'.format(func_name)
+    function = func_name # ',{}'.format(func_name)
 
     for subject in good_subjects:
         args.subject = subject
