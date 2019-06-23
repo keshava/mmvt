@@ -460,7 +460,7 @@ def meg_preproc_power(args):
                 n_jobs=args.n_jobs
             ))
             ret = meg.call_main(meg_args)
-            if ret[subject][func_name]:
+            if subject in ret and func_name in ret[subject] and ret[subject][func_name]:
                 good_subjects.append(subject)
             else:
                 subjects_with_error.append(subject)
