@@ -820,6 +820,8 @@ def calc_source_power_spectrum(
                 print('single_trial_stc and not epochs file was found! ({})'.format(epo_cond_fname))
                 return False
             epochs = mne.read_epochs(epo_cond_fname, apply_SSP_projection_vectors) #, preload=False) # add_eeg_ref
+            epochs_times = (None, 1) # todo: should be None, None!!!
+            epochs.crop(epochs_times[0], epochs_times[1])
             if not (baseline_times[0] is None and baseline_times[1] is None):
                 baseline = epochs.copy().crop(baseline_times[0], baseline_times[1])
                 epochs = epochs.crop(baseline_times[1], None)

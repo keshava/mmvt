@@ -547,6 +547,7 @@ def meg_preproc_power(args):
 #     print(subjects_with_error)
 
 def post_meg_preproc(args):
+    import traceback
     inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
     bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     for subject in args.subject:
@@ -556,10 +557,28 @@ def post_meg_preproc(args):
                 print('{}: No {}!'.format(subject, input_fname))
                 continue
             d = utils.Bag(np.load(input_fname))
-            if not ('power_spectrum' in d and 'frequencies' in d and 'power_spectrum_basline' in d and 'baseline_freqs' in d):
-                print('{} dosn\'t have all the fields in the input file!')
+            if not ('power_spectrum' in d and 'frequencies' in d and 'power_spectrum_baseline' in d and
+                    'baseline_frequencies' in d):
+                print('{} dosn\'t have all the fields in the input file!'.format(subject))
                 continue
+            freqs_bins = np.arange(1, 120)
+            powers = bin_power_spectrum(d.power_spectrum, d.frequencies, freqs_bins)
+            baseline_powers = bin_power_spectrum(d.power_spectrum_baseline, d.baseline_frequencies, freqs_bins)
+            powers_db = 10 * np.log10(powers)
+            baseline_powers_db = 10 * np.log10(baseline_powers)
+            baseline_powers_mean = np.mean(baseline_powers_db, axis=1, keepdims=1)
+            baseline_powers_std = np.std(baseline_powers_db, axis=1, keepdims=1)
+            norm_powers = (powers_db - baseline_powers_mean) # / baseline_powers_std
+            from src.examples.epilepsy import power_spectrums_plots as psp
+            psp.plot_power_spectrum(norm_powers.mean(1).T, freqs=freqs_bins, bands=bands, baseline_correction=False,
+                                    remove_non_sig=False, xlabel='#label')
             print('asdf')
+
+
+def bin_power_spectrum(power_spectrum, frequencies, freqs_bins):
+    round_freqs = np.round(frequencies)
+    return np.array([power_spectrum[:, :, np.where(round_freqs == f)[0]].mean(2).squeeze() for f in freqs_bins])
+
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def post_meg_preproc_old(args):
@@ -1177,11 +1196,16 @@ if __name__ == '__main__':
                  op.isfile(op.join(d, 'msit_labels_dSPM_mean_flip_alpha_power.npz'))])
         elif args.function == 'post_meg_preproc':
             args.subject = utils.shuffle(
-                [utils.namebase(d) for d in glob.glob(op.join(MEG_DIR, '*')) if op.isdir(d) and
-                 len(glob.glob(op.join(d, 'labels_induced_power',
-                                       'ecr_*_{}_{}_{}_induced_power.npz'.format(args.atlas, inv_method, em)))) > 0 and
-                 len(glob.glob(op.join(d, 'labels_induced_power',
-                                       'msit_*_{}_{}_{}_induced_power.npz'.format(args.atlas, inv_method, em)))) > 0])
+                [utils.namebase(d) for d in glob.glob(op.join(MMVT_DIR, '*')) if op.isdir(d) and
+                 len(glob.glob(op.join(d, 'meg','ecr_{}_{}_power_spectrum.npz'.format(inv_method, em)))) > 0 and
+                 len(glob.glob(op.join(d, 'meg', 'msit_{}_{}_power_spectrum.npz'.format(inv_method, em)))) > 0])
+
+            # args.subject = utils.shuffle(
+            #     [utils.namebase(d) for d in glob.glob(op.join(MEG_DIR, '*')) if op.isdir(d) and
+            #      len(glob.glob(op.join(d, 'labels_induced_power',
+            #                            'ecr_*_{}_{}_{}_induced_power.npz'.format(args.atlas, inv_method, em)))) > 0 and
+            #      len(glob.glob(op.join(d, 'labels_induced_power',
+            #                            'msit_*_{}_{}_{}_induced_power.npz'.format(args.atlas, inv_method, em)))) > 0])
         else:
             args.subject = utils.shuffle(
                 [utils.namebase(d) for d in glob.glob(op.join(args.meg_dir, '*')) if op.isdir(d) and

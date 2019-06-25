@@ -383,29 +383,32 @@ def _plot_max_powers_parllel(p):
 
 
 # @utils.tryit()
-def plot_power_spectrum(powers, times, figure_fname, remove_non_sig=True, baseline_correction=True,
-                        xlabel='Time (s)', high_gamma_max=120):
+def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True, baseline_correction=True,
+                        xlabel='Time (s)', high_gamma_max=120, freqs=None, bands=None):
     # powers: (freqs x time)
     powers = powers.astype(np.float32).squeeze()
     F, T = powers.shape
     if F not in [88, 52]:
         powers = powers.T
         F, T = powers.shape
+    if times is None:
+        times = np.arange(powers.shape[1])
     min_t, max_t = times[0], times[-1]
 
     print('Plotting {}'.format(figure_fname))
     if baseline_correction:
         powers -= np.mean(powers[:, 0])
 
-    if F == 88:
-        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 305, 5)])
-        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[55, 120],
-                     hfo=[120, 300])
-    elif F == 52:
-        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
-    else:
-        raise Exception('Not supported number of freqs ({})!'.format(F))
+    if freqs is None and bands is None:
+        if F == 88:
+            freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 305, 5)])
+            bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[55, 120],
+                         hfo=[120, 300])
+        elif F == 52:
+            freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
+            bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+        else:
+            raise Exception('Not supported number of freqs ({})!'.format(F))
     if F != len(freqs):
         print('powers.shape[0] != len(freqs)!!!')
         return
@@ -420,7 +423,8 @@ def plot_power_spectrum(powers, times, figure_fname, remove_non_sig=True, baseli
         np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
         extent=extents(times) + extents(freqs), cmap=cmap)
     powers_ax.set_ylabel('Frequency (Hz)')
-    add_colorbar(powers_ax, im)
+    # add_colorbar(powers_ax, im)
+    fig.colorbar(im, ax=powers_ax)
     for band_name, band_freqs in bands.items():
         idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
         band_power = np.mean(powers[idx, :], axis=0)
@@ -428,9 +432,10 @@ def plot_power_spectrum(powers, times, figure_fname, remove_non_sig=True, baseli
     graph_ax.set_xlim([min_t, max_t])
     graph_ax.set_xlabel(xlabel)
     # graph_ax.legend() #    add_legend(graph_ax)
+    graph_ax.legend()# loc='center left', bbox_to_anchor=(1, 0.5))
 
-    plt.tight_layout()
-    plt.subplots_adjust(left=None, bottom=None, right=0.92, top=None, wspace=None, hspace=None)
+    # plt.tight_layout()
+    # plt.subplots_adjust(left=None, bottom=None, right=0.92, top=None, wspace=None, hspace=None)
     if figure_fname != '':
         plt.savefig(figure_fname, dpi=300)
         plt.close()
