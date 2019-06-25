@@ -879,10 +879,10 @@ def calc_source_power_spectrum(
                         vertices_data[label.hemi][vert_no][epoch_ind] = stc.data[vert_ind]
                         if baseline is not None:
                             vertices_baseline_data[label.hemi][vert_no][epoch_ind] = baseline_stc.data[vert_ind]
-            if save_tmp_files:
-                bsp = power_spectrum_baseline[:, label_ind, :, cond_ind] if baseline is not None else None
-                np.savez(output_fname, power_spectrum=power_spectrum[:, label_ind, :, cond_ind], frequencies=freqs,
-                         label=label.name, cond=cond_name, power_spectrum_basline=bsp, baseline_freqs=baseline_freqs)
+            # if save_tmp_files:
+            #     bsp = power_spectrum_baseline[:, label_ind, :, cond_ind] if baseline is not None else None
+            #     np.savez(output_fname, power_spectrum=power_spectrum[:, label_ind, :, cond_ind], frequencies=freqs,
+            #              label=label.name, cond=cond_name, power_spectrum_basline=bsp, baseline_freqs=baseline_freqs)
             if do_plot:
                 plot_label_psd(power_spectrum[:, label_ind, :, cond_ind], freqs, label, cond_name, plots_fol)
         # for hemi in utils.HEMIS:
@@ -890,9 +890,9 @@ def calc_source_power_spectrum(
         #         vertices_data[hemi][vert_no]
         if save_vertices_data:
             utils.save((vertices_data, vertices_baseline_data, freqs, baseline_freqs), vertices_data_fname)
-        bsp = power_spectrum_baseline[:, label_ind, :, cond_ind] if baseline is not None else None
-        np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs, power_spectrum_basline=bsp,
-                 baseline_freqs=baseline_freqs)
+        bsp = power_spectrum_baseline if baseline is not None else None
+        np.savez(output_fname, power_spectrum=power_spectrum, frequencies=freqs, power_spectrum_baseline=bsp,
+                 baseline_frequencies=baseline_freqs)
 
     if save_vertices_data:
         calc_vertices_data_power_bands(subject, events, mri_subject, inverse_method, extract_modes, vertices_data, freqs)

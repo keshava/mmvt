@@ -546,11 +546,25 @@ def meg_preproc_power(args):
 #     print('subjects_with_error:')
 #     print(subjects_with_error)
 
-
-# @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def post_meg_preproc(args):
     inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
-    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    for subject in args.subject:
+        for task in args.tasks:
+            input_fname = op.join(MMVT_DIR, subject, 'meg', '{}_{}_{}_power_spectrum.npz'.format(task.lower(), inv_method, em))
+            if not op.isfile(input_fname):
+                print('{}: No {}!'.format(subject, input_fname))
+                continue
+            d = utils.Bag(np.load(input_fname))
+            if not ('power_spectrum' in d and 'frequencies' in d and 'power_spectrum_basline' in d and 'baseline_freqs' in d):
+                print('{} dosn\'t have all the fields in the input file!')
+                continue
+            print('asdf')
+
+# @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
+def post_meg_preproc_old(args):
+    inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
+    bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     evoked_times = (500, 2500)
     baseline_times = (0, 500)
     do_plot = False
@@ -1152,7 +1166,8 @@ if __name__ == '__main__':
     args.n_jobs = utils.get_n_jobs(args.n_jobs)
 
     inv_method, em = 'dSPM', 'mean_flip'
-    bad_subjects = ['ep006', 'ep005', 'sp004', 'ep007', 'hc004', 'ep004', 'ep016'] #, 'ep006', 'ep005', 'sp004', 'ep007', 'hc004']
+    bad_subjects = ['ep006', 'ep005', 'sp004', 'ep007', 'hc004', 'ep004', 'ep016', 'ep012', 'ep002', 'ep008', 'ep003',
+                    'hc044', 'hc042', 'pp002', 'hc003'] #, 'ep006', 'ep005', 'sp004', 'ep007', 'hc004']
     if args.subject[0] == 'all':
         if args.function == 'post_analysis':
             res_fol = op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr')
