@@ -548,6 +548,8 @@ def meg_preproc_power(args):
 
 def post_meg_preproc(args):
     import traceback
+    from src.examples.epilepsy import power_spectrums_plots as psp
+
     inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
     bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     for subject in args.subject:
@@ -568,16 +570,18 @@ def post_meg_preproc(args):
             baseline_powers_db = 10 * np.log10(baseline_powers)
             baseline_powers_mean = np.mean(baseline_powers_db, axis=1, keepdims=1)
             baseline_powers_std = np.std(baseline_powers_db, axis=1, keepdims=1)
-            norm_powers = (powers_db - baseline_powers_mean) # / baseline_powers_std
-            from src.examples.epilepsy import power_spectrums_plots as psp
-            psp.plot_power_spectrum(norm_powers.mean(1).T, freqs=freqs_bins, bands=bands, baseline_correction=False,
-                                    remove_non_sig=False, xlabel='#label')
-            print('asdf')
+            norm_powers = (powers_db - baseline_powers_mean) / baseline_powers_std
+            norm_powers_pos = norm_powers
+            norm_powers_pos[np.where(norm_powers_pos < 0)] = 0
+            psp.plot_power_spectrum(norm_powers_pos.mean(1).T, freqs=freqs_bins, bands=bands, baseline_correction=False,
+                                    remove_non_sig=False, xlabel='#label', title='{} {}'.format(subject, task))
 
 
 def bin_power_spectrum(power_spectrum, frequencies, freqs_bins):
     round_freqs = np.round(frequencies)
-    return np.array([power_spectrum[:, :, np.where(round_freqs == f)[0]].mean(2).squeeze() for f in freqs_bins])
+    bin_powers = np.array([power_spectrum[:, :, np.where(round_freqs == f)[0]].mean(2).squeeze() for f in freqs_bins])
+    bin_powers[np.where(np.isnan(bin_powers))] = np.nanmin(bin_powers)
+    return bin_powers
 
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))

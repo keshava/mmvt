@@ -384,7 +384,7 @@ def _plot_max_powers_parllel(p):
 
 # @utils.tryit()
 def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True, baseline_correction=True,
-                        xlabel='Time (s)', high_gamma_max=120, freqs=None, bands=None):
+                        xlabel='Time (s)', title='', high_gamma_max=120, freqs=None, bands=None):
     # powers: (freqs x time)
     powers = powers.astype(np.float32).squeeze()
     F, T = powers.shape
@@ -432,7 +432,8 @@ def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True
     graph_ax.set_xlim([min_t, max_t])
     graph_ax.set_xlabel(xlabel)
     # graph_ax.legend() #    add_legend(graph_ax)
-    graph_ax.legend()# loc='center left', bbox_to_anchor=(1, 0.5))
+    # graph_ax.legend()# loc='center left', bbox_to_anchor=(1, 0.5))
+    powers_ax.title.set_text(title)
 
     # plt.tight_layout()
     # plt.subplots_adjust(left=None, bottom=None, right=0.92, top=None, wspace=None, hspace=None)
