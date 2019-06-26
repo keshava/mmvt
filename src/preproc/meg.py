@@ -1071,10 +1071,11 @@ def _calc_tfr_cwt_parallel(p):
     stc_data, ws_band, band_ind, average_over_label_indices = p
     tfr = mne.time_frequency.tfr.cwt(stc_data, ws_band, use_fft=False)
     power = (tfr * tfr.conj()).real
-    if average_over_label_indices:
-        power = power.mean((0, 1))  # avg over label vertices and band's freqs
-    else:
-        power = power.mean(1)
+    # if average_over_label_indices:
+    #     power = power.mean((0, 1))  # avg over label vertices and band's freqs
+    # else:
+    #     power = power.mean(1)
+    power = power.mean(0)
     return power, band_ind
 
 
