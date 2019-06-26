@@ -999,7 +999,7 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
         else ['all']
     lambda2 = 1.0 / snr ** 2
     if bands is None:
-        bands = dict(delta=np.arange(1, 4, 1), theta=np.arange(4, 8, 1), alpha=np.arange(8, 15, 1),
+        bands = dict( theta=np.arange(4, 8, 1), alpha=np.arange(8, 15, 1), # delta=np.arange(1, 4, 1),
                      beta=np.arange(15, 30, 2), gamma=np.arange(30, 55, 3), high_gamma=np.arange(65, 120, 5))
     labels = lu.read_labels(mri_subject, SUBJECTS_MRI_DIR, atlas, n_jobs=n_jobs)
     if len(labels) == 0:
