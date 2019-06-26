@@ -2322,4 +2322,3 @@ def find_hemi_using_vertices_num(subject, fname, subjects_dir):
 def extract_numpy_values_with_zero_dimensions(x):
     return x.item()
 
-

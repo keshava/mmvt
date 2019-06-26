@@ -776,7 +776,7 @@ def calc_source_power_spectrum(
         mri_subject='', epo_fname='', inv_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, surf_name='pial', precentiles=(1, 99),
         baseline_times=(None, None), epochs=None, src=None, overwrite=False, do_plot=False, save_tmp_files=False,
-        save_vertices_data=False, n_jobs=6):
+        save_vertices_data=False, label_stat='mean', n_jobs=6):
     if isinstance(events, str):
         events = {events:1}
     if mri_subject == '':
@@ -787,6 +787,7 @@ def calc_source_power_spectrum(
         epo_fname = get_epo_fname(epo_fname)
     if isinstance(extract_modes, str):
         extract_modes = [extract_modes]
+    label_stat = getattr(np, label_stat)
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) else ['all']
     lambda2 = 1.0 / snr ** 2
     fol = utils.make_dir(op.join(MMVT_DIR, mri_subject, 'meg'))
@@ -796,6 +797,7 @@ def calc_source_power_spectrum(
     first_time = True
     labels = None
     freqs = None
+    freqs_bins = np.arange(fmin, fmax)
     for (cond_ind, cond_name), em in product(enumerate(events_keys), extract_modes):
         vertices_data = {hemi: dict() for hemi in utils.HEMIS}
         vertices_baseline_data = {hemi: dict() for hemi in utils.HEMIS}
@@ -865,12 +867,15 @@ def calc_source_power_spectrum(
                 baseline_freqs = baseline_stc.times if baseline is not None else None
                 label_vertices = stc.lh_vertno if label.hemi == 'lh' else stc.rh_vertno
                 if power_spectrum is None:
-                    power_spectrum = np.empty((epochs_num, len(labels), len(freqs), len(events)))
+                    power_spectrum = np.empty((epochs_num, len(labels), len(freqs_bins), len(events)))
                     if baseline is not None:
-                        power_spectrum_baseline = np.empty((epochs_num, len(labels), len(baseline_freqs), len(events)))
-                power_spectrum[epoch_ind, label_ind, :, cond_ind] = np.mean(stc.data, axis=0)
+                        power_spectrum_baseline = np.empty((epochs_num, len(labels), len(freqs_bins), len(events)))
+                label_power_spectrum = bin_power_spectrum(label_stat(stc.data, axis=0), freqs, freqs_bins)
+                power_spectrum[epoch_ind, label_ind, :, cond_ind] = label_stat(stc.data, axis=0)
                 if baseline is not None:
-                    power_spectrum_baseline[epoch_ind, label_ind, :, cond_ind] = np.mean(baseline_stc.data, axis=0)
+                    label_baseline_power_spectrum = bin_power_spectrum(
+                        label_stat(baseline_stc.data, axis=0), baseline_freqs, freqs_bins)
+                    power_spectrum_baseline[epoch_ind, label_ind, :, cond_ind] = label_baseline_power_spectrum
                 if save_vertices_data:
                     if epoch_ind == 0:
                         for vert_ind, vert_no in enumerate(label_vertices):
@@ -901,6 +906,13 @@ def calc_source_power_spectrum(
     # calc_labels_power_bands(
     #     mri_subject, atlas, events, inverse_method, extract_modes, precentiles, bands, labels, overwrite, n_jobs=n_jobs)
     return True
+
+
+def bin_power_spectrum(power_spectrum, frequencies, freqs_bins):
+    round_freqs = np.round(frequencies)
+    bin_powers = np.array([power_spectrum[np.where(round_freqs == f)[0]].mean(0) for f in freqs_bins])
+    # bin_powers[np.where(np.isnan(bin_powers))] = np.nanmin(bin_powers)
+    return bin_powers
 
 
 def calc_vertices_data_power_bands(
@@ -5913,7 +5925,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             args.bands, args.max_epochs_num, MRI_SUBJECT, args.epo_fname, args.inv_fname, args.snr, args.pick_ori,
             args.apply_SSP_projection_vectors, args.add_eeg_ref, args.fwd_usingMEG, args.fwd_usingEEG, args.surf_name,
             args.precentiles, (args.baseline_min, args.baseline_max), overwrite=args.overwrite_labels_power_spectrum,
-            save_tmp_files=args.save_tmp_files, n_jobs=args.n_jobs)
+            save_tmp_files=args.save_tmp_files, label_stat=args.label_stat, n_jobs=args.n_jobs)
 
     if 'calc_vertices_data_power_bands' in args.function:
         flags['calc_vertices_data_power_bands'] = calc_vertices_data_power_bands(
@@ -6090,7 +6102,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--inv_calc_subcorticals', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--evoked_flip_positive', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--evoked_moving_average_win_size', help='', required=False, default=0, type=int)
-    parser.add_argument('--normalize_evoked', help='', required=False, default=1, type=au.is_true)
+    parser.add_argument('--normalabel_statlize_evoked', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--average_over_label_indices', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--calc_max_min_diff', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--raw_template', help='', required=False, default='*raw.fif')
@@ -6125,6 +6137,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--from_index', required=False, default=None, type=au.int_or_none)
     parser.add_argument('--to_index', required=False, default=None, type=au.int_or_none)
     parser.add_argument('--stc_zvals_name', required=False, default='')
+    parser.add_argument('--label_stat', required=False, default='mean')
 
     # parser.add_argument('--sftp_sso', help='ask for sftp pass only once', required=False, default=0, type=au.is_true)
     parser.add_argument('--eeg_electrodes_excluded_from_mesh', help='', required=False, default='', type=au.str_arr_type)

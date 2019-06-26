@@ -436,6 +436,7 @@ def meg_preproc_power(args):
                 function=function,
                 conditions=task.lower(),
                 cor_fname=cors.get(task, '').format(subject=subject) if cors != '' else '',
+                label_stat='max',
                 average_per_event=False,
                 data_per_task=True,
                 pick_ori='normal', # very important for calculation of the power spectrum
