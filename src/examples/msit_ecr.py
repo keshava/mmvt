@@ -367,10 +367,10 @@ def meg_preproc_power(args):
     good_subjects = get_good_subjects(args)
     args.subject = good_subjects
     prepare_files(args)
-    calc_power_spectrum = True
+    calc_power_spectrum = False
 
     # function = 'make_forward_solution,calc_inverse_operator'
-    func_name = 'calc_source_power_spectrum' if calc_power_spectrum else 'calc_labels_induced_power'
+    func_name = 'calc_source_power_spectrum' if not args.calc_induced_power else 'calc_labels_induced_power'
     function = func_name # ',{}'.format(func_name)
 
     for subject in good_subjects:
@@ -1168,6 +1168,7 @@ if __name__ == '__main__':
     parser.add_argument('--average_over_label_indices', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--ignore_missing', help='ignore missing files', required=False, default=0, type=au.is_true)
     parser.add_argument('--max_epochs_num', help='', required=False, default=50, type=int)
+    parser.add_argument('--calc_induced_power', help='ignore missing files', required=False, default=0, type=au.is_true)
 
     parser.add_argument('--remote_root_dir', required=False,
                         default='/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/')
