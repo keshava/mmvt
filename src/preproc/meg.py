@@ -871,10 +871,12 @@ def calc_source_power_spectrum(
                     if baseline is not None:
                         power_spectrum_baseline = np.empty((epochs_num, len(labels), len(freqs_bins), len(events)))
                 label_power_spectrum = bin_power_spectrum(label_stat(stc.data, axis=0), freqs, freqs_bins)
-                power_spectrum[epoch_ind, label_ind, :, cond_ind] = label_stat(stc.data, axis=0)
+                label_power_spectrum = 10 * np.log10(label_power_spectrum) # dB/Hz
+                power_spectrum[epoch_ind, label_ind, :, cond_ind] = label_power_spectrum
                 if baseline is not None:
                     label_baseline_power_spectrum = bin_power_spectrum(
                         label_stat(baseline_stc.data, axis=0), baseline_freqs, freqs_bins)
+                    label_baseline_power_spectrum = 10 * np.log10(label_baseline_power_spectrum) # dB/Hz
                     power_spectrum_baseline[epoch_ind, label_ind, :, cond_ind] = label_baseline_power_spectrum
                 if save_vertices_data:
                     if epoch_ind == 0:
