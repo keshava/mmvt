@@ -1034,7 +1034,7 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
                 epochs.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)) for freqs in bands.values()]
         label_now = time.time()
         for label_ind, label in enumerate(labels):
-            output_fname = output_template.format(label=label)
+            output_fname = output_template.format(label=label.name)
             if op.isfile(output_fname) and not overwrite:
                 print('calc_labels_induced_power: {} is already calculated'.format(label.name))
                 continue
@@ -1060,7 +1060,8 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
                 for power_band, band_ind in powers_bands:
                     powers[band_ind, stc_ind] = power_band
             print('calc_labels_induced_power: Saving results in {}'.format(output_fname))
-            np.savez(output_fname, label_name=label.name, atlas=atlas, data=powers, times=times)
+            powers = 10 * np.log10(powers)
+            np.savez(output_fname, label_name=label.name, atlas=atlas, data=powers.astype(np.float16), times=times)
             ret = ret and op.isfile(output_fname)
 
     return ret
