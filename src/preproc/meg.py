@@ -1060,8 +1060,8 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
                 for power_band, band_ind in powers_bands:
                     powers[band_ind, stc_ind] = power_band
             print('calc_labels_induced_power: Saving results in {}'.format(output_fname))
-            powers = 10 * np.log10(powers)
-            np.savez(output_fname, label_name=label.name, atlas=atlas, data=powers.astype(np.float16), times=times)
+            # powers = 10 * np.log10(powers)
+            np.savez(output_fname, label_name=label.name, atlas=atlas, data=powers, times=times)
             ret = ret and op.isfile(output_fname)
 
     return ret
@@ -1071,11 +1071,11 @@ def _calc_tfr_cwt_parallel(p):
     stc_data, ws_band, band_ind, average_over_label_indices = p
     tfr = mne.time_frequency.tfr.cwt(stc_data, ws_band, use_fft=False)
     power = (tfr * tfr.conj()).real
-    # if average_over_label_indices:
-    #     power = power.mean((0, 1))  # avg over label vertices and band's freqs
-    # else:
-    #     power = power.mean(1)
-    power = power.mean(0)
+    if average_over_label_indices:
+        power = power.mean((0, 1))  # avg over label vertices and band's freqs
+    else:
+        power = power.mean(1)
+    # power = power.mean(0)
     return power, band_ind
 
 
