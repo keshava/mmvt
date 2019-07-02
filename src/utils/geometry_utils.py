@@ -8,7 +8,8 @@ def get_dural_surface(subject_fol, do_calc_normals=False):
     for hemi_ind, hemi in enumerate(['rh', 'lh']):
         surf_fname = op.join(subject_fol, 'surf', '{}.dural'.format(hemi))
         if op.isfile(surf_fname):
-            verts[hemi], faces[hemi] = nib.freesurfer.read_geometry(surf_fname)
+            verts[hemi], faces[hemi] = read_surface(surf_fname)
+            # verts[hemi], faces[hemi] = nib.freesurfer.read_geometry(surf_fname)
             if do_calc_normals:
                 norms[hemi] = calc_normals(verts[hemi], faces[hemi])
         else:

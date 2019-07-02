@@ -295,9 +295,11 @@ def load_surf(subject, mmvt_dir, subjects_dir, surf_type='pial'):
             hemi_verts, _ = read_ply_file(
                 op.join(subjects_dir, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
         elif op.isfile(op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type))):
-            import nibabel as nib
-            hemi_verts, _ = nib.freesurfer.read_geometry(
-                op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type)))
+            from src.utils import geometry_utils as gu
+            hemi_verts, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type)))
+            # import nibabel as nib
+            # hemi_verts, _ = nib.freesurfer.read_geometry(
+            #     op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type)))
         else:
             print("Can't find {} {} ply/npz files!".format(hemi, surf_type))
             return None
@@ -2299,6 +2301,7 @@ def copy_args(args):
 
 
 def find_hemi_using_vertices_num(subject, fname, subjects_dir):
+    from src.utils import geometry_utils as gu
     hemi = ''
     x = nib.load(fname).get_data()
     vertices_num = [n for n in x.shape if n > 5]
@@ -2306,8 +2309,10 @@ def find_hemi_using_vertices_num(subject, fname, subjects_dir):
         print("Can'f find the vertices number of the nii file! {}".format(fname))
     else:
         vertices_num = vertices_num[0]
-        rh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
-        lh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
+        rh_verts_num, = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
+        lh_verts_num, = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
+        # rh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
+        # lh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
         if vertices_num == rh_verts_num:
             hemi = 'rh'
         elif vertices_num == lh_verts_num:

@@ -217,6 +217,7 @@ def convert_and_rename_subcortical_files(fol, new_fol, lookup):
 
 
 def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', overwrite=False):
+    from src.utils import geometry_utils as gu
     for hemi in lu.get_hemis(hemi):
         utils.make_dir(op.join(MMVT_DIR, subject, 'surf'))
         for surf_type in surfaces_types:
@@ -227,18 +228,19 @@ def create_surfaces(subject, surfaces_types=('inflated', 'pial'), hemi='both', o
             if not op.isfile(mmvt_hemi_ply_fname) or overwrite:
                 print('Reading {}'.format(surf_name))
                 if op.isfile(surf_name):
-                    print('Reading {}'.format(surf_name))
-                    try:
-                        verts, faces = nib_fs.read_geometry(surf_name)
-                    except:
-                        utils.print_last_error_line()
-                        surf_wavefront_name = '{}.asc'.format(surf_name)
-                        print('mris_convert {} {}'.format(surf_name, surf_wavefront_name))
-                        utils.run_script('mris_convert {} {}'.format(surf_name, surf_wavefront_name))
-                        ply_fname = '{}.ply'.format(surf_name)
-                        verts, faces = utils.srf2ply(surf_wavefront_name, ply_fname)
-                        shutil.copyfile(surf_name, '{}.org'.format(surf_name))
-                        nib.freesurfer.write_geometry(surf_name, verts, faces)
+                    verts, faces = gu.read_surface(surf_name)
+                    # print('Reading {}'.format(surf_name))
+                    # try:
+                    #     verts, faces = nib_fs.read_geometry(surf_name)
+                    # except:
+                    #     utils.print_last_error_line()
+                    #     surf_wavefront_name = '{}.asc'.format(surf_name)
+                    #     print('mris_convert {} {}'.format(surf_name, surf_wavefront_name))
+                    #     utils.run_script('mris_convert {} {}'.format(surf_name, surf_wavefront_name))
+                    #     ply_fname = '{}.ply'.format(surf_name)
+                    #     verts, faces = utils.srf2ply(surf_wavefront_name, ply_fname)
+                    #     shutil.copyfile(surf_name, '{}.org'.format(surf_name))
+                    #     nib.freesurfer.write_geometry(surf_name, verts, faces)
                 elif op.isfile(mmvt_hemi_npz_fname):
                     verts, faces = utils.read_pial(subject, MMVT_DIR, hemi)
                 else:
@@ -850,6 +852,7 @@ def get_vertices_between_labels(hemi, label1, label2, labels, vertices_neighbros
 
 @utils.check_for_freesurfer
 def create_flat_brain(subject, print_only=False, overwrite=False, n_jobs=2):
+    from src.utils import geometry_utils as gu
     patch_fname_template = op.join(SUBJECTS_DIR, subject, 'surf', '{}.inflated.patch'.format('{hemi}'))
     if not utils.both_hemi_files_exist(patch_fname_template) or overwrite:
         flat_patch_cut_vertices_fname = op.join(MMVT_DIR, subject, 'flat_patch_cut_vertices.pkl')
@@ -859,8 +862,9 @@ def create_flat_brain(subject, print_only=False, overwrite=False, n_jobs=2):
             patch_fname = patch_fname_template.format(hemi=hemi)
             if op.isfile(patch_fname) and not overwrite:
                 continue
-            inf_verts, _ = nib.freesurfer.read_geometry(
-                op.join(SUBJECTS_DIR, subject, 'surf', '{}.inflated'.format(hemi)))
+            inf_verts, _ = gu.read_surface(op.join(SUBJECTS_DIR, subject, 'surf', '{}.inflated'.format(hemi)))
+            # inf_verts, _ = nib.freesurfer.read_geometry(
+            #     op.join(SUBJECTS_DIR, subject, 'surf', '{}.inflated'.format(hemi)))
             flat_patch_cut_vertices_hemi = set(flat_patch_cut_vertices[hemi])
             fu.write_patch(patch_fname, [(ind, v) for ind, v in enumerate(inf_verts)
                                          if ind not in flat_patch_cut_vertices_hemi])
@@ -1520,7 +1524,7 @@ def create_pial_volume_mask(subject, overwrite=True):
     if dural_verts is not None:
         print('{:.2f}% voxels are dural'.format(len(np.where(dural_vol)[0]) / (t1_data.shape[0] * t1_data.shape[1])))
         np.save(dural_output_fname, dural_vol)
-    return op.isfile(pial_output_fname) and op.isfile(dural_output_fname)
+    return op.isfile(pial_output_fname) # and op.isfile(dural_output_fname)
 
 
 def create_skull_surfaces(subject, surfaces_fol_name='bem', verts_in_ras=True):

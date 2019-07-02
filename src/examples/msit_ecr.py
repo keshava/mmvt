@@ -1430,8 +1430,8 @@ if __name__ == '__main__':
     args.n_jobs = utils.get_n_jobs(args.n_jobs)
 
     inv_method, em = 'dSPM', 'mean_flip'
-    bad_subjects = ['ep006', 'ep005', 'sp004', 'ep007', 'hc004', 'ep004', 'ep016', 'ep012', 'ep002', 'ep008', 'ep003',
-                    'hc044', 'hc042', 'pp002', 'hc003'] #, 'ep006', 'ep005', 'sp004', 'ep007', 'hc004']
+    bad_subjects = ['sp004', 'hc004', # 'ep006', 'ep005', 'ep003', 'ep004', 'ep016', 'ep012', 'ep002', 'ep008', 'ep007'
+                    'hc044', 'hc042', 'pp002', 'hc003']
     if args.subject[0] == 'all':
         if args.function == 'post_analysis':
             args.subject = utils.shuffle(

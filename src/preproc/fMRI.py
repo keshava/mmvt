@@ -1129,7 +1129,9 @@ def check_vertice_num_for_template(hemi, x):
 
 @functools.lru_cache(maxsize=None)
 def get_template_verts_num(template_name):
-    verts, _ = nib.freesurfer.read_geometry(op.join(SUBJECTS_DIR, template_name, 'surf', 'lh.pial'))
+    from src.utils import geometry_utils as gu
+    verts, _ = gu.read_surface(op.join(SUBJECTS_DIR, template_name, 'surf', 'lh.pial'))
+    # verts, _ = nib.freesurfer.read_geometry(op.join(SUBJECTS_DIR, template_name, 'surf', 'lh.pial'))
     return len(verts)
 
 
