@@ -851,6 +851,9 @@ def calc_source_power_spectrum(
 
         for label_ind, label in enumerate(labels):
             utils.time_to_go(now, label_ind, len(labels), 1)
+            _, src_sel = mne.minimum_norm.inverse.label_src_vertno_sel(label, inverse_operator['src'])
+            if len(src_sel) == 0:
+                continue
             stcs = mne.minimum_norm.compute_source_psd_epochs(
                 epochs, inverse_operator, lambda2=lambda2, method=inverse_method, fmin=fmin, fmax=fmax,
                 bandwidth=bandwidth, label=label, return_generator=True, n_jobs=n_jobs)
@@ -867,9 +870,9 @@ def calc_source_power_spectrum(
                 baseline_freqs = baseline_stc.times if baseline is not None else None
                 label_vertices = stc.lh_vertno if label.hemi == 'lh' else stc.rh_vertno
                 if power_spectrum is None:
-                    power_spectrum = np.empty((epochs_num, len(labels), len(freqs_bins), len(events)))
+                    power_spectrum = np.zeros((epochs_num, len(labels), len(freqs_bins), len(events)))
                     if baseline is not None:
-                        power_spectrum_baseline = np.empty((epochs_num, len(labels), len(freqs_bins), len(events)))
+                        power_spectrum_baseline = np.zeros((epochs_num, len(labels), len(freqs_bins), len(events)))
                 label_power_spectrum = bin_power_spectrum(label_stat(stc.data, axis=0), freqs, freqs_bins)
                 label_power_spectrum = 10 * np.log10(label_power_spectrum) # dB/Hz
                 power_spectrum[epoch_ind, label_ind, :, cond_ind] = label_power_spectrum
