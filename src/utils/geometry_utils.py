@@ -66,3 +66,22 @@ def point_in_mesh(point, closest_vert, closeset_vert_normal, sigma=0, sigma_in=N
     p2 = point - closest_vert
     v = p2.dot(closeset_vert_normal) + sigma
     return not(v < 0.0)
+
+
+def read_surface(surf_name):
+    print('Reading {}'.format(surf_name))
+    try:
+        verts, faces = nib.freesurfer.read_geometry(surf_name)
+    except:
+        from src.utils import utils
+        import shutil
+        utils.print_last_error_line()
+        print('Trying to recreate the surface')
+        surf_wavefront_name = '{}.asc'.format(surf_name)
+        print('mris_convert {} {}'.format(surf_name, surf_wavefront_name))
+        utils.run_script('mris_convert {} {}'.format(surf_name, surf_wavefront_name))
+        ply_fname = '{}.ply'.format(surf_name)
+        verts, faces = utils.srf2ply(surf_wavefront_name, ply_fname)
+        shutil.copyfile(surf_name, '{}.org'.format(surf_name))
+        nib.freesurfer.write_geometry(surf_name, verts, faces)
+    return verts, faces

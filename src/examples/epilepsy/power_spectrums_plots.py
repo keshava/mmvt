@@ -384,11 +384,11 @@ def _plot_max_powers_parllel(p):
 
 # @utils.tryit()
 def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True, baseline_correction=True,
-                        xlabel='Time (s)', title='', high_gamma_max=120, freqs=None, bands=None):
+                        xlabel='Time (s)', title='', high_gamma_max=120, vmin=None, vmax=None, freqs=None, bands=None):
     # powers: (freqs x time)
     powers = powers.astype(np.float32).squeeze()
     F, T = powers.shape
-    if F not in [88, 52]:
+    if freqs is None and bands is None and F not in [88, 52]:
         powers = powers.T
         F, T = powers.shape
     if times is None:
@@ -410,9 +410,10 @@ def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True
         else:
             raise Exception('Not supported number of freqs ({})!'.format(F))
     if F != len(freqs):
-        print('powers.shape[0] != len(freqs)!!!')
+        print('powers.shape[0] ({}) != len(freqs) ({})!!!'.format(powers.shape[0], len(freqs)))
         return
-    vmax, vmin = np.max(powers), np.min(powers)
+    vmin = np.min(powers) if vmin is None else vmin
+    vmax = np.max(powers) if vmax is None else vmax
     print('vmin: {}, vmax: {}'.format(vmin, vmax))
     cmap, vmin, vmax = get_cm(vmin, vmax)
     if remove_non_sig:
@@ -438,6 +439,7 @@ def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True
     # plt.tight_layout()
     # plt.subplots_adjust(left=None, bottom=None, right=0.92, top=None, wspace=None, hspace=None)
     if figure_fname != '':
+        print('Saving {}'.format(figure_fname))
         plt.savefig(figure_fname, dpi=300)
         plt.close()
     else:
@@ -688,11 +690,13 @@ def add_legend(powers_ax):
 def get_cm(vmin, vmax):
     from src.utils import color_maps_utils as cmu
     BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
+    YlOrRd = cmu.create_YlOrRd_cm()
+    PuBu = cmu.create_PuBu_cm()
 
     if vmin >= 0:
-        cmap = matplotlib.cm.YlOrRd
+        cmap = YlOrRd
     elif vmax <= 0:
-        cmap = matplotlib.cm.BuPu
+        cmap = BuPu
     else:
         cmap = BuPu_YlOrRd_cm
         maxmin = max(map(abs, [vmax, vmin]))

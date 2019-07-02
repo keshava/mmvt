@@ -2322,3 +2322,17 @@ def find_hemi_using_vertices_num(subject, fname, subjects_dir):
 def extract_numpy_values_with_zero_dimensions(x):
     return x.item()
 
+
+def remove_duplicates(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
+
+
+def index_in_str(str, k):
+    ind = -1
+    try:
+        ind = str.index(k)
+    except:
+        pass
+    return ind

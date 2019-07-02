@@ -16,6 +16,8 @@ from tqdm import tqdm
 import warnings
 import matplotlib.pyplot as plt
 from src.misc import meg_buddy as mb
+import traceback
+from src.examples.epilepsy import power_spectrums_plots as psp
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
@@ -347,7 +349,7 @@ def meg_preproc_power_how_many(args):
                                                                                 file_mod_time.tm_mday < 20):
                     break
                 d = np.load(output_fname)
-                if 'power_spectrum_basline' in d and d['power_spectrum_basline'] is not None:
+                if 'power_spectrum_baseline' in d and d['power_spectrum_baseline'] is not None:
                     good_subject = True
         if good_subject:
             good_subjects.append(subject)
@@ -457,8 +459,6 @@ def meg_preproc_power(args):
                 overwrite_labels_induced_power=args.overwrite_output_files,
                 overwrite_labels_power_spectrum=args.overwrite_output_files,
                 overwrite_evoked=args.overwrite,
-                overwrite_fwd=args.overwrite,
-                overwrite_inv=args.overwrite,
                 overwrite_stc=args.overwrite,
                 overwrite_labels_data=args.overwrite,
                 n_jobs=args.n_jobs
@@ -488,6 +488,59 @@ def meg_preproc_power(args):
     print(good_subjects)
     print('subjects_with_error:')
     print(subjects_with_error)
+
+
+def calc_meg_induce_power(args):
+    inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
+    # bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 200])
+    good_subjects = get_good_subjects(args)
+    args.subject = good_subjects
+    bad_subjects = post_meg_preproc_find_bad_subjects()
+    good_subjects = list(set(good_subjects) - set(bad_subjects))
+    prepare_files(args)
+
+    for subject in good_subjects:
+        args.subject = subject
+        fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg'))
+        empty_fnames, cors, days = get_empty_fnames(subject, args.tasks, args)
+        input_fol = utils.make_dir(op.join(MEG_DIR, subject, 'labels_induced_power'))
+        for task in args.tasks:
+            input_fname = op.join(
+                MMVT_DIR, subject, 'meg', '{}_{}_{}_power_spectrum.npz'.format(task.lower(), inv_method, em))
+            d = utils.Bag(np.load(input_fname))
+            norm_powers = calc_norm_powers(d)
+            norm_powers.reshape((norm_powers.shape[0], -1)).shape
+            args = meg.read_cmd_args(dict(
+                subject=subject,
+                mri_subject=subject,
+                function='calc_stc',
+                calc_source_band_induced_power=True,
+                task=task, inverse_method=inv_method, extract_mode=em, atlas=atlas,
+                remote_subject_dir=args.remote_subject_dir, # Needed for finding COR
+                fname_format=args.epo_template.format(subject=subject, task=task)[:-len('-epo.fif')],
+                raw_fname=op.join(MEG_DIR, task, subject, args.raw_template.format(subject=subject, task=task)),
+                epo_fname=op.join(MEG_DIR, task, subject, args.epo_template.format(subject=subject, task=task)),
+                fwd_fname=op.join(MEG_DIR, task, subject, '{}_{}_Onset-fwd.fif'.format(subject, task)),
+                inv_fname=op.join(MEG_DIR, task, subject, '{}_{}_Onset-inv.fif'.format(subject, task)),
+                empty_fname=empty_fnames.get(task, '') if empty_fnames != '' else '',
+                conditions=task.lower(),
+                cor_fname=cors.get(task, '').format(subject=subject) if cors != '' else '',
+                get_task_defaults=False,
+                average_per_event=False,
+                data_per_task=True,
+                pick_ori='normal', # very important for calculation of the power spectrum
+                max_epochs_num=args.max_epochs_num,
+                read_events_from_file=False, stim_channels='STI001',
+                use_empty_room_for_noise_cov=True,
+                read_only_from_annot=False,
+                average_over_label_indices=args.average_over_label_indices,
+                ignore_missing=args.ignore_missing,
+                check_for_channels_inconsistency=args.check_for_channels_inconsistency,
+                overwrite_stc=args.overwrite,
+                # evo_fname=window_fname,
+                n_jobs=1,
+            ))
+            meg.call_main(args)
 
 
 # def calc_source_band_induced_power(args):
@@ -547,35 +600,94 @@ def meg_preproc_power(args):
 #     print('subjects_with_error:')
 #     print(subjects_with_error)
 
-def post_meg_preproc(args):
-    import traceback
-    from src.examples.epilepsy import power_spectrums_plots as psp
-
-    inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
-    bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
-    for subject in args.subject:
-        for task in args.tasks:
+def post_meg_preproc_find_bad_subjects():
+    bad_subjects = set(['hc006'])
+    fields = ['power_spectrum', 'frequencies', 'power_spectrum_baseline', 'baseline_frequencies']
+    for task in args.tasks:
+        for subject in args.subject:
+            if subject in bad_subjects:
+                continue
             input_fname = op.join(MMVT_DIR, subject, 'meg', '{}_{}_{}_power_spectrum.npz'.format(task.lower(), inv_method, em))
             if not op.isfile(input_fname):
                 print('{}: No {}!'.format(subject, input_fname))
+                bad_subjects.add(subject)
                 continue
             d = utils.Bag(np.load(input_fname))
-            if not ('power_spectrum' in d and 'frequencies' in d and 'power_spectrum_baseline' in d and
-                    'baseline_frequencies' in d):
+            if any ([k not in d for k in fields]):
                 print('{} dosn\'t have all the fields in the input file!'.format(subject))
+                bad_subjects.add(subject)
                 continue
-            freqs_bins = np.arange(1, 120)
-            powers = bin_power_spectrum(d.power_spectrum, d.frequencies, freqs_bins)
-            baseline_powers = bin_power_spectrum(d.power_spectrum_baseline, d.baseline_frequencies, freqs_bins)
-            powers_db = 10 * np.log10(powers)
-            baseline_powers_db = 10 * np.log10(baseline_powers)
-            baseline_powers_mean = np.mean(baseline_powers_db, axis=1, keepdims=1)
-            baseline_powers_std = np.std(baseline_powers_db, axis=1, keepdims=1)
-            norm_powers = (powers_db - baseline_powers_mean) / baseline_powers_std
-            norm_powers_pos = norm_powers
-            norm_powers_pos[np.where(norm_powers_pos < 0)] = 0
-            psp.plot_power_spectrum(norm_powers_pos.mean(1).T, freqs=freqs_bins, bands=bands, baseline_correction=False,
-                                    remove_non_sig=False, xlabel='#label', title='{} {}'.format(subject, task))
+            if any([d[k] is None for k in fields]):
+                print('{} has None in one of the fields!'.format(subject))
+                bad_subjects.add(subject)
+                continue
+            E, L, F, _ = d.power_spectrum.shape
+            if E != 50:
+                print('subject {} task {} has {} epochs!'.format(subject, task, E))
+                bad_subjects.add(subject)
+                continue
+    print('Bad subjects:')
+    print(bad_subjects)
+    return bad_subjects
+
+
+def post_meg_preproc(args):
+    inv_method, em, atlas = 'dSPM', 'mean_flip', args.atlas
+    do_plot = False
+    bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
+    figs_fol = utils.make_dir(op.join(res_fol, 'figures'))
+    bad_subjects = post_meg_preproc_find_bad_subjects()
+    for task in args.tasks:
+        all_bands_powers = None
+        output_fname = op.join(res_fol, '{}_{}_{}_all_power_spectrum.npz'.format(task.lower(), inv_method, em))
+        subj_ind = 0
+        subjects = []
+        for subject in args.subject:
+            if subject in bad_subjects:
+                continue
+            input_fname = op.join(
+                MMVT_DIR, subject, 'meg', '{}_{}_{}_power_spectrum.npz'.format(task.lower(), inv_method, em))
+            d = utils.Bag(np.load(input_fname))
+            E, L, F, _ = d.power_spectrum.shape
+            freqs_bins = np.arange(1, F + 1)
+            if all_bands_powers is None:
+                all_bands_powers = np.empty((len(args.subject), len(bands), E, L))
+            # freqs_bins = np.arange(1, F + 1)
+            # d.power_spectrum[np.where(np.isnan(d.power_spectrum ))] = 0
+            # baseline_powers_mean = np.mean(d.power_spectrum_baseline, axis=1, keepdims=1)
+            # baseline_powers_std = np.std(d.power_spectrum_baseline, axis=1, keepdims=1)
+            # norm_powers = (d.power_spectrum - baseline_powers_mean) / baseline_powers_std
+            # norm_powers_pos = norm_powers.squeeze()
+            # # norm_powers_pos[np.where(norm_powers_pos < 0)] = 0
+            # norm_powers_pos = np.abs(norm_powers_pos)
+            norm_powers = calc_norm_powers(d)
+            if do_plot:
+                figure_fname = op.join(figs_fol, '{}_{}_power_spectrum.jpg'.format(subject, task))
+                psp.plot_power_spectrum(
+                    norm_powers.mean(0).T, vmin=2, freqs=freqs_bins, bands=bands, baseline_correction=False,
+                    remove_non_sig=False, xlabel='#label', title='{} {}'.format(subject, task),
+                    figure_fname=figure_fname)
+            for band_ind, (band_name, band_freqs) in enumerate(bands.items()):
+                idx = [k for k, f in enumerate(freqs_bins) if band_freqs[0] <= f <= band_freqs[1]]
+                all_bands_powers[subj_ind, band_ind] = np.max(norm_powers[:, :, idx], axis=2)
+            subj_ind += 1
+            subjects.append(subject)
+        print('Saving {} ({})'.format(output_fname, all_bands_powers.shape))
+        np.savez(output_fname, powers=all_bands_powers, subjects=subjects)
+
+
+def calc_norm_powers(d):
+    E, L, F, _ = d.power_spectrum.shape
+    freqs_bins = np.arange(1, F + 1)
+    d.power_spectrum[np.where(np.isnan(d.power_spectrum))] = 0
+    baseline_powers_mean = np.mean(d.power_spectrum_baseline, axis=1, keepdims=1)
+    baseline_powers_std = np.std(d.power_spectrum_baseline, axis=1, keepdims=1)
+    norm_powers = (d.power_spectrum - baseline_powers_mean) / baseline_powers_std
+    norm_powers = norm_powers.squeeze()
+    norm_powers[np.where(norm_powers < 0)] = 0 # We don't care about power supression
+    # norm_powers = np.abs(norm_powers)
+    return norm_powers
 
 
 def bin_power_spectrum(power_spectrum, frequencies, freqs_bins):
@@ -834,6 +946,92 @@ def sensors_ttest(args):
 
 
 def post_analysis(args):
+    inv_method, em, template_brain = 'dSPM', 'mean_flip', 'colin27'
+    bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
+    input_fname = op.join(res_fol, '{}_{}_{}_all_power_spectrum.npz'.format('{task}', inv_method, em))
+    res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
+    figs_fol = utils.make_dir(op.join(res_fol, 'figures', 'ttest'))
+    subjects = {task: np.load(input_fname.format(task=task.lower()))['subjects'] for task in args.tasks}
+    if not np.all(subjects[args.tasks[0]] == subjects[args.tasks[0]]):
+        raise Exception('No the same subjects for both tasks!')
+    scores_task = 'MSIT'
+    utils.make_dir(op.join(figs_fol, scores_task))
+    scores = utils.load(op.join(res_fol, 'scores.pkl'))[scores_task]
+    subjects = subjects[args.tasks[0]]
+    subjects_scores = np.array([float('{:.3f}'.format(scores[subject])) for subject in subjects])
+    subjects_idx = np.argsort(subjects_scores)
+    subjects_scores = subjects_scores[subjects_idx]
+    subjects = subjects[subjects_idx]
+    labels = lu.read_labels(template_brain, SUBJECTS_DIR, args.atlas)
+    labels_idx = np.argsort(['{}-{}'.format(l.name[-2:], l.name[:-3]) for l in labels])
+    labels = [labels[ind] for ind in labels_idx]
+    epochs_powers = {task: np.load(input_fname.format(task=task.lower()))['powers'] for task in args.tasks}
+    # Sort the eopchs according to subjects and labels indices
+    epochs_powers = {task: epochs_powers[task][subjects_idx] for task in args.tasks}
+    epochs_powers = {task: epochs_powers[task][:, :, :, labels_idx] for task in args.tasks}
+    groupd_idx, groups = group_labels(labels)
+    sig_res = defaultdict(set)
+    S, B, E, L = epochs_powers[args.tasks[0]].shape
+    for band_ind, band_name in enumerate(bands.keys()):
+        ttest_results_fname = op.join(res_fol, 'ttest_results_{}.npz'.format(band_name))
+        if True: #not op.isfile(ttest_results_fname):
+            msit, ecr = [], []
+            now = time.time()
+            for subj_ind in range(S): #, subject in enumerate(args.subject):
+                utils.time_to_go(now, subj_ind, S, 1)
+                # x = [epochs_powers[task][subj_ind, band_ind, :, :].max(1) for task in args.tasks]
+                # title = '{} {}'.format(subj_ind, band_name)
+                # if np.mean(x[0]) >= 2 or np.mean(x[1]) >= 2:
+                #     sig, pval, t = ttest(x[0], x[1], args.tasks[0], args.tasks[1], is_greater=False, title=title, always_print=False)
+                # for label_ind, label in enumerate(labels):
+                for group_ind, group_name in enumerate(groups):
+                    labels_inds = np.where(group_ind == groupd_idx)[0]
+                    x = [epochs_powers[task][subj_ind, band_ind, :, labels_inds].max(0) for task in args.tasks]
+                    # if np.mean(x[0]) >= 2 or np.mean(x[1]) >= 2:
+                        # title = '{} {} {}'.format(subject, band_name, label.name)
+                    sig, pval, t = ttest(x[0], x[1], args.tasks[0], args.tasks[1], is_greater=False, never_print=True)
+                    if sig and (np.mean(x[0]) >= 2 or np.mean(x[1]) >= 2):
+                        if t > 0:
+                            msit.append([group_ind, subj_ind, -np.log(pval)])
+                        else:
+                            ecr.append([group_ind, subj_ind, -np.log(pval)])
+                        # if sig:
+                        #     sig_res['pos' if t > 0 else 'neg'].add(label.name)
+            msit = np.array(msit)
+            ecr = np.array(ecr)
+            np.savez(ttest_results_fname, msit=msit, ecr=ecr)
+        else:
+            d = np.load(ttest_results_fname)
+            msit = d['msit']
+            ecr = d['ecr']
+        plt.figure()
+        plt.scatter(msit[:, 1], msit[:, 0], s=msit[:, 2], c='r', label='msit')
+        plt.scatter(ecr[:, 1], ecr[:, 0], s=ecr[:, 2], c='b', label='ecr')
+        plt.xlabel('emotional reactivity index')
+        plt.ylabel('cortical label')
+        # ax.set_yticklabels(groups)
+        plt.yticks(np.arange(len(groups)), groups, fontsize=6)
+        plt.xticks(np.arange(len(subjects_scores)), subjects_scores, fontsize=6, rotation=45)
+        plt.title(band_name)
+        # plt.show()
+        fig_fname = op.join(figs_fol, scores_task, '{}.jpg'.format(band_name))
+        print('Saving fig in {}'.format(fig_fname))
+        plt.savefig(fig_fname, dpi=300)
+        plt.close()
+
+
+def group_labels(labels):
+    no_numbers_labels = ['{}-{}'.format(l.name[:-5], l.name[-2:]) for l in labels if not l.name.startswith('unknown')]
+    groups = utils.remove_duplicates(no_numbers_labels)
+    groups_inds = []
+    for label_ind, l in enumerate(labels):
+        if not l.name.startswith('unknown'):
+            groups_inds.append(groups.index('{}-{}'.format(l.name[:-5], l.name[-2:])))
+    return np.array(groups_inds), groups
+
+
+def post_analysis_old(args):
     import matplotlib.pyplot as plt
     from collections import defaultdict
     from operator import mul
@@ -1049,16 +1247,16 @@ def clean_power(x, band, percentile, high_limit_power, do_print=True):
 
 
 def ttest(x1, x2, x1_name, x2_name, two_tailed_test=True, alpha=0.05, is_greater=True, title='',
-          calc_welch=True, long_print=True, always_print=False):
+          calc_welch=True, long_print=True, always_print=False, never_print=False):
     import scipy.stats
     t, pval = scipy.stats.ttest_ind(x1, x2, equal_var=not calc_welch)
     sig = is_significant(pval, t, two_tailed_test, alpha, is_greater)
-    if sig or always_print:
+    if (sig or always_print) and not never_print:
         long_str = '#{} {:.4f}+-{:.4f}, #{} {:.4f}+-{:.4f}'.format(
             len(x1), np.mean(x1), np.std(x1), len(x2), np.mean(x2), np.std(x2)) if long_print else ''
-        print('{}: {} {} {} ({:.6f}) {}'.format(title, x1_name, '>' if t > 0 else '<', x2_name, pval, long_str))
+        print('{}: {} {} {} ({:.6f}) {} (t={})'.format(title, x1_name, '>' if t > 0 else '<', x2_name, pval, long_str, t))
 
-    return sig, pval
+    return sig, pval, t
 
 
 def is_significant(pval, t, two_tailed_test, alpha=0.05, is_greater=True):
@@ -1081,6 +1279,47 @@ def is_significant(pval, t, two_tailed_test, alpha=0.05, is_greater=True):
     #         plt.close()
     #         print('asdf')
     #
+
+
+def get_subjets_scores(args):
+    from pandas import read_csv
+
+    def find_subject(line):
+        for k in ['HC', 'PP', 'EP']:
+            ind = utils.index_in_str(line, k)
+            if ind != -1:
+                break
+        if ind != -1:
+            return line[ind:ind+5].lower()
+        else:
+            return None
+
+    threshold = 0.75
+    event = 'Response'
+    subscales = {'MSIT': ['BRIEF Metacognition', 'TRM Rumination', 'ATQ Effortful_Control', 'BRIEF Behavior_Regulation'],
+                'ECR': ['DERS Goals', 'ERS Reactivity', 'ASI Anxiety'], 'Resting': ['TRM Rumination']}
+    csv_report = '/autofs/space/lilli_001/users/DARPA-Behavior/questionnaires/DARPA_cq_subscales_Lit_zscores_2018_10_03.csv'
+
+    res_fol = op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr')
+    output_fname = op.join(res_fol, 'scores.pkl')
+    if False:# op.isfile(output_fname):
+        scores = utils.load(output_fname)
+        return scores
+
+    df = read_csv(csv_report, sep=',')
+    scores = defaultdict(dict)
+    for task in subscales.keys():
+        for i in range(len(df.Subject_ID)):
+            if not any([k in df.Subject_ID[i] for k in ['HC', 'PP', 'EP']]):
+                continue
+            subject = find_subject(df.Subject_ID[i])
+            if subject is None:
+                continue
+            score = np.nanmean([df.loc[i][scale] for scale in subscales[task]])
+            scores[task][subject] = score
+    print('Saving the scores to {}'.format(output_fname))
+    utils.save(scores, output_fname)
+    return scores
 
 
 def get_good_subjects(args, check_dict=False):
@@ -1195,11 +1434,15 @@ if __name__ == '__main__':
                     'hc044', 'hc042', 'pp002', 'hc003'] #, 'ep006', 'ep005', 'sp004', 'ep007', 'hc004']
     if args.subject[0] == 'all':
         if args.function == 'post_analysis':
-            res_fol = op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr')
             args.subject = utils.shuffle(
-                [utils.namebase(d) for d in glob.glob(op.join(res_fol, '*')) if op.isdir(d) and
-                 op.isfile(op.join(d, 'ecr_labels_dSPM_mean_flip_alpha_power.npz')) and
-                 op.isfile(op.join(d, 'msit_labels_dSPM_mean_flip_alpha_power.npz'))])
+                [utils.namebase(d) for d in glob.glob(op.join(MMVT_DIR, '*')) if op.isdir(d) and
+                 len(glob.glob(op.join(d, 'meg','ecr_{}_{}_power_spectrum.npz'.format(inv_method, em)))) > 0 and
+                 len(glob.glob(op.join(d, 'meg', 'msit_{}_{}_power_spectrum.npz'.format(inv_method, em)))) > 0])
+            # res_fol = op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr')
+            # args.subject = utils.shuffle(
+            #     [utils.namebase(d) for d in glob.glob(op.join(res_fol, '*')) if op.isdir(d) and
+            #      op.isfile(op.join(d, 'ecr_labels_dSPM_mean_flip_alpha_power.npz')) and
+            #      op.isfile(op.join(d, 'msit_labels_dSPM_mean_flip_alpha_power.npz'))])
         elif args.function == 'post_meg_preproc':
             args.subject = utils.shuffle(
                 [utils.namebase(d) for d in glob.glob(op.join(MMVT_DIR, '*')) if op.isdir(d) and

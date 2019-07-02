@@ -1650,7 +1650,7 @@ def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_be
         bem_fname, bem_exist = locating_subject_file(BEM, '*-bem-sol.*')
     if not op.isfile(bem_fname) or recreate_bem_solution:
         # todo: check if the bem and src has same ico
-        prepare_bem_surfaces(mri_subject, remote_subject_dir, args)
+        bem_prepared = prepare_bem_surfaces(mri_subject, remote_subject_dir, args)
         surfaces = mne.make_bem_model(mri_subject, subjects_dir=SUBJECTS_MRI_DIR, ico=int(bem_ico))
         mne.write_bem_surfaces(op.join(
             SUBJECTS_MRI_DIR, mri_subject, 'bem', '{}-surfaces.fif'.format(mri_subject)), surfaces)
@@ -1663,12 +1663,15 @@ def check_bem(mri_subject, recreate_src_spacing, remote_subject_dir, recreate_be
 
 def read_bem_surfaces(mri_subject):
     from mne.io.constants import FIFF
-    intput_fname = op.join(SUBJECTS_MRI_DIR, mri_subject, 'bem',  '{}-surfaces.fif'.format(mri_subject))
-    surfaces = mne.read_bem_surfaces(intput_fname)
-    ids = {FIFF.FIFFV_BEM_SURF_ID_BRAIN: 'Brain',
-           FIFF.FIFFV_BEM_SURF_ID_SKULL: 'Skull',
-           FIFF.FIFFV_BEM_SURF_ID_HEAD: 'Head'}
-    print([ids[s['id']] for s in surfaces])
+    input_fname = op.join(SUBJECTS_MRI_DIR, mri_subject, 'bem',  '{}-surfaces.fif'.format(mri_subject))
+    if op.isfile(input_fname):
+        surfaces = mne.read_bem_surfaces(input_fname)
+        ids = {FIFF.FIFFV_BEM_SURF_ID_BRAIN: 'Brain',
+               FIFF.FIFFV_BEM_SURF_ID_SKULL: 'Skull',
+               FIFF.FIFFV_BEM_SURF_ID_HEAD: 'Head'}
+        print([ids[s['id']] for s in surfaces])
+    else:
+        print('No {}!'.format(input_fname))
 
 
 def save_bem_solution(bem_sol, bem_fname):
@@ -1718,6 +1721,7 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
             utils.make_link(op.join(remote_bem_fol, 'watershed'), op.join(bem_fol, 'watershed'))
     if not bem_files_exist and not watershed_files_exist:
         os.environ['SUBJECT'] = mri_subject
+        print('Running mne_watershed_bem on {}!'.format(mri_subject))
         utils.run_script('mne_watershed_bem')
         err_msg = '''BEM files don't exist, you should create it first using mne_watershed_bem.
             For that you need to open a terminal, define SUBJECTS_DIR, SUBJECT, source MNE, and run
@@ -1728,12 +1732,20 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
             http://perso.telecom-paristech.fr/~gramfort/mne/MRC/mne_anatomical_workflow.pdf '''.format(mri_subject)
         # raise Exception(err_msg)
     watershed_files_exist = watershed_exist(bem_fol)
-    if not bem_files_exist and watershed_files_exist:
+    if watershed_files_exist and (not bem_files_exist):
+        # Try and read the surfaces
+        from src.utils import geometry_utils as gu
+        surfaces = [op.join(bem_fol, 'watershed', watershed_fname.format(mri_subject))
+                    for watershed_fname in watershed_files]
+        for surf_fname in surfaces:
+            if op.isfile(surf_fname):
+                gu.read_surface(surf_fname)
+
         for bem_file, watershed_file in zip(bem_files, watershed_files):
             utils.remove_file(op.join(bem_fol, bem_file))
             utils.copy_file(op.join(bem_fol, 'watershed', watershed_file.format(mri_subject)),
                         op.join(bem_fol, bem_file))
-    return [op.join(bem_fol, 'watershed', watershed_fname.format(mri_subject)) for watershed_fname in watershed_files]
+    return all([op.isfile(surf_fname) for surf_fname in surfaces])
 
 
 def make_forward_solution(
@@ -4066,17 +4078,25 @@ def get_info(epochs_fname='', evoked_fname='', raw_fname='', bad_channels=[], in
     info_fname, info_exist = get_info_fname(info_fname)
     if info_exist:
         info = utils.load(info_fname)
+        if not info_consist(info):
+            info = None
     if info is None and op.isfile(evoked_fname):
         evoked = mne.read_evokeds(evoked_fname)
         if isinstance(evoked, list):
             evoked = evoked[0]
         info = evoked.info
+        if not info_consist(info):
+            info = None
     if info is None and op.isfile(epochs_fname):
         epochs = mne.read_epochs(epochs_fname)
         info = epochs.info
+        if not info_consist(info):
+            info = None
     if info is None and op.isfile(raw_fname):
         raw = mne.io.read_raw_fif(raw_fname)
         info = raw.info
+        if not info_consist(info):
+            info = None
     if info is None:
         return None
     if set(info['bads']) == set(bad_channels):
@@ -4088,6 +4108,14 @@ def get_info(epochs_fname='', evoked_fname='', raw_fname='', bad_channels=[], in
         utils.save(info, info_fname)
     #     info = utils.Bag(info)
     return info
+
+
+def info_consist(info):
+    try:
+        info._check_consistency()
+        return True
+    except:
+        return False
 
 
 def get_info_fname(info_fname=''):
