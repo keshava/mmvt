@@ -133,8 +133,7 @@ def get_freqs(low_freq=1, high_freqs=120):
 
 
 def _calc_sensors_power_parallel(p):
-    from mne.time_frequency import tfr_array_morlet, morlet
-    import math
+    from mne.time_frequency import tfr_array_morlet
 
     subject, window_fname, modality, inverse_method, bad_channels, downsample, high_gamma_max, overwrite = p
 
@@ -148,17 +147,46 @@ def _calc_sensors_power_parallel(p):
         print('{} already exist'.format(output_fname))
     evoked = mne.read_evokeds(window_fname)[0]
     # evoked = evoked.resample(1000)
+
+    if modality == 'eeg':
+        picks = mne.pick_types(evoked.info, meg=False, eeg=True, exclude=bad_channels)
+    elif modality == 'meg':
+        picks = mne.pick_types(evoked.info, meg=True, eeg=False, exclude=bad_channels)
+    elif modality == 'meeg':
+        picks = mne.pick_types(evoked.info, meg=True, eeg=True, exclude=bad_channels)
+    else:
+        raise Exception('Wrong modality!')
+
+    evoked_data = evoked.data[np.newaxis, picks, :]
+    freqs, n_cycles = calc_morlet_freqs(evoked, high_gamma_max)
+    powers = tfr_array_morlet(
+        evoked_data, sfreq=evoked.info['sfreq'], freqs=freqs, n_cycles=n_cycles, output='power')
+    powers = np.squeeze(powers)
+    if powers.shape[2] % 2 == 1:
+        powers = powers[:, :, :-1]
+    if downsample > 1:
+        powers = utils.downsample_3d(powers, downsample)
+    powers_db = 10 * np.log10(powers)  # dB/Hz should be baseline corrected!!!
+    print('Saving {}'.format(output_fname))
+    np.save(output_fname, powers_db.astype(np.float16))
+
+
+def calc_morlet_freqs(evoked, high_gamma_max=120):
+    from mne.time_frequency import morlet
+    import math
+
     T = evoked.data.shape[1]
+    sfreq = evoked.info['sfreq']
     low_freq = 1
-    if T / 1000 < 5 * low_freq:
-        low_freq = math.ceil(5000 / T)
+    if T / sfreq < 5 * low_freq:
+        low_freq = math.ceil((sfreq * 5) / T)
     freqs = get_freqs(low_freq, high_gamma_max)
     # n_cycles = freqs / 2.
 
     n_cyles_div = 2.
     f0_n_cycles = freqs[0] / n_cyles_div
     sigma_t = f0_n_cycles / (2.0 * np.pi * freqs[0])
-    t = np.arange(0., 5. * sigma_t, 1.0 / evoked.info['sfreq'])
+    t = np.arange(0., 5. * sigma_t, 1.0 / sfreq)
     t = np.r_[-t[::-1], t[1:]]
     while len(t) > T:
         n_cyles_div += 1.
@@ -175,26 +203,7 @@ def _calc_sensors_power_parallel(p):
         n_cycles = freqs / 2.
         W = morlet(evoked.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
 
-    if modality == 'eeg':
-        picks = mne.pick_types(evoked.info, meg=False, eeg=True, exclude=bad_channels)
-    elif modality == 'meg':
-        picks = mne.pick_types(evoked.info, meg=True, eeg=False, exclude=bad_channels)
-    elif modality == 'meeg':
-        picks = mne.pick_types(evoked.info, meg=True, eeg=True, exclude=bad_channels)
-    else:
-        raise Exception('Wrong modality!')
-
-    evoked_data = evoked.data[np.newaxis, picks, :]
-    powers = tfr_array_morlet(
-        evoked_data, sfreq=evoked.info['sfreq'], freqs=freqs, n_cycles=n_cycles, output='power')
-    powers = np.squeeze(powers)
-    if powers.shape[2] % 2 == 1:
-        powers = powers[:, :, :-1]
-    if downsample > 1:
-        powers = utils.downsample_3d(powers, downsample)
-    powers_db = 10 * np.log10(powers)  # dB/Hz should be baseline corrected!!!
-    print('Saving {}'.format(output_fname))
-    np.save(output_fname, powers_db.astype(np.float16))
+    return freqs, n_cycles
 
 
 def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True,

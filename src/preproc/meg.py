@@ -2671,80 +2671,108 @@ def plot_topomap(subject, evoked_fname, evoked_key=None, times=[], find_peaks=Fa
     return True, fig
 
 
+def calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120):
+    from mne.time_frequency import morlet
+    import math
+    min_f = math.floor((epochs.info['sfreq'] * n_cycles * 2) / len(epochs.times))
+    freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+    ws = morlet(epochs.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
+    too_long = any([len(w) > len(epochs.times) for w in ws])
+    while too_long:
+        print('At least one of the wavelets is longer than the signal. ' +
+              'Consider padding the signal or using shorter wavelets.')
+        min_f += 1
+        print('Increasing min_f to {}'.format(min_f))
+        freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+        ws = morlet(epochs.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
+        too_long = any([len(w) > len(epochs.times) for w in ws])
+    if min_f <= 30:
+        freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+    elif min_f <= 60:
+        freqs = np.concatenate([np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+    elif min_f <= max_high_gamma:
+        freqs = np.concatenate([np.arange(60, max_high_gamma + 5, 5)])
+    else:
+        raise Exception('min_f > max_high_gamma! ({}>{})'.format(min_f, max_high_gamma))
+    return freqs
+
+
 def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
                        calc_inducde_power_per_label=True, normalize_proj=True, overwrite_stc=False,
                        modality='meg', df=1, n_cycles=2, downsample=2, n_jobs=6):
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
-    if bands is None or bands == '':
-        min_delta = 1 if n_cycles <= 2 else 2
-        max_high_gamma = 120 # 300
-        bands = dict(delta=[min_delta, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, max_high_gamma])
-        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
-    ret = check_bands(epochs, bands, df, n_cycles)
-    if not ret:
-        return False
+    # if bands is None or bands == '':
+    min_delta = 1 if n_cycles <= 2 else 2
+    max_high_gamma = 120 # 300
+    # bands = dict(delta=[min_delta, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, max_high_gamma])
+    # freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+    freqs = calc_morlet_freqs(epochs, n_cycles, max_high_gamma)
+    # ret = check_bands(epochs, bands, df, n_cycles)
+    # if not ret:
+    #     return False
     if normalize_proj:
         epochs.info.normalize_proj()
-    if calc_inducde_power_per_label:
-        fol = utils.make_dir(op.join(SUBJECT_MEG_FOLDER, '{}-induced_power'.format(stc_fname)))
-        labels = lu.read_labels(subject, SUBJECTS_MRI_DIR, atlas)
-        if len(labels) == 0:
-            raise Exception('No labels found for {}!'.format(atlas))
-        now = time.time()
-        for ind, label in enumerate(labels):
-            if 'unknown' in label.name:
-                continue
-            files_exist = all([utils.both_hemi_files_exist(op.join(fol, '{}_{}_{}_induced_power-{}.stc'.format(
-                task, label.name, band, '{hemi}'))) for band in bands.keys()])
-            if files_exist and not overwrite_stc:
-                print('Files already exist for {}'.format(label.name))
-                continue
-            print('Calculating source_band_induced_power for {}'.format(label.name))
-            utils.time_to_go(now, ind, len(labels), runs_num_to_print=1)
-            powers_fname = op.join(fol, '{}_{}_induced_power.npy'.format(task, label.name))
-            # On a normal computer, you might want to set n_jobs to 1 (memory...)
-            # !!! We changed the mne-python implementation, to return the powers !!!
-            # todo: copy the function instead of chaging it
-            # stcs, powers = source_band_induced_power(
-            #     epochs, inverse_operator, bands, label, n_cycles=n_cycles, use_fft=False, lambda2=lambda2,
-            #     pca=True, df=df, n_jobs=n_jobs)
-            import mne.minimum_norm.time_frequency
-            # vertno, src_sel = mne.minimum_norm.inverse.label_src_vertno_sel(label, inv['src'])
-            powers, _, _ = mne.minimum_norm.time_frequency._source_induced_power(
-                epochs, inverse_operator, freqs, label=label, lambda2=lambda2,
-                method='dSPM', n_cycles=n_cycles, n_jobs=n_jobs)
-            if powers.shape[2] % 2 == 1:
-                powers = powers[:, :, :-1]
-            if downsample > 1:
-                powers = utils.downsample_3d(powers, downsample)
-            powers_db = 10 * np.log10(powers) # dB/Hz should be baseline corrected!!!
-            print('Saving powers to {}'.format(powers_fname))
-            np.save(powers_fname, powers_db.astype(np.float16))
+    # if calc_inducde_power_per_label:
+    fol = utils.make_dir(op.join(SUBJECT_MEG_FOLDER, '{}-induced_power'.format(stc_fname)))
+    labels = lu.read_labels(subject, SUBJECTS_MRI_DIR, atlas)
+    if len(labels) == 0:
+        raise Exception('No labels found for {}!'.format(atlas))
+    now = time.time()
+    for ind, label in enumerate(labels):
+        if 'unknown' in label.name:
+            continue
+        powers_fname = op.join(fol, '{}_{}_induced_power.npy'.format(task, label.name))
+        # exist = all([utils.both_hemi_files_exist(op.join(fol, '{}_{}_{}_induced_power-{}.stc'.format(
+        #     task, label.name, band, '{hemi}'))) for band in bands.keys()])
+        exist = op.join(powers_fname)
+        if exist and not overwrite_stc:
+            print('Files already exist for {}'.format(label.name))
+            continue
+        print('Calculating source_band_induced_power for {}'.format(label.name))
+        utils.time_to_go(now, ind, len(labels), runs_num_to_print=1)
 
-            # for band, stc_band in stcs.items():
-                # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
-                # band_stc_fname = op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band))
-                # print('Saving {}'.format(band_stc_fname))
-                # stc_band.save(band_stc_fname)
-        # params = [(subject, atlas, task, band, stc_fname, labels, modality, fol, overwrite_stc)
-        #           for band in bands.keys()]
-        # results = utils.run_parallel(_combine_labels_stc_files_parallel, params, len(bands))
-        # ret = all(results)
-        ret = True
-    else:
-        stcs = source_band_induced_power(
-            epochs, inverse_operator, bands, n_cycles=n_cycles, use_fft=False, lambda2=lambda2, pca=True,
-            df=df, n_jobs=n_jobs)
-        ret = True
-        for band, stc_band in stcs.items():
+        # On a normal computer, you might want to set n_jobs to 1 (memory...)
+        # !!! We changed the mne-python implementation, to return the powers !!!
+        # todo: copy the function instead of chaging it
+        # stcs, powers = source_band_induced_power(
+        #     epochs, inverse_operator, bands, label, n_cycles=n_cycles, use_fft=False, lambda2=lambda2,
+        #     pca=True, df=df, n_jobs=n_jobs)
+        import mne.minimum_norm.time_frequency
+        # vertno, src_sel = mne.minimum_norm.inverse.label_src_vertno_sel(label, inv['src'])
+        powers, _, _ = mne.minimum_norm.time_frequency._source_induced_power(
+            epochs, inverse_operator, freqs, label=label, lambda2=lambda2,
+            method='dSPM', n_cycles=n_cycles, n_jobs=n_jobs)
+        if powers.shape[2] % 2 == 1:
+            powers = powers[:, :, :-1]
+        if downsample > 1:
+            powers = utils.downsample_3d(powers, downsample)
+        powers_db = 10 * np.log10(powers) # dB/Hz should be baseline corrected!!!
+        print('Saving powers to {}'.format(powers_fname))
+        np.save(powers_fname, powers_db.astype(np.float16))
+
+        # for band, stc_band in stcs.items():
             # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
-            band_stc_fname = '{}_induced_power_{}'.format(stc_fname, band)
-            print('Saving {}'.format(band_stc_fname))
-            stc_band.save(band_stc_fname)
-            ret = ret and utils.both_hemi_files_exist('{}-{}.stc'.format(band_stc_fname, '{hemi}'))
+            # band_stc_fname = op.join(fol, '{}_{}_{}_induced_power'.format(task, label.name, band))
+            # print('Saving {}'.format(band_stc_fname))
+            # stc_band.save(band_stc_fname)
+    # params = [(subject, atlas, task, band, stc_fname, labels, modality, fol, overwrite_stc)
+    #           for band in bands.keys()]
+    # results = utils.run_parallel(_combine_labels_stc_files_parallel, params, len(bands))
+    # ret = all(results)
+    ret = True
+    # else:
+    #     stcs = source_band_induced_power(
+    #         epochs, inverse_operator, bands, n_cycles=n_cycles, use_fft=False, lambda2=lambda2, pca=True,
+    #         df=df, n_jobs=n_jobs)
+    #     ret = True
+    #     for band, stc_band in stcs.items():
+    #         # print('Saving the {} source estimate to {}.stc'.format(label.name, stc_fname))
+    #         band_stc_fname = '{}_induced_power_{}'.format(stc_fname, band)
+    #         print('Saving {}'.format(band_stc_fname))
+    #         stc_band.save(band_stc_fname)
+    #         ret = ret and utils.both_hemi_files_exist('{}-{}.stc'.format(band_stc_fname, '{hemi}'))
     return ret
-
 
 
 def check_bands(epochs, bands, df=1, n_cycles=2):
