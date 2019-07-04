@@ -445,11 +445,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     # create_evokeds_links(subject, windows_with_baseline)
     for modality in modalities:
         # 1) Sensors
-        # plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
-        # plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
+        plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
+        plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
 
-        calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
-                           high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
+        # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
+        #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
         # psplots.plot_sensors_powers(
         #     subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_gamma_max,
         #     percentiles=percentiles, sig_threshold=sig_threshold, save_fig=save_fig,
