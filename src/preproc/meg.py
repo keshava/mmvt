@@ -1078,7 +1078,7 @@ def calc_labels_induced_power(subject, atlas, events, inverse_method='dSPM', ext
                     powers[band_ind, stc_ind] = power_band
             print('calc_labels_induced_power: Saving results in {}'.format(output_fname))
             # powers = 10 * np.log10(powers)
-            np.savez(output_fname, label_name=label.name, atlas=atlas, data=powers, times=times)
+            np.savez(output_fname, label_name=label.name, atlas=atlas, data=power, times=times)
             ret = ret and op.isfile(output_fname)
 
     return ret
