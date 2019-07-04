@@ -422,6 +422,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     print('windows:')
     for ind, window_fname in enumerate(windows):
         print('{}) {}'.format(ind, window_fname))
+    ret = input('Continue? (y/n) ')
+    if not au.is_true(ret):
+        return
 
     baseline_name = utils.namebase(baseline_window)
     overwrite_inv = False
