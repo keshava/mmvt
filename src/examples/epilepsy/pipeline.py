@@ -388,6 +388,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     baseline_window = utils.select_one_file(baseline_windows, 'baseline')
     baseline_windows = [baseline_window]
     windows_with_baseline = windows + baseline_windows
+
+    print('windows:')
+    for ind, evokes_fname in enumerate(evokes_files):
+        print('{}) {}'.format(ind, evokes_fname))
+
     baseline_name = utils.namebase(baseline_window)
     overwrite_inv = False
     overwrite_fwd = False
@@ -485,9 +490,6 @@ if __name__ == '__main__':
         evokes_files = glob.glob(op.join(evokes_fol, '**', '*.fif'), recursive=True)
     else:
         evokes_files = glob.glob(op.join(evokes_fol, '*.fif'))
-    print('Evokes:')
-    for ind, evokes_fname in enumerate(evokes_files):
-        print('{}) {}'.format(ind, evokes_fname))
     runs = []
     if len(run_files) == len(evokes_files):
         runs = set(run_files)
