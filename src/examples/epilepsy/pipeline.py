@@ -390,8 +390,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     windows_with_baseline = windows + baseline_windows
 
     print('windows:')
-    for ind, evokes_fname in enumerate(evokes_files):
-        print('{}) {}'.format(ind, evokes_fname))
+    for ind, window_fname in enumerate(windows):
+        print('{}) {}'.format(ind, window_fname))
 
     baseline_name = utils.namebase(baseline_window)
     overwrite_inv = False
