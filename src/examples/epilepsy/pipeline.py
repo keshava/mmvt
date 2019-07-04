@@ -128,23 +128,53 @@ def calc_sensors_power(subject, windows_fnames, modality, inverse_method='dSPM',
     utils.run_parallel(_calc_sensors_power_parallel, params, len(windows_fnames) if parallel else 1)
 
 
+def get_freqs(low_freq=1, high_freqs=120):
+    return np.concatenate([np.arange(low_freq, 30), np.arange(31, 60, 3), np.arange(60, high_freqs + 5, 5)])
+
+
 def _calc_sensors_power_parallel(p):
-    from mne.time_frequency import tfr_array_morlet
+    from mne.time_frequency import tfr_array_morlet, morlet
+    import math
 
     subject, window_fname, modality, inverse_method, bad_channels, downsample, high_gamma_max, overwrite = p
 
     root_dir = utils.make_dir(op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject))
     output_fname_template = op.join(root_dir, '{}-epilepsy-{}-{}-{}-sensors_power.npy'.format(
         subject, inverse_method, modality, '{window}'))
-    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-    # bad_channels = bad_channels.split(',')
-    n_cycles = freqs / 2.
 
     window = utils.namebase(window_fname)
     output_fname = output_fname_template.format(window=window)
     if op.isfile(output_fname) and not overwrite:
         print('{} already exist'.format(output_fname))
     evoked = mne.read_evokeds(window_fname)[0]
+    # evoked = evoked.resample(1000)
+    T = evoked.data.shape[1]
+    low_freq = 1
+    if T / 1000 < 5 * low_freq:
+        low_freq = math.ceil(5000 / T)
+    freqs = get_freqs(low_freq, high_gamma_max)
+    # n_cycles = freqs / 2.
+
+    n_cyles_div = 2.
+    f0_n_cycles = freqs[0] / n_cyles_div
+    sigma_t = f0_n_cycles / (2.0 * np.pi * freqs[0])
+    t = np.arange(0., 5. * sigma_t, 1.0 / evoked.info['sfreq'])
+    t = np.r_[-t[::-1], t[1:]]
+    while len(t) > T:
+        n_cyles_div += 1.
+        f0_n_cycles = freqs[0] / n_cyles_div
+        sigma_t = f0_n_cycles / (2.0 * np.pi * freqs[0])
+        t = np.arange(0., 5. * sigma_t, 1.0 / evoked.info['sfreq'])
+        t = np.r_[-t[::-1], t[1:]]
+
+    n_cycles = freqs / n_cyles_div
+    W = morlet(evoked.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
+    while len(W[0]) > T:
+        low_freq += 1
+        freqs = get_freqs(low_freq, high_gamma_max)
+        n_cycles = freqs / 2.
+        W = morlet(evoked.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
+
     if modality == 'eeg':
         picks = mne.pick_types(evoked.info, meg=False, eeg=True, exclude=bad_channels)
     elif modality == 'meg':
@@ -496,7 +526,7 @@ if __name__ == '__main__':
     if len(runs) == 0 or no_runs:
         print('No run were found!')
         runs = ['01']
-    n_jobs = 20 # utils.get_n_jobs(-5)
+    n_jobs = 1 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     specific_window = ''# 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     for run in runs:
