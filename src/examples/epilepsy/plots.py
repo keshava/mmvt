@@ -30,8 +30,8 @@ def _plot_topomaps_parallel(p):
     fig_fname = op.join(figs_fol, '{}.jpg'.format(window))
     if op.isfile(fig_fname):
         return
-    if bad_channels != 'bads':
-        bad_channels = bad_channels.split(',')
+    # if bad_channels != 'bads':
+    #     bad_channels = bad_channels.split(',')
     module.plot_topomap(
         subject, evo_fname, times=[0], find_peaks=True, same_peaks=False, n_peaks=5, bad_channels=bad_channels,
         title=window, save_fig=True, fig_fname=fig_fname)
@@ -54,8 +54,8 @@ def _plot_evokes_parallel(p):
     fig_fname = op.join(figs_fol, '{}.jpg'.format(window))
     if op.isfile(fig_fname) and not overwrite:
         return
-    if bad_channels != 'bads':
-        bad_channels = bad_channels.split(',')
+    # if bad_channels != 'bads':
+    #     bad_channels = bad_channels.split(',')
     module.plot_evoked(
         subject, evo_fname, window_title=window, exclude=bad_channels, save_fig=True,
         fig_fname=fig_fname, overwrite=overwrite)
