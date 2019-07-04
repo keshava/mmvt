@@ -124,7 +124,7 @@ def _calc_amplitude_zvals_parallel(p):
 def calc_sensors_power(subject, windows_fnames, modality, inverse_method='dSPM', bad_channels=[],
                        high_gamma_max=120, downsample=2, parallel=False, overwrite=False):
     params = [(subject, window_fname, modality, inverse_method, bad_channels, downsample, high_gamma_max, overwrite)
-              for window_fname in windows_fnames]
+              for window_fname in windows_fnames if op.isfile(window_fname)]
     utils.run_parallel(_calc_sensors_power_parallel, params, len(windows_fnames) if parallel else 1)
 
 
@@ -366,10 +366,13 @@ def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, ru
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
-         inverse_method='dSPM', specific_window='', no_runs=False, n_jobs=4):
+         inverse_method='dSPM', specific_window='', no_runs=False, recursive=False, n_jobs=4):
     # run_num = re.sub('\D', ',', run).split(',')[-1].zfill(2)
     if no_runs:
-        windows = glob.glob(op.join(evokes_fol, '*.fif'))
+        if recursive:
+            windows = glob.glob(op.join(evokes_fol, '**', '*.fif'), recursive=True)
+        else:
+            windows = glob.glob(op.join(evokes_fol, '*.fif'))
         baseline_windows = glob.glob(op.join(evokes_fol, '*{}*.fif'.format(baseline_template)))
     else:
         windows = glob.glob(op.join(evokes_fol, '{}_*.fif'.format(run)))
@@ -410,8 +413,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
 
-        # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
-        #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
+        calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
+                           high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
         # psplots.plot_sensors_powers(
         #     subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_gamma_max,
         #     percentiles=percentiles, sig_threshold=sig_threshold, save_fig=save_fig,
@@ -435,8 +438,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #         overwrite=False)
         # psplots.plot_baseline_source_powers(
         #     subject, baseline_window, modality, inverse_method, high_gamma_max, figures_type, overwrite_plots)
-        psplots.plot_norm_powers(
-            subject, windows, baseline_window, modality, inverse_method, overwrite=True, figures_type=figures_type)
+        # psplots.plot_norm_powers(
+        #     subject, windows, baseline_window, modality, inverse_method, overwrite=True, figures_type=figures_type)
         # psplots.plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(subject, modality, windows[0], baseline_window, run_num)
@@ -470,13 +473,21 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 if __name__ == '__main__':
     from src.examples.epilepsy import init_files
+    from src.utils import args_utils as au
 
     modalities = ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
-    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01325()
+    recursive = True
+    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01327()
     run_files = [utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))]
-    evokes_files = glob.glob(op.join(evokes_fol, '*.fif'))
+    if recursive:
+        evokes_files = glob.glob(op.join(evokes_fol, '**', '*.fif'), recursive=True)
+    else:
+        evokes_files = glob.glob(op.join(evokes_fol, '*.fif'))
+    print('Evokes:')
+    for ind, evokes_fname in enumerate(evokes_files):
+        print('{}) {}'.format(ind, evokes_fname))
     runs = []
     if len(run_files) == len(evokes_files):
         runs = set(run_files)
@@ -485,14 +496,16 @@ if __name__ == '__main__':
         runs = ['01']
     n_jobs = 1 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_window = ''# 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     for run in runs:
         # if run != 'run1':
         #     continue
         raw_fname, run_num = init_files.find_raw_fname(meg_fol, run)
-        if len(runs) > 0:
-            if not op.isfile(raw_fname):
+        # if len(runs) > 0:
+        if not op.isfile(raw_fname):
+            ret = input('No raw file! Do you want to continue (y/n)? ')
+            if not au.is_true(ret):
                 continue
         main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
-             inverse_method, specific_window, no_runs, n_jobs)
+             inverse_method, specific_window, no_runs, recursive, n_jobs)
     print('Finish!')

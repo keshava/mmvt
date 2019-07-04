@@ -20,7 +20,8 @@ def find_room_noise(fol):
     file_name = input('Can\'t find the room noise file, please input its name: ')
     fname = op.join(fol, file_name)
     if not op.isfile(fname):
-        raise Exception('No room noise!')
+        print('*** No room noise! ***')
+        return ''
     else:
         return fname
 
@@ -32,7 +33,7 @@ def find_raw_fname(meg_fol, run):
     if not op.isfile(raw_fname):
         raw_run_files = [f for f in raw_files if 'annot' not in utils.namebase(f) and 'eve' not in utils.namebase(f)]
         if len(raw_run_files) == 0:
-            return ''
+            return '', run_num
         ssst_raw_files = [f for f in raw_run_files if 'ssst' in utils.namebase(f)]
         if len(ssst_raw_files) > 0:
             raw_fname = utils.select_one_file(ssst_raw_files, 'raw file for run {}'.format(run_num))
@@ -76,5 +77,19 @@ def subject_nmr01325():
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG020,EEG021,EEG050,EEG051'
+    baseline_name = 'baseline_607' # '33_35secAWAKE' #'108_35secSLEEP' # 'baseline_607' # 'bl_502s' # 'bl_474s' #  #  '108_35secSLEEP' '33_35secAWAKE' '550_20sec'
+    return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, True
+
+
+def subject_nmr01327():
+    subject = 'nmr01327'
+    evokes_fol = [d for d in [
+        '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/epochs',
+        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+    meg_fol = [d for d in [
+        '/cluster/neuromind/valia/epilepsy/6645962_01325/190523',
+        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+    empty_fname = find_room_noise(meg_fol)
+    bad_channels = 'EEG059,EEG019,MEG1532'
     baseline_name = 'baseline_607' # '33_35secAWAKE' #'108_35secSLEEP' # 'baseline_607' # 'bl_502s' # 'bl_474s' #  #  '108_35secSLEEP' '33_35secAWAKE' '550_20sec'
     return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, True
