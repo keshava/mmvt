@@ -456,12 +456,12 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     plot_baseline_stat=plot_baseline_stat, bad_channels=bad_channels, overwrite=True, parallel=False)
 
         # 2) calc fwd and inv
-        calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
-                     overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
-        check_inv_fwd(subject, modality, run_num)
+        # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
+        #              overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
+        # check_inv_fwd(subject, modality, run_num)
 
         # 3) Amplitude
-        # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
+        calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
         #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
