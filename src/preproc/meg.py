@@ -1615,8 +1615,8 @@ def check_src(mri_subject, recreate_the_source_space=False, recreate_src_spacing
         src = mne.read_source_spaces(src_fname)
     else:
         if not recreate_the_source_space:
-            ans = input("Can't find the source file, recreate it (y/n)? (spacing={}, surface={}) ".format(
-                recreate_src_spacing, recreate_src_surface))
+            ans = input("Can't find the source file ({}), recreate it (y/n)? (spacing={}, surface={}) ".format(
+                src_fname, recreate_src_spacing, recreate_src_surface))
         if recreate_the_source_space or ans == 'y' :
             # oct_name, oct_num = recreate_src_spacing[:3], recreate_src_spacing[-1]
             # prepare_subject_folder(
