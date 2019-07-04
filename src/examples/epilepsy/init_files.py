@@ -87,7 +87,7 @@ def subject_nmr01327():
         '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/epochs',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     meg_fol = [d for d in [
-        '/cluster/neuromind/valia/epilepsy/6645962_01325/190523',
+        '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/190626',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG059,EEG019,MEG1532'
