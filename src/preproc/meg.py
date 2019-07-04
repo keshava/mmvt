@@ -1735,11 +1735,11 @@ def prepare_bem_surfaces(mri_subject, remote_subject_dir, args):
             http://perso.telecom-paristech.fr/~gramfort/mne/MRC/mne_anatomical_workflow.pdf '''.format(mri_subject)
         # raise Exception(err_msg)
     watershed_files_exist = watershed_exist(bem_fol)
+    surfaces = [op.join(bem_fol, 'watershed', watershed_fname.format(mri_subject))
+                for watershed_fname in watershed_files]
     if watershed_files_exist and (not bem_files_exist):
         # Try and read the surfaces
         from src.utils import geometry_utils as gu
-        surfaces = [op.join(bem_fol, 'watershed', watershed_fname.format(mri_subject))
-                    for watershed_fname in watershed_files]
         for surf_fname in surfaces:
             if op.isfile(surf_fname):
                 gu.read_surface(surf_fname)
