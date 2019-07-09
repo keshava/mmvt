@@ -84,12 +84,12 @@ def subject_nmr01325():
 def subject_nmr01327():
     subject = 'nmr01327'
     evokes_fol = [d for d in [
-        '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/epochs/right-left',
-        op.join(MEG_DIR, subject, 'evokes', 'right-left')] if op.isdir(d)][0]
+        '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/epochs',
+        op.join(MEG_DIR, subject, 'evokes')] if op.isdir(d)][0]
     meg_fol = [d for d in [
         # '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/190626',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG059,EEG019,MEG1532'
-    baseline_name = 'baseline_607' # '33_35secAWAKE' #'108_35secSLEEP' # 'baseline_607' # 'bl_502s' # 'bl_474s' #  #  '108_35secSLEEP' '33_35secAWAKE' '550_20sec'
+    baseline_name = 'baseline_run1_195.7_12sec' # '33_35secAWAKE' #'108_35secSLEEP' # 'baseline_607' # 'bl_502s' # 'bl_474s' #  #  '108_35secSLEEP' '33_35secAWAKE' '550_20sec'
     return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, True

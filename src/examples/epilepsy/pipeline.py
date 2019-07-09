@@ -91,8 +91,9 @@ def _calc_amplitude_parallel(p):
 
 
 def calc_amplitude_zvals(subject, windows_fnames, baseline_name, modality, from_index=None, to_index=None,
-                         inverse_method='dSPM', parallel=True, overwrite=False):
-    params = [(subject, modality, window_fname, baseline_name, from_index, to_index, inverse_method, overwrite)
+                         inverse_method='dSPM', use_abs=False, parallel=True, overwrite=False):
+    params = [(subject, modality, window_fname, baseline_name, from_index, to_index, inverse_method, use_abs,
+               overwrite)
               for window_fname in windows_fnames]
     utils.run_parallel(_calc_amplitude_zvals_parallel, params, len(windows_fnames) if parallel else 1)
 
@@ -100,7 +101,7 @@ def calc_amplitude_zvals(subject, windows_fnames, baseline_name, modality, from_
 def _calc_amplitude_zvals_parallel(p):
     # python3 -m src.preproc.meg -s nmr00857 -f calc_stc_zvals --stc_name nmr00857-epilepsy-dSPM-meeg-43.9s
     #   --baseline_stc_name nmr00857-epilepsy-dSPM-meeg-37.3_BGprSzs --use_abs 1 --overwrite_stc 1
-    subject, modality, window_fname, baseline_name, from_index, to_index, inverse_method, overwrite = p
+    subject, modality, window_fname, baseline_name, from_index, to_index, inverse_method, use_abs, overwrite = p
     module = eeg if modality == 'eeg' else meg
     window = utils.namebase(window_fname)
     stc_template = '{}-epilepsy-{}-{}-{}{}'.format(subject, inverse_method, modality, '{window}', '{suffix}')
@@ -115,11 +116,31 @@ def _calc_amplitude_zvals_parallel(p):
         stc_zvals_name=stc_template.format(window=window, suffix='_amplitude-zvals'),
         from_index=from_index,
         to_index=to_index,
-        use_abs=1,
+        use_abs=use_abs,
         overwrite_stc=overwrite
     ))
     module.call_main(args)
 
+
+def average_amplitude_zvals(subject, windows, modality, inverse_method='dSPM', overwrite=False):
+    import matplotlib.pyplot as plt
+    times = None
+    plt.figure()
+    for window_fname in windows:
+        window_name = utils.namebase(window_fname)
+        stc_template = op.join(
+            MMVT_DIR, subject, modality, '{}-epilepsy-{}-{}-{}'.format(subject, inverse_method, modality, window_name))
+        if not utils.stc_exist(stc_template):
+            print('Can\'t find {}!'.format(stc_template))
+            continue
+        if times is None:
+            times = epi_utils.get_window_times(window_fname, downsample=1)
+        stc = mne.read_source_estimate('{}-rh.stc'.format(stc_template), subject)
+        data = np.max(stc.data, axis=0)
+        plt.plot(times, data.T, label=window_name)
+    plt.legend()
+    plt.show()
+    plt.close()
 
 def calc_sensors_power(subject, windows_fnames, modality, inverse_method='dSPM', bad_channels=[],
                        high_gamma_max=120, downsample=2, parallel=False, overwrite=False):
@@ -405,7 +426,8 @@ def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, ru
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
-         inverse_method='dSPM', specific_window='', no_runs=False, recursive=False, n_jobs=4):
+         inverse_method='dSPM', specific_window='', exclude_windows=[], no_runs=False, recursive=False,
+         check_windows=True, n_jobs=4):
     # run_num = re.sub('\D', ',', run).split(',')[-1].zfill(2)
     if no_runs:
         if recursive:
@@ -421,19 +443,24 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
             windows.remove(baseline_window)
     if specific_window != '':
         windows = [w for w in windows if specific_window in utils.namebase(w)]
-        if len(windows) == 0:
-            print('No windows!')
-            return
+    if len(exclude_windows) > 0 :
+        windows = [w for w in windows if all([
+            exclude_window not in utils.namebase(w) for exclude_window in exclude_windows])]
+    if len(windows) == 0:
+        print('No windows!')
+        return
     baseline_window = utils.select_one_file(baseline_windows, 'baseline')
     baseline_windows = [baseline_window]
     windows_with_baseline = windows + baseline_windows
 
-    print('windows:')
-    for ind, window_fname in enumerate(windows):
-        print('{}) {}'.format(ind, window_fname))
-    ret = input('Continue? (y/n) ')
-    if not au.is_true(ret):
-        return
+    if check_windows:
+        print('windows:')
+        for ind, window_fname in enumerate(windows):
+            print('{}) {}'.format(ind, window_fname))
+        print('Baseline: {}'.format(baseline_window))
+        ret = input('Continue? (y/n) ')
+        if not au.is_true(ret):
+            return
 
     baseline_name = utils.namebase(baseline_window)
     overwrite_inv = False
@@ -444,7 +471,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     overwrite_induced_power_zvals = False
     overwrite_stc = False
     overwrite_modalities_figures = False
-    from_index, to_index = 2000, 10000
+    from_index, to_index = None, None # 2000, 10000
     max_t = 0 #7500
     high_gamma_max = 120
     percentiles = [5, 95]
@@ -452,9 +479,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     figures_type = 'jpg'
     save_fig = False
     plot_baseline_stat = False
+    average_window_name = 'R-'
+    avg_time_crop = 100
     bad_channels = bad_channels.split(',')
 
-    # create_evokeds_links(subject, windows_with_baseline)
+    # epi_utils.create_evokeds_links(subject, windows_with_baseline)
     for modality in modalities:
         # 1) Sensors
         # plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
@@ -476,17 +505,21 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
-        #     parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
+        #     use_abs=False, parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
+        average_amplitude_zvals(subject, windows, modality, inverse_method, overwrite=False)
 
         # 4) Induced power
-        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-                           overwrite=True)
+        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+        #                    overwrite=True)
         # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
         #         overwrite=False)
         # psplots.plot_baseline_source_powers(
         #     subject, baseline_window, modality, inverse_method, high_gamma_max, figures_type, overwrite_plots)
         # psplots.plot_norm_powers(
-        #     subject, windows, baseline_window, modality, inverse_method, overwrite=True, figures_type=figures_type)
+        #     subject, windows, baseline_window, modality, inverse_method, overwrite=False, figures_type=figures_type)
+        # psplots.average_norm_powers(
+        #     subject, windows, modality, average_window_name, inverse_method, avg_time_crop, overwrite=False,
+        #     figures_type=figures_type)
         # psplots.plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(subject, modality, windows[0], baseline_window, run_num)
@@ -525,7 +558,8 @@ if __name__ == '__main__':
     modalities = ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
-    recursive = False
+    recursive = True
+    check_windows = True
     subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01327()
     run_files = [utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))]
     if recursive:
@@ -538,9 +572,10 @@ if __name__ == '__main__':
     if len(runs) == 0 or no_runs:
         print('No run were found!')
         runs = ['01']
-    n_jobs = 10 # utils.get_n_jobs(-5)
+    n_jobs = 1 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = ''# 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_window = 'R'# 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    exclude_windows = ['baseline_run1_SHORT_600ms']
     for run in runs:
         # if run != 'run1':
         #     continue
@@ -551,5 +586,5 @@ if __name__ == '__main__':
             if not au.is_true(ret):
                 continue
         main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
-             inverse_method, specific_window, no_runs, recursive, n_jobs)
+             inverse_method, specific_window, exclude_windows, no_runs, recursive, check_windows, n_jobs)
     print('Finish!')

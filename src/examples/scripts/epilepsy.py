@@ -20,7 +20,15 @@ def epilepsy_only_zvals_update(self, context):
 
 def plot_stc_graph():
     stc_name = get_stc_name()
+    evokes_fname = op.join(_mmvt().utils.get_user_fol(), 'evokes', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
     _mmvt().coloring.plot_max_stc_graph(stc_name)
+
+
+def downsample(x, R):
+    if x.ndim == 1:
+        return x.reshape(-1, R).mean(1)
+    else:
+        raise Exception('Currently supports only matrices with up to 2 dims!')
 
 
 def get_colorbar_title():
@@ -219,7 +227,7 @@ def init(mmvt):
         windows.add(stc_name)
 
     # todo: add a checkbox
-    for window_fname in glob.glob(op.join(mu.get_user_fol(), 'evoked', '*.fif')):
+    for window_fname in glob.glob(op.join(mu.get_user_fol(), 'evokes', '*.fif')):
         windows.add(mu.namebase(window_fname))
 
     windows_items = sorted([(c, c, '', ind) for ind, c in enumerate(list(windows))])

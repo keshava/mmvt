@@ -33,7 +33,7 @@ from src.preproc import connectivity
 SUBJECTS_MRI_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 LINKS_DIR = utils.get_links_dir()
-print('LINKS_DIR = {}'.format(LINKS_DIR))
+# print('LINKS_DIR = {}'.format(LINKS_DIR))
 if not op.isdir(LINKS_DIR):
     raise Exception('No links dir!')
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
@@ -2553,7 +2553,7 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
     return utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}'))
 
 
-def plot_max_stc(subject, stc_name, modality='meg'):
+def plot_max_stc(subject, stc_name, modality='meg', evokes_fname=''):
     def onclick(event):
         print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
               ('double' if event.dblclick else 'single', event.button,
@@ -2574,6 +2574,8 @@ def plot_max_stc(subject, stc_name, modality='meg'):
         raise Exception("Can't find the stc file! ({}-lh.stc)".format(stc_name))
     stc = mne.read_source_estimate(stc_fname, subject)
     data = np.max(stc.data, axis=0)
+    # if evokes_fname != '' and op.isfile(evokes_fname):
+
     fig, ax = plt.subplots()
     plt.plot(data.T)
     plt.title(stc_name)
@@ -2675,6 +2677,8 @@ def calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120):
     from mne.time_frequency import morlet
     import math
     min_f = math.floor((epochs.info['sfreq'] * n_cycles * 2) / len(epochs.times))
+    if min_f < 1:
+        min_f = 1
     freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
     ws = morlet(epochs.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
     too_long = any([len(w) > len(epochs.times) for w in ws])
@@ -2694,6 +2698,7 @@ def calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120):
         freqs = np.concatenate([np.arange(60, max_high_gamma + 5, 5)])
     else:
         raise Exception('min_f > max_high_gamma! ({}>{})'.format(min_f, max_high_gamma))
+    print('morlet freqs: {}'.format(freqs))
     return freqs
 
 

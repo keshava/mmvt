@@ -750,6 +750,8 @@ def get_spaced_colors(n):
 
 
 def downsample(x, R):
+    if R == 1:
+        return x
     if x.ndim == 1:
         return x.reshape(-1, R).mean(1)
     elif x.ndim == 2:

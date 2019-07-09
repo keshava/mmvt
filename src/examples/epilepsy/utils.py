@@ -158,7 +158,7 @@ def add_run_number_to_files(subject, run):
 
 
 def create_evokeds_links(subject, windows):
-    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'evoked'))
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'evokes'))
     for window_fname in windows:
         new_window_fname = op.join(fol, utils.namebase_with_ext(window_fname))
         if op.isfile(new_window_fname) or op.islink(new_window_fname):

@@ -106,7 +106,7 @@ def plot_meg():
     return ret
 
 
-def plot_max_stc_graph(stc_name='', modality=''):
+def plot_max_stc_graph(stc_name='', modality='', evokes_fname=''):
     if stc_name == '':
         stc_name = bpy.context.scene.meg_files
     if modality == '':
