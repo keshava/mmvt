@@ -958,7 +958,9 @@ def creating_stc_obj(data_dict, vertno_dict, subject, tmin=0, tstep=0):
         if isinstance(vertno_dict, list) and isinstance(vertno_dict[0], np.ndarray):
             verts_indices = vertno_dict[0] if hemi == 'lh' else vertno_dict[1]
         elif isinstance(vertno_dict, dict) and 'lh' in vertno_dict and 'rh' in vertno_dict:
-            if isinstance(vertno_dict[hemi], list):
+            if isinstance(vertno_dict[hemi], np.ndarray):
+                verts_indices = vertno_dict[hemi]
+            elif isinstance(vertno_dict[hemi], list):
                 verts_indices = np.array(vertno_dict[hemi])
             elif isinstance(vertno_dict[hemi], dict):
                 verts_indices = np.array(list(vertno_dict[hemi].keys()))
@@ -2553,7 +2555,7 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
     return utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}'))
 
 
-def plot_max_stc(subject, stc_name, modality='meg', evokes_fname=''):
+def plot_max_stc(subject, stc_name, modality='meg'):
     def onclick(event):
         print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
               ('double' if event.dblclick else 'single', event.button,
@@ -2569,16 +2571,19 @@ def plot_max_stc(subject, stc_name, modality='meg', evokes_fname=''):
     #     print('We got the mmvt object ({})!'.format(list(mmvt_agent._proxy_agent.connections.keys())[0]))
     #     mmvt_agent.play.set_current_t(0)
 
-    stc_fname = op.join(MMVT_DIR, subject, modality, '{}-lh.stc'.format(stc_name))
+    if op.isfile(stc_name):
+        stc_fname = stc_name
+    else:
+        stc_fname = op.join(MMVT_DIR, subject, modality, '{}-lh.stc'.format(stc_name))
     if not op.isfile(stc_fname):
         raise Exception("Can't find the stc file! ({}-lh.stc)".format(stc_name))
     stc = mne.read_source_estimate(stc_fname, subject)
-    data = np.max(stc.data, axis=0)
+    data = np.max(np.abs(stc.data), axis=0)
     # if evokes_fname != '' and op.isfile(evokes_fname):
 
     fig, ax = plt.subplots()
     plt.plot(data.T)
-    plt.title(stc_name)
+    plt.title(utils.namebase(stc_name))
     fig.canvas.mpl_connect('button_press_event', onclick)
     plt.show()
     return True

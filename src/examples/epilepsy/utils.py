@@ -33,8 +33,8 @@ def calc_powers_abs_minmax(powers, label_norm_powers_files=None, both_min_and_ma
     # return powers[minmax_vertice]
 
     # -- Can be different vertice for each time and freq
-    max_vertices = powers.reshape(powers.shape[0], -1).argmax(0).reshape((powers.shape[1], -1))
-    min_vertices = powers.reshape(powers.shape[0], -1).argmin(0).reshape((powers.shape[1], -1))
+    max_vertices = calc_max_vertice(powers)
+    min_vertices = calc_min_vertice(powers)
     powers_min = np.min(powers, axis=0)  # over vertices
     powers_max = np.max(powers, axis=0)  # over vertices
     print('minmin: {}, maxmax: {}'.format(np.min(powers_min), np.max(powers_max)))
@@ -45,6 +45,14 @@ def calc_powers_abs_minmax(powers, label_norm_powers_files=None, both_min_and_ma
         powers_abs_minmax = powers_max
         powers_abs_minmax[min_indices] = powers_min[min_indices]
         return powers_abs_minmax
+
+
+def calc_max_vertice(powers):
+    return powers.reshape(powers.shape[0], -1).argmax(0).reshape((powers.shape[1], -1))
+
+
+def calc_min_vertice(powers):
+    return powers.reshape(powers.shape[0], -1).argmin(0).reshape((powers.shape[1], -1))
 
 
 def concatenate_powers(fol, return_file_names=False):
@@ -79,6 +87,10 @@ def get_window_times(window_fname, downsample=2):
     times = evoked.times if len(evoked.times) % downsample == 0 else \
         evoked.times[:-(downsample - 1)]
     return utils.downsample(times, downsample)
+
+
+def get_freqs(low_freq=1, high_freqs=120):
+    return np.concatenate([np.arange(low_freq, 30), np.arange(31, 60, 3), np.arange(60, high_freqs + 5, 5)])
 
 
 def nans(shape, dtype=np.float32):

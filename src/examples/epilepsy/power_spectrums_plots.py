@@ -294,11 +294,25 @@ def average_norm_powers(subject, windows_fnames, modality, average_window_name='
         print('Not all min_f are the same!')
     norm_powers_mins = np.array(norm_powers_mins).mean(0)[:, avg_time_crop:-avg_time_crop]
     norm_powers_maxs = np.array(norm_powers_maxs).mean(0)[:, avg_time_crop:-avg_time_crop]
+
+    times = epi_utils.get_window_times(window_fname, downsample=2)[avg_time_crop:-avg_time_crop]
+    freqs = epi_utils.get_freqs(min_f_ind + 1, high_gamma_max)
+    max_f, max_t = np.unravel_index(np.flip(norm_powers_maxs, 0).argmax(), norm_powers_maxs.shape)
+    min_f, min_t = np.unravel_index(np.flip(norm_powers_mins, 0).argmin(), norm_powers_mins.shape)
+    print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(np.max(norm_powers_maxs), times[max_t], freqs[max_f - min_f_ind]))
+    print('norm_powers_mins: {:.3f} at {:2.f}s and {}Hz'.format(np.min(norm_powers_mins), times[min_t], freqs[min_f - min_f_ind]))
+
+    max_vertices = epi_utils.calc_max_vertice(norm_powers_maxs)
+    min_vertices = epi_utils.calc_min_vertice(norm_powers_mins)
+    avg_output_fname = output_fname.format(window='{}-avg'.format(average_window_name))
+    print('Saving avg in {}'.format(avg_output_fname))
+    np.savez(avg_output_fname.replace('npy', 'npz'), min=norm_powers_mins, max=norm_powers_maxs,
+             min_vertices=min_vertices, max_vertices=max_vertices, min_f_ind=min_f_ind)
+
     average_window_name = average_window_name if average_window_name != '' else 'average'
     figure_fname = figures_template.format(window=average_window_name, method='pos_and_neg')
     fig_files = glob.glob(op.join(figs_fol, '**', utils.namebase_with_ext(figure_fname)), recursive=True)
     if len(fig_files) == 0 or overwrite:
-        times = epi_utils.get_window_times(window_fname, downsample=2)[avg_time_crop:-avg_time_crop]
         plot_positive_and_negative_power_spectrum(
             norm_powers_mins, norm_powers_maxs, times, '{} {}'.format(modality, average_window_name),
             figure_fname=figure_fname, high_gamma_max=high_gamma_max, min_f=min_f_ind + 1,
@@ -529,8 +543,8 @@ def _plot_powers(powers, ax, xaxis=None, freqs=None, cmap_vmin_vmax=None, high_g
 
     # powers[np.where(powers == 0)] = np.nan
     # cmap.set_bad(color='white')
-    im = ax.imshow(np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
-               extent=extents(times) + extents(freqs), cmap=cmap)
+    im = ax.imshow(np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='none', # nearest
+                   extent=extents(times) + extents(freqs), cmap=cmap)
     return im
 
 

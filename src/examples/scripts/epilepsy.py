@@ -19,9 +19,9 @@ def epilepsy_only_zvals_update(self, context):
 
 
 def plot_stc_graph():
-    stc_name = get_stc_name()
+    stc_fname = get_stc_fname()
     evokes_fname = op.join(_mmvt().utils.get_user_fol(), 'evokes', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
-    _mmvt().coloring.plot_max_stc_graph(stc_name)
+    _mmvt().coloring.plot_max_stc_graph(stc_fname=stc_fname, modality=bpy.context.scene.epilepsy_modalities)
 
 
 def downsample(x, R):
@@ -52,9 +52,16 @@ def get_stc_fname():
     mu = _mmvt().mmvt_utils
     modality_fol = op.join(mu.get_user_fol(), 'eeg' if bpy.context.scene.epilepsy_modalities == 'eeg' else 'meg')
     suffix = 'zvals-lh' if bpy.context.scene.epilepsy_only_zvals else 'lh'
-    return op.join(modality_fol, '{}-epilepsy-{}-{}-{}_{}-{}.stc'.format(
+    template = '{}-epilepsy-{}-{}-{}?{}-{}.stc'.format(
         mu.get_user(), bpy.context.scene.epilepsy_inverse_methods, bpy.context.scene.epilepsy_modalities,
-        bpy.context.scene.epilepsy_windows, bpy.context.scene.epilepsy_bands, suffix))
+        bpy.context.scene.epilepsy_windows, bpy.context.scene.epilepsy_bands, suffix)
+    files = glob.glob(op.join(modality_fol, '**', template), recursive=True)
+    if len(files) == 0:
+        print('Couldn\'t find the file! ({})'.format(template))
+        return ''
+    elif len(files) >=2:
+        print('More than one file was found, selecting the first ({})'.format(template))
+    return files[0]
 
 
 def get_image_fname(ind):
@@ -84,10 +91,13 @@ def save_image():
 
 
 def select_stc():
+    mu = _mmvt().mmvt_utils
     stc_fname = get_stc_fname()
     if not op.isfile(stc_fname):
         print('Can\'t find {}!'.format(stc_fname))
         return
+    print('Loading {}'.format(stc_fname))
+    _mmvt().coloring.set_meg_files(mu.namebase(stc_fname)[:-len('-rh')])
     coloring_panel.stc = mne.read_source_estimate(stc_fname)
     stc_name = get_stc_name()
     data_min, data_max, data_len = _mmvt().coloring.calc_stc_minmax(stc_name=stc_name)
@@ -101,9 +111,17 @@ def select_stc():
         bpy.context.scene.frame_current = T
 
 
+def plot_stc_peak():
+    max_vert, bpy.context.scene.frame_current = coloring_panel.stc.get_peak(
+        time_as_index=True, vert_as_index=True, mode=bpy.context.scene.meg_peak_mode)
+    print(max_vert, bpy.context.scene.frame_current)
+    _mmvt().coloring.plot_stc(coloring_panel.stc, bpy.context.scene.frame_current,
+             threshold=bpy.context.scene.coloring_lower_threshold, save_image=False)
+
+
 def plot_evoked():
     mu = _mmvt().mmvt_utils
-    evoked_fname = op.join(mu.get_user_fol(), 'evoked', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
+    evoked_fname = op.join(mu.get_user_fol(), 'evokes', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
     bad_channels_fname = op.join(mu.get_user_fol(), 'meg', 'bad_channels.pkl')
     bad_channels = ','.join(mu.load(bad_channels_fname)) if op.isfile(bad_channels_fname) else []
     if not op.isfile(evoked_fname):
@@ -130,8 +148,11 @@ def draw(self, context):
     layout.prop(context.scene, 'epilepsy_windows', 'Window')
     layout.prop(context.scene, 'epilepsy_only_zvals', 'Only z-vals')
     layout.operator(SelectSTC.bl_idname, text="Load File", icon='HAND')
-    layout.operator(EpilepsyPlot.bl_idname, text="Plot {}".format(bpy.context.scene.epilepsy_modalities.upper()),
-                 icon='POTATO')
+    row = layout.row(align=True)
+    row.operator(
+        EpilepsyPlot.bl_idname, text="Plot {}".format(bpy.context.scene.epilepsy_modalities.upper()), icon='POTATO')
+    row.operator(
+        EpilepsyPeakPlot.bl_idname, text="{} peak".format(bpy.context.scene.epilepsy_modalities.upper()), icon='POTATO')
     col = layout.box().column()
     row = col.row(align=True)
     row.operator(PlotMaxSTCGraph.bl_idname, text="Plot max graph ", icon='IPO_ELASTIC')
@@ -187,6 +208,18 @@ class EpilepsyPlot(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class EpilepsyPeakPlot(bpy.types.Operator):
+    bl_idname = "mmvt.epilepsy_plot_peak"
+    bl_label = "mmvt epilepsy_plot_peak"
+    bl_description = 'Plots source estimates peak'
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        plot_stc_peak()
+        return {"FINISHED"}
+
+
 class EpilepsySaveImage(bpy.types.Operator):
     bl_idname = "mmvt.epilepsy_save_image"
     bl_label = "mmvt epilepsy_sage_image"
@@ -203,13 +236,15 @@ bpy.types.Scene.epilepsy_only_zvals = bpy.props.BoolProperty(default=True, updat
 
 
 def init(mmvt):
+    from functools import partial
     mu = mmvt.mmvt_utils
     register()
     bands_names = ['amplitude', 'delta', 'theta', 'alpha', 'beta', 'high_gamma', 'gamma']
     user_fol = mu.get_user_fol()
     suffix = 'zvals-lh' if bpy.context.scene.epilepsy_only_zvals else 'lh'
-    stcs_files = glob.glob(op.join(user_fol, 'meg', '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix))) + \
-                 glob.glob(op.join(user_fol, 'eeg', '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix)))
+    rec_glob = partial(glob.glob, recursive=True)
+    stcs_files = rec_glob(op.join(user_fol, 'meg', '**', '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix))) + \
+                 rec_glob(op.join(user_fol, 'eeg', '**', '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix)))
     windows, inverse_methods, modalities, bands = set(), set(), set(), set()
     for stc_fname in stcs_files:
         stc_name = mu.namebase(stc_fname)[len('{}-epilepsy-'.format(mu.get_user())):-len('-{}'.format(suffix))]
@@ -265,6 +300,7 @@ def register():
     try:
         bpy.utils.register_class(SelectSTC)
         bpy.utils.register_class(EpilepsyPlot)
+        bpy.utils.register_class(EpilepsyPeakPlot)
         bpy.utils.register_class(PlotMaxSTCGraph)
         bpy.utils.register_class(PlotEvoked)
         bpy.utils.register_class(EpilepsySaveImage)
@@ -276,6 +312,7 @@ def unregister():
     try:
         bpy.utils.unregister_class(SelectSTC)
         bpy.utils.unregister_class(EpilepsyPlot)
+        bpy.utils.unregister_class(EpilepsyPeakPlot)
         bpy.utils.unregister_class(PlotMaxSTCGraph)
         bpy.utils.unregister_class(PlotEvoked)
         bpy.utils.unregister_class(EpilepsySaveImage)

@@ -122,35 +122,71 @@ def _calc_amplitude_zvals_parallel(p):
     module.call_main(args)
 
 
-def average_amplitude_zvals(subject, windows, modality, inverse_method='dSPM', overwrite=False):
-    import matplotlib.pyplot as plt
-    times = None
-    plt.figure()
+def average_amplitude_zvals(subject, windows, modality, output_name, use_abs=False, inverse_method='dSPM',
+                            do_plot=False, overwrite=False):
+    if do_plot:
+        import matplotlib.pyplot as plt
+        plt.figure()
+    root_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'average_amplitude_zvals'))
+    figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-{}-average-amplitude-zvals.jpg'.format(
+            subject, inverse_method, modality, output_name, '{window}'))
+    output_fname = op.join(root_fol, '{}-epilepsy-{}-{}-{}-average-amplitude-zvals'.format(
+        subject, inverse_method, modality, output_name))
+    if utils.stc_exist(output_fname) and not overwrite:
+        print('{} already exist'.format(output_fname))
+        return
+    times, vertices = None, {}
+    data = {'rh': [], 'lh': []}
     for window_fname in windows:
         window_name = utils.namebase(window_fname)
-        stc_template = op.join(
-            MMVT_DIR, subject, modality, '{}-epilepsy-{}-{}-{}'.format(subject, inverse_method, modality, window_name))
+        stc_template = op.join(root_fol, 'zvals', '{}-epilepsy-{}-{}-{}_amplitude-zvals'.format(
+            subject, inverse_method, modality, window_name))
         if not utils.stc_exist(stc_template):
             print('Can\'t find {}!'.format(stc_template))
             continue
         if times is None:
             times = epi_utils.get_window_times(window_fname, downsample=1)
+        print('Reading {}'.format('{}-rh.stc'.format(stc_template)))
         stc = mne.read_source_estimate('{}-rh.stc'.format(stc_template), subject)
-        data = np.max(stc.data, axis=0)
-        plt.plot(times, data.T, label=window_name)
-    plt.legend()
-    plt.show()
-    plt.close()
+        data['rh'].append(stc.rh_data)
+        data['lh'].append(stc.lh_data)
+        if len(vertices) == 0:
+            vertices['rh'] = stc.rh_vertno
+            vertices['lh'] = stc.lh_vertno
+        if do_plot:
+            max_data = np.max(np.abs(stc.data), axis=0)
+            plt.plot(times, max_data.T, label=window_name)
+    if do_plot:
+        plt.legend()
+        plt.title('{} {}: all windows max'.format(modality, inverse_method))
+        print('Saving {}'.format(figures_template.format(window='all-max')))
+        plt.savefig(figures_template.format(window='all-max'))
+        plt.close()
+    for hemi in utils.HEMIS:
+        if use_abs:
+            data[hemi] = np.abs(np.array(data[hemi])).mean(0)
+        else:
+            data[hemi] = np.array(data[hemi]).mean(0)
+    avg_stc = meg.creating_stc_obj(
+        data, vertices, subject, tmin=times[0], tstep=times[1] - times[0])
+    if do_plot:
+        plt.figure()
+        max_data = np.max(np.abs(avg_stc.data), axis=0)
+        plt.plot(times, max_data.T)
+        plt.title('{} {}: avg stc'.format(modality, inverse_method))
+        print('Saving {}'.format(figures_template.format(window='avg')))
+        plt.savefig(figures_template.format(window='avg'))
+        plt.close()
+    print('Saveing avg stc in {}'.format(output_fname))
+    avg_stc.save(output_fname)
+
 
 def calc_sensors_power(subject, windows_fnames, modality, inverse_method='dSPM', bad_channels=[],
                        high_gamma_max=120, downsample=2, parallel=False, overwrite=False):
     params = [(subject, window_fname, modality, inverse_method, bad_channels, downsample, high_gamma_max, overwrite)
               for window_fname in windows_fnames if op.isfile(window_fname)]
     utils.run_parallel(_calc_sensors_power_parallel, params, len(windows_fnames) if parallel else 1)
-
-
-def get_freqs(low_freq=1, high_freqs=120):
-    return np.concatenate([np.arange(low_freq, 30), np.arange(31, 60, 3), np.arange(60, high_freqs + 5, 5)])
 
 
 def _calc_sensors_power_parallel(p):
@@ -201,7 +237,7 @@ def calc_morlet_freqs(evoked, high_gamma_max=120):
     low_freq = 1
     if T / sfreq < 5 * low_freq:
         low_freq = math.ceil((sfreq * 5) / T)
-    freqs = get_freqs(low_freq, high_gamma_max)
+    freqs = epi_utils.get_freqs(low_freq, high_gamma_max)
     # n_cycles = freqs / 2.
 
     n_cyles_div = 2.
@@ -220,7 +256,7 @@ def calc_morlet_freqs(evoked, high_gamma_max=120):
     W = morlet(evoked.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
     while len(W[0]) > T:
         low_freq += 1
-        freqs = get_freqs(low_freq, high_gamma_max)
+        freqs = epi_utils.get_freqs(low_freq, high_gamma_max)
         n_cycles = freqs / 2.
         W = morlet(evoked.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
 
@@ -321,8 +357,8 @@ def _calc_induced_power_zvals_parallel(p):
         module.call_main(args)
 
 
-def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, run_num, inverse_method='dSPM',
-                            atlas='aparc.DKTatlas', high_gamma_max=120):
+def calc_stc_power_specturm(subject, modality, power_stc_name, window_fname, baseline_window, avg_time_crop, run_num,
+                            inverse_method='dSPM', atlas='aparc.DKTatlas', high_gamma_max=120):
     from src.utils import labels_utils as lu
     from collections import defaultdict
     import time
@@ -331,19 +367,25 @@ def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, ru
     window = utils.namebase(window_fname)
     output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npz'.format(
         subject, inverse_method, modality, '{window}'))
-    window_output_fname = output_fname.format(window=window)
-    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
+    window_output_fname = output_fname.format(window='{}-avg'.format(power_stc_name))
+    if not op.isfile(window_output_fname):
+        print('Can\'t find {}!'.format(window_output_fname))
+        return
 
     d = np.load(window_output_fname)
-    min_indeices, max_indices = d['min_vertices'], d['max_vertices']
+    freqs = epi_utils.get_freqs(d['min_f_ind'] + 1, high_gamma_max)
     times = epi_utils.get_window_times(window_fname, downsample=2)
-    t_max = np.where(times > 0.15)[0][0]
-    t_min = np.where(times > 0)[0][0]
-    x = d['max'][:12, t_min:t_max]
+    # t_max = np.where(times > 0.1)[0][0]
+    t_min = 0 #np.where(times > 0)[0][0]
+    x = d['max'] #[:, t_min:t_max]
     max_val = np.max(x)
     f, t = np.unravel_index(x.argmax(), x.shape)
-    t += t_min
-    vertices_ind = max_indices[f, t]
+    t += t_min + avg_time_crop
+    # min_indices, max_indices = d['min_vertices'], d['max_vertices']
+    # vertices_ind = max_indices[max_f, max_t]
+
+    max_f, max_t = np.unravel_index(np.flip(x, 0).argmax(), x.shape)
+    print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, times[max_t + avg_time_crop], freqs[max_f - d['min_f_ind']]))
 
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
     inv = mne.minimum_norm.read_inverse_operator(inv_fname)
@@ -351,8 +393,8 @@ def calc_stc_power_specturm(subject, modality, window_fname, baseline_window, ru
     # max_vert_label = find_vert_label(vertices_ind, modality, window, labels, inv)
     vertices_ind_to_no_lookup, vertices_labels_lookup = \
         epi_utils.calc_vertices_lookup_tables(subject, modality, window, inverse_method, labels, inv)
-    max_vert_label = vertices_labels_lookup[vertices_ind]
-    print('{:.4f} in {}Hz {:.4f}s in {}'.format(max_val, freqs[f], times[t], max_vert_label.name))
+    # max_vert_label = vertices_labels_lookup[vertices_ind]
+    # print('{:.4f} in {}Hz {:.4f}s in {}'.format(max_val, freqs[f], times[t], max_vert_label.name))
 
     labels_norm_data_fol = utils.make_dir(op.join(root_dir, 'labels_norm_all_baseline'))
     baseline_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
@@ -468,7 +510,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     overwrite_evokes = True
     overwrite_plots = False
     check_for_labels_files = False
-    overwrite_induced_power_zvals = False
+    overwrite_induced_power_zvals = True
     overwrite_stc = False
     overwrite_modalities_figures = False
     from_index, to_index = None, None # 2000, 10000
@@ -479,7 +521,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     figures_type = 'jpg'
     save_fig = False
     plot_baseline_stat = False
-    average_window_name = 'R-'
+    avg_use_abs = True
     avg_time_crop = 100
     bad_channels = bad_channels.split(',')
 
@@ -506,7 +548,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
         #     use_abs=False, parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
-        average_amplitude_zvals(subject, windows, modality, inverse_method, overwrite=False)
+        # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
+        #                         do_plot=True, overwrite=True)
 
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
@@ -518,11 +561,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # psplots.plot_norm_powers(
         #     subject, windows, baseline_window, modality, inverse_method, overwrite=False, figures_type=figures_type)
         # psplots.average_norm_powers(
-        #     subject, windows, modality, average_window_name, inverse_method, avg_time_crop, overwrite=False,
+        #     subject, windows, modality, specific_window, inverse_method, avg_time_crop, overwrite=True,
         #     figures_type=figures_type)
         # psplots.plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
-        # calc_stc_power_specturm(subject, modality, windows[0], baseline_window, run_num)
+        calc_stc_power_specturm(subject, modality, specific_window, windows[0], baseline_window, avg_time_crop, run_num)
         pass
 
     # find_vertices(subject, run_num)
@@ -572,7 +615,7 @@ if __name__ == '__main__':
     if len(runs) == 0 or no_runs:
         print('No run were found!')
         runs = ['01']
-    n_jobs = 1 # utils.get_n_jobs(-5)
+    n_jobs = 20 # utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     specific_window = 'R'# 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = ['baseline_run1_SHORT_600ms']

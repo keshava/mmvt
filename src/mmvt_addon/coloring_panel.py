@@ -106,20 +106,24 @@ def plot_meg():
     return ret
 
 
-def plot_max_stc_graph(stc_name='', modality='', evokes_fname=''):
-    if stc_name == '':
-        stc_name = bpy.context.scene.meg_files
-    if modality == '':
-        if mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-            modality = 'meg'
-        elif mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'eeg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-            modality = 'eeg'
-        else:
-            print('Can\'t find the stc file!')
-            return
-    if modality != '':
+def plot_max_stc_graph(stc_name='', modality='', stc_fname=''):
+    if stc_fname != '' and op.isfile(stc_fname):
         mu.run_mmvt_func(
-            'src.preproc.meg', 'plot_max_stc', flags='--stc_name {} --modality {}'.format(stc_name, modality))
+            'src.preproc.meg', 'plot_max_stc', flags='--stc_name "{}" --modality {}'.format(stc_fname, modality))
+    else:
+        if stc_name == '':
+            stc_name = bpy.context.scene.meg_files
+        if modality == '':
+            if mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+                modality = 'meg'
+            elif mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'eeg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+                modality = 'eeg'
+            else:
+                print('Can\'t find the stc file!')
+                return
+        if modality != '':
+            mu.run_mmvt_func(
+                'src.preproc.meg', 'plot_max_stc', flags='--stc_name {} --modality {}'.format(stc_name, modality))
 
 
 # def plot_meg(t=-1, save_image=False, view_selected=False):
@@ -243,7 +247,7 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
         _addon().set_colorbar_title('MEG')
     if threshold > ColoringMakerPanel.meg_data_max:
         print('threshold ({}) > data_max ({})!'.format(threshold, ColoringMakerPanel.meg_data_max))
-        threshold = bpy.context.scene.coloring_lower_threshold = 0
+        # threshold = bpy.context.scene.coloring_lower_threshold = 0
     colors_ratio = 256 / (data_max - data_min)
     # set_default_colormap(data_min, data_max)
     fname = plot_stc_t(stc_t_smooth.rh_data, stc_t_smooth.lh_data, t, data_min, colors_ratio,
