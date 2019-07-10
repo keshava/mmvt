@@ -2893,6 +2893,13 @@ def calc_colors_from_indices_cm(colors_indices, cm):
     return verts_colors
 
 
+def get_cm_obj(cm_name, new_cm_name='', invert_cm1=False, invert_cm2=False,  cm1_minmax=(0, 1), cm2_minmax=(0, 1)):
+    add_mmvt_code_root_to_path()
+    from src.utils import color_maps_utils
+    importlib.reload(color_maps_utils)
+    return color_maps_utils.get_cm_obj(cm_name, new_cm_name, invert_cm1, invert_cm2,  cm1_minmax, cm2_minmax)
+
+
 def in_shape(xyz, shape):
     x, y, z = xyz
     return 0 <= x < shape[0] and 0 <= y < shape[1] and 0 <= z < shape[2]

@@ -278,4 +278,3 @@ def normalize_hex(hex_value):
         hex_digits = u''.join(2 * s for s in hex_digits)
     return u'#{}'.format(hex_digits.lower())
 
-

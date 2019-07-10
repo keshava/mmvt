@@ -138,7 +138,7 @@ def plot_max_stc_graph(stc_name='', modality='', stc_fname=''):
 
 # @mu.dump_args
 @mu.timeit
-def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
+def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percentiles=None, save_image=False,
              view_selected=False, subject='', save_prev_colors=False, cm=None,
              save_with_color_bar=True, read_chache=False, n_jobs=-1):
     import mne
@@ -234,7 +234,10 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
     if _addon().colorbar_values_are_locked():
         data_max, data_min = _addon().get_colorbar_max_min()
     else:
-        data_min, data_max = ColoringMakerPanel.meg_data_min, ColoringMakerPanel.meg_data_max
+        if data_max is None:
+            data_max = ColoringMakerPanel.meg_data_max
+        if data_min is None:
+            data_min = ColoringMakerPanel.meg_data_min
         if cm is not None:
             _addon().set_colormap(cm)
             _addon().change_colorbar_default_cm(('hot', 'hot'))
@@ -245,8 +248,8 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
         _addon().set_colorbar_max_min(data_max, data_min)
         _addon().set_colorbar_prec(2)
         _addon().set_colorbar_title('MEG')
-    if threshold > ColoringMakerPanel.meg_data_max:
-        print('threshold ({}) > data_max ({})!'.format(threshold, ColoringMakerPanel.meg_data_max))
+    if threshold > data_max:
+        print('threshold ({}) > data_max ({})!'.format(threshold, data_max))
         # threshold = bpy.context.scene.coloring_lower_threshold = 0
     colors_ratio = 256 / (data_max - data_min)
     # set_default_colormap(data_min, data_max)
@@ -1102,9 +1105,12 @@ def calc_color(value, min_data=None, colors_ratio=None, cm=None):
 def calc_colors(vert_values, min_data=None, colors_ratio=None, cm=None):
     if cm is None:
         cm = _addon().get_cm()
+    if isinstance(cm, str):
+        colormap_fname = op.join(mu.file_fol(), 'color_maps', '{}.npy'.format(cm))
+        cm = np.load(colormap_fname) if op.isfile(colormap_fname) else None
     if cm is None:
         return np.zeros((len(vert_values), 3))
-    if min_data is None or colors_ratio is None:
+    if min_data is None:
         max_data, min_data = _addon().colorbar.get_colorbar_max_min()
         colors_ratio = 256 / (max_data - min_data)
     return mu.calc_colors_from_cm(vert_values, min_data, colors_ratio, cm)
