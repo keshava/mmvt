@@ -106,10 +106,11 @@ def plot_meg():
     return ret
 
 
-def plot_max_stc_graph(stc_name='', modality='', stc_fname=''):
+def plot_max_stc_graph(stc_name='', modality='', stc_fname='', use_abs=False):
     if stc_fname != '' and op.isfile(stc_fname):
-        mu.run_mmvt_func(
-            'src.preproc.meg', 'plot_max_stc', flags='--stc_name "{}" --modality {}'.format(stc_fname, modality))
+        stc_name = stc_fname
+        # mu.run_mmvt_func(
+        #     'src.preproc.meg', 'plot_max_stc', flags='--stc_name "{}" --modality {}'.format(stc_fname, modality))
     else:
         if stc_name == '':
             stc_name = bpy.context.scene.meg_files
@@ -121,9 +122,10 @@ def plot_max_stc_graph(stc_name='', modality='', stc_fname=''):
             else:
                 print('Can\'t find the stc file!')
                 return
-        if modality != '':
-            mu.run_mmvt_func(
-                'src.preproc.meg', 'plot_max_stc', flags='--stc_name {} --modality {}'.format(stc_name, modality))
+    if modality != '':
+        mu.run_mmvt_func(
+            'src.preproc.meg', 'plot_max_stc', flags='--stc_name {} --modality {} --use_abs {}'.format(
+                stc_name, modality, use_abs))
 
 
 # def plot_meg(t=-1, save_image=False, view_selected=False):
@@ -140,7 +142,7 @@ def plot_max_stc_graph(stc_name='', modality='', stc_fname=''):
 @mu.timeit
 def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percentiles=None, save_image=False,
              view_selected=False, subject='', save_prev_colors=False, cm=None,
-             save_with_color_bar=True, read_chache=False, n_jobs=-1):
+             save_with_color_bar=True, read_chache=False, use_abs=None, n_jobs=-1):
     import mne
     # cursor (enum in ['DEFAULT', 'NONE', 'WAIT', 'CROSSHAIR', 'MOVE_X', 'MOVE_Y', 'KNIFE', 'TEXT', 'PAINT_BRUSH', 'HAND', 'SCROLL_X', 'SCROLL_Y', 'SCROLL_XY', 'EYEDROPPER'])
     bpy.context.window.cursor_set("WAIT")
@@ -253,8 +255,9 @@ def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percent
         # threshold = bpy.context.scene.coloring_lower_threshold = 0
     colors_ratio = 256 / (data_max - data_min)
     # set_default_colormap(data_min, data_max)
-    fname = plot_stc_t(stc_t_smooth.rh_data, stc_t_smooth.lh_data, t, data_min, colors_ratio,
-                       threshold, save_image, save_with_color_bar, view_selected, save_prev_colors=save_prev_colors)
+    fname = plot_stc_t(
+        stc_t_smooth.rh_data, stc_t_smooth.lh_data, t, data_min, colors_ratio, threshold, save_image,
+        save_with_color_bar, view_selected, save_prev_colors=save_prev_colors, use_abs=use_abs)
     bpy.context.window.cursor_set("DEFAULT")
     return fname, stc_t_smooth
 
@@ -269,7 +272,7 @@ def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percent
 
 
 def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=0, save_image=False,
-               save_with_color_bar=True, view_selected=False, save_prev_colors=False):
+               save_with_color_bar=True, view_selected=False, save_prev_colors=False, use_abs=None):
     if data_min is None or colors_ratio is None:
         data_min = min([np.min(rh_data), np.min(lh_data)])
         data_max = max([np.max(rh_data), np.max(lh_data)])
@@ -279,7 +282,8 @@ def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=
     print('plot stc ({}-{})'.format(data_min, data_max))
     for hemi in mu.HEMIS:
         data = rh_data if hemi == 'rh' else lh_data
-        color_hemi_data(hemi, data, data_min, colors_ratio, threshold, save_prev_colors=save_prev_colors)
+        color_hemi_data(
+            hemi, data, data_min, colors_ratio, threshold, save_prev_colors=save_prev_colors, use_abs=use_abs)
     _addon().render.save_views_with_cb(save_with_color_bar)
     if save_image:
         return _addon().render.save_image('stc', view_selected, t)

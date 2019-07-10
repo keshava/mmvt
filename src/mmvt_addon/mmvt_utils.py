@@ -3231,6 +3231,18 @@ def add_marker(index, name):
     bpy.ops.marker.rename(name=name)
 
 
+def is_empty_func(func):
+    # https://stackoverflow.com/questions/13620542/detecting-empty-function-definitions-in-python
+    def empty_func():
+        pass
+
+    def empty_func_with_doc():
+        """Empty function with docstring."""
+        pass
+
+    return func.__code__.co_code == empty_func.__code__.co_code or \
+        func.__code__.co_code == empty_func_with_doc.__code__.co_code
+
 # def mouse_coo_to_3d_loc(event, context):
 #     from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_location_3d
 #     try:

@@ -1,7 +1,9 @@
 import bpy
 import glob
 import os.path as op
+import numpy as np
 from scripts_panel import ScriptsPanel
+from play_panel import GrabFromPlay, GrabToPlay
 from coloring_panel import ColoringMakerPanel as coloring_panel
 import mne
 
@@ -14,6 +16,10 @@ def run(mmvt):
     pass
 
 
+def stc_filter_update(self, context):
+    coloring_panel.stc = None
+
+
 def epilepsy_only_zvals_update(self, context):
     init(_mmvt())
 
@@ -21,14 +27,8 @@ def epilepsy_only_zvals_update(self, context):
 def plot_stc_graph():
     stc_fname = get_stc_fname()
     evokes_fname = op.join(_mmvt().utils.get_user_fol(), 'evokes', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
-    _mmvt().coloring.plot_max_stc_graph(stc_fname=stc_fname, modality=bpy.context.scene.epilepsy_modalities)
-
-
-def downsample(x, R):
-    if x.ndim == 1:
-        return x.reshape(-1, R).mean(1)
-    else:
-        raise Exception('Currently supports only matrices with up to 2 dims!')
+    _mmvt().coloring.plot_max_stc_graph(stc_fname=stc_fname, modality=bpy.context.scene.epilepsy_modalities,
+                                        use_abs=False)
 
 
 def get_colorbar_title():
@@ -97,7 +97,7 @@ def select_stc():
         print('Can\'t find {}!'.format(stc_fname))
         return
     print('Loading {}'.format(stc_fname))
-    _mmvt().coloring.set_meg_files(mu.namebase(stc_fname)[:-len('-rh')])
+    # _mmvt().coloring.set_meg_files(mu.namebase(stc_fname)[:-len('-rh')])
     coloring_panel.stc = mne.read_source_estimate(stc_fname)
     stc_name = get_stc_name()
     data_min, data_max, data_len = _mmvt().coloring.calc_stc_minmax(stc_name=stc_name)
@@ -117,6 +117,66 @@ def plot_stc_peak():
     print(max_vert, bpy.context.scene.frame_current)
     _mmvt().coloring.plot_stc(coloring_panel.stc, bpy.context.scene.frame_current,
              threshold=bpy.context.scene.coloring_lower_threshold, save_image=False)
+
+
+def plot_stc_over_time():
+    mmvt, mu = _mmvt(), _mmvt().utils
+    stc = coloring_panel.stc
+    if stc is None:
+        print('No stc was selected!')
+        return
+    data = {}
+    if mmvt.play.get_play_to() > len(stc.times) - 1:
+        mmvt.play.set_play_to(len(stc.times) - 1)
+    time = np.arange(mmvt.play.get_play_from(), mmvt.play.get_play_to() + 1)
+    data['rh'] = np.ones((stc.rh_data.shape[0], 1)) * -10
+    data['lh'] = np.ones((stc.lh_data.shape[0], 1)) * -10
+    threshold = mmvt.coloring.get_lower_threshold()
+    for t in time[::-1]:
+        for hemi in mu.HEMIS:
+            hemi_data = stc.rh_data[:, t] if hemi == 'rh' else stc.lh_data[:, t]
+            verts = np.where(hemi_data >= threshold)[0]
+            data[hemi][verts, 0] = t
+
+    data = np.concatenate([data['lh'], data['rh']])
+    # vertices = stc.vertices # [stc.lh_vertno, stc.rh_vertno]
+    stc = mne.SourceEstimate(data, stc.vertices, 0, 0, subject=mu.get_user())
+    mmvt.colorbar.lock_colorbar_values(False)
+    data_max, data_min = time[-1], time[0]
+    mmvt.colorbar.set_colorbar_max_min(data_max, data_min, force_update=True)
+    mmvt.colorbar.set_colorbar_title('MEG')
+
+    mmvt.coloring.clear_colors()
+    mmvt.coloring.plot_stc(stc, 0, data_min - 1, data_max, data_min, use_abs=False)
+    mmvt.coloring.set_lower_threshold(threshold) # Set threshold to its previous value
+
+
+def how_many_vertices_over_time():
+    mmvt, mu = _mmvt(), _mmvt().utils
+    stc = coloring_panel.stc
+    if stc is None:
+        print('No stc was selected!')
+        return
+    data = {}
+    if mmvt.play.get_play_to() > len(stc.times) - 1:
+        mmvt.play.set_play_to(len(stc.times) - 1)
+    time = np.arange(mmvt.play.get_play_from(), mmvt.play.get_play_to() + 1)
+    data['rh'] = np.zeros((stc.rh_data.shape[0], 1))
+    data['lh'] = np.zeros((stc.lh_data.shape[0], 1))
+    threshold = mmvt.coloring.get_lower_threshold()
+    for t_ind, t in enumerate(time):
+        for hemi in mu.HEMIS:
+            hemi_data = stc.rh_data[:, t_ind] if hemi == 'rh' else stc.lh_data[:, t_ind]
+            verts = np.where(hemi_data >= threshold)[0]
+            data[hemi][verts, 0] = time[t_ind]
+
+    data = np.concatenate([data['lh'], data['rh']])
+    vertices = [stc.lh_vertno, stc.rh_vertno]
+    stc = mne.SourceEstimate(data, vertices, 0, 0, subject=mu.get_user())
+    mmvt.colorbar.lock_colorbar_values(False)
+    mmvt.coloring.clear_colors()
+    mmvt.coloring.plot_stc(stc, bpy.context.scene.frame_current, 0, time[-1], time[0])
+    mmvt.coloring.set_lower_threshold(threshold)  # Set threshold to its previous value
 
 
 def plot_evoked():
@@ -139,6 +199,7 @@ def plot_evoked():
 
 def draw(self, context):
     layout = self.layout
+    modality = bpy.context.scene.epilepsy_modalities.upper()
     layout.prop(context.scene, 'coloring_lower_threshold', text="Threshold")
     layout.prop(context.scene, 'frame_current', text='Set time')
     layout.prop(context.scene, 'epilepsy_modalities', expand=True)
@@ -147,16 +208,22 @@ def draw(self, context):
         layout.prop(context.scene, 'epilepsy_inverse_methods', '')
     layout.prop(context.scene, 'epilepsy_windows', 'Window')
     layout.prop(context.scene, 'epilepsy_only_zvals', 'Only z-vals')
-    layout.operator(SelectSTC.bl_idname, text="Load File", icon='HAND')
-    row = layout.row(align=True)
-    row.operator(
-        EpilepsyPlot.bl_idname, text="Plot {}".format(bpy.context.scene.epilepsy_modalities.upper()), icon='POTATO')
-    row.operator(
-        EpilepsyPeakPlot.bl_idname, text="{} peak".format(bpy.context.scene.epilepsy_modalities.upper()), icon='POTATO')
     col = layout.box().column()
     row = col.row(align=True)
     row.operator(PlotMaxSTCGraph.bl_idname, text="Plot max graph ", icon='IPO_ELASTIC')
     row.operator(PlotEvoked.bl_idname, text="Plot evoked ", icon='IPO_ELASTIC')
+    layout.operator(SelectSTC.bl_idname, text="Load File", icon='HAND')
+    if not coloring_panel.stc is None:
+        row = layout.row(align=True)
+        row.operator(EpilepsyPlot.bl_idname, text="Plot {}".format(modality), icon='POTATO')
+        row.operator(EpilepsyPeakPlot.bl_idname, text="{} peak".format(modality), icon='POTATO')
+        col = layout.box().column()
+        row = col.row(align=0)
+        row.prop(context.scene, "play_from", text="From")
+        row.operator(GrabFromPlay.bl_idname, text="", icon='BORDERMOVE')
+        row.prop(context.scene, "play_to", text="To")
+        row.operator(GrabToPlay.bl_idname, text="", icon='BORDERMOVE')
+        col.operator(EpilepsyPlotStcOverTime.bl_idname, text="Plot {} over time".format(modality), icon='FORCE_HARMONIC')
     layout.operator(EpilepsySaveImage.bl_idname, text="Save image ", icon='ROTATE')
 
 
@@ -169,6 +236,18 @@ class SelectSTC(bpy.types.Operator):
     @staticmethod
     def invoke(self, context, event=None):
         select_stc()
+        return {"FINISHED"}
+
+
+class EpilepsyPlotStcOverTime(bpy.types.Operator):
+    bl_idname = "mmvt.epilepsy_plot_stc_over_time"
+    bl_label = "mmvt epilepsy_plot_stc_over_time"
+    bl_description = 'Plot stc over time'
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        plot_stc_over_time()
         return {"FINISHED"}
 
 
@@ -236,15 +315,15 @@ bpy.types.Scene.epilepsy_only_zvals = bpy.props.BoolProperty(default=True, updat
 
 
 def init(mmvt):
-    from functools import partial
     mu = mmvt.mmvt_utils
     register()
     bands_names = ['amplitude', 'delta', 'theta', 'alpha', 'beta', 'high_gamma', 'gamma']
     user_fol = mu.get_user_fol()
+    meg_fol = op.join(user_fol, 'meg', 'zvals' if bpy.context.scene.epilepsy_only_zvals else 'no-zvals')
+    eeg_fol = op.join(user_fol, 'eeg', 'zvals' if bpy.context.scene.epilepsy_only_zvals else 'no-zvals')
     suffix = 'zvals-lh' if bpy.context.scene.epilepsy_only_zvals else 'lh'
-    rec_glob = partial(glob.glob, recursive=True)
-    stcs_files = rec_glob(op.join(user_fol, 'meg', '**', '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix))) + \
-                 rec_glob(op.join(user_fol, 'eeg', '**', '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix)))
+    stcs_files = glob.glob(op.join(meg_fol, '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix))) + \
+                 glob.glob(op.join(eeg_fol, '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix)))
     windows, inverse_methods, modalities, bands = set(), set(), set(), set()
     for stc_fname in stcs_files:
         stc_name = mu.namebase(stc_fname)[len('{}-epilepsy-'.format(mu.get_user())):-len('-{}'.format(suffix))]
@@ -266,13 +345,14 @@ def init(mmvt):
         windows.add(mu.namebase(window_fname))
 
     windows_items = sorted([(c, c, '', ind) for ind, c in enumerate(list(windows))])
-    bpy.types.Scene.epilepsy_windows = bpy.props.EnumProperty(items=windows_items, description="Windows")
+    bpy.types.Scene.epilepsy_windows = bpy.props.EnumProperty(
+        items=windows_items, description="Windows", update=stc_filter_update)
     if len(windows) > 0:
         bpy.context.scene.epilepsy_windows = windows_items[0][0]
 
     inverse_methods_items = sorted([(c, c, '', ind) for ind, c in enumerate(list(inverse_methods))])
     bpy.types.Scene.epilepsy_inverse_methods = bpy.props.EnumProperty(
-        items=inverse_methods_items, description="Inverse Methods")
+        items=inverse_methods_items, description="Inverse Methods", update=stc_filter_update)
     if len(inverse_methods) > 0:
         bpy.context.scene.epilepsy_inverse_methods = list(inverse_methods)[0]
 
@@ -281,7 +361,8 @@ def init(mmvt):
         if band in bands:
             bands_items.append((band, band, '', bands_ind))
             bands_ind += 1
-    bpy.types.Scene.epilepsy_bands = bpy.props.EnumProperty(items=bands_items, description="Bands")
+    bpy.types.Scene.epilepsy_bands = bpy.props.EnumProperty(
+        items=bands_items, description="Bands", update=stc_filter_update)
     if len(bands) > 0:
         bpy.context.scene.epilepsy_bands = bands_items[0][0]
 
@@ -291,9 +372,11 @@ def init(mmvt):
             modalities_items.append((modality, modality.upper(), '', modalities_ind))
             modalities_ind += 1
     bpy.types.Scene.epilepsy_modalities = bpy.props.EnumProperty(
-        items=modalities_items, description="Modalities")
+        items=modalities_items, description="Modalities", update=stc_filter_update)
     if len(modalities) > 0:
         bpy.context.scene.epilepsy_modalities = modalities_items[0][0]
+
+    coloring_panel.stc = None
 
 
 def register():
@@ -303,6 +386,7 @@ def register():
         bpy.utils.register_class(EpilepsyPeakPlot)
         bpy.utils.register_class(PlotMaxSTCGraph)
         bpy.utils.register_class(PlotEvoked)
+        bpy.utils.register_class(EpilepsyPlotStcOverTime)
         bpy.utils.register_class(EpilepsySaveImage)
     except:
         pass
@@ -315,6 +399,7 @@ def unregister():
         bpy.utils.unregister_class(EpilepsyPeakPlot)
         bpy.utils.unregister_class(PlotMaxSTCGraph)
         bpy.utils.unregister_class(PlotEvoked)
+        bpy.utils.unregister_class(EpilepsyPlotStcOverTime)
         bpy.utils.unregister_class(EpilepsySaveImage)
     except:
         pass

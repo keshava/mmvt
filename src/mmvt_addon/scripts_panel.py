@@ -129,10 +129,11 @@ def scripts_draw(self, context):
     layout.prop(context.scene, 'scripts_files', text='')
     # row = layout.row(align=0)
     script_name = bpy.context.scene.scripts_files.replace(' ', '_')
-    _, _, draw_func, _ = ScriptsPanel.funcs[script_name]
+    run_func,  _, draw_func, _ = ScriptsPanel.funcs[script_name]
     if draw_func is not None:
         draw_func(self, context)
-    layout.operator(RunScript.bl_idname, text="Run script", icon='POSE_HLT')
+    if not mu.is_empty_func(run_func):
+        layout.operator(RunScript.bl_idname, text="Run script", icon='POSE_HLT')
     layout.operator(UpdateScripts.bl_idname, text="Update scripts", icon='PREFERENCES')
     # layout.prop(context.scene, 'scripts_overwrite', 'Overwrite')
     # if ScriptsPanel.threshold_exist:

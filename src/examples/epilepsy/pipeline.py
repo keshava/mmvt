@@ -5,8 +5,7 @@ import glob
 import os.path as op
 import mne
 import numpy as np
-import re
-
+import os
 from src.examples.epilepsy import utils as epi_utils
 from src.examples.epilepsy import plots
 from src.examples.epilepsy import power_spectrums_plots as psplots
@@ -88,6 +87,22 @@ def _calc_amplitude_parallel(p):
         n_jobs=1,
     ))
     module.call_main(args)
+    move_and_rename_amplitude_files(subject, modality, inverse_method)
+
+
+def move_and_rename_amplitude_files(subject, modality, inverse_method='dSPM'):
+    stcs_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+    zvals_fol = utils.make_dir(op.join(stcs_fol, 'zvals'))
+    no_zvals_fol = utils.make_dir(op.join(stcs_fol, 'no-zvals'))
+    stcs_files = glob.glob(op.join(stcs_fol, '{}-epilepsy-{}-{}*-?h.stc'.format(subject, inverse_method, modality)))
+    for stc_fname in stcs_files:
+        stc_name = utils.namebase(stc_fname)[:-3]
+        if stc_name.endswith('zvals'):
+            utils.move_file(stc_fname, zvals_fol, overwrite=True)
+        else:
+            new_stc_fname = '{}-amplitude-{}'.format(stc_fname[:-len('-rh.stc')], stc_fname[-len('rh.stc'):])
+            os.rename(stc_fname, new_stc_fname)
+            utils.move_file(new_stc_fname, no_zvals_fol, overwrite=True)
 
 
 def calc_amplitude_zvals(subject, windows_fnames, baseline_name, modality, from_index=None, to_index=None,
@@ -105,14 +120,24 @@ def _calc_amplitude_zvals_parallel(p):
     module = eeg if modality == 'eeg' else meg
     window = utils.namebase(window_fname)
     stc_template = '{}-epilepsy-{}-{}-{}{}'.format(subject, inverse_method, modality, '{window}', '{suffix}')
+    output_name = stc_template.format(window=window, suffix='_amplitude-zvals')
+    output_fname = find_stc_file(output_name, modality)
+    if utils.stc_exist(output_fname) and not overwrite:
+        print('{} already exist'.format(output_fname))
+        return
     window_stc_name = stc_template.format(window=window, suffix='')
+    baseline_stc_name = stc_template.format(window=baseline_name, suffix='')
+    stc_fname = find_stc_file(window_stc_name, modality)
+    baseline_fname = find_stc_file(baseline_stc_name, modality)
+    if stc_fname == '' or baseline_fname == '':
+        return
     args = module.read_cmd_args(dict(
         subject=subject,
         mri_subject=subject,
         function='calc_stc_zvals',
         task='epilepsy',
-        stc_name=window_stc_name,
-        baseline_stc_name=stc_template.format(window=baseline_name, suffix=''),
+        stc_name=stc_fname,
+        baseline_stc_name=baseline_fname,
         stc_zvals_name=stc_template.format(window=window, suffix='_amplitude-zvals'),
         from_index=from_index,
         to_index=to_index,
@@ -120,6 +145,24 @@ def _calc_amplitude_zvals_parallel(p):
         overwrite_stc=overwrite
     ))
     module.call_main(args)
+    move_and_rename_amplitude_files(subject, modality, inverse_method)
+
+
+def find_stc_file(window_stc_name, modality):
+    stcs_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+    if 'amplitude-zvals' in window_stc_name:
+        stcs = glob.glob(op.join(stcs_fol, 'zvals', '{}-?h.stc'.format(window_stc_name)))
+    else:
+        stcs = glob.glob(op.join(stcs_fol, '**', '{}-*?h.stc'.format(window_stc_name)), recursive=True)
+    if len(stcs) == 2 and stcs[0][:-7] == stcs[1][:-7]:
+        window_stc_name = stcs[0][:-7]
+    else:
+        print('Can\'t find stc files for {}'.format(window_stc_name))
+        if len(stcs) > 0:
+            for stc_fname in stcs:
+                print(stc_fname)
+        window_stc_name = ''
+    return window_stc_name
 
 
 def average_amplitude_zvals(subject, windows, modality, output_name, use_abs=False, inverse_method='dSPM',
@@ -510,7 +553,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     overwrite_evokes = True
     overwrite_plots = False
     check_for_labels_files = False
-    overwrite_induced_power_zvals = True
+    overwrite_induced_power_zvals = False
     overwrite_stc = False
     overwrite_modalities_figures = False
     from_index, to_index = None, None # 2000, 10000
@@ -548,8 +591,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
         #     use_abs=False, parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
-        # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
-        #                         do_plot=True, overwrite=True)
+        average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
+                                do_plot=True, overwrite=True)
 
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
@@ -565,7 +608,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     figures_type=figures_type)
         # psplots.plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
-        calc_stc_power_specturm(subject, modality, specific_window, windows[0], baseline_window, avg_time_crop, run_num)
+        # calc_stc_power_specturm(subject, modality, specific_window, windows[0], baseline_window, avg_time_crop, run_num)
         pass
 
     # find_vertices(subject, run_num)
@@ -615,9 +658,9 @@ if __name__ == '__main__':
     if len(runs) == 0 or no_runs:
         print('No run were found!')
         runs = ['01']
-    n_jobs = 20 # utils.get_n_jobs(-5)
+    n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = 'R'# 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_window = 'L'# 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = ['baseline_run1_SHORT_600ms']
     for run in runs:
         # if run != 'run1':

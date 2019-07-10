@@ -2535,27 +2535,27 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
     from_index = 0 if from_index is None else from_index
     to_index = baseline_stc.data.shape[1] if to_index is None else to_index
     baseline_data = baseline_stc.data[:, from_index:to_index]
-    baseline_std = np.std(baseline_data * pow(10, -15)) * pow(10, 15)
-    baseline_mean = np.mean(baseline_data * pow(10, -15)) * pow(10, 15)
-    if np.isinf(baseline_std):
+    baseline_std = np.std(baseline_data * pow(10, -15), axis=1, keepdims=True) * pow(10, 15)
+    baseline_mean = np.mean(baseline_data * pow(10, -15), axis=1, keepdims=True) * pow(10, 15)
+    if any(np.isinf(baseline_std)):
         print('std of baseline is inf!')
         return False
-    elif baseline_std == 0:
+    elif any(baseline_std == 0):
         print('std of baseline is 0!')
         return False
     zvals = (stc.data - baseline_mean) / baseline_std
     if use_abs:
         zvals = np.abs(zvals)
     stc_zvals = mne.SourceEstimate(zvals, stc.vertices, stc.tmin, stc.tstep, subject=subject)
-    print('stc: max: {}, min: {}, std: {}'.format(np.max(stc.data), np.min(stc.data), np.std(stc.data)))
-    print('baseline: max: {}, min: {}, std: {}'.format(np.max(baseline_stc.data), np.min(baseline_stc.data), baseline_std))
+    # print('stc: max: {}, min: {}, std: {}'.format(np.max(stc.data), np.min(stc.data), np.std(stc.data)))
+    # print('baseline: max: {}, min: {}, std: {}'.format(np.max(baseline_stc.data), np.min(baseline_stc.data), baseline_std))
     print('stc_zvals: max: {}, min: {}'.format(np.max(stc_zvals.data), np.min(stc_zvals.data)))
     print('Saving zvals stc to {}'.format(stc_zvals_fname))
     stc_zvals.save(stc_zvals_fname)
     return utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}'))
 
 
-def plot_max_stc(subject, stc_name, modality='meg'):
+def plot_max_stc(subject, stc_name, modality='meg', use_abs=True):
     def onclick(event):
         print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
               ('double' if event.dblclick else 'single', event.button,
@@ -2577,8 +2577,9 @@ def plot_max_stc(subject, stc_name, modality='meg'):
         stc_fname = op.join(MMVT_DIR, subject, modality, '{}-lh.stc'.format(stc_name))
     if not op.isfile(stc_fname):
         raise Exception("Can't find the stc file! ({}-lh.stc)".format(stc_name))
+    print('Reading {}'.format(stc_fname))
     stc = mne.read_source_estimate(stc_fname, subject)
-    data = np.max(np.abs(stc.data), axis=0)
+    data = np.max(np.abs(stc.data) if use_abs else stc.data, axis=0)
     # if evokes_fname != '' and op.isfile(evokes_fname):
 
     fig, ax = plt.subplots()
@@ -6052,7 +6053,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
             mri_subject=mri_subject, n_jobs=args.n_jobs)
 
     if 'plot_max_stc' in args.function:
-        flags['plot_max_stc'] = plot_max_stc(subject, args.stc_name, args.modality)
+        flags['plot_max_stc'] = plot_max_stc(subject, args.stc_name, args.modality, args.use_abs)
 
     if 'plot_evoked' in args.function:
         flags['plot_evoked'], _ = plot_evoked(
