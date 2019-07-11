@@ -6,6 +6,7 @@ from scripts_panel import ScriptsPanel
 from play_panel import GrabFromPlay, GrabToPlay
 from coloring_panel import ColoringMakerPanel as coloring_panel
 import mne
+from tqdm import tqdm
 
 
 def _mmvt():
@@ -120,26 +121,27 @@ def plot_stc_peak():
 
 
 def plot_stc_over_time():
+    from collections import defaultdict
     mmvt, mu = _mmvt(), _mmvt().utils
     stc = coloring_panel.stc
     if stc is None:
         print('No stc was selected!')
         return
-    data = {}
+    data, valid_verts = {}, defaultdict(list)
     if mmvt.play.get_play_to() > len(stc.times) - 1:
         mmvt.play.set_play_to(len(stc.times) - 1)
     time = np.arange(mmvt.play.get_play_from(), mmvt.play.get_play_to() + 1)
-    data['rh'] = np.ones((stc.rh_data.shape[0], 1)) * -10
-    data['lh'] = np.ones((stc.lh_data.shape[0], 1)) * -10
+    stc = coloring_panel.smooth_map.apply(stc)
+    data['rh'] = np.ones((stc.rh_data.shape[0], 1)) * -1
+    data['lh'] = np.ones((stc.lh_data.shape[0], 1)) * -1
     threshold = mmvt.coloring.get_lower_threshold()
-    for t in time[::-1]:
+    for t in tqdm(time[::-1]):
         for hemi in mu.HEMIS:
             hemi_data = stc.rh_data[:, t] if hemi == 'rh' else stc.lh_data[:, t]
             verts = np.where(hemi_data >= threshold)[0]
             data[hemi][verts, 0] = t
 
     data = np.concatenate([data['lh'], data['rh']])
-    # vertices = stc.vertices # [stc.lh_vertno, stc.rh_vertno]
     stc = mne.SourceEstimate(data, stc.vertices, 0, 0, subject=mu.get_user())
     mmvt.colorbar.lock_colorbar_values(False)
     data_max, data_min = time[-1], time[0]
@@ -147,36 +149,9 @@ def plot_stc_over_time():
     mmvt.colorbar.set_colorbar_title('MEG')
 
     mmvt.coloring.clear_colors()
-    mmvt.coloring.plot_stc(stc, 0, data_min - 1, data_max, data_min, use_abs=False)
+    mmvt.coloring.plot_stc(
+        stc, 0, 0, data_max, data_min, use_abs=False, bigger_or_equal=True)
     mmvt.coloring.set_lower_threshold(threshold) # Set threshold to its previous value
-
-
-def how_many_vertices_over_time():
-    mmvt, mu = _mmvt(), _mmvt().utils
-    stc = coloring_panel.stc
-    if stc is None:
-        print('No stc was selected!')
-        return
-    data = {}
-    if mmvt.play.get_play_to() > len(stc.times) - 1:
-        mmvt.play.set_play_to(len(stc.times) - 1)
-    time = np.arange(mmvt.play.get_play_from(), mmvt.play.get_play_to() + 1)
-    data['rh'] = np.zeros((stc.rh_data.shape[0], 1))
-    data['lh'] = np.zeros((stc.lh_data.shape[0], 1))
-    threshold = mmvt.coloring.get_lower_threshold()
-    for t_ind, t in enumerate(time):
-        for hemi in mu.HEMIS:
-            hemi_data = stc.rh_data[:, t_ind] if hemi == 'rh' else stc.lh_data[:, t_ind]
-            verts = np.where(hemi_data >= threshold)[0]
-            data[hemi][verts, 0] = time[t_ind]
-
-    data = np.concatenate([data['lh'], data['rh']])
-    vertices = [stc.lh_vertno, stc.rh_vertno]
-    stc = mne.SourceEstimate(data, vertices, 0, 0, subject=mu.get_user())
-    mmvt.colorbar.lock_colorbar_values(False)
-    mmvt.coloring.clear_colors()
-    mmvt.coloring.plot_stc(stc, bpy.context.scene.frame_current, 0, time[-1], time[0])
-    mmvt.coloring.set_lower_threshold(threshold)  # Set threshold to its previous value
 
 
 def plot_evoked():

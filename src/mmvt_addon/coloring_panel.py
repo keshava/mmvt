@@ -141,8 +141,8 @@ def plot_max_stc_graph(stc_name='', modality='', stc_fname='', use_abs=False):
 # @mu.dump_args
 @mu.timeit
 def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percentiles=None, save_image=False,
-             view_selected=False, subject='', save_prev_colors=False, cm=None,
-             save_with_color_bar=True, read_chache=False, use_abs=None, n_jobs=-1):
+             view_selected=False, subject='', save_prev_colors=False, cm=None, save_with_color_bar=True,
+             read_chache=False, use_abs=None, bigger_or_equal=False, valid_verts=None, n_jobs=-1):
     import mne
     # cursor (enum in ['DEFAULT', 'NONE', 'WAIT', 'CROSSHAIR', 'MOVE_X', 'MOVE_Y', 'KNIFE', 'TEXT', 'PAINT_BRUSH', 'HAND', 'SCROLL_X', 'SCROLL_Y', 'SCROLL_XY', 'EYEDROPPER'])
     bpy.context.window.cursor_set("WAIT")
@@ -257,7 +257,8 @@ def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percent
     # set_default_colormap(data_min, data_max)
     fname = plot_stc_t(
         stc_t_smooth.rh_data, stc_t_smooth.lh_data, t, data_min, colors_ratio, threshold, save_image,
-        save_with_color_bar, view_selected, save_prev_colors=save_prev_colors, use_abs=use_abs)
+        save_with_color_bar, view_selected, save_prev_colors=save_prev_colors, use_abs=use_abs,
+        bigger_or_equal=bigger_or_equal, valid_verts=valid_verts)
     bpy.context.window.cursor_set("DEFAULT")
     return fname, stc_t_smooth
 
@@ -272,7 +273,8 @@ def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percent
 
 
 def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=0, save_image=False,
-               save_with_color_bar=True, view_selected=False, save_prev_colors=False, use_abs=None):
+               save_with_color_bar=True, view_selected=False, save_prev_colors=False, use_abs=None,
+               bigger_or_equal=False, valid_verts=None):
     if data_min is None or colors_ratio is None:
         data_min = min([np.min(rh_data), np.min(lh_data)])
         data_max = max([np.max(rh_data), np.max(lh_data)])
@@ -283,7 +285,8 @@ def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=
     for hemi in mu.HEMIS:
         data = rh_data if hemi == 'rh' else lh_data
         color_hemi_data(
-            hemi, data, data_min, colors_ratio, threshold, save_prev_colors=save_prev_colors, use_abs=use_abs)
+            hemi, data, data_min, colors_ratio, threshold, save_prev_colors=save_prev_colors, use_abs=use_abs,
+            bigger_or_equal=bigger_or_equal, valid_verts=valid_verts[hemi] if not valid_verts is None else None)
     _addon().render.save_views_with_cb(save_with_color_bar)
     if save_image:
         return _addon().render.save_image('stc', view_selected, t)
@@ -899,8 +902,8 @@ def labels_coloring_hemi(labels_data, faces_verts, hemi, threshold=0, labels_col
 
 
 def color_hemi_data(hemi, data, data_min=None, colors_ratio=None, threshold=0, override_current_mat=True,
-                    save_prev_colors=False, coloring_layer='Col', use_abs=None, check_valid_verts=True,
-                    color_even_if_hide=False):
+                    save_prev_colors=False, coloring_layer='Col', use_abs=None, bigger_or_equal=False,
+                    check_valid_verts=True, color_even_if_hide=False, valid_verts=None):
     org_hemi = hemi
     if use_abs is None:
         use_abs = bpy.context.scene.coloring_use_abs
@@ -916,9 +919,10 @@ def color_hemi_data(hemi, data, data_min=None, colors_ratio=None, threshold=0, o
         colors_ratio = 256 / (np.max(data) - np.min(data))
     faces_verts = ColoringMakerPanel.faces_verts[pial_hemi]
     cur_obj = bpy.data.objects[hemi]
-    activity_map_obj_coloring(cur_obj, data, faces_verts, threshold, override_current_mat, data_min,
-                              colors_ratio, use_abs, save_prev_colors=save_prev_colors, coloring_layer=coloring_layer,
-                              check_valid_verts=check_valid_verts, hemi=org_hemi)
+    activity_map_obj_coloring(
+        cur_obj, data, faces_verts, threshold, override_current_mat, data_min, colors_ratio, use_abs, bigger_or_equal,
+        save_prev_colors=save_prev_colors, coloring_layer=coloring_layer, check_valid_verts=check_valid_verts,
+        hemi=org_hemi, valid_verts=valid_verts)
 
 
 @mu.timeit
@@ -1155,9 +1159,10 @@ def set_activity_values(cur_obj, values):
 
 
 # @mu.timeit
-def activity_map_obj_coloring(cur_obj, vert_values, lookup=None, threshold=0, override_current_mat=True, data_min=None,
-                              colors_ratio=None, use_abs=None, bigger_or_equall=False, save_prev_colors=False,
-                              coloring_layer='Col', check_valid_verts=True, uv_size=300, remove_unknown=False, hemi=''):
+def activity_map_obj_coloring(
+        cur_obj, vert_values, lookup=None, threshold=0, override_current_mat=True, data_min=None, colors_ratio=None,
+        use_abs=None, bigger_or_equall=False, save_prev_colors=False, coloring_layer='Col', check_valid_verts=True,
+        uv_size=300, remove_unknown=False, hemi='', valid_verts=None):
     if isinstance(cur_obj, str):
         cur_obj = bpy.data.objects[cur_obj]
     if lookup is None:
@@ -1177,7 +1182,8 @@ def activity_map_obj_coloring(cur_obj, vert_values, lookup=None, threshold=0, ov
     values = vert_values[:, 0] if vert_values.ndim > 1 else vert_values
     if coloring_layer == 'Col':
         set_activity_values(cur_obj, values)
-    valid_verts = find_valid_verts(values, threshold, use_abs, bigger_or_equall)
+    if valid_verts is None:
+        valid_verts = find_valid_verts(values, threshold, use_abs, bigger_or_equall)
     # print('activity_map_obj_coloring: Num of valid_verts above {}: {}'.format(threshold, len(valid_verts)))
     if len(valid_verts) == 0 and check_valid_verts:
         print('No vertices values are above the threhold {} ({} to {})'.format(threshold, np.min(values), np.max(values)))
@@ -1292,8 +1298,7 @@ def vertex_object_coloring(cur_obj, mesh, coloring_layer, valid_verts, vert_valu
             valid_verts, lookup, vcol_layer, lambda vert:vert_values[vert, 1:], cur_obj.name, save_prev_colors)
 
 
-# @jit(nopython=True)
-def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur_obj_name, save_prev_colors=False):
+def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur_obj_name='', save_prev_colors=False):
     # if save_prev_colors:
     #     ColoringMakerPanel.prev_colors[cur_obj_name]['colors'] = defaultdict(dict)
     # progress = 0
@@ -1313,6 +1318,13 @@ def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur
             d.color = colors_func(vert)
         # ind += 1
     bpy.context.window.cursor_set("DEFAULT")
+
+
+def clear_vertices(obj, vertices, lookup):
+    mesh = obj.data
+    vcol_layer = mesh.vertex_colors['Col']
+    colors_func = lambda vert:(0, 0, 0)
+    verts_lookup_loop_coloring(vertices, lookup, vcol_layer, colors_func)
 
 
 def recreate_coloring_layers(mesh, coloring_layer='Col'):
