@@ -1,3 +1,5 @@
+from builtins import enumerate
+
 from src.preproc import eeg
 from src.preproc import meg
 from src.utils import utils
@@ -245,6 +247,7 @@ def _calc_sensors_power_parallel(p):
     output_fname = output_fname_template.format(window=window)
     if op.isfile(output_fname) and not overwrite:
         print('{} already exist'.format(output_fname))
+        return
     evoked = mne.read_evokeds(window_fname)[0]
     # evoked = evoked.resample(1000)
 
@@ -401,7 +404,7 @@ def _calc_induced_power_zvals_parallel(p):
 
 
 def calc_stc_power_specturm(subject, modality, power_stc_name, window_fname, baseline_window, avg_time_crop, run_num,
-                            inverse_method='dSPM', atlas='aparc.DKTatlas', high_gamma_max=120):
+                            inverse_method='dSPM', atlas='aparc.DKTatlas', high_gamma_max=120, win_suffix=''):
     from src.utils import labels_utils as lu
     from collections import defaultdict
     import time
@@ -410,7 +413,7 @@ def calc_stc_power_specturm(subject, modality, power_stc_name, window_fname, bas
     window = utils.namebase(window_fname)
     output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npz'.format(
         subject, inverse_method, modality, '{window}'))
-    window_output_fname = output_fname.format(window='{}-avg'.format(power_stc_name))
+    window_output_fname = output_fname.format(window='{}{}'.format(power_stc_name, win_suffix))
     if not op.isfile(window_output_fname):
         print('Can\'t find {}!'.format(window_output_fname))
         return
@@ -420,22 +423,24 @@ def calc_stc_power_specturm(subject, modality, power_stc_name, window_fname, bas
     times = epi_utils.get_window_times(window_fname, downsample=2)
     # t_max = np.where(times > 0.1)[0][0]
     t_min = 0 #np.where(times > 0)[0][0]
-    x = d['max'] #[:, t_min:t_max]
+    x = np.flip(d['max'], 0) #[:, t_min:t_max]
     max_val = np.max(x)
     f, t = np.unravel_index(x.argmax(), x.shape)
     t += t_min + avg_time_crop
+    f -= d['min_f_ind']
+    print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, times[t], freqs[f]))
     # min_indices, max_indices = d['min_vertices'], d['max_vertices']
     # vertices_ind = max_indices[max_f, max_t]
 
-    max_f, max_t = np.unravel_index(np.flip(x, 0).argmax(), x.shape)
-    print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, times[max_t + avg_time_crop], freqs[max_f - d['min_f_ind']]))
+    # max_f, max_t = np.unravel_index(np.flip(x, 0).argmax(), x.shape)
+
 
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
     inv = mne.minimum_norm.read_inverse_operator(inv_fname)
     labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
     # max_vert_label = find_vert_label(vertices_ind, modality, window, labels, inv)
-    vertices_ind_to_no_lookup, vertices_labels_lookup = \
-        epi_utils.calc_vertices_lookup_tables(subject, modality, window, inverse_method, labels, inv)
+    # vertices_ind_to_no_lookup, vertices_labels_lookup = \
+    #     epi_utils.calc_vertices_lookup_tables(subject, modality, window, inverse_method, labels, inv)
     # max_vert_label = vertices_labels_lookup[vertices_ind]
     # print('{:.4f} in {}Hz {:.4f}s in {}'.format(max_val, freqs[f], times[t], max_vert_label.name))
 
@@ -509,10 +514,159 @@ def calc_stc_power_specturm(subject, modality, power_stc_name, window_fname, bas
     combined_stc.save(output_stc_fname)
 
 
+def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, baseline_window, avg_time_crop, run_num,
+                            inverse_method='dSPM', atlas='aparc.DKTatlas40', high_gamma_max=120, overwrite=False):
+    from src.utils import labels_utils as lu
+    from collections import defaultdict
+    import time
+
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    baseline_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+        subject, inverse_method, modality, utils.namebase(baseline_window)))
+    powers_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+        subject, inverse_method, modality, utils.namebase(windows[0])))
+
+    def load_avg_norm_powers(baselineF):
+        avg_norm_powers_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-avg-induced_power.npy'.format(
+            subject, inverse_method, modality, power_stc_name))
+        powersF = 0
+
+        if not op.isfile(avg_norm_powers_fname) or overwrite:
+            avg_norm_powers = None
+            now = time.time()
+            for wind_ind, window_fname in enumerate(windows):
+                utils.time_to_go(now, wind_ind, len(windows), 1)
+                window = utils.namebase(window_fname)
+                powers = epi_utils.concatenate_powers(powers_fol.format(window=window))
+                if powersF == 0:
+                    powersF = powers.shape[1]
+                else:
+                    if powers.shape[1] != powersF:
+                        print('dims mismatach! {} should be {} for {}'.format(powers.shape[1], powersF, window))
+                        continue
+                min_f_ind = baselineF - powersF
+                norm_powers = (powers - baseline_mean[:, min_f_ind:, :]) / baseline_std[:, min_f_ind:, :]
+                norm_powers = norm_powers[:, :, avg_time_crop: -avg_time_crop]
+                avg_norm_powers = norm_powers if avg_norm_powers is None else avg_norm_powers + norm_powers
+            avg_norm_powers /= len(windows)
+            print('Saving norm_powers in {}'.format(avg_norm_powers_fname))
+            np.save(avg_norm_powers_fname, avg_norm_powers)
+        else:
+            avg_norm_powers = np.load(avg_norm_powers_fname, mmap_mode='r')
+        return avg_norm_powers
+
+    def load_baseline_stat():
+        baseline_stat_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power_stat.npz'.format(
+            subject, inverse_method, modality, utils.namebase(baseline_window)))
+        if not op.isfile(baseline_stat_fname) or overwrite:
+            baseline = epi_utils.concatenate_powers(baseline_fol)  # (vertices x freqs x time)
+            baseline_std = np.std(baseline, axis=2,
+                                  keepdims=True)  # the standard deviation (over time) of log baseline values
+            baseline_mean = np.mean(baseline, axis=2, keepdims=True)  # the mean (over time) of log baseline values
+        else:
+            d = np.load(baseline_stat_fname)
+            baseline_mean, baseline_std = d['mean'], d['std']
+        return baseline_mean, baseline_std
+
+    def find_max_f_t():
+        powers_input_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npz'.format(
+            subject, inverse_method, modality, '{window}'))
+        window_output_fname = powers_input_fname.format(window='{}-avg'.format(power_stc_name))
+        if not op.isfile(window_output_fname):
+            print('Can\'t find {}!'.format(window_output_fname))
+            return
+
+        d = np.load(window_output_fname)
+        freqs = epi_utils.get_freqs(d['min_f_ind'] + 1, high_gamma_max)
+        times = epi_utils.get_window_times(windows[0], downsample=2)
+        # t_max = np.where(times > 0.1)[0][0]
+        t_min = 0  # np.where(times > 0)[0][0]
+        x = d['max']  # [:, t_min:t_max]
+        x_flip = np.flip(x, 0)
+        max_val = np.max(x)
+        f_ind, t_ind = np.unravel_index(x.argmax(), x.shape)
+        t_max = times[t_ind + t_min + avg_time_crop]
+        f_max = freqs[f_ind - d['min_f_ind']]
+        print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, t_max, f_max))
+        return f_ind, t_ind
+
+
+    baseline_mean, baseline_std = load_baseline_stat()
+    avg_norm_powers = load_avg_norm_powers(baseline_mean.shape[1])
+    f, t = find_max_f_t()
+
+    inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
+    inv = mne.minimum_norm.read_inverse_operator(inv_fname)
+    labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
+    if len(labels) == 0:
+        raise Exception('Can\'t read the {} labels!'.format(atlas))
+
+    # labels_norm_data_fol = utils.make_dir(op.join(root_dir, 'labels_norm_all_baseline'))
+    baseline_files = glob.glob(op.join(baseline_fol, 'epilepsy_*_induced_power.npy'))
+    powers_files = glob.glob(op.join(powers_fol, 'epilepsy_*_induced_power.npy'))
+    # norm_labels_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+    #     subject, inverse_method, modality, window))
+
+    vertices, vertices_data = defaultdict(list), defaultdict(list)
+    # labels_data = []
+    start_ind = 0
+    all_files_exist = False
+    now = time.time()
+    for file_ind, (baseline_fname, powers_fname) in enumerate(zip(baseline_files, powers_files)):
+        if not all_files_exist:
+            utils.time_to_go(now, file_ind, len(baseline_files), 1)
+        baseline_label_name = utils.namebase(baseline_fname).split('_')[1]
+        powers_label_name = utils.namebase(powers_fname).split('_')[1]
+        if baseline_label_name != powers_label_name:
+            raise Exception('ASDGF@#Q%EGF#Q$T')
+        label_name = powers_label_name
+        label = [l for l in labels if l.name == label_name][0]
+        # label_fname = op.join(labels_norm_data_fol, '{}-epilepsy-{}-{}-{}-{}-norm-induced_power.npy'.format(
+        #     subject, inverse_method, modality, window, label_name))
+        vertno, src_sel = mne.minimum_norm.inverse.label_src_vertno_sel(label, inv['src'])
+        # if not op.isfile(label_fname):
+        #     print('Reading norm_powers ({}) from {}:{} for label {}'.format(
+        #         norm_powers.shape[0], start_ind, start_ind+len(src_sel), label.name))
+        #     label_powers = norm_powers[start_ind: start_ind+len(src_sel)]
+        #     np.save(label_fname, label_powers)
+        # else:
+        #     label_powers = np.load(label_fname, mmap_mode='r')
+        # labels_powers_per_freq_per_time = label_powers[:, f, t]
+        # if start_ind <= vertices_ind < start_ind+len(src_sel):
+        #     print('vertices_ind: label {}, for {}Hz and {:.3f}s: {}'.format(
+        #         label_name, freqs[f], times[t], label_powers[vertices_ind - start_ind, f, t]))
+        #     if label_powers[vertices_ind - start_ind, f, t] != max_val:
+        #         raise Exception('@#%$#$%@#$%@#$%@%$')
+        # if np.isclose(max_val, np.max(labels_powers_per_freq_per_time)):
+        #     print('isclose: label {}, for {}Hz and {:.3f}s: {}'.format(
+        #         label_name, freqs[f], times[t], np.max(labels_powers_per_freq_per_time)))
+        # label_powers = avg_norm_powers[start_ind: start_ind + len(src_sel), f, t]
+        # if start_ind <= vertices_ind < start_ind+len(src_sel):
+        #     print('vertices_ind: label {}, for {}Hz and {:.3f}s: {}'.format(
+        #         label_name, freqs[f], times[t], label_powers[vertices_ind - start_ind, f, t]))
+
+        # labels_powers_per_freq_per_time = label_powers[:, f, t]
+
+        # start_ind += len(src_sel)
+        vertices[label.hemi].extend(vertno[0] if label.hemi == 'lh' else vertno[1])
+        # vertices_data[label.hemi].extend(labels_powers_per_freq_per_time)
+        # del label_powers
+
+    combined_stc = meg.creating_stc_obj(
+        vertices_data, vertices, subject, tmin=times[0], tstep=times[1] - times[0])
+    output_stc_fname = op.join(
+        MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg',
+        'epilepsy-{}-{}-{:.3f}s-{}Hz-{}-induced_norm_power'.format(
+            modality, window, times[t], freqs[f], inverse_method))
+    print('Saving stc file for t {} and f {} in {}'.format(t, f, output_stc_fname))
+    combined_stc.save(output_stc_fname)
+
+
+
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
          inverse_method='dSPM', specific_window='', exclude_windows=[], no_runs=False, recursive=False,
-         check_windows=True, n_jobs=4):
+         check_windows=True, atlas='aparc.DKTatlas40', n_jobs=4):
     # run_num = re.sub('\D', ',', run).split(',')[-1].zfill(2)
     if no_runs:
         if recursive:
@@ -562,10 +716,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     percentiles = [5, 95]
     sig_threshold = 2
     figures_type = 'jpg'
-    save_fig = False
+    save_fig = True
     plot_baseline_stat = False
-    avg_use_abs = True
+    avg_use_abs = False
     avg_time_crop = 100
+    power_specturm_win_suffix = '-avg'
     bad_channels = bad_channels.split(',')
 
     # epi_utils.create_evokeds_links(subject, windows_with_baseline)
@@ -574,12 +729,12 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
 
-        # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
-        #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=True)
-        # psplots.plot_sensors_powers(
-        #     subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_gamma_max,
-        #     percentiles=percentiles, sig_threshold=sig_threshold, save_fig=save_fig,
-        #     plot_baseline_stat=plot_baseline_stat, bad_channels=bad_channels, overwrite=True, parallel=False)
+        calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
+                           high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=False)
+        psplots.plot_sensors_powers(
+            subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_gamma_max,
+            percentiles=percentiles, sig_threshold=sig_threshold, save_fig=save_fig,
+            plot_baseline_stat=plot_baseline_stat, bad_channels=bad_channels, overwrite=False, parallel=False)
 
         # 2) calc fwd and inv
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
@@ -591,8 +746,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # calc_amplitude_zvals(
         #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
         #     use_abs=False, parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
-        average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
-                                do_plot=True, overwrite=True)
+        # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
+        #                         do_plot=True, overwrite=True)
 
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
@@ -608,7 +763,12 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     figures_type=figures_type)
         # psplots.plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
-        # calc_stc_power_specturm(subject, modality, specific_window, windows[0], baseline_window, avg_time_crop, run_num)
+        # calc_stc_power_specturm(
+        #     subject, modality, specific_window, windows[0], baseline_window, avg_time_crop, run_num)
+        # calc_avg_power_specturm_stc(
+        #     subject, modality, specific_window, windows, baseline_window, avg_time_crop, run_num,
+        #     inverse_method, atlas, high_gamma_max)
+
         pass
 
     # find_vertices(subject, run_num)
@@ -641,11 +801,12 @@ if __name__ == '__main__':
     from src.examples.epilepsy import init_files
     from src.utils import args_utils as au
 
-    modalities = ['meg', 'eeg', 'meeg']
+    modalities = ['meg', 'eeg'] # ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
+    atlas = 'aparc.DKTatlas40'
     recursive = True
-    check_windows = True
+    check_windows = False
     subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01327()
     run_files = [utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))]
     if recursive:
@@ -660,7 +821,7 @@ if __name__ == '__main__':
         runs = ['01']
     n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = 'L'# 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_window = 'R' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = ['baseline_run1_SHORT_600ms']
     for run in runs:
         # if run != 'run1':
@@ -672,5 +833,5 @@ if __name__ == '__main__':
             if not au.is_true(ret):
                 continue
         main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
-             inverse_method, specific_window, exclude_windows, no_runs, recursive, check_windows, n_jobs)
+             inverse_method, specific_window, exclude_windows, no_runs, recursive, check_windows, atlas, n_jobs)
     print('Finish!')

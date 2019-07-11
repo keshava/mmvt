@@ -77,22 +77,8 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
                 print('baseline freqs dim is {} and powers freqs dim is {}!'.format(baseline.shape[1], powers.shape[1]))
                 powers = powers[:, :baseline.shape[1], :]
             norm_powers = (powers - baseline_mean) # / baseline_std
-            # norm_powers = np.diff(norm_powers, 5)
-            # norm_powers = (norm_powers[:, :, 170:] - norm_powers[:, :, :-170])
-            # times = times[:-170]
             norm_powers_min, norm_powers_max, min_vertices, max_vertices = epi_utils.calc_powers_abs_minmax(
                 norm_powers, both_min_and_max=True)
-
-            # freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-            # band_freqs = [1, 4]
-            # idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
-            # band_power = np.mean(norm_powers_max[idx, :], axis=0)
-            # plt.plot(band_power.T)
-            # plt.show()
-
-
-            # norm_powers_max = np.max(norm_powers, axis=0) # over vertices
-            # norm_powers_min = np.min(norm_powers, axis=0)  # over vertices
             np.savez(fname, min=norm_powers_min, max=norm_powers_max)
 
         print('***** {} is baseline corrected using {} *******'.format(window, utils.namebase(baseline_window)))
@@ -300,7 +286,7 @@ def average_norm_powers(subject, windows_fnames, modality, average_window_name='
     max_f, max_t = np.unravel_index(np.flip(norm_powers_maxs, 0).argmax(), norm_powers_maxs.shape)
     min_f, min_t = np.unravel_index(np.flip(norm_powers_mins, 0).argmin(), norm_powers_mins.shape)
     print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(np.max(norm_powers_maxs), times[max_t], freqs[max_f - min_f_ind]))
-    print('norm_powers_mins: {:.3f} at {:2.f}s and {}Hz'.format(np.min(norm_powers_mins), times[min_t], freqs[min_f - min_f_ind]))
+    print('norm_powers_mins: {:.3f} at {:.2f}s and {}Hz'.format(np.min(norm_powers_mins), times[min_t], freqs[min_f - min_f_ind]))
 
     max_vertices = epi_utils.calc_max_vertice(norm_powers_maxs)
     min_vertices = epi_utils.calc_min_vertice(norm_powers_mins)
@@ -574,7 +560,7 @@ def calc_bands(min_f=1, high_gamma_max=120):
 def plot_positive_and_negative_power_spectrum(
         powers_negative, powers_positive, times, title='', figure_fname='',
         only_power_spectrum=True, show_only_sig_in_graph=True, sig_threshold=2, high_gamma_max=120,
-        min_f=0):
+        min_f=1):
     from src.utils import color_maps_utils as cmu
     YlOrRd = cmu.create_YlOrRd_cm()
     PuBu = cmu.create_PuBu_cm()

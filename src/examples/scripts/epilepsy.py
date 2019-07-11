@@ -92,7 +92,7 @@ def save_image():
 
 
 def select_stc():
-    mu = _mmvt().mmvt_utils
+    mmvt, mu = _mmvt(), _mmvt().mmvt_utils
     stc_fname = get_stc_fname()
     if not op.isfile(stc_fname):
         print('Can\'t find {}!'.format(stc_fname))
@@ -110,6 +110,8 @@ def select_stc():
     bpy.data.scenes['Scene'].frame_preview_end = T
     if bpy.context.scene.frame_current > T:
         bpy.context.scene.frame_current = T
+    if mmvt.play.get_play_to() > T:
+        mmvt.play.set_play_to(T)
 
 
 def plot_stc_peak():
@@ -131,7 +133,10 @@ def plot_stc_over_time():
     if mmvt.play.get_play_to() > len(stc.times) - 1:
         mmvt.play.set_play_to(len(stc.times) - 1)
     time = np.arange(mmvt.play.get_play_from(), mmvt.play.get_play_to() + 1)
+    stc = mne.SourceEstimate(stc.data[:, time[0]:time[-1] + 1], stc.vertices, 0, stc.tstep, subject=mu.get_user())
     stc = coloring_panel.smooth_map.apply(stc)
+    t0 = time[0]
+    time = time - time[0]
     data['rh'] = np.ones((stc.rh_data.shape[0], 1)) * -1
     data['lh'] = np.ones((stc.lh_data.shape[0], 1)) * -1
     threshold = mmvt.coloring.get_lower_threshold()
@@ -139,12 +144,12 @@ def plot_stc_over_time():
         for hemi in mu.HEMIS:
             hemi_data = stc.rh_data[:, t] if hemi == 'rh' else stc.lh_data[:, t]
             verts = np.where(hemi_data >= threshold)[0]
-            data[hemi][verts, 0] = t
+            data[hemi][verts, 0] = t + t0
 
     data = np.concatenate([data['lh'], data['rh']])
     stc = mne.SourceEstimate(data, stc.vertices, 0, 0, subject=mu.get_user())
     mmvt.colorbar.lock_colorbar_values(False)
-    data_max, data_min = time[-1], time[0]
+    data_max, data_min = time[-1] + t0, time[0] + t0
     mmvt.colorbar.set_colorbar_max_min(data_max, data_min, force_update=True)
     mmvt.colorbar.set_colorbar_title('MEG')
 
