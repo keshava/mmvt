@@ -532,8 +532,9 @@ def _plot_powers(powers, ax, xaxis=None, freqs=None, cmap_vmin_vmax=None, high_g
 
     # powers[np.where(powers == 0)] = np.nan
     # cmap.set_bad(color='white')
-    im = ax.imshow(np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='none', # nearest
-                   extent=extents(times) + extents(freqs), cmap=cmap)
+    # np.flip(powers, 0)
+    im = ax.imshow(powers, vmin=vmin, vmax=vmax, aspect='auto', interpolation='none', # nearest
+                   extent=extents(times) + extents(freqs), cmap=cmap, origin='lower')
     return im
 
 

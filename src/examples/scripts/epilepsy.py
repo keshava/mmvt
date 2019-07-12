@@ -134,7 +134,8 @@ def plot_stc_over_time():
         mmvt.play.set_play_to(len(stc.times) - 1)
     time = np.arange(mmvt.play.get_play_from(), mmvt.play.get_play_to() + 1)
     stc = mne.SourceEstimate(stc.data[:, time[0]:time[-1] + 1], stc.vertices, 0, stc.tstep, subject=mu.get_user())
-    stc = coloring_panel.smooth_map.apply(stc)
+    # stc = coloring_panel.smooth_map.apply(stc)
+    stc = mmvt.coloring.apply_smooth_map(stc)
     t0 = time[0]
     time = time - time[0]
     data['rh'] = np.ones((stc.rh_data.shape[0], 1)) * -1

@@ -220,12 +220,7 @@ def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percent
             if ColoringMakerPanel.smooth_map is None:
                 ColoringMakerPanel.smooth_map = _addon().meg.calc_smooth_mat(stc_t)
             if ColoringMakerPanel.smooth_map is not None:
-                try:
-                    stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc_t)
-                except:
-                    print('Need to recalculate the smooth map!')
-                    ColoringMakerPanel.smooth_map = _addon().meg.calc_smooth_mat(stc_t, overwrite=True)
-                    stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc_t)
+                stc_t_smooth = apply_smooth_map(stc_t)
             else:
                 vertices_to = mne.grade_to_vertices(subject, None, subjects_dir=subjects_dir)
                 stc_t_smooth = mne.morph_data(
@@ -270,6 +265,15 @@ def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percent
 #             _addon().set_colormap('YlOrRd')
 #         else:
 #             _addon().set_colormap('BuPu-YlOrRd')
+
+def apply_smooth_map(stc):
+    try:
+        stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc)
+    except:
+        print('Need to recalculate the smooth map!')
+        ColoringMakerPanel.smooth_map = _addon().meg.calc_smooth_mat(stc, overwrite=True)
+        stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc)
+    return stc_t_smooth
 
 
 def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=0, save_image=False,

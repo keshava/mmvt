@@ -527,7 +527,7 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         subject, inverse_method, modality, utils.namebase(windows[0])))
     stcs_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
     output_stc_fname = op.join(
-        stcs_fol, 'epilepsy-{}-{}-{}-avg-induced_norm_power'.format(modality, inverse_method, power_stc_name))
+        stcs_fol, '{}-epilepsy-{}-{}-{}-avg-power-zvals'.format(subject, inverse_method, modality, power_stc_name))
 
     def load_avg_norm_powers(baselineF):
         avg_norm_powers_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-avg-induced_power.npy'.format(
@@ -631,7 +631,7 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
     if len(labels) == 0:
         raise Exception('Can\'t read the {} labels!'.format(atlas))
 
-    vertices, data_indices  = defaultdict(list), defaultdict(list)
+    vertices, data_indices = defaultdict(list), defaultdict(list)
     start_ind = 0
     for file_ind, (baseline_fname, powers_fname) in enumerate(zip(baseline_files, powers_files)):
         baseline_label_name = utils.namebase(baseline_fname).split('_')[1]
@@ -645,14 +645,17 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         vertices[label.hemi].extend(vertno[0] if label.hemi == 'lh' else vertno[1])
         start_ind += len(src_sel)
 
-    f_max = np.argmax([np.max(avg_norm_powers[:, f, :]) for f in range(len(freqs))])
-    t_max = np.argmax([np.max(avg_norm_powers[:, f_max, t]) for t in range(len(times))])
+
+    # t_max = np.where(times > 0.01)[0][0]
+    # t_min = np.where(times > 0)[0][0]
+    # powers_max = powers_max[:, t_min:t_max]
+    f_max, t_max = np.unravel_index(powers_max.argmax(), powers_max.shape)
     print('avg_norm_powers max: {:.3f} at {:.2f}s and {}Hz'.format(
         np.max(avg_norm_powers[:, f_max, t_max]), times[t_max], freqs[f_max]))
     vertices_data = {}
     for hemi in utils.HEMIS:
         hemi_data_indices = np.array(data_indices[hemi])
-        vertices_data[hemi] = avg_norm_powers[hemi_data_indices, f_max, t_max]
+        vertices_data[hemi] = avg_norm_powers[hemi_data_indices, f_max, :]
 
     combined_stc = meg.creating_stc_obj(
         vertices_data, vertices, subject, tmin=times[0], tstep=times[1] - times[0])
@@ -797,7 +800,7 @@ if __name__ == '__main__':
     from src.examples.epilepsy import init_files
     from src.utils import args_utils as au
 
-    modalities = ['meg'] # ['meg', 'eeg', 'meeg']
+    modalities = ['eeg'] # ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     atlas = 'aparc.DKTatlas40'
@@ -817,7 +820,7 @@ if __name__ == '__main__':
         runs = ['01']
     n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = 'R' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_window = 'L' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = ['baseline_run1_SHORT_600ms']
     for run in runs:
         # if run != 'run1':
