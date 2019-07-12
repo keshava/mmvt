@@ -37,6 +37,7 @@ LINKS_DIR = utils.get_links_dir()
 if not op.isdir(LINKS_DIR):
     raise Exception('No links dir!')
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
+EEG_DIR = utils.get_link_dir(LINKS_DIR, 'eeg')
 if not op.isdir(MEG_DIR):
     print('No MEG dir! ({})'.format(MEG_DIR))
 LOOKUP_TABLE_SUBCORTICAL = op.join(MMVT_DIR, 'sub_cortical_codes.txt')
@@ -2410,8 +2411,8 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                         epochs = mne.EpochsArray(
                             evoked.data.reshape((1, C, T)), evoked.info, np.array([[0, 0, 1]]), 0, 1)
                         stc_fname = '{}-{}'.format(stc_fname, utils.namebase(evo_fname))
-                    calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
-                                       calc_inducde_power_per_label, normalize_proj=induced_power_normalize_proj,
+                    calc_induced_power(subject, epochs, atlas, task, inverse_operator, lambda2, stc_fname,
+                                       normalize_proj=induced_power_normalize_proj,
                                        overwrite_stc=overwrite_stc, modality=modality, n_jobs=n_jobs)
                     # stc files were already been saved
                     save_stc = False
@@ -2685,7 +2686,8 @@ def calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120):
     min_f = math.floor((epochs.info['sfreq'] * n_cycles * 2) / len(epochs.times))
     if min_f < 1:
         min_f = 1
-    freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+    # freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+    freqs = np.arange(min_f, max_high_gamma + 1)
     ws = morlet(epochs.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
     too_long = any([len(w) > len(epochs.times) for w in ws])
     while too_long:
@@ -2693,23 +2695,25 @@ def calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120):
               'Consider padding the signal or using shorter wavelets.')
         min_f += 1
         print('Increasing min_f to {}'.format(min_f))
-        freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+        # freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+        freqs = np.arange(min_f, max_high_gamma + 1)
         ws = morlet(epochs.info['sfreq'], freqs, n_cycles=n_cycles, zero_mean=False)
         too_long = any([len(w) > len(epochs.times) for w in ws])
-    if min_f <= 30:
-        freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
-    elif min_f <= 60:
-        freqs = np.concatenate([np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
-    elif min_f <= max_high_gamma:
-        freqs = np.concatenate([np.arange(60, max_high_gamma + 5, 5)])
-    else:
-        raise Exception('min_f > max_high_gamma! ({}>{})'.format(min_f, max_high_gamma))
+
+    # if min_f <= 30:
+    #     freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+    # elif min_f <= 60:
+    #     freqs = np.concatenate([np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])
+    # elif min_f <= max_high_gamma:
+    #     freqs = np.concatenate([np.arange(60, max_high_gamma + 5, 5)])
+    # else:
+    #     raise Exception('min_f > max_high_gamma! ({}>{})'.format(min_f, max_high_gamma))
     print('morlet freqs: {}'.format(freqs))
     return freqs
 
 
-def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, lambda2, stc_fname,
-                       calc_inducde_power_per_label=True, normalize_proj=True, overwrite_stc=False,
+def calc_induced_power(subject, epochs, atlas, task, inverse_operator, lambda2, stc_fname,
+                       normalize_proj=True, overwrite_stc=False,
                        modality='meg', df=1, n_cycles=2, downsample=2, n_jobs=6):
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
@@ -2725,7 +2729,8 @@ def calc_induced_power(subject, epochs, atlas, task, bands, inverse_operator, la
     if normalize_proj:
         epochs.info.normalize_proj()
     # if calc_inducde_power_per_label:
-    fol = utils.make_dir(op.join(SUBJECT_MEG_FOLDER, '{}-induced_power'.format(stc_fname)))
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    fol = utils.make_dir(op.join(root_dir, '{}-induced_power'.format(stc_fname)))
     labels = lu.read_labels(subject, SUBJECTS_MRI_DIR, atlas)
     if len(labels) == 0:
         raise Exception('No labels found for {}!'.format(atlas))

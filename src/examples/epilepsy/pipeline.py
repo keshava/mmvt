@@ -687,7 +687,6 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
             exclude_window not in utils.namebase(w) for exclude_window in exclude_windows])]
     if len(windows) == 0:
         print('No windows!')
-        return
     baseline_window = utils.select_one_file(baseline_windows, 'baseline')
     baseline_windows = [baseline_window]
     windows_with_baseline = windows + baseline_windows
@@ -706,7 +705,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     overwrite_fwd = False
     overwrite_evokes = True
     overwrite_plots = False
-    check_for_labels_files = False
+    check_for_labels_files = True
     overwrite_induced_power_zvals = False
     overwrite_stc = False
     overwrite_modalities_figures = False
@@ -749,14 +748,14 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                         do_plot=True, overwrite=True)
 
         # 4) Induced power
-        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-        #                    overwrite=True)
+        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+                           overwrite=True)
         # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
         #         overwrite=False)
         # psplots.plot_baseline_source_powers(
         #     subject, baseline_window, modality, inverse_method, high_gamma_max, figures_type, overwrite_plots)
         # psplots.plot_norm_powers(
-        #     subject, windows, baseline_window, modality, inverse_method, overwrite=False, figures_type=figures_type)
+        #     subject, windows, baseline_window, modality, inverse_method, figures_type=figures_type, overwrite=True)
         # psplots.average_norm_powers(
         #     subject, windows, modality, specific_window, inverse_method, avg_time_crop, overwrite=True,
         #     figures_type=figures_type)
@@ -764,9 +763,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(
         #     subject, modality, specific_window, windows[0], baseline_window, avg_time_crop, run_num)
-        calc_avg_power_specturm_stc(
-            subject, modality, specific_window, windows, baseline_window, avg_time_crop, run_num,
-            inverse_method, atlas, high_gamma_max)
+        # calc_avg_power_specturm_stc(
+        #     subject, modality, specific_window, windows, baseline_window, avg_time_crop, run_num,
+        #     inverse_method, atlas, high_gamma_max)
 
         pass
 
@@ -800,12 +799,12 @@ if __name__ == '__main__':
     from src.examples.epilepsy import init_files
     from src.utils import args_utils as au
 
-    modalities = ['eeg'] # ['meg', 'eeg', 'meeg']
+    modalities = ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     atlas = 'aparc.DKTatlas40'
     recursive = True
-    check_windows = False
+    check_windows = True
     subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01327()
     run_files = [utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))]
     if recursive:
@@ -820,7 +819,7 @@ if __name__ == '__main__':
         runs = ['01']
     n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = 'L' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_window = 'baseline_run1_195.7_12sec' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = ['baseline_run1_SHORT_600ms']
     for run in runs:
         # if run != 'run1':

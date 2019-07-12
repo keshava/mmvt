@@ -194,6 +194,7 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
                 subject, inverse_method, modality, utils.namebase(baseline_window)))
         baseline = epi_utils.concatenate_powers(baseline_fol) # (vertices x freqs x time)
         if baseline is None:
+            print('plot_norm_powers: No baseline!!')
             return
         baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
         baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the mean (over time) of log baseline values
