@@ -4173,7 +4173,7 @@ def get_info_fname(info_fname=''):
 
 
 def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, overwrite_sensors=False,
-                        trans_file='', info_fname='', info=None, read_info_file=True):
+                        raw_template='', trans_file='', info_fname='', info=None, read_info_file=True):
     from mne.io import _loc_to_coil_trans
     from mne.forward import _create_meg_coils
     from mne.viz._3d import _sensor_shape
@@ -4217,7 +4217,7 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
     if info is None:
         info_fname, info_exist = get_info_fname(info_fname)
         if not info_exist or not read_info_file:
-            raw_fname, raw_exist = locating_meg_file(RAW, args.raw_template)
+            raw_fname, raw_exist = locating_meg_file(RAW, raw_template)
             if not raw_exist:
                 print('No raw or raw info file!')
                 return False
@@ -5861,8 +5861,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
 
     if utils.should_run(args, 'read_sensors_layout'):
         flags['read_sensors_layout'] = read_sensors_layout(
-            mri_subject, args, overwrite_sensors=args.overwrite_sensors, trans_file=args.trans_fname,
-            info_fname=args.info_fname, read_info_file=args.read_info_file)
+            mri_subject, args, overwrite_sensors=args.overwrite_sensors, raw_template=args.raw_template,
+            trans_file=args.trans_fname, info_fname=args.info_fname, read_info_file=args.read_info_file)
 
     # flags: calc_evoked
     flags, evoked, epochs = calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)

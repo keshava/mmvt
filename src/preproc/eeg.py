@@ -30,14 +30,16 @@ plot_topomap = meg.plot_topomap
 def read_sensors_layout_args(mri_subject, args):
     return meg.read_sensors_layout(
         mri_subject, args, pick_meg=False, pick_eeg=True, overwrite_sensors=args.overwrite_sensors,
-        trans_file=args.trans_fname, info_fname=args.info_fname, read_info_file=args.read_info_file)
+        raw_template=args.raw_template, trans_file=args.trans_fname, info_fname=args.info_fname,
+        read_info_file=args.read_info_file)
 
 
-def read_sensors_layout(mri_subject, args=None, overwrite_sensors=False, trans_file='', info_fname='',
+def read_sensors_layout(mri_subject, args=None, overwrite_sensors=False, raw_template='', trans_file='', info_fname='',
                         info=None, read_info_file=True):
     return meg.read_sensors_layout(
         mri_subject, args, overwrite_sensors=overwrite_sensors, pick_meg=False, pick_eeg=True,
-        trans_file=trans_file, info=info, info_fname=info_fname, read_info_file=read_info_file)
+        trans_file=trans_file, info=info, info_fname=info_fname, read_info_file=read_info_file,
+        raw_template=raw_template)
 
 
 def save_evoked_to_blender(mri_subject, events, args, evoked=None):
