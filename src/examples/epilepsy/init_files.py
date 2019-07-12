@@ -85,7 +85,7 @@ def subject_nmr01327():
     subject = 'nmr01327'
     evokes_fol = [d for d in [
         '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/epochs',
-        op.join(MEG_DIR, subject, 'evokes')] if op.isdir(d)][0]
+        op.join(MMVT_DIR, subject, 'evokes')] if op.isdir(d)][0]
     meg_fol = [d for d in [
         # '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/190626',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]

@@ -588,12 +588,12 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         t_max = times[t_ind + t_min + avg_time_crop]
         f_max = freqs[f_ind - d['min_f_ind']]
         print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, t_max, f_max))
-        return f_ind, t_ind
+        return freqs, times, f_ind, t_ind
 
 
     baseline_mean, baseline_std = load_baseline_stat()
     avg_norm_powers = load_avg_norm_powers(baseline_mean.shape[1])
-    f, t = find_max_f_t()
+    freqs, times, f, t = find_max_f_t()
 
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
     inv = mne.minimum_norm.read_inverse_operator(inv_fname)
@@ -602,8 +602,15 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         raise Exception('Can\'t read the {} labels!'.format(atlas))
 
     # labels_norm_data_fol = utils.make_dir(op.join(root_dir, 'labels_norm_all_baseline'))
-    baseline_files = glob.glob(op.join(baseline_fol, 'epilepsy_*_induced_power.npy'))
-    powers_files = glob.glob(op.join(powers_fol, 'epilepsy_*_induced_power.npy'))
+    files_list_fname = op.join(root_dir, 'labels.pkl')
+    if not op.isfile(files_list_fname):
+        baseline_files = glob.glob(op.join(baseline_fol, 'epilepsy_*_induced_power.npy'))
+        powers_files = glob.glob(op.join(powers_fol, 'epilepsy_*_induced_power.npy'))
+        utils.save((baseline_files, powers_files), files_list_fname)
+    else:
+        baseline_files, powers_files = utils.load(files_list_fname)
+    return
+
     # norm_labels_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
     #     subject, inverse_method, modality, window))
 
@@ -651,6 +658,10 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         vertices[label.hemi].extend(vertno[0] if label.hemi == 'lh' else vertno[1])
         # vertices_data[label.hemi].extend(labels_powers_per_freq_per_time)
         # del label_powers
+
+    for hemi in utils.HEMIS:
+        hemi_vertices = np.array(vertices[hemi])
+        vertices_data[hemi] = avg_norm_powers[hemi_vertices, f, :]
 
     combined_stc = meg.creating_stc_obj(
         vertices_data, vertices, subject, tmin=times[0], tstep=times[1] - times[0])
@@ -728,13 +739,12 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # 1) Sensors
         # plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
-
-        calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
-                           high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=False)
-        psplots.plot_sensors_powers(
-            subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_gamma_max,
-            percentiles=percentiles, sig_threshold=sig_threshold, save_fig=save_fig,
-            plot_baseline_stat=plot_baseline_stat, bad_channels=bad_channels, overwrite=False, parallel=False)
+        # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
+        #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=False)
+        # psplots.plot_sensors_powers(
+        #     subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_gamma_max,
+        #     percentiles=percentiles, sig_threshold=sig_threshold, save_fig=save_fig,
+        #     plot_baseline_stat=plot_baseline_stat, bad_channels=bad_channels, overwrite=False, parallel=False)
 
         # 2) calc fwd and inv
         # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
@@ -765,9 +775,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(
         #     subject, modality, specific_window, windows[0], baseline_window, avg_time_crop, run_num)
-        # calc_avg_power_specturm_stc(
-        #     subject, modality, specific_window, windows, baseline_window, avg_time_crop, run_num,
-        #     inverse_method, atlas, high_gamma_max)
+        calc_avg_power_specturm_stc(
+            subject, modality, specific_window, windows, baseline_window, avg_time_crop, run_num,
+            inverse_method, atlas, high_gamma_max)
 
         pass
 
