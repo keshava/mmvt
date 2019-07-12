@@ -534,8 +534,8 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
             subject, inverse_method, modality, power_stc_name))
         powersF = 0
 
-        if True: # not op.isfile(avg_norm_powers_fname) or overwrite:
-            avg_norm_powers = []# None
+        if not op.isfile(avg_norm_powers_fname) or overwrite:
+            avg_norm_powers = None
             now = time.time()
             for wind_ind, window_fname in enumerate(windows):
                 utils.time_to_go(now, wind_ind, len(windows), 1)
@@ -550,10 +550,10 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
                 min_f_ind = baselineF - powersF
                 norm_powers = (powers - baseline_mean[:, min_f_ind:, :]) / baseline_std[:, min_f_ind:, :]
                 norm_powers = norm_powers[:, :, avg_time_crop: -avg_time_crop]
-                # avg_norm_powers = norm_powers if avg_norm_powers is None else avg_norm_powers + norm_powers
-                avg_norm_powers.append(norm_powers)
-            # avg_norm_powers /= len(windows)
-            avg_norm_powers = np.array(avg_norm_powers).mean(0)
+                avg_norm_powers = norm_powers if avg_norm_powers is None else avg_norm_powers + norm_powers
+                # avg_norm_powers.append(norm_powers)
+            avg_norm_powers /= len(windows)
+            # avg_norm_powers = np.array(avg_norm_powers).mean(0)
             print('Saving norm_powers in {}'.format(avg_norm_powers_fname))
             np.save(avg_norm_powers_fname, avg_norm_powers)
         else:
@@ -585,15 +585,15 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         times = epi_utils.get_window_times(windows[0], downsample=2)
         times = times[avg_time_crop:-avg_time_crop]
         # t_max = np.where(times > 0.1)[0][0]
-        t_min = 0  # np.where(times > 0)[0][0]
-        x = d['max']  # [:, t_min:t_max]
+        # t_min = 0  # np.where(times > 0)[0][0]
+        # x = d['max']  # [:, t_min:t_max]
         # x = np.flip(x, 0)
-        max_val = np.max(x)
-        f_ind, t_ind = np.unravel_index(x.argmax(), x.shape)
-        t_max = t_ind + t_min
-        f_max = f_ind - d['min_f_ind']
-        print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, t_max, f_max))
-        return freqs, times, f_max, t_max, d['min_f_ind'] + 1
+        # max_val = np.max(x)
+        # f_ind, t_ind = np.unravel_index(x.argmax(), x.shape)
+        # t_max = t_ind + t_min
+        # f_max = f_ind - d['min_f_ind']
+        # print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, t_max, f_max))
+        return freqs, times, d['min_f_ind']
 
     def get_baseline_and_power_file_names():
         files_list_fname = op.join(root_dir, 'labels.pkl')
@@ -608,11 +608,22 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
     baseline_files, powers_files = get_baseline_and_power_file_names()
     baseline_mean, baseline_std = load_baseline_stat()
     avg_norm_powers = load_avg_norm_powers(baseline_mean.shape[1])
-    freqs, times, f, t, min_f = find_max_f_t()
-    return
+    freqs, times, min_f_ind = find_max_f_t()
+    min_f = min_f_ind + 1
+
+    # Plot the avg
     powers_max = np.max(avg_norm_powers, axis=0)  # over vertices
-    psplots.plot_power_spectrum(
-            powers_max, times, '', baseline_correction=False, min_f=min_f, high_gamma_max=high_gamma_max)
+    powers_min = np.min(avg_norm_powers, axis=0)  # over vertices
+
+    x = np.flip(powers_max, 0)
+    max_val = np.max(x)
+    f_max, t_max = np.unravel_index(x.argmax(), x.shape)
+    print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, times[t_max], freqs[f_max]))
+
+    psplots.plot_positive_and_negative_power_spectrum(
+        powers_min, powers_max, times, '{} {}'.format(modality, 'avg'),
+        figure_fname='', high_gamma_max=high_gamma_max, min_f=min_f,
+        show_only_sig_in_graph=True)
 
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
     inv = mne.minimum_norm.read_inverse_operator(inv_fname)

@@ -549,8 +549,8 @@ def plot_positive_and_negative_power_spectrum(
     bands = epi_utils.calc_bands(min_f, high_gamma_max)
 
     if show_only_sig_in_graph:
+        powers_positive[np.where(np.abs(powers_positive) < sig_threshold)] = 0
         powers_negative[np.where(np.abs(powers_negative) < sig_threshold)] = 0
-        powers_negative[np.where(np.abs(powers_positive) < powers_positive)] = 0
 
     min_t, max_t = round(times[0], 1), round(times[-1], 1)
     fig, axs = plt.subplots(2, 2)
