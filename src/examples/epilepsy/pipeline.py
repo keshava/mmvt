@@ -525,14 +525,17 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         subject, inverse_method, modality, utils.namebase(baseline_window)))
     powers_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
         subject, inverse_method, modality, utils.namebase(windows[0])))
+    stcs_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+    output_stc_fname = op.join(
+        stcs_fol, 'epilepsy-{}-{}-{}-avg-induced_norm_power'.format(modality, inverse_method, power_stc_name))
 
     def load_avg_norm_powers(baselineF):
         avg_norm_powers_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-avg-induced_power.npy'.format(
             subject, inverse_method, modality, power_stc_name))
         powersF = 0
 
-        if not op.isfile(avg_norm_powers_fname) or overwrite:
-            avg_norm_powers = None
+        if True: # not op.isfile(avg_norm_powers_fname) or overwrite:
+            avg_norm_powers = []# None
             now = time.time()
             for wind_ind, window_fname in enumerate(windows):
                 utils.time_to_go(now, wind_ind, len(windows), 1)
@@ -547,8 +550,10 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
                 min_f_ind = baselineF - powersF
                 norm_powers = (powers - baseline_mean[:, min_f_ind:, :]) / baseline_std[:, min_f_ind:, :]
                 norm_powers = norm_powers[:, :, avg_time_crop: -avg_time_crop]
-                avg_norm_powers = norm_powers if avg_norm_powers is None else avg_norm_powers + norm_powers
-            avg_norm_powers /= len(windows)
+                # avg_norm_powers = norm_powers if avg_norm_powers is None else avg_norm_powers + norm_powers
+                avg_norm_powers.append(norm_powers)
+            # avg_norm_powers /= len(windows)
+            avg_norm_powers = np.array(avg_norm_powers).mean(0)
             print('Saving norm_powers in {}'.format(avg_norm_powers_fname))
             np.save(avg_norm_powers_fname, avg_norm_powers)
         else:
@@ -560,8 +565,7 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
             subject, inverse_method, modality, utils.namebase(baseline_window)))
         if not op.isfile(baseline_stat_fname) or overwrite:
             baseline = epi_utils.concatenate_powers(baseline_fol)  # (vertices x freqs x time)
-            baseline_std = np.std(baseline, axis=2,
-                                  keepdims=True)  # the standard deviation (over time) of log baseline values
+            baseline_std = np.std(baseline, axis=2, keepdims=True)  # the standard deviation (over time) of log baseline values
             baseline_mean = np.mean(baseline, axis=2, keepdims=True)  # the mean (over time) of log baseline values
         else:
             d = np.load(baseline_stat_fname)
@@ -579,16 +583,17 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         d = np.load(window_output_fname)
         freqs = epi_utils.get_freqs(d['min_f_ind'] + 1, high_gamma_max)
         times = epi_utils.get_window_times(windows[0], downsample=2)
+        times = times[avg_time_crop:-avg_time_crop]
         # t_max = np.where(times > 0.1)[0][0]
         t_min = 0  # np.where(times > 0)[0][0]
         x = d['max']  # [:, t_min:t_max]
-        x_flip = np.flip(x, 0)
+        # x = np.flip(x, 0)
         max_val = np.max(x)
         f_ind, t_ind = np.unravel_index(x.argmax(), x.shape)
-        t_max = times[t_ind + t_min + avg_time_crop]
-        f_max = freqs[f_ind - d['min_f_ind']]
+        t_max = t_ind + t_min
+        f_max = f_ind - d['min_f_ind']
         print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, t_max, f_max))
-        return freqs, times, f_ind, t_ind
+        return freqs, times, f_max, t_max, d['min_f_ind'] + 1
 
     def get_baseline_and_power_file_names():
         files_list_fname = op.join(root_dir, 'labels.pkl')
@@ -601,10 +606,13 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         return baseline_files, powers_files
 
     baseline_files, powers_files = get_baseline_and_power_file_names()
-    return
     baseline_mean, baseline_std = load_baseline_stat()
     avg_norm_powers = load_avg_norm_powers(baseline_mean.shape[1])
-    freqs, times, f, t = find_max_f_t()
+    freqs, times, f, t, min_f = find_max_f_t()
+    return
+    powers_max = np.max(avg_norm_powers, axis=0)  # over vertices
+    psplots.plot_power_spectrum(
+            powers_max, times, '', baseline_correction=False, min_f=min_f, high_gamma_max=high_gamma_max)
 
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
     inv = mne.minimum_norm.read_inverse_operator(inv_fname)
@@ -612,69 +620,33 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
     if len(labels) == 0:
         raise Exception('Can\'t read the {} labels!'.format(atlas))
 
-    # labels_norm_data_fol = utils.make_dir(op.join(root_dir, 'labels_norm_all_baseline'))
-
-    # norm_labels_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
-    #     subject, inverse_method, modality, window))
-
-    vertices, vertices_data = defaultdict(list), defaultdict(list)
-    # labels_data = []
+    vertices, data_indices  = defaultdict(list), defaultdict(list)
     start_ind = 0
-    all_files_exist = False
-    now = time.time()
     for file_ind, (baseline_fname, powers_fname) in enumerate(zip(baseline_files, powers_files)):
-        if not all_files_exist:
-            utils.time_to_go(now, file_ind, len(baseline_files), 1)
         baseline_label_name = utils.namebase(baseline_fname).split('_')[1]
         powers_label_name = utils.namebase(powers_fname).split('_')[1]
         if baseline_label_name != powers_label_name:
             raise Exception('ASDGF@#Q%EGF#Q$T')
         label_name = powers_label_name
         label = [l for l in labels if l.name == label_name][0]
-        # label_fname = op.join(labels_norm_data_fol, '{}-epilepsy-{}-{}-{}-{}-norm-induced_power.npy'.format(
-        #     subject, inverse_method, modality, window, label_name))
         vertno, src_sel = mne.minimum_norm.inverse.label_src_vertno_sel(label, inv['src'])
-        # if not op.isfile(label_fname):
-        #     print('Reading norm_powers ({}) from {}:{} for label {}'.format(
-        #         norm_powers.shape[0], start_ind, start_ind+len(src_sel), label.name))
-        #     label_powers = norm_powers[start_ind: start_ind+len(src_sel)]
-        #     np.save(label_fname, label_powers)
-        # else:
-        #     label_powers = np.load(label_fname, mmap_mode='r')
-        # labels_powers_per_freq_per_time = label_powers[:, f, t]
-        # if start_ind <= vertices_ind < start_ind+len(src_sel):
-        #     print('vertices_ind: label {}, for {}Hz and {:.3f}s: {}'.format(
-        #         label_name, freqs[f], times[t], label_powers[vertices_ind - start_ind, f, t]))
-        #     if label_powers[vertices_ind - start_ind, f, t] != max_val:
-        #         raise Exception('@#%$#$%@#$%@#$%@%$')
-        # if np.isclose(max_val, np.max(labels_powers_per_freq_per_time)):
-        #     print('isclose: label {}, for {}Hz and {:.3f}s: {}'.format(
-        #         label_name, freqs[f], times[t], np.max(labels_powers_per_freq_per_time)))
-        # label_powers = avg_norm_powers[start_ind: start_ind + len(src_sel), f, t]
-        # if start_ind <= vertices_ind < start_ind+len(src_sel):
-        #     print('vertices_ind: label {}, for {}Hz and {:.3f}s: {}'.format(
-        #         label_name, freqs[f], times[t], label_powers[vertices_ind - start_ind, f, t]))
-
-        # labels_powers_per_freq_per_time = label_powers[:, f, t]
-
-        # start_ind += len(src_sel)
+        data_indices[label.hemi].extend(range(start_ind, start_ind + len(src_sel)))
         vertices[label.hemi].extend(vertno[0] if label.hemi == 'lh' else vertno[1])
-        # vertices_data[label.hemi].extend(labels_powers_per_freq_per_time)
-        # del label_powers
+        start_ind += len(src_sel)
 
+    f_max = np.argmax([np.max(avg_norm_powers[:, f, :]) for f in range(len(freqs))])
+    t_max = np.argmax([np.max(avg_norm_powers[:, f_max, t]) for t in range(len(times))])
+    print('avg_norm_powers max: {:.3f} at {:.2f}s and {}Hz'.format(
+        np.max(avg_norm_powers[:, f_max, t_max]), times[t_max], freqs[f_max]))
+    vertices_data = {}
     for hemi in utils.HEMIS:
-        hemi_vertices = np.array(vertices[hemi])
-        vertices_data[hemi] = avg_norm_powers[hemi_vertices, f, :]
+        hemi_data_indices = np.array(data_indices[hemi])
+        vertices_data[hemi] = avg_norm_powers[hemi_data_indices, f_max, t_max]
 
     combined_stc = meg.creating_stc_obj(
         vertices_data, vertices, subject, tmin=times[0], tstep=times[1] - times[0])
-    output_stc_fname = op.join(
-        MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg',
-        'epilepsy-{}-{}-{:.3f}s-{}Hz-{}-induced_norm_power'.format(
-            modality, window, times[t], freqs[f], inverse_method))
-    print('Saving stc file for t {} and f {} in {}'.format(t, f, output_stc_fname))
+    print('Saving stc file in {}'.format(output_stc_fname))
     combined_stc.save(output_stc_fname)
-
 
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
@@ -814,7 +786,7 @@ if __name__ == '__main__':
     from src.examples.epilepsy import init_files
     from src.utils import args_utils as au
 
-    modalities = ['meg', 'eeg'] # ['meg', 'eeg', 'meeg']
+    modalities = ['meg'] # ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     atlas = 'aparc.DKTatlas40'

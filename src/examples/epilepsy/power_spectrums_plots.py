@@ -397,13 +397,14 @@ def _plot_max_powers_parllel(p):
 
 # @utils.tryit()
 def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True, baseline_correction=True,
-                        xlabel='Time (s)', title='', high_gamma_max=120, vmin=None, vmax=None, freqs=None, bands=None):
+                        xlabel='Time (s)', title='', high_gamma_max=120, vmin=None, vmax=None, freqs=None, bands=None,
+                        min_f=1):
     # powers: (freqs x time)
     powers = powers.astype(np.float32).squeeze()
     F, T = powers.shape
-    if freqs is None and bands is None and F not in [88, 52]:
-        powers = powers.T
-        F, T = powers.shape
+    # if freqs is None and bands is None and F not in [88, 52]:
+    #     powers = powers.T
+    #     F, T = powers.shape
     if times is None:
         times = np.arange(powers.shape[1])
     min_t, max_t = times[0], times[-1]
@@ -412,16 +413,18 @@ def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True
     if baseline_correction:
         powers -= np.mean(powers[:, 0])
 
-    if freqs is None and bands is None:
-        if F == 88:
-            freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 305, 5)])
-            bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[55, 120],
-                         hfo=[120, 300])
-        elif F == 52:
-            freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-            bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
-        else:
-            raise Exception('Not supported number of freqs ({})!'.format(F))
+    if freqs is None or bands is None:
+        freqs = epi_utils.get_freqs(min_f, high_gamma_max)
+        bands = epi_utils.calc_bands(min_f, high_gamma_max)
+        # if F == 88:
+        #     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 305, 5)])
+        #     bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[55, 120],
+        #                  hfo=[120, 300])
+        # elif F == 52:
+        #     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
+        #     bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+        # else:
+        #     raise Exception('Not supported number of freqs ({})!'.format(F))
     if F != len(freqs):
         print('powers.shape[0] ({}) != len(freqs) ({})!!!'.format(powers.shape[0], len(freqs)))
         return
@@ -534,29 +537,6 @@ def _plot_powers(powers, ax, xaxis=None, freqs=None, cmap_vmin_vmax=None, high_g
     return im
 
 
-def calc_bands(min_f=1, high_gamma_max=120):
-    if min_f < 4:
-        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
-    elif min_f < 8:
-        bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
-    elif min_f < 15:
-        bands = dict(alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
-    elif min_f < 30:
-        bands = dict(beta=[15, 30], gamma=[30, 55])
-    elif min_f < 55:
-        bands = dict(gamma=[30, 55])
-    else:
-        raise Exception('min_f is too big!')
-
-    if high_gamma_max <= 120:
-        bands['high_gamma'] = [55, high_gamma_max]
-    else:
-        bands['high_gamma'] = [55, 120]
-        bands['hfo'] = [120, high_gamma_max]
-
-    return bands
-
-
 def plot_positive_and_negative_power_spectrum(
         powers_negative, powers_positive, times, title='', figure_fname='',
         only_power_spectrum=True, show_only_sig_in_graph=True, sig_threshold=2, high_gamma_max=120,
@@ -565,8 +545,8 @@ def plot_positive_and_negative_power_spectrum(
     YlOrRd = cmu.create_YlOrRd_cm()
     PuBu = cmu.create_PuBu_cm()
 
-    freqs = np.concatenate([np.arange(min_f, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-    bands = calc_bands(min_f, high_gamma_max)
+    freqs = epi_utils.get_freqs(min_f, high_gamma_max)
+    bands = epi_utils.calc_bands(min_f, high_gamma_max)
 
     if show_only_sig_in_graph:
         powers_negative[np.where(np.abs(powers_negative) < sig_threshold)] = 0
