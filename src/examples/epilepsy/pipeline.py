@@ -590,7 +590,18 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(max_val, t_max, f_max))
         return freqs, times, f_ind, t_ind
 
+    def get_baseline_and_power_file_names():
+        files_list_fname = op.join(root_dir, 'labels.pkl')
+        if not op.isfile(files_list_fname):
+            baseline_files = glob.glob(op.join(baseline_fol, 'epilepsy_*_induced_power.npy'))
+            powers_files = glob.glob(op.join(powers_fol, 'epilepsy_*_induced_power.npy'))
+            utils.save((baseline_files, powers_files), files_list_fname)
+        else:
+            baseline_files, powers_files = utils.load(files_list_fname)
+        return baseline_files, powers_files
 
+    baseline_files, powers_files = get_baseline_and_power_file_names()
+    return
     baseline_mean, baseline_std = load_baseline_stat()
     avg_norm_powers = load_avg_norm_powers(baseline_mean.shape[1])
     freqs, times, f, t = find_max_f_t()
@@ -602,14 +613,6 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
         raise Exception('Can\'t read the {} labels!'.format(atlas))
 
     # labels_norm_data_fol = utils.make_dir(op.join(root_dir, 'labels_norm_all_baseline'))
-    files_list_fname = op.join(root_dir, 'labels.pkl')
-    if not op.isfile(files_list_fname):
-        baseline_files = glob.glob(op.join(baseline_fol, 'epilepsy_*_induced_power.npy'))
-        powers_files = glob.glob(op.join(powers_fol, 'epilepsy_*_induced_power.npy'))
-        utils.save((baseline_files, powers_files), files_list_fname)
-    else:
-        baseline_files, powers_files = utils.load(files_list_fname)
-    return
 
     # norm_labels_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
     #     subject, inverse_method, modality, window))
