@@ -667,6 +667,7 @@ def calc_avg_power_specturm_stc(
 def calc_labels_connectivity(
         subject, windows, condition, modality, atlas='lasu125', inverse_method='dSPM', low_freq=1, high_freq=120,
         con_method='wpli2_debiased', con_mode='cwt_morlet', n_jobs=6):
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     if modality == 'meg':
         fwd_usingMEG, fwd_usingEEG = True, False
     elif modality == 'eeg':
@@ -675,7 +676,8 @@ def calc_labels_connectivity(
         fwd_usingMEG, fwd_usingEEG = True, True
     freqs = epi_utils.get_freqs(low_freq, high_freq)
     bands = epi_utils.calc_bands(low_freq, high_freq)
-    epochs = epi_utils.combine_windows_into_epochs(windows)
+    epochs = epi_utils.combine_windows_into_epochs(windows, op.join(
+        root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, condition)))
     meg.calc_labels_connectivity(
         subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
         pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,

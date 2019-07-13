@@ -211,7 +211,7 @@ def move_non_zvals_stcs(subject, modality):
         utils.move_file(stc_fname, non_zvlas_fol, overwrite=True)
 
 
-def combine_windows_into_epochs(windows):
+def combine_windows_into_epochs(windows, epochs_fname=''):
     epochs_list, info = [], None
     for window_fname in windows:
         window_name = utils.namebase(window_fname)
@@ -228,4 +228,7 @@ def combine_windows_into_epochs(windows):
             evoked.data.reshape((1, C, T)), evoked.info, np.array([[0, 0, 1]]), 0, 1)[0]
         epochs_list.append(epoch)
     epochs = mne.concatenate_epochs(epochs_list, True)
+    if epochs_fname != '':
+        print('Saving epochs to {}'.format(epochs_fname))
+        epochs.save(epochs_fname)
     return epochs
