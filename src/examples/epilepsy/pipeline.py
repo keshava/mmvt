@@ -682,8 +682,8 @@ def calc_labels_connectivity(
     meg.calc_labels_connectivity(
         subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
         pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
-        con_method=con_method, con_mode=con_mode, cwt_n_cycles=7, overwrite_connectivity=False,
-        epochs=epochs, bands=bands, cwt_frequencies=freqs, overwrite_connectivity=overwrite, n_jobs=n_jobs)
+        con_method=con_method, con_mode=con_mode, cwt_n_cycles=7, overwrite_connectivity=overwrite,
+        epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=n_jobs)
 
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
