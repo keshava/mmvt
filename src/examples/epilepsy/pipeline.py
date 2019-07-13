@@ -675,6 +675,7 @@ def calc_labels_connectivity(
     else:
         fwd_usingMEG, fwd_usingEEG = True, True
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
+
     freqs = epi_utils.get_freqs(low_freq, high_freq)
     bands = epi_utils.calc_bands(low_freq, high_freq)
     epochs = epi_utils.combine_windows_into_epochs(windows, op.join(
