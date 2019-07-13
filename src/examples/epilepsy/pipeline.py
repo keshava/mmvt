@@ -839,7 +839,7 @@ if __name__ == '__main__':
     if len(runs) == 0 or no_runs:
         print('No run were found!')
         runs = ['01']
-    n_jobs = 1# utils.get_n_jobs(-5)
+    n_jobs = 32# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     specific_window = 'R', # 'baseline_run1_195.7_12sec' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = ['baseline_run1_SHORT_600ms']
