@@ -664,8 +664,9 @@ def calc_avg_power_specturm_stc(
     combined_stc.save(output_stc_fname)
 
 
-def calc_labels_connectivity(subject, windows, condition, modality, inverse_method='dSPM', low_freq=1, high_freq=120,
-                             con_method='wpli2_debiased', con_mode='cwt_morlet', n_jobs=6):
+def calc_labels_connectivity(
+        subject, windows, condition, modality, atlas='lasu125', inverse_method='dSPM', low_freq=1, high_freq=120,
+        con_method='wpli2_debiased', con_mode='cwt_morlet', n_jobs=6):
     if modality == 'meg':
         fwd_usingMEG, fwd_usingEEG = True, False
     elif modality == 'eeg':
@@ -679,7 +680,7 @@ def calc_labels_connectivity(subject, windows, condition, modality, inverse_meth
         subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
         pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
         con_method=con_method, con_mode=con_mode, cwt_n_cycles=7, overwrite_connectivity=False,
-        epochs=None, bands=bands, cwt_frequencies=freqs, n_jobs=n_jobs)
+        epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=n_jobs)
 
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
@@ -787,8 +788,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     inverse_method, atlas, high_gamma_max)
 
         # 5) Connectivity
-        calc_labels_connectivity(subject, windows, specific_window, modality, inverse_method, low_freq=1, high_freq=120,
-                                 con_method='wpli2_debiased', con_mode='cwt_morlet', n_jobs=n_jobs)
+        calc_labels_connectivity(
+            subject, windows, specific_window, modality, atlas='lasu125', inverse_method=inverse_method,
+            low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_jobs=n_jobs)
         pass
 
     # find_vertices(subject, run_num)
