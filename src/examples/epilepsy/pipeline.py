@@ -796,7 +796,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # 5) Connectivity
         calc_labels_connectivity(
             subject, windows, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
-            low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='multitaper', n_cycles=2,
+            low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=2,
             overwrite=True, n_jobs=n_jobs)
         pass
 
