@@ -679,7 +679,7 @@ def calc_labels_connectivity(
     epochs = epi_utils.combine_windows_into_epochs(windows, op.join(
         root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, condition)))
     freqs = meg.calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120)
-    bands = epi_utils.calc_bands(freqs[0], high_freq, as_dict=False)
+    bands = epi_utils.calc_bands(freqs[0], high_freq)
 
     meg.calc_labels_connectivity(
         subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
