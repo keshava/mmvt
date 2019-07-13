@@ -774,8 +774,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                         do_plot=True, overwrite=True)
 
         # 4) Induced power
-        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-                           overwrite=True)
+        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+        #                    overwrite=True)
         # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
         #         overwrite=False)
         # psplots.plot_baseline_source_powers(
@@ -794,10 +794,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     inverse_method, atlas, high_gamma_max)
 
         # 5) Connectivity
-        # calc_labels_connectivity(
-        #     subject, windows, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
-        #     low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=2,
-        #     overwrite=True, n_jobs=n_jobs)
+        calc_labels_connectivity(
+            subject, windows, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
+            low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=2,
+            overwrite=True, n_jobs=n_jobs)
         pass
 
     # find_vertices(subject, run_num)
@@ -850,7 +850,7 @@ if __name__ == '__main__':
         runs = ['01']
     n_jobs = 32# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = '' # 'baseline_run1_195.7_12sec' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_window = 'L' # 'baseline_run1_195.7_12sec' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = ['baseline_run1_SHORT_600ms']
     for run in runs:
         # if run != 'run1':
