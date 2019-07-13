@@ -1141,6 +1141,14 @@ def calc_labels_connectivity(
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'], surf_name='pial',
         con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, overwrite_connectivity=False,
         raw=None, epochs=None, src=None, bands=None, cwt_frequencies=None, n_jobs=6):
+    if fwd_usingMEG and fwd_usingEEG:
+        modality = 'meeg'
+    elif fwd_usingMEG and not fwd_usingEEG:
+        modality = 'meg'
+    elif not fwd_usingMEG and fwd_usingEEG:
+        modality = 'eeg'
+    else:
+        raise Exception('fwd_usingMEG and fwd_usingEEG are False!')
     if mri_subject == '':
         mri_subject = subject
     if subjects_dir == '':
@@ -1164,7 +1172,7 @@ def calc_labels_connectivity(
     ret = True
     first_time = True
     for cond_name, em in product(events_keys, extract_modes):
-        output_fname = op.join(fol, '{}_{}_{}_{}.npz'.format(cond_name, em, con_method, con_mode))
+        output_fname = op.join(fol, '{}_{}_{}_{}_{}.npz'.format(cond_name, modality, em, con_method, con_mode))
         if op.isfile(output_fname) and not overwrite_connectivity:
             print('{} already exist'.format(output_fname))
             continue
