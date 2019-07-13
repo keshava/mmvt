@@ -2398,7 +2398,8 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                 if epochs is None:
                     # epo_fname = epo_fname.format(cond=cond_name)
                     epo_fname = get_cond_fname(epo_fname, cond_name)
-                    if not op.isfile(epo_fname):
+                    # todo: change that!!!
+                    if True: #not op.isfile(epo_fname):
                         if single_trial_stc:
                             print('single_trial_stc=True and no epochs file was found!')
                             return False, stcs, stcs_num
@@ -2415,7 +2416,8 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                     stcs[cond_name] = mne.minimum_norm.apply_inverse_epochs(
                         epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
                 if calc_source_band_induced_power:
-                    if epochs is None and evoked is not None:
+                    # todo: add a flag
+                    if not evoked is None: #  epochs is None and
                         C, T = evoked.data.shape
                         epochs = mne.EpochsArray(
                             evoked.data.reshape((1, C, T)), evoked.info, np.array([[0, 0, 1]]), 0, 1)
@@ -2727,7 +2729,7 @@ def calc_induced_power(subject, epochs, atlas, task, inverse_operator, lambda2, 
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
     # if bands is None or bands == '':
-    min_delta = 1 if n_cycles <= 2 else 2
+    # min_delta = 1 if n_cycles <= 2 else 2
     max_high_gamma = 120 # 300
     # bands = dict(delta=[min_delta, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, max_high_gamma])
     # freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, max_high_gamma + 5, 5)])

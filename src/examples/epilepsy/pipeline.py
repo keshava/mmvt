@@ -774,8 +774,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                         do_plot=True, overwrite=True)
 
         # 4) Induced power
-        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-        #                    overwrite=True)
+        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+                           overwrite=True)
         # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
         #         overwrite=False)
         # psplots.plot_baseline_source_powers(
@@ -794,10 +794,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     inverse_method, atlas, high_gamma_max)
 
         # 5) Connectivity
-        calc_labels_connectivity(
-            subject, windows, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
-            low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=2,
-            overwrite=True, n_jobs=n_jobs)
+        # calc_labels_connectivity(
+        #     subject, windows, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
+        #     low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=2,
+        #     overwrite=True, n_jobs=n_jobs)
         pass
 
     # find_vertices(subject, run_num)
