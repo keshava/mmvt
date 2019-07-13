@@ -2353,7 +2353,7 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                            induced_power_normalize_proj=True, n_jobs=6):
     # todo: If the evoked is the raw (no events), we need to seperate it into N events with different ids, to avoid memory error
     # Other options is to use calc_labels_avg_for_rest
-    # epo_fname = get_epo_fname(epo_fname)
+    epo_fname = get_epo_fname(epo_fname)
     evo_fname = get_evo_fname(evo_fname)
     inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
     if fwd_usingMEG and fwd_usingEEG:
