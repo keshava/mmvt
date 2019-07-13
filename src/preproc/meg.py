@@ -1134,7 +1134,7 @@ def calc_labels_power_bands(mri_subject, atlas, events, inverse_method='dSPM', e
     return ret
 
 
-@utils.tryit()
+@utils.tryit(throw_exception=True)
 def calc_labels_connectivity(
         subject, atlas, events, mri_subject='', subjects_dir='', mmvt_dir='', inverse_method='dSPM',
         epo_fname='', inv_fname='', raw_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
