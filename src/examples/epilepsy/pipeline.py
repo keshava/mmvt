@@ -678,14 +678,15 @@ def calc_labels_connectivity(
 
     epochs = epi_utils.combine_windows_into_epochs(windows, op.join(
         root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, condition)))
-    freqs = meg.calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120)
-    bands = epi_utils.calc_bands(freqs[0], high_freq)
+    # freqs = meg.calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120)
+    freqs = epi_utils.get_freqs(10, high_freq)
+    bands = epi_utils.calc_bands(10, high_freq)
 
     meg.calc_labels_connectivity(
         subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
         pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
         con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=overwrite,
-        epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=n_jobs)
+        epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=1)
 
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
@@ -795,7 +796,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # 5) Connectivity
         calc_labels_connectivity(
             subject, windows, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
-            low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=2,
+            low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='multitaper', n_cycles=2,
             overwrite=True, n_jobs=n_jobs)
         pass
 
