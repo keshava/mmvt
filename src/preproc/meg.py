@@ -1150,7 +1150,7 @@ def calc_labels_connectivity(
     if inv_fname == '':
         inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
     if epochs is None:
-    epo_fname = get_epo_fname(epo_fname)
+        epo_fname = get_epo_fname(epo_fname)
     if isinstance(extract_modes, str):
         extract_modes = [extract_modes]
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) and len(events) > 0 \
