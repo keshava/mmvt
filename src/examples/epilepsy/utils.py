@@ -226,5 +226,5 @@ def combine_windows_into_epochs(windows):
                 continue
         evokes_data.append(evoked.data)
     evokes_data = np.array(evokes_data)
-    epochs = mne.EpochsArray(evokes_data, info, np.array([[0, 0, 1]] * evokes_data.shape[0]), 0, 1)
+    epochs = mne.EpochsArray(evokes_data, info, np.array([ind, 0, 1] for ind in range(evokes_data.shape[0])), 0, 1)
     return epochs
