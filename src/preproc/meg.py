@@ -1149,6 +1149,7 @@ def calc_labels_connectivity(
         mmvt_dir = MMVT_DIR
     if inv_fname == '':
         inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
+    if epochs is None:
     epo_fname = get_epo_fname(epo_fname)
     if isinstance(extract_modes, str):
         extract_modes = [extract_modes]

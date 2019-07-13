@@ -674,13 +674,14 @@ def calc_labels_connectivity(
         fwd_usingMEG, fwd_usingEEG = False, True
     else:
         fwd_usingMEG, fwd_usingEEG = True, True
+    inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
     freqs = epi_utils.get_freqs(low_freq, high_freq)
     bands = epi_utils.calc_bands(low_freq, high_freq)
     epochs = epi_utils.combine_windows_into_epochs(windows, op.join(
         root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, condition)))
     meg.calc_labels_connectivity(
         subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
-        pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
+        pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
         con_method=con_method, con_mode=con_mode, cwt_n_cycles=7, overwrite_connectivity=False,
         epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=n_jobs)
 
