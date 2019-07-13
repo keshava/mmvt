@@ -212,7 +212,7 @@ def move_non_zvals_stcs(subject, modality):
 
 
 def combine_windows_into_epochs(windows):
-    evokes_data, info = [], None
+    epochs_list, info = [], None
     for window_fname in windows:
         window_name = utils.namebase(window_fname)
         evoked = mne.read_evokeds(window_fname)[0]
@@ -224,7 +224,8 @@ def combine_windows_into_epochs(windows):
             if _C != C or _T != T:
                 print('{}: dims mismatch! {} != {} or {} != {}'.format(window_name, _C, C, _T, T))
                 continue
-        evokes_data.append(evoked.data)
-    evokes_data = np.array(evokes_data)
-    epochs = mne.EpochsArray(evokes_data, info, np.array([ind, 0, 1] for ind in range(evokes_data.shape[0])), 0, 1)
+        epoch = mne.EpochsArray(
+            evoked.data.reshape((1, C, T)), evoked.info, np.array([[0, 0, 1]]), 0, 1)[0]
+        epochs_list.append(epoch)
+    epochs = mne.concatenate_epochs(epochs_list, True)
     return epochs
