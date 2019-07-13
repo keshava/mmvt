@@ -665,7 +665,7 @@ def calc_avg_power_specturm_stc(
 
 
 def calc_labels_connectivity(
-        subject, windows, condition, modality, atlas='lasu125', inverse_method='dSPM', low_freq=1, high_freq=120,
+        subject, windows, condition, modality, atlas='laus125', inverse_method='dSPM', low_freq=1, high_freq=120,
         con_method='wpli2_debiased', con_mode='cwt_morlet', n_jobs=6):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     if modality == 'meg':
@@ -792,7 +792,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
         # 5) Connectivity
         calc_labels_connectivity(
-            subject, windows, specific_window, modality, atlas='lasu125', inverse_method=inverse_method,
+            subject, windows, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
             low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_jobs=n_jobs)
         pass
 
