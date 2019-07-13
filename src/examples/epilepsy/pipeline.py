@@ -514,8 +514,9 @@ def calc_stc_power_specturm(subject, modality, power_stc_name, window_fname, bas
     combined_stc.save(output_stc_fname)
 
 
-def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, baseline_window, avg_time_crop, run_num,
-                            inverse_method='dSPM', atlas='aparc.DKTatlas40', high_gamma_max=120, overwrite=False):
+def calc_avg_power_specturm_stc(
+        subject, modality, power_stc_name, windows, baseline_window, avg_time_crop, run_num,
+        inverse_method='dSPM', atlas='aparc.DKTatlas40', high_gamma_max=120, overwrite=False):
     from src.utils import labels_utils as lu
     from collections import defaultdict
     import time
@@ -663,6 +664,24 @@ def calc_avg_power_specturm_stc(subject, modality, power_stc_name, windows, base
     combined_stc.save(output_stc_fname)
 
 
+def calc_labels_connectivity(subject, windows, condition, modality, inverse_method='dSPM', low_freq=1, high_freq=120,
+                             con_method='wpli2_debiased', con_mode='cwt_morlet', n_jobs=6):
+    if modality == 'meg':
+        fwd_usingMEG, fwd_usingEEG = True, False
+    elif modality == 'eeg':
+        fwd_usingMEG, fwd_usingEEG = False, True
+    else:
+        fwd_usingMEG, fwd_usingEEG = True, True
+    freqs = epi_utils.get_freqs(low_freq, high_freq)
+    bands = epi_utils.calc_bands(low_freq, high_freq)
+    epochs = epi_utils.combine_windows_into_epochs(windows)
+    meg.calc_labels_connectivity(
+        subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
+        pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
+        con_method=con_method, con_mode=con_mode, cwt_n_cycles=7, overwrite_connectivity=False,
+        epochs=None, bands=bands, cwt_frequencies=freqs, n_jobs=n_jobs)
+
+
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
          inverse_method='dSPM', specific_window='', exclude_windows=[], no_runs=False, recursive=False,
@@ -748,8 +767,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                         do_plot=True, overwrite=True)
 
         # 4) Induced power
-        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-                           overwrite=True)
+        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+        #                    overwrite=True)
         # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
         #         overwrite=False)
         # psplots.plot_baseline_source_powers(
@@ -767,6 +786,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     subject, modality, specific_window, windows, baseline_window, avg_time_crop, run_num,
         #     inverse_method, atlas, high_gamma_max)
 
+        # 5) Connectivity
+        calc_labels_connectivity(subject, windows, specific_window, modality, inverse_method, low_freq=1, high_freq=120,
+                                 con_method='wpli2_debiased', con_mode='cwt_morlet', n_jobs=n_jobs)
         pass
 
     # find_vertices(subject, run_num)
@@ -819,7 +841,7 @@ if __name__ == '__main__':
         runs = ['01']
     n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_window = 'baseline_run1_195.7_12sec' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_window = 'R', # 'baseline_run1_195.7_12sec' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = ['baseline_run1_SHORT_600ms']
     for run in runs:
         # if run != 'run1':

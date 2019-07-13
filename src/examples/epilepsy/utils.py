@@ -209,3 +209,22 @@ def move_non_zvals_stcs(subject, modality):
                  if '-epilepsy-' in utils.namebase(f) and not '-zvals-' in utils.namebase(f)]
     for stc_fname in stc_files:
         utils.move_file(stc_fname, non_zvlas_fol, overwrite=True)
+
+
+def combine_windows_into_epochs(windows):
+    evokes_data, info = [], None
+    for window_fname in windows:
+        window_name = utils.namebase(window_fname)
+        evoked = mne.read_evokeds(window_fname)[0]
+        if info is None:
+            C, T = evoked.data.shape
+            info = evoked.info
+        else:
+            _C, _T = evoked.data.shape
+            if _C != C or _T != T:
+                print('{}: dims mismatch! {} != {} or {} != {}'.format(window_name, _C, C, _T, T))
+                continue
+        evokes_data.append(evoked.data)
+    evokes_data = np.array(evokes_data)
+    epochs = mne.EpochsArray(evokes_data, info, np.array([[0, 0, 1]]), 0, 1)
+    return epochs
