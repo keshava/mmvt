@@ -799,14 +799,14 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #                         do_plot=True, overwrite=True)
 
         # 4) Induced power
-        # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
-        #                    overwrite=True)
+        calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
+                           overwrite=True)
         # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
         #         overwrite=False)
         # psplots.plot_baseline_source_powers(
         #     subject, baseline_window, modality, inverse_method, high_gamma_max, figures_type, overwrite_plots)
-        psplots.plot_norm_powers(
-            subject, windows, baseline_window, modality, inverse_method, figures_type=figures_type, overwrite=True)
+        # psplots.plot_norm_powers(
+        #     subject, windows, baseline_window, modality, inverse_method, figures_type=figures_type, overwrite=True)
         # psplots.average_norm_powers(
         #     subject, windows, modality, specific_window, inverse_method, avg_time_crop, overwrite=True,
         #     figures_type=figures_type)
@@ -876,8 +876,8 @@ if __name__ == '__main__':
     n_jobs = 32# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     specific_window = '' # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
-    exclude_windows = ['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
-                       'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
+    exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
+                       # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:
         # if run != 'run1':
         #     continue
