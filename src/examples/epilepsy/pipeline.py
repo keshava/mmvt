@@ -339,9 +339,9 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
         print('Files needed to recalc:')
         for ind, fname in enumerate(files_to_calc):
             print('{}: {}'.format(ind + 1, fname))
-        ret = input('Do you want to continue (y/n)? ')
-        if not au.is_true(ret):
-            return
+        # ret = input('Do you want to continue (y/n)? ')
+        # if not au.is_true(ret):
+        #     return
     # output_fname = op.join(MMVT_DIR, 'eeg' if modality == 'eeg' else 'meg', '{}-epilepsy-{}-{}-{}_{}'.format(
     #     subject, inverse_method, modality, '{window}', '{band}'))
     for window_fname in windows_fnames:
