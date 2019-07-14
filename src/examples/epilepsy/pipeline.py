@@ -331,15 +331,13 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
 
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
-    output_fname = op.join(MMVT_DIR, 'eeg' if modality == 'eeg' else 'meg', '{}-epilepsy-{}-{}-{}_{}'.format(
-        subject, inverse_method, modality, '{window}', '{band}'))
+    # output_fname = op.join(MMVT_DIR, 'eeg' if modality == 'eeg' else 'meg', '{}-epilepsy-{}-{}-{}_{}'.format(
+    #     subject, inverse_method, modality, '{window}', '{band}'))
     for window_fname in windows_fnames:
         print('{} {} {}:'.format(subject, modality, utils.namebase(window_fname)))
         if files_exist(window_fname):
             print('Already exist')
-        else:
-            print('Need to recalculate')
-        continue
+            continue
         args = module.read_cmd_args(dict(
             subject=subject,
             mri_subject=subject,
