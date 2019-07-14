@@ -2728,6 +2728,9 @@ def calc_induced_power(subject, epochs, atlas, task, inverse_operator, lambda2, 
                        modality='meg', df=1, n_cycles=2, downsample=2, n_jobs=6):
     # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_source_space_time_frequency.html
     from mne.minimum_norm import source_band_induced_power
+    if epochs is None:
+        print('epochs are None!!')
+        return False
     # if bands is None or bands == '':
     # min_delta = 1 if n_cycles <= 2 else 2
     max_high_gamma = 120 # 300
