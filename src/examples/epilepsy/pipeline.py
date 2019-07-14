@@ -331,6 +331,17 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
 
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
+    files_to_calc = [utils.namebase(window_fname) for window_fname in windows_fnames if not files_exist(window_fname)]
+    if len(files_to_calc) == 0:
+        print('All files exist!')
+        return
+    else:
+        print('Files needed to recalc:')
+        for ind, fname in enumerate(files_to_calc):
+            print('{}: {}'.format(ind + 1, fname))
+        ret = input('Do you want to continue (y/n)? ')
+        if not au.is_true(ret):
+            return
     # output_fname = op.join(MMVT_DIR, 'eeg' if modality == 'eeg' else 'meg', '{}-epilepsy-{}-{}-{}_{}'.format(
     #     subject, inverse_method, modality, '{window}', '{band}'))
     for window_fname in windows_fnames:
