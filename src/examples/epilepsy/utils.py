@@ -90,7 +90,8 @@ def get_window_times(window_fname, downsample=2):
 
 
 def get_freqs(low_freq=1, high_freqs=120):
-    return np.concatenate([np.arange(low_freq, 30), np.arange(31, 60, 3), np.arange(60, high_freqs + 5, 5)])
+    # return np.concatenate([np.arange(low_freq, 30), np.arange(31, 60, 3), np.arange(60, high_freqs + 5, 5)])
+    return np.arange(low_freq, high_freqs + 1, 1)
 
 
 def calc_bands(min_f=1, high_gamma_max=120, as_dict=True):
