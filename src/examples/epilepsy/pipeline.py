@@ -311,19 +311,33 @@ def calc_morlet_freqs(evoked, high_gamma_max=120):
 
 def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_method='dSPM', check_for_labels_files=True,
                        overwrite=False):
+
+    def files_exist(window_fname):
+        fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
+            subject, inverse_method, modality, utils.namebase(window_fname)))
+        if not op.isdir(fol):
+            return False
+        files = glob.glob(op.join(fol, 'epilepsy_*_induced_power.npy'))
+        if len(files) < 62:
+            return False
+        for fname in files:
+            file_mod_time = utils.file_modification_time_struct(fname)
+            if not (file_mod_time.tm_year < 2019 and (file_mod_time.tm_mon == 7 and file_mod_time.tm_mday >= 10) or \
+                    (file_mod_time.tm_mon > 7)):
+                return False
+        return True
+
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
     output_fname = op.join(MMVT_DIR, 'eeg' if modality == 'eeg' else 'meg', '{}-epilepsy-{}-{}-{}_{}'.format(
         subject, inverse_method, modality, '{window}', '{band}'))
     for window_fname in windows_fnames:
-        if all([utils.stc_exist(output_fname.format(window=utils.namebase(window_fname), band=band))
-                for band in bands]) and not overwrite:
-            continue
-        fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
-            subject, inverse_method, modality, utils.namebase(window_fname)))
-        if op.isdir(fol) and not check_for_labels_files:
-            print('{} already exist'.format(fol))
-            continue
+        print('{} {} {}:'.format(subject, modality, utils.namebase(window_fname)))
+        if files_exist(window_fname):
+            print('Already exist')
+        else:
+            print('Need to recalculate')
+        continue
         args = module.read_cmd_args(dict(
             subject=subject,
             mri_subject=subject,
