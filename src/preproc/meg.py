@@ -2424,7 +2424,7 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                         stc_fname = '{}-{}'.format(stc_fname, utils.namebase(evo_fname))
                     if epochs is None:
                         print('epochs are None!')
-                        return False
+                        return False, stcs, stcs_num
                     calc_induced_power(subject, epochs, atlas, task, inverse_operator, lambda2, stc_fname,
                                        normalize_proj=induced_power_normalize_proj,
                                        overwrite_stc=overwrite_stc, modality=modality, n_jobs=n_jobs)
