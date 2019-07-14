@@ -324,6 +324,8 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
             file_mod_time = utils.file_modification_time_struct(fname)
             if not (file_mod_time.tm_year < 2019 and (file_mod_time.tm_mon == 7 and file_mod_time.tm_mday >= 10) or \
                     (file_mod_time.tm_mon > 7)):
+                print('{}: {}-{}-{}'.format(utils.namebase(
+                    fname, file_mod_time.tm_mday, file_mod_time.tm_mon, file_mod_time.tm_year)))
                 return False
         return True
 
