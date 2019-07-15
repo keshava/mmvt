@@ -321,11 +321,10 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
         if len(files) < 62:
             return False
         for fname in files:
-            file_mod_time = utils.file_modification_time_struct(fname)
-            if not (file_mod_time.tm_year >= 2019 and (file_mod_time.tm_mon == 7 and file_mod_time.tm_mday >= 10) or \
-                    (file_mod_time.tm_mon > 7)):
-                print('{}: {}-{}-{}'.format(
-                    utils.namebase(fname), file_mod_time.tm_mday, file_mod_time.tm_mon, file_mod_time.tm_year))
+            # file_mod_time = utils.file_modification_time_struct(fname)
+            # if not (file_mod_time.tm_year >= 2019 and (file_mod_time.tm_mon == 7 and file_mod_time.tm_mday >= 10) or \
+            #         (file_mod_time.tm_mon > 7)):
+            if not utils.file_mod_after_date(fname, 10, 7, 2019):
                 return False
         return True
 
@@ -806,7 +805,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # psplots.plot_baseline_source_powers(
         #     subject, baseline_window, modality, inverse_method, high_gamma_max, figures_type, overwrite_plots)
         psplots.plot_norm_powers(
-            subject, windows, baseline_window, modality, inverse_method, figures_type=figures_type, overwrite=True)
+            subject, windows, baseline_window, modality, inverse_method, figures_type=figures_type, overwrite=False)
         # psplots.average_norm_powers(
         #     subject, windows, modality, specific_window, inverse_method, avg_time_crop, overwrite=True,
         #     figures_type=figures_type)

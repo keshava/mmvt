@@ -2343,3 +2343,9 @@ def index_in_str(str, k):
     except:
         pass
     return ind
+
+
+def file_mod_after_date(fname, day, month, year=2019):
+    file_mod_time = file_modification_time_struct(fname)
+    return (file_mod_time.tm_year >= year and (file_mod_time.tm_mon == month and file_mod_time.tm_mday >= day) or
+            (file_mod_time.tm_mon > month))

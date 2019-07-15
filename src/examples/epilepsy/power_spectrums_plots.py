@@ -178,7 +178,7 @@ def plot_baseline_source_powers(subject, baseline_fname, modality, inverse_metho
             baseline_correction=False, high_gamma_max=high_gamma_max)
 
 
-@utils.tryit()
+@utils.tryit(print_only_last_error_line=False)
 def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse_method='dSPM', figures_type='jpg',
         high_gamma_max=120, overwrite=False):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
@@ -189,7 +189,8 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
     figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_{}_norm_power.{}'.format(
             subject, inverse_method, modality, '{window}', '{method}', figures_type))
-    if not op.isfile(baseline_stat_fname) or overwrite:
+    if not op.isfile(baseline_stat_fname) or overwrite or not \
+            not utils.file_mod_after_date(baseline_stat_fname, 12, 7, 2019):
         baseline_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
                 subject, inverse_method, modality, utils.namebase(baseline_window)))
         baseline = epi_utils.concatenate_powers(baseline_fol) # (vertices x freqs x time)
@@ -205,9 +206,15 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
 
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
+        figure_fname = figures_template.format(window=window, method='pos_and_neg')
+        if op.isfile(figure_fname) and not overwrite and utils.file_mod_after_date(window_output_fname, 12, 7, 2019):
+            print('{} already exist'.format(figure_fname))
+            continue
+        print('Normalizing {}'.format(window))
         window_output_fname = output_fname.format(window=window)
         fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(subject, inverse_method, modality, window))
-        if not op.isfile(window_output_fname) or overwrite:
+        if not op.isfile(window_output_fname) or overwrite or not \
+                utils.file_mod_after_date(window_output_fname, 12, 7, 2019):
             powers = epi_utils.concatenate_powers(fol)
             # dividing by the mean of baseline values, taking the log, and  dividing by the standard deviation of
             # log baseline values ('zlogratio')
@@ -216,16 +223,15 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
             norm_powers = (powers - baseline_mean[:, min_f_ind:, :]) / baseline_std[:, min_f_ind:, :]
             norm_powers_min, norm_powers_max, min_vertices, max_vertices = epi_utils.calc_powers_abs_minmax(
                 norm_powers, both_min_and_max=True)
-            np.savez(window_output_fname.replace('npy', 'npz'), min=norm_powers_min, max=norm_powers_max,
+            np.savez(window_output_fname, min=norm_powers_min, max=norm_powers_max,
                      min_vertices=min_vertices, max_vertices=max_vertices, min_f_ind=min_f_ind)
         else:
-            d = np.load(window_output_fname.replace('npy', 'npz'))
+            d = np.load(window_output_fname)
             norm_powers_min, norm_powers_max = d['min'], d['max']
             min_f_ind = d['min_f_ind'] if 'min_f_ind' in d else 0
             # if calc_also_non_norm_powers:
             #     powers_abs_minmax = np.load(window_not_norm_fname)
 
-        figure_fname = figures_template.format(window=window, method='pos_and_neg')
         fig_files = glob.glob(op.join(figs_fol, '**', utils.namebase_with_ext(figure_fname)), recursive=True)
         if len(fig_files) == 0 or overwrite:
             times = epi_utils.get_window_times(window_fname, downsample=2)
