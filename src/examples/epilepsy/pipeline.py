@@ -331,7 +331,7 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
     files_to_calc = [utils.namebase(window_fname) for window_fname in windows_fnames if not files_exist(window_fname)]
-    if len(files_to_calc) == 0:
+    if len(files_to_calc) == 0 and not overwrite:
         print('All files exist!')
         return
     else:
@@ -345,7 +345,7 @@ def calc_induced_power(subject, run_num, windows_fnames, modality, inverse_metho
     #     subject, inverse_method, modality, '{window}', '{band}'))
     for window_fname in windows_fnames:
         print('{} {} {}:'.format(subject, modality, utils.namebase(window_fname)))
-        if files_exist(window_fname):
+        if files_exist(window_fname) and not overwrite:
             print('Already exist')
             continue
         args = module.read_cmd_args(dict(
@@ -689,8 +689,11 @@ def calc_avg_power_specturm_stc(
 
 
 def calc_labels_connectivity(
-        subject, windows, condition, modality, atlas='laus125', inverse_method='dSPM', low_freq=1, high_freq=120,
-        con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=7, overwrite=False, n_jobs=6):
+        subject, windows, baseline_window, condition, modality, atlas='laus125', inverse_method='dSPM',
+        low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=7, overwrite=False, n_jobs=6):
+    if len(windows) == 0:
+        print('No windows to combine into an epoch object!')
+        return
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     if modality == 'meg':
         fwd_usingMEG, fwd_usingEEG = True, False
@@ -700,17 +703,21 @@ def calc_labels_connectivity(
         fwd_usingMEG, fwd_usingEEG = True, True
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
 
-    epochs = epi_utils.combine_windows_into_epochs(windows, op.join(
+    windows_epochs = epi_utils.combine_windows_into_epochs(windows, op.join(
         root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, condition)))
+    baseline_epoch = epi_utils.combine_windows_into_epochs([baseline_window])
+    baseline_epoch = baseline_epoch.crop(windows_epochs.tmin, windows_epochs.tmax)
     # freqs = meg.calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120)
+    # todo: calc this 10 automatically
     freqs = epi_utils.get_freqs(10, high_freq)
     bands = epi_utils.calc_bands(10, high_freq)
 
-    meg.calc_labels_connectivity(
-        subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
-        pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
-        con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=overwrite,
-        epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=1)
+    for epochs, condition in zip([windows_epochs, baseline_epoch], [condition, 'baseline']):
+        meg.calc_labels_connectivity(
+            subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
+            pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
+            con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=False,
+            epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=1)
 
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
@@ -740,6 +747,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     baseline_window = utils.select_one_file(baseline_windows, 'baseline')
     baseline_windows = [baseline_window]
     windows_with_baseline = windows + baseline_windows
+    if len(windows) == 0:
+        windows = baseline_windows
 
     if check_windows:
         print('windows:')
@@ -804,11 +813,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #         overwrite=False)
         # psplots.plot_baseline_source_powers(
         #     subject, baseline_window, modality, inverse_method, high_gamma_max, figures_type, overwrite_plots)
-        psplots.plot_norm_powers(
-            subject, windows, baseline_window, modality, inverse_method, figures_type=figures_type, overwrite=False)
+        # psplots.plot_norm_powers(
+        #     subject, windows, baseline_window, modality, inverse_method, figures_type=figures_type, overwrite=False)
         # psplots.average_norm_powers(
         #     subject, windows, modality, specific_window, inverse_method, avg_time_crop, overwrite=True,
-        #     figures_type=figures_type)
+        #     save_fig=True, figures_type=figures_type)
         # psplots.plot_norm_powers_per_label(subject, windows, baseline_window, modality, inverse_method,
         #                            calc_also_non_norm_powers=False, overwrite=True, n_jobs=n_jobs)
         # calc_stc_power_specturm(
@@ -818,10 +827,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     inverse_method, atlas, high_gamma_max)
 
         # 5) Connectivity
-        # calc_labels_connectivity(
-        #     subject, windows, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
-        #     low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=2,
-        #     overwrite=True, n_jobs=n_jobs)
+        calc_labels_connectivity(
+            subject, windows, baseline_window, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
+            low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=2,
+            overwrite=False, n_jobs=n_jobs)
         pass
 
     # find_vertices(subject, run_num)
@@ -872,9 +881,9 @@ if __name__ == '__main__':
     if len(runs) == 0 or no_runs:
         print('No run were found!')
         runs = ['01']
-    n_jobs = 32# utils.get_n_jobs(-5)
+    n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['L', 'R'] # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:

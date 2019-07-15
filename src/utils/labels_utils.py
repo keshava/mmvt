@@ -826,7 +826,7 @@ def calc_center_of_mass(labels, ret_mat=False, find_vertice=False):
     verts = np.zeros((len(labels)), dtype=int) if ret_mat else {}
     for ind, label in enumerate(labels):
         if find_vertice:
-            vert = label.center_of_mass(restrict_vertices=True)
+            vert = label.center_of_mass(restrict_vertices=True, subjects_dir=SUBJECTS_DIR)
             pos = verts_pos[label.hemi][vert] / 1000
         else:
             pos = np.mean(label.pos, 0)

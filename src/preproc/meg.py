@@ -1174,7 +1174,8 @@ def calc_labels_connectivity(
     for cond_name, em in product(events_keys, extract_modes):
         output_fname = op.join(fol, '{}_{}_{}_{}_{}.npz'.format(cond_name, modality, em, con_method, con_mode))
         if op.isfile(output_fname) and not overwrite_connectivity:
-            print('{} already exist'.format(output_fname))
+            ret = ret and save_connectivity_to_mmvt(
+                subject, atlas, bands, [cond_name], em, con_method, con_mode, modality)
             continue
 
         if first_time:
@@ -1207,9 +1208,38 @@ def calc_labels_connectivity(
         if con is not None:
             np.savez(output_fname, con=con, freqs=freqs, times=times, n_epochs=n_epochs, n_tapers=n_tapers,
                      names=[l.name for l in labels])
-            ret = ret and op.isfile(output_fname)
+            ret = ret and save_connectivity_to_mmvt(
+                subject, atlas, bands, [cond_name], em, con_method, con_mode, modality, overwrite_connectivity)
         else:
             ret = False
+    return ret
+
+
+def save_connectivity_to_mmvt(subject, atlas, bands, events_keys, extract_mode='mean_flip', con_method='coh',
+                              con_mode='cwt_morlet', modality='meg', overwrite=False):
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity'))
+    if len(events_keys) > 1:
+        print('This function does not support more than one condition!')
+        return False
+    cond_name = events_keys[0]
+    input_fname = op.join(fol, '{}_{}_{}_{}_{}.npz'.format(cond_name, modality, extract_mode, con_method, con_mode))
+    con_vertices_fname = op.join(
+        MMVT_DIR, subject, 'connectivity', '{}_vertices.pkl'.format(modality))
+    first, ret = True, True
+    for band_ind, band_name in enumerate(bands.keys()):
+        mmvt_connectivity_output_fname = connectivity.get_output_fname(
+            subject, con_method, modality, extract_mode, '{}_{}'.format(band_name, cond_name))
+        if op.isfile(mmvt_connectivity_output_fname) and not overwrite:
+            print('{} already exist'.format(mmvt_connectivity_output_fname))
+            continue
+        if first:
+            d = utils.Bag(np.load(input_fname))
+            first = False
+        connectivity.save_connectivity(
+            subject, d.con[:, :, band_ind, :], atlas, con_method, connectivity.ROIS_TYPE, d.names, [cond_name],
+            mmvt_connectivity_output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
+            symetric_colors=True)
+        ret = ret and op.isfile(mmvt_connectivity_output_fname)
     return ret
 
 

@@ -64,7 +64,16 @@ def concatenate_powers(fol, return_file_names=False):
     # if len(powers_files) != 62: # Should calc number of lables
     #     print('{}: Not all the files were created!'.format(fol))
     #     return None
-    powers = np.concatenate([np.load(powers_fname).astype(np.float32) for powers_fname in powers_files])
+    try:
+        powers = np.concatenate([np.load(powers_fname).astype(np.float32) for powers_fname in powers_files])
+    except:
+        for powers_fname in powers_files:
+            try:
+                x = np.load(powers_fname)
+                print(utils.namebase(powers_fname), x.shape)
+            except:
+                print('Can\'t load {}!'.format(powers_fname))
+        return None
     if return_file_names:
         return powers, powers_files
     else:
@@ -253,7 +262,7 @@ def combine_windows_into_epochs(windows, epochs_fname='', overwrite=False):
             evoked.data.reshape((1, C, T)), evoked.info, np.array([[0, 0, 1]]), 0, 1)[0]
         epochs_list.append(epoch)
     epochs = mne.concatenate_epochs(epochs_list, True)
-    if epochs_fname != '':
-        print('Saving epochs to {}'.format(epochs_fname))
-        epochs.save(epochs_fname)
+    # if epochs_fname != '':
+    #     print('Saving epochs to {}'.format(epochs_fname))
+    #     epochs.save(epochs_fname)
     return epochs

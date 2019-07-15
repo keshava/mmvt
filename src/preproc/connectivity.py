@@ -197,7 +197,7 @@ def calc_windows(windows_length, windows_shift, T, windows_num=0):
 
 def get_output_fname(subject, connectivity_method, connectivity_modality, labels_extract_mode='', identifier=''):
     comps_num = '_{}'.format(labels_extract_mode.split('_')[1]) if labels_extract_mode.startswith('pca_') else ''
-    return op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}{}.npz'.format(
+    return op.join(MMVT_DIR, subject, 'connectivity', '{}_{}_{}{}.npz'.format(
         connectivity_modality, identifier, connectivity_method, comps_num))
 
 

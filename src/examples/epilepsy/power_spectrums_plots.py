@@ -257,7 +257,7 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
 
 
 def average_norm_powers(subject, windows_fnames, modality, average_window_name='', inverse_method='dSPM',
-                        avg_time_crop=0, figures_type='jpg', high_gamma_max=120, overwrite=False):
+                        avg_time_crop=0, figures_type='jpg', high_gamma_max=120, save_fig=True, overwrite=False):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npz'.format(
         subject, inverse_method, modality, '{window}'))
@@ -292,8 +292,10 @@ def average_norm_powers(subject, windows_fnames, modality, average_window_name='
     freqs = epi_utils.get_freqs(min_f_ind + 1, high_gamma_max)
     max_f, max_t = np.unravel_index(np.flip(norm_powers_maxs, 0).argmax(), norm_powers_maxs.shape)
     min_f, min_t = np.unravel_index(np.flip(norm_powers_mins, 0).argmin(), norm_powers_mins.shape)
-    print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(np.max(norm_powers_maxs), times[max_t], freqs[max_f - min_f_ind]))
-    print('norm_powers_mins: {:.3f} at {:.2f}s and {}Hz'.format(np.min(norm_powers_mins), times[min_t], freqs[min_f - min_f_ind]))
+    print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(
+        np.max(norm_powers_maxs), times[max_t], freqs[max_f - min_f_ind]))
+    print('norm_powers_mins: {:.3f} at {:.2f}s and {}Hz'.format(
+        np.min(norm_powers_mins), times[min_t], freqs[min_f - min_f_ind]))
 
     max_vertices = epi_utils.calc_max_vertice(norm_powers_maxs)
     min_vertices = epi_utils.calc_min_vertice(norm_powers_mins)
@@ -303,7 +305,7 @@ def average_norm_powers(subject, windows_fnames, modality, average_window_name='
              min_vertices=min_vertices, max_vertices=max_vertices, min_f_ind=min_f_ind)
 
     average_window_name = average_window_name if average_window_name != '' else 'average'
-    figure_fname = figures_template.format(window=average_window_name, method='pos_and_neg')
+    figure_fname = figures_template.format(window=average_window_name, method='pos_and_neg') if save_fig else ''
     fig_files = glob.glob(op.join(figs_fol, '**', utils.namebase_with_ext(figure_fname)), recursive=True)
     if len(fig_files) == 0 or overwrite:
         plot_positive_and_negative_power_spectrum(
