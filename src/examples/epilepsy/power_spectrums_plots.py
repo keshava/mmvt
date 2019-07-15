@@ -189,7 +189,7 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
     figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_{}_norm_power.{}'.format(
             subject, inverse_method, modality, '{window}', '{method}', figures_type))
-    if not op.isfile(baseline_stat_fname) or overwrite or not \
+    if not op.isfile(baseline_stat_fname) or overwrite or \
             not utils.file_mod_after_date(baseline_stat_fname, 12, 7, 2019):
         baseline_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
                 subject, inverse_method, modality, utils.namebase(baseline_window)))
