@@ -207,7 +207,7 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
         figure_fname = figures_template.format(window=window, method='pos_and_neg')
-        if op.isfile(figure_fname) and not overwrite and utils.file_mod_after_date(window_output_fname, 12, 7, 2019):
+        if op.isfile(figure_fname) and not overwrite and utils.file_mod_after_date(figure_fname, 12, 7, 2019):
             print('{} already exist'.format(figure_fname))
             continue
         print('Normalizing {}'.format(window))
