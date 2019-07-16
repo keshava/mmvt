@@ -1217,6 +1217,7 @@ def calc_labels_connectivity(
                 subject, con_data[:, :, 0, :], atlas, con_method, connectivity.ROIS_TYPE, [l.name for l in labels], [cond_name],
                 mmvt_connectivity_output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
                 symetric_colors=True)
+            del con_data
 
         # if con_data is not None:
             # np.savez(output_fname, con=con_data, freqs=freqs, times=times, n_epochs=n_epochs, n_tapers=n_tapers,
