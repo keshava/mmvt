@@ -1214,7 +1214,7 @@ def calc_labels_connectivity(
             mmvt_connectivity_output_fname = connectivity.get_output_fname(
                 subject, con_method, modality, em, '{}_{}'.format(band_name, cond_name))
             connectivity.save_connectivity(
-                subject, con_data, atlas, con_method, connectivity.ROIS_TYPE, [l.name for l in labels], [cond_name],
+                subject, con_data[:, :, 0, :], atlas, con_method, connectivity.ROIS_TYPE, [l.name for l in labels], [cond_name],
                 mmvt_connectivity_output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
                 symetric_colors=True)
 
