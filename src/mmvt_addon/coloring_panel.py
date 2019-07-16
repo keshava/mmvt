@@ -2045,7 +2045,9 @@ def color_electrodes_stim():
 
 def color_connections(threshold=None):
     clear_connections()
-    _addon().plot_connections(_addon().get_connections_data(), bpy.context.scene.frame_current, threshold)
+    _addon().plot_connections(
+        _addon().get_connections_data(), bpy.context.scene.frame_current, threshold,
+        bpy.context.scene.calc_connectivity_time)
 
 
 def clear_and_recolor():
@@ -2475,6 +2477,9 @@ def draw(self, context):
         col = layout.box().column()
         col.operator(ColorConnections.bl_idname, text="Plot Connections", icon='POTATO')
         col.prop(context.scene, 'hide_connection_under_threshold', text='Hide connections under threshold')
+        col.prop(context.scene, 'calc_connectivity_time', text='Calc connectivity time index')
+        if bpy.context.scene.calc_connectivity_time:
+            col.label(text='Connectivity time index: {}'.format(bpy.context.scene.connectivity_t))
         # if ColoringMakerPanel.conn_labels_avg_files_exit:
         #     col.prop(context.scene, 'conn_labels_avg_files', text='')
         #     col.operator(ColorConnectionsLabelsAvg.bl_idname, text="Plot Connections Labels Avg", icon='POTATO')
@@ -2511,6 +2516,10 @@ def draw(self, context):
 
 bpy.types.Scene.hide_connection_under_threshold = bpy.props.BoolProperty(
     default=True, description='Hides the connections under the threshold')
+bpy.types.Scene.calc_connectivity_time = bpy.props.BoolProperty(
+    default=True, description='Calc connectivity time index')
+bpy.types.Scene.connectivity_t = bpy.props.IntProperty(
+    default=True, description='Connectivity time index')
 bpy.types.Scene.meg_activitiy_type = bpy.props.EnumProperty(
     items=[('diff', 'Conditions difference', '', 0)], description="MEG activity type")
 bpy.types.Scene.meg_peak_mode = bpy.props.EnumProperty(

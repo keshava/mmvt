@@ -469,6 +469,7 @@ def plot_connections(d=None, plot_time=None, threshold=None, calc_t=True, data_m
     windows_num = d.con_values.shape[1] if d.con_values.ndim >= 2 else 1
     if calc_t:
         t = int(plot_time / ConnectionsPanel.T * windows_num) if windows_num > 1 else 0
+        bpy.context.scene.connectivity_t = t
     else:
         t = plot_time
     print('plotting connections for t:{}'.format(t))

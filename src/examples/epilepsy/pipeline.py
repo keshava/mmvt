@@ -740,10 +740,40 @@ def calc_labels_connectivity(
             epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=1)
 
 
-def normalize_connectivity(subject, windows, baseline_window, condition, modality, atlas='laus125', inverse_method='dSPM',
-        low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=7, overwrite=False,
-        n_jobs=6):
-    pass
+def normalize_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
+                           overwrite=False, n_jobs=6):
+    bands = epi_utils.calc_bands(1, high_freq)
+    for band_name in bands.keys():
+        template = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}_{}_{}.npz'.format(
+            modality, band_name, '{condition}', con_method))
+        output_fname = template.format(condition='{}_zvals'.format(condition))
+        # if op.isfile(output_fname) and not overwrite:
+        #     print('{} already exist'.format(output_fname))
+        #     continue
+        cond_fname = template.format(condition=condition)
+        if not op.isfile(cond_fname):
+            print('{} is missing!'.format(cond_fname))
+            continue
+        baseline_stat_fname = template.format(condition='baseline_stat')
+        if not op.isfile(baseline_stat_fname) or overwrite:
+            baseline_fname = template.format(condition='baseline')
+            if not op.isfile(baseline_fname):
+                print('{} is missing!'.format(baseline_fname))
+                continue
+            d_baseline = utils.Bag(np.load(baseline_fname))
+            baseline_mean = d_baseline.con_values.mean(axis=1, keepdims=True)
+            baseline_std = d_baseline.con_values.std(axis=1, keepdims=True)
+            np.savez(baseline_stat_fname, mean=baseline_mean, std=baseline_std)
+        else:
+            d_stat = np.load(baseline_stat_fname)
+            baseline_mean, baseline_std = d_stat['mean'], d_stat['std']
+        d_cond = utils.Bag(np.load(cond_fname))
+        d_cond.con_values = (d_cond.con_values - baseline_mean) / baseline_std
+        print('{} min max: {:.4f} {:.4f}'.format(
+            utils.namebase(output_fname), np.nanmin(d_cond.con_values), np.nanmax(d_cond.con_values)))
+        print('Saving norm connectivity in {}'.format(output_fname))
+        np.savez(output_fname, **d_cond)
+
 
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
@@ -795,7 +825,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     overwrite_modalities_figures = False
     from_index, to_index = None, None # 2000, 10000
     max_t = 0 #7500
-    high_gamma_max = 120
+    high_freq = 120
+    low_freq = 1
     percentiles = [5, 95]
     sig_threshold = 2
     figures_type = 'jpg'
@@ -804,6 +835,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     avg_use_abs = False
     avg_time_crop = 100
     power_specturm_win_suffix = '-avg'
+    con_method = 'wpli2_debiased'
+    con_mode = 'cwt_morlet'
+    con_atlas = 'laus125'
     bad_channels = bad_channels.split(',')
 
     # epi_utils.create_evokeds_links(subject, windows_with_baseline)
@@ -853,9 +887,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
         # 5) Connectivity
         calc_labels_connectivity(
-            subject, windows, baseline_window, specific_window, modality, atlas='laus125', inverse_method=inverse_method,
-            low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=2,
+            subject, windows, baseline_window, specific_window, modality, con_atlas, inverse_method,
+            low_freq, high_freq, con_method, con_mode, n_cycles=2,
             overwrite=False, n_jobs=n_jobs)
+        # normalize_connectivity(subject, specific_window, modality, high_gamma_max, con_method,
+        #                        overwrite=False, n_jobs=6)
         pass
 
     # find_vertices(subject, run_num)
@@ -908,7 +944,7 @@ if __name__ == '__main__':
         runs = ['01']
     n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['L', 'R'] # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:
