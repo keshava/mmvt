@@ -791,6 +791,8 @@ def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_D
             # now = time.time()
             if W > 1 and data.ndim == 4:
                 con_values[:, w, cond] = [data[i, j, w, cond] for i, j in lower_rec_indices]
+            elif W > 1 and data.ndim == 3:
+                con_values[:, w, cond] = [data[i, j, w] for i, j in lower_rec_indices]
             elif data.ndim > 2:
                 con_values[:, w, cond] = [data[i, j, cond] for i, j in lower_rec_indices]
             else:

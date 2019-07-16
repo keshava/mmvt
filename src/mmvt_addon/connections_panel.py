@@ -148,6 +148,8 @@ def calc_mask(stat_data, threshold, threshold_type, windows_num):
 def create_conncection_per_condition(d, layers_rods, indices, mask, windows_num, norm_fac, T, radius):
     N = len(indices)
     parent_obj = bpy.data.objects[get_connections_parent_name()]
+    if d.con_values.ndim == 2:
+        d.con_values = d.con_values[:, :, np.newaxis]
     print('Create connections for both conditions')
     con_color = (1, 1, 1, 1)
     now = time.time()

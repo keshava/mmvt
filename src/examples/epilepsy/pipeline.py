@@ -740,6 +740,11 @@ def calc_labels_connectivity(
             epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=1)
 
 
+def normalize_connectivity(subject, windows, baseline_window, condition, modality, atlas='laus125', inverse_method='dSPM',
+        low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=7, overwrite=False,
+        n_jobs=6):
+    pass
+
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
          inverse_method='dSPM', specific_window='', exclude_windows=[], no_runs=False, recursive=False,

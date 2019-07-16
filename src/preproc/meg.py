@@ -1187,6 +1187,7 @@ def calc_labels_connectivity(
             if len(labels) == 0:
                 print('No labels!')
                 return False
+            labels_names = [l.name for l in labels]
             inverse_operator, src = get_inv_src(inv_fname, src)
             if inverse_operator is None or src is None:
                 print('Can\'t find the inverse_operator!')
@@ -1214,20 +1215,12 @@ def calc_labels_connectivity(
         for con_data, band_name in calc_stcs_spectral_connectivity(
                 stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles,
                 connectivity_template, overwrite_connectivity, n_jobs):
+            output_fname = connectivity_template.format(band_name=band_name)
             connectivity.save_connectivity(
-                subject, con_data[:, :, 0, :], atlas, con_method, connectivity.ROIS_TYPE, [l.name for l in labels], [cond_name],
-                connectivity_template.format(band_name=band_name), con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
-                symetric_colors=True)
+                subject, con_data[:, :, 0, :], atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
+                output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99], symetric_colors=True)
             del con_data
-
-        # if con_data is not None:
-            # np.savez(output_fname, con=con_data, freqs=freqs, times=times, n_epochs=n_epochs, n_tapers=n_tapers,
-            #          names=[l.name for l in labels])
-            # ret = ret and save_connectivity_to_mmvt(
-            #     subject, con_data, [l.name for l in labels], atlas, bands, [cond_name], em, con_method, con_mode,
-            #     modality, overwrite_connectivity)
-        # else:
-        #     ret = False
+            ret = ret and op.isfile(output_fname)
     return ret
 
 
@@ -1269,6 +1262,7 @@ def calc_stcs_spectral_connectivity(
     for band_ind, (band_name, (fmin, fmax)) in enumerate(bands.items()):
         output_fname = connectivity_template.format(band_name=band_name)
         if op.isfile(output_fname) and not overwrite:
+            print('{} already exist'.format(output_fname))
             continue
         con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
             label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
