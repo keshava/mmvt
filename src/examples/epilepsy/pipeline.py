@@ -712,7 +712,7 @@ def calc_labels_connectivity(
     freqs = epi_utils.get_freqs(10, high_freq)
     bands = epi_utils.calc_bands(10, high_freq)
 
-    for epochs, condition in zip([windows_epochs, baseline_epoch], [condition, 'baseline']):
+    for epochs, condition in zip([baseline_epoch, windows_epochs], ['baseline', condition]):
         meg.calc_labels_connectivity(
             subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,

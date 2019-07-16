@@ -1171,6 +1171,9 @@ def calc_labels_connectivity(
     fol = utils.make_dir(op.join(mmvt_dir, mri_subject, 'connectivity'))
     ret = True
     first_time = True
+    con_vertices_fname = op.join(
+        MMVT_DIR, subject, 'connectivity', '{}_vertices.pkl'.format(modality))
+
     for cond_name, em in product(events_keys, extract_modes):
         output_fname = op.join(fol, '{}_{}_{}_{}_{}.npz'.format(cond_name, modality, em, con_method, con_mode))
         if op.isfile(output_fname) and not overwrite_connectivity:
@@ -1181,6 +1184,9 @@ def calc_labels_connectivity(
         if first_time:
             first_time = False
             labels = lu.read_labels(mri_subject, subjects_dir, atlas, surf_name=surf_name, n_jobs=n_jobs)
+            if len(labels) == 0:
+                print('No labels!')
+                return False
             inverse_operator, src = get_inv_src(inv_fname, src)
             if inverse_operator is None or src is None:
                 print('Can\'t find the inverse_operator!')
@@ -1203,20 +1209,28 @@ def calc_labels_connectivity(
             epochs = epochs[:max_epochs_num]
         stcs = mne.minimum_norm.apply_inverse_epochs(
             epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
-        con, freqs, times, n_epochs, n_tapers = calc_stcs_spectral_connectivity(
-            stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles, n_jobs)
-        if con is not None:
-            np.savez(output_fname, con=con, freqs=freqs, times=times, n_epochs=n_epochs, n_tapers=n_tapers,
-                     names=[l.name for l in labels])
-            ret = ret and save_connectivity_to_mmvt(
-                subject, atlas, bands, [cond_name], em, con_method, con_mode, modality, overwrite_connectivity)
+        for con_data, band_name in calc_stcs_spectral_connectivity(
+                stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles, n_jobs):
+            mmvt_connectivity_output_fname = connectivity.get_output_fname(
+                subject, con_method, modality, em, '{}_{}'.format(band_name, cond_name))
+            connectivity.save_connectivity(
+                subject, con_data, atlas, con_method, connectivity.ROIS_TYPE, [l.name for l in labels], [cond_name],
+                mmvt_connectivity_output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
+                symetric_colors=True)
+
+        # if con_data is not None:
+            # np.savez(output_fname, con=con_data, freqs=freqs, times=times, n_epochs=n_epochs, n_tapers=n_tapers,
+            #          names=[l.name for l in labels])
+            # ret = ret and save_connectivity_to_mmvt(
+            #     subject, con_data, [l.name for l in labels], atlas, bands, [cond_name], em, con_method, con_mode,
+            #     modality, overwrite_connectivity)
         else:
             ret = False
     return ret
 
 
-def save_connectivity_to_mmvt(subject, atlas, bands, events_keys, extract_mode='mean_flip', con_method='coh',
-                              con_mode='cwt_morlet', modality='meg', overwrite=False):
+def save_connectivity_to_mmvt(subject, atlas, bands, events_keys, extract_mode='mean_flip',
+                              con_method='coh', con_mode='cwt_morlet', modality='meg', overwrite=False):
     fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity'))
     if len(events_keys) > 1:
         print('This function does not support more than one condition!')
@@ -1243,15 +1257,18 @@ def save_connectivity_to_mmvt(subject, atlas, bands, events_keys, extract_mode='
     return ret
 
 
-def calc_stcs_spectral_connectivity(stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies,
-                                    cwt_n_cycles, n_jobs=1):
+def calc_stcs_spectral_connectivity(
+        stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies,
+        cwt_n_cycles, n_jobs=1):
     label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=True)
     bands_freqs = bands.values()
-    fmin, fmax = [t[0] for t in bands_freqs], [t[1] for t in bands_freqs]
-    con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
-        label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
-        cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
-    return con, freqs, times, n_epochs, n_tapers
+    fmins, fmaxs = [t[0] for t in bands_freqs], [t[1] for t in bands_freqs]
+    for band_ind, (band_name, (fmin, fmax)) in enumerate(bands):
+    # for fmin, fmax in zip(fmins, fmaxs):
+        con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
+            label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
+            cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
+        yield con, band_name
 
 
 def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file_with_info, mri_subject='',
