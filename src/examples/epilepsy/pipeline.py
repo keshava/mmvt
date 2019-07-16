@@ -690,7 +690,8 @@ def calc_avg_power_specturm_stc(
 
 def calc_labels_connectivity(
         subject, windows, baseline_window, condition, modality, atlas='laus125', inverse_method='dSPM',
-        low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=7, overwrite=False, n_jobs=6):
+        low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=7, overwrite=False,
+        n_jobs=6):
     if len(windows) == 0:
         print('No windows to combine into an epoch object!')
         return
@@ -703,16 +704,35 @@ def calc_labels_connectivity(
         fwd_usingMEG, fwd_usingEEG = True, True
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
 
-    windows_epochs = epi_utils.combine_windows_into_epochs(windows, op.join(
-        root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, condition)))
-    baseline_epoch = epi_utils.combine_windows_into_epochs([baseline_window])
-    baseline_epoch = baseline_epoch.crop(windows_epochs.tmin, windows_epochs.tmax)
+    windows_epochs_template = op.join(
+        root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, '{condition}'))
+    windows_epochs = epi_utils.combine_windows_into_epochs(windows, windows_epochs_template.format(condition=condition))
+    dt = windows_epochs.tmax - windows_epochs.tmin
+    baseline_epochs_fname = windows_epochs_template.format(condition=utils.namebase(baseline_window))
+    if not op.isfile(baseline_epochs_fname) or overwrite:
+        baseline_epoch = epi_utils.combine_windows_into_epochs([baseline_window])
+        baseline_epochs = []
+        for win_ind in range(len(windows_epochs)):
+            tmin = windows_epochs.tmin + win_ind * dt
+            tmax = tmin + dt
+            if tmax > baseline_epoch.tmax:
+                break
+            baseline_epoch_crop = baseline_epoch.copy().crop(tmin, tmax)
+            demi_epoch = utils.create_epoch(baseline_epoch_crop.get_data(), baseline_epoch_crop.info)
+            baseline_epochs.append(demi_epoch.copy())
+        baseline_epochs = mne.concatenate_epochs(baseline_epochs, True)
+        if baseline_epochs_fname != '':
+            print('Saving epochs to {}'.format(baseline_epochs_fname))
+            baseline_epochs.save(baseline_epochs_fname)
+    else:
+        baseline_epochs = mne.read_epochs(baseline_epochs_fname)
+
     # freqs = meg.calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120)
     # todo: calc this 10 automatically
     freqs = epi_utils.get_freqs(10, high_freq)
     bands = epi_utils.calc_bands(10, high_freq)
 
-    for epochs, condition in zip([baseline_epoch, windows_epochs], ['baseline', condition]):
+    for epochs, condition in zip([baseline_epochs, windows_epochs], ['baseline', condition]):
         meg.calc_labels_connectivity(
             subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,

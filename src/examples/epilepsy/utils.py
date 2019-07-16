@@ -262,7 +262,7 @@ def combine_windows_into_epochs(windows, epochs_fname='', overwrite=False):
             evoked.data.reshape((1, C, T)), evoked.info, np.array([[0, 0, 1]]), 0, 1)[0]
         epochs_list.append(epoch)
     epochs = mne.concatenate_epochs(epochs_list, True)
-    # if epochs_fname != '':
-    #     print('Saving epochs to {}'.format(epochs_fname))
-    #     epochs.save(epochs_fname)
+    if epochs_fname != '':
+        print('Saving epochs to {}'.format(epochs_fname))
+        epochs.save(epochs_fname)
     return epochs

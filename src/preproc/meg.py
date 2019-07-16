@@ -1208,14 +1208,15 @@ def calc_labels_connectivity(
         if max_epochs_num > 0:
             epochs = epochs[:max_epochs_num]
         stcs = mne.minimum_norm.apply_inverse_epochs(
-            epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=True)
+            epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=False)
+        connectivity_template = connectivity.get_output_fname(
+            subject, con_method, modality, em, '{}_{}'.format('{band_name}', cond_name))
         for con_data, band_name in calc_stcs_spectral_connectivity(
-                stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles, n_jobs):
-            mmvt_connectivity_output_fname = connectivity.get_output_fname(
-                subject, con_method, modality, em, '{}_{}'.format(band_name, cond_name))
+                stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles,
+                connectivity_template, overwrite_connectivity, n_jobs):
             connectivity.save_connectivity(
                 subject, con_data[:, :, 0, :], atlas, con_method, connectivity.ROIS_TYPE, [l.name for l in labels], [cond_name],
-                mmvt_connectivity_output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
+                connectivity_template.format(band_name=band_name), con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
                 symetric_colors=True)
             del con_data
 
@@ -1225,8 +1226,8 @@ def calc_labels_connectivity(
             # ret = ret and save_connectivity_to_mmvt(
             #     subject, con_data, [l.name for l in labels], atlas, bands, [cond_name], em, con_method, con_mode,
             #     modality, overwrite_connectivity)
-        else:
-            ret = False
+        # else:
+        #     ret = False
     return ret
 
 
@@ -1260,12 +1261,15 @@ def save_connectivity_to_mmvt(subject, atlas, bands, events_keys, extract_mode='
 
 def calc_stcs_spectral_connectivity(
         stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies,
-        cwt_n_cycles, n_jobs=1):
-    label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=True)
+        cwt_n_cycles, connectivity_template, overwrite=False, n_jobs=1):
+    label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=False)
     bands_freqs = bands.values()
     fmins, fmaxs = [t[0] for t in bands_freqs], [t[1] for t in bands_freqs]
-    for band_ind, (band_name, (fmin, fmax)) in enumerate(bands.items()):
     # for fmin, fmax in zip(fmins, fmaxs):
+    for band_ind, (band_name, (fmin, fmax)) in enumerate(bands.items()):
+        output_fname = connectivity_template.format(band_name=band_name)
+        if op.isfile(output_fname) and not overwrite:
+            continue
         con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
             label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
             cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
