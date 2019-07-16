@@ -1263,7 +1263,7 @@ def calc_stcs_spectral_connectivity(
     label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=True)
     bands_freqs = bands.values()
     fmins, fmaxs = [t[0] for t in bands_freqs], [t[1] for t in bands_freqs]
-    for band_ind, (band_name, (fmin, fmax)) in enumerate(bands):
+    for band_ind, (band_name, (fmin, fmax)) in enumerate(bands.items()):
     # for fmin, fmax in zip(fmins, fmaxs):
         con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
             label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
