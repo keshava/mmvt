@@ -688,20 +688,25 @@ def calc_avg_power_specturm_stc(
     combined_stc.save(output_stc_fname)
 
 
-def calc_labels_connectivity(
-        subject, windows, baseline_window, condition, modality, atlas='laus125', inverse_method='dSPM',
-        low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet', n_cycles=7, overwrite=False,
-        n_jobs=6):
-    if len(windows) == 0:
-        print('No windows to combine into an epoch object!')
-        return
-    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+def get_fwd_flags(modality):
     if modality == 'meg':
         fwd_usingMEG, fwd_usingEEG = True, False
     elif modality == 'eeg':
         fwd_usingMEG, fwd_usingEEG = False, True
     else:
         fwd_usingMEG, fwd_usingEEG = True, True
+    return fwd_usingMEG, fwd_usingEEG
+
+
+def calc_labels_connectivity(
+        subject, windows, baseline_window, condition, modality, atlas='laus125', func_rois_atlas=False,
+        inverse_method='dSPM', low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet',
+        n_cycles=7, overwrite=False, n_jobs=6):
+    if len(windows) == 0:
+        print('No windows to combine into an epoch object!')
+        return
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    fwd_usingMEG, fwd_usingEEG = get_fwd_flags(modality)
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
 
     windows_epochs_template = op.join(
@@ -732,12 +737,21 @@ def calc_labels_connectivity(
     freqs = epi_utils.get_freqs(10, high_freq)
     bands = epi_utils.calc_bands(10, high_freq)
 
+    if func_rois_atlas:
+        template = '{}-epilepsy-{}-{}-{}-*'.format(subject, inverse_method, modality, specific_window)
+        con_atlas_files = glob.glob(op.join(SUBJECTS_DIR, subject, 'label', template))
+        if len(con_atlas_files) == 0:
+            print('Can\'t find func rois atlas! {}'.format(op.join(SUBJECTS_DIR, 'label', template)))
+            return False
+        atlas = utils.namebase(utils.select_one_file(con_atlas_files))
+        con_indentifer = 'func_rois'
+
     for epochs, condition in zip([baseline_epochs, windows_epochs], ['baseline', condition]):
         meg.calc_labels_connectivity(
             subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
             con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=False,
-            epochs=epochs, bands=bands, cwt_frequencies=freqs, n_jobs=1)
+            epochs=epochs, bands=bands, cwt_frequencies=freqs, con_indentifer=con_indentifer, n_jobs=1)
 
 
 def normalize_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
@@ -775,6 +789,24 @@ def normalize_connectivity(subject, condition, modality, high_freq=120, con_meth
         np.savez(output_fname, **d_cond)
 
 
+def find_functional_rois(subject, condition, modality, atlas='laus125', min_cluster_size=10, inverse_method='dSPM'):
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
+    fwd_usingMEG, fwd_usingEEG = get_fwd_flags(modality)
+    stcs_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
+    stc_template = op.join(stcs_fol, '{}-epilepsy-{}-{}-{}-*zvals*-rh.stc'.format(subject, inverse_method, modality, condition))
+    stc_name = utils.select_one_file(glob.glob(stc_template), stc_template)[:-len('-rh.stc')]
+    if not utils.stc_exist(stc_name):
+        return
+    meg.find_functional_rois_in_stc(
+        subject, subject, atlas, stc_name, 0, threshold_is_precentile=False, extract_time_series_for_clusters=False,
+        min_cluster_size=min_cluster_size, inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
+        time_index=0, abs_max=False, modality=modality, n_jobs=n_jobs)
+
+
+def calc_functional_rois_connectivity(subject, condition, modality, atlas='laus125', min_cluster_size=10, inverse_method='dSPM'):
+
+    pass
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
          inverse_method='dSPM', specific_window='', exclude_windows=[], no_runs=False, recursive=False,
@@ -838,6 +870,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     con_method = 'wpli2_debiased'
     con_mode = 'cwt_morlet'
     con_atlas = 'laus125'
+    min_cluster_size = 10
     bad_channels = bad_channels.split(',')
 
     # epi_utils.create_evokeds_links(subject, windows_with_baseline)
@@ -846,9 +879,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
-        #                    high_gamma_max=high_gamma_max, downsample=2, parallel=n_jobs > 1, overwrite=False)
+        #                    high_gamma_max=high_freq, downsample=2, parallel=n_jobs > 1, overwrite=False)
         # psplots.plot_sensors_powers(
-        #     subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_gamma_max,
+        #     subject, windows, baseline_window, modality, inverse_method, high_gamma_max=high_freq,
         #     percentiles=percentiles, sig_threshold=sig_threshold, save_fig=save_fig,
         #     plot_baseline_stat=plot_baseline_stat, bad_channels=bad_channels, overwrite=False, parallel=False)
 
@@ -864,14 +897,20 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     use_abs=False, parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
         # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
         #                         do_plot=True, overwrite=True)
-
+        # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
+        # calc_labels_connectivity(
+        #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
+        #     low_freq, high_freq, con_method, con_mode, n_cycles=2,
+        #     overwrite=False, n_jobs=n_jobs)
+        normalize_connectivity(
+            subject, specific_window, modality, high_freq, con_method, overwrite=False, n_jobs=n_jobs)
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite=True)
-        # psplots.plot_powers(subject, windows, modality, inverse_method, high_gamma_max, figures_type,
+        # psplots.plot_powers(subject, windows, modality, inverse_method, high_freq, figures_type,
         #         overwrite=False)
         # psplots.plot_baseline_source_powers(
-        #     subject, baseline_window, modality, inverse_method, high_gamma_max, figures_type, overwrite_plots)
+        #     subject, baseline_window, modality, inverse_method, high_freq, figures_type, overwrite_plots)
         # psplots.plot_norm_powers(
         #     subject, windows, baseline_window, modality, inverse_method, figures_type=figures_type, overwrite=False)
         # psplots.average_norm_powers(
@@ -883,15 +922,15 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     subject, modality, specific_window, windows[0], baseline_window, avg_time_crop, run_num)
         # calc_avg_power_specturm_stc(
         #     subject, modality, specific_window, windows, baseline_window, avg_time_crop, run_num,
-        #     inverse_method, atlas, high_gamma_max)
+        #     inverse_method, atlas, high_freq)
 
         # 5) Connectivity
-        calc_labels_connectivity(
-            subject, windows, baseline_window, specific_window, modality, con_atlas, inverse_method,
-            low_freq, high_freq, con_method, con_mode, n_cycles=2,
-            overwrite=False, n_jobs=n_jobs)
-        # normalize_connectivity(subject, specific_window, modality, high_gamma_max, con_method,
-        #                        overwrite=False, n_jobs=6)
+        # calc_labels_connectivity(
+        #     subject, windows, baseline_window, specific_window, modality, con_atlas, False, inverse_method,
+        #     low_freq, high_freq, con_method, con_mode, n_cycles=2,
+        #     overwrite=False, n_jobs=n_jobs)
+        # normalize_connectivity(subject, specific_window, modality, high_freq, con_method,
+        #                        overwrite=False, n_jobs=n_jobs)
         pass
 
     # find_vertices(subject, run_num)

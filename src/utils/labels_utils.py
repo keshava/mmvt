@@ -778,6 +778,8 @@ def read_labels_parallel(subject, subjects_dir, atlas, hemi='', labels_fol='', n
         labels = []
         for labels_chunk in results:
             labels.extend(labels_chunk)
+        for l in labels:
+            l.subject = subject
         return labels
     except:
         print(traceback.format_exc())
@@ -1040,7 +1042,7 @@ def grow_label(subject, vertice_indice, hemi, new_label_name, new_label_r=5, n_j
 
 
 def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts, labels=None,
-                                     min_cluster_max=0, min_cluster_size=0, clusters_label='', n_jobs=6):
+        min_cluster_max=0, min_cluster_size=0, clusters_label='', abs_max=True, n_jobs=6):
     cluster_labels = []
     if not op.isfile(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi))):
         from src.utils import freesurfer_utils as fu
@@ -1053,10 +1055,16 @@ def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts
         return None
     for cluster in clusters:
         x = data[cluster]
-        cluster_max = np.min(x) if abs(np.min(x)) > abs(np.max(x)) else np.max(x)
-        if abs(cluster_max) < min_cluster_max or len(cluster) < min_cluster_size:
-            continue
-        max_vert_ind = np.argmin(x) if abs(np.min(x)) > abs(np.max(x)) else np.argmax(x)
+        if abs_max:
+            cluster_max = np.min(x) if abs(np.min(x)) > abs(np.max(x)) else np.max(x)
+            max_vert_ind = np.argmin(x) if abs(np.min(x)) > abs(np.max(x)) else np.argmax(x)
+            if abs(cluster_max) < min_cluster_max or len(cluster) < min_cluster_size:
+                continue
+        else:
+            cluster_max = np.max(x)
+            max_vert_ind = np.argmax(x)
+            if cluster_max < min_cluster_max or len(cluster) < min_cluster_size:
+                continue
         max_vert = cluster[max_vert_ind]
         inter_labels, inter_labels_tups = [], []
         for label in labels:

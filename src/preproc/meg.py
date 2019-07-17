@@ -50,8 +50,8 @@ FWD_SMOOTH, INV_EEG, INV_MEG, INV_MEEG, INV_SMOOTH, INV_EEG_SMOOTH, INV_SUB, INV
 STC_HEMI, STC_HEMI_SAVE, STC_HEMI_SMOOTH, STC_HEMI_SMOOTH_SAVE, STC_ST,\
 COR, LBL, STC_MORPH, ACT, ASEG, DATA_COV, NOISE_COV_EEG, NOISE_COV_MEG, NOISE_COV_MEEG, DATA_CSD, NOISE_CSD, MEG_TO_HEAD_TRANS = [''] * 47
 
-locating_meg_file = lambda x, y: ('', False)
-locating_subject_file = lambda x, y: ('', False)
+locating_meg_file = lambda x, y: (x, True) if op.isfile(x) else ('', False)
+locating_subject_file = lambda x, y: (x, True) if op.isfile(x) else ('', False)
 
 
 def init_globals_args(subject, mri_subject, fname_format, fname_format_cond, args):
@@ -1140,7 +1140,7 @@ def calc_labels_connectivity(
         epo_fname='', inv_fname='', raw_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'], surf_name='pial',
         con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, overwrite_connectivity=False,
-        raw=None, epochs=None, src=None, bands=None, cwt_frequencies=None, n_jobs=6):
+        raw=None, epochs=None, src=None, bands=None, cwt_frequencies=None, con_indentifer='', n_jobs=6):
     if fwd_usingMEG and fwd_usingEEG:
         modality = 'meeg'
     elif fwd_usingMEG and not fwd_usingEEG:
@@ -1210,8 +1210,9 @@ def calc_labels_connectivity(
             epochs = epochs[:max_epochs_num]
         stcs = mne.minimum_norm.apply_inverse_epochs(
             epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=False)
+        con_indentifer = '' if con_indentifer == '' else '_{}'.format(con_indentifer)
         connectivity_template = connectivity.get_output_fname(
-            subject, con_method, modality, em, '{}_{}'.format('{band_name}', cond_name))
+            subject, con_method, modality, em, '{}_{}{}'.format('{band_name}', cond_name, con_indentifer))
         for con_data, band_name in calc_stcs_spectral_connectivity(
                 stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles,
                 connectivity_template, overwrite_connectivity, n_jobs):
@@ -5190,19 +5191,24 @@ def find_functional_rois_in_stc(
         label_name_template='', peak_mode='abs', extract_time_series_for_clusters=True, extract_mode='mean_flip',
         min_cluster_max=0, min_cluster_size=0, clusters_label='', src=None,
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
-        labels=None, verts_dict=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
+        labels=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
         save_func_labels=True, recreate_src_spacing='oct6', calc_cluster_contours=True, save_results=True,
-        clusters_output_name='', modality='meg', n_jobs=6):
+        clusters_output_name='', abs_max=True, modality='meg', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, modality, 'clusters')
+    if isinstance(extract_mode, list):
+        extract_mode = extract_mode[0]
     # todo: Should check for an overwrite flag. Not sure why, if the folder isn't being deleted, the code doesn't work
     # utils.delete_folder_files(clusters_root_fol)
     utils.make_dir(clusters_root_fol)
     if '{subject}' in stc_name:
         stc_name = stc_name.replace('{subject}', subject)
+    if utils.stc_exist(stc_name):
+        stc = mne.read_source_estimate('{}-rh.stc'.format(stc_name))
+        stc_name = utils.namebase(stc_name)
     if stc is None:
-        stc_fname = op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name))
+        stc_fname = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg', '{}-lh.stc'.format(stc_name))
         if not op.isfile(stc_fname):
             stc_fname = op.join(SUBJECT_MEG_FOLDER, '{}-lh.stc'.format(stc_name))
         if not op.isfile(stc_fname):
@@ -5230,19 +5236,23 @@ def find_functional_rois_in_stc(
         if np.max(stc_t.data) < _threshold:
             print('stc_t max < {}, continue'.format(_threshold))
             return True, {hemi: None for hemi in utils.HEMIS}
-        stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
+        verts = utils.get_pial_vertices(subject, MMVT_DIR)
+        if len(verts['rh']) == len(stc.rh_vertno) and len(verts['lh']) == len(stc.lh_vertno):
+            stc_t_smooth = stc_t
+        else:
+            stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
     if verts is None:
         verts = check_stc_with_ply(stc_t_smooth, subject=subject)
     if connectivity is None:
         connectivity = anat.load_connectivity(subject)
-    if verts_dict is None:
-        verts_dict = utils.get_pial_vertices(subject, MMVT_DIR)
+    # if verts_dict is None:
+    #     verts_dict = utils.get_pial_vertices(subject, MMVT_DIR)
     if threshold_is_precentile:
         threshold = np.percentile(stc_t_smooth.data, threshold)
-    if threshold < 1e-4:
-        ret = input('threshold < 1e-4, do you want to multiply it by 10^9 to get nAmp (y/n)? ')
-        if au.is_true(ret):
-            threshold *= np.power(10, 9)  # nAmp
+        if threshold < 1e-4:
+            ret = input('threshold < 1e-4, do you want to multiply it by 10^9 to get nAmp (y/n)? ')
+            if au.is_true(ret):
+                threshold *= np.power(10, 9)  # nAmp
     label_name_template_str = label_name_template.replace('*', '').replace('?', '')
     clusters_name = '{}{}'.format(stc_name, '-{}'.format(
         label_name_template_str) if label_name_template_str != '' else '')
@@ -5267,7 +5277,7 @@ def find_functional_rois_in_stc(
         if find_clusters_overlapped_labeles:
             clusters_labels_hemi = lu.find_clusters_overlapped_labeles(
                 subject, clusters, stc_data, atlas, hemi, verts[hemi], labels_hemi, min_cluster_max, min_cluster_size,
-                clusters_label, n_jobs)
+                clusters_label, abs_max, n_jobs)
         else:
             clusters_labels_hemi = []
             for cluster_ind, cluster in enumerate(clusters):
@@ -5284,13 +5294,13 @@ def find_functional_rois_in_stc(
         else:
             clusters_labels_hemi, clusters_cortical_labels = calc_cluster_labels(
                 subject, mri_subject, stc, clusters_labels_hemi, clusters_fol, extract_time_series_for_clusters,
-                save_func_labels, extract_mode[0], src, inv_fname, time_index, fwd_usingMEG, fwd_usingEEG,
+                save_func_labels, extract_mode, src, inv_fname, time_index, fwd_usingMEG, fwd_usingEEG,
                 recreate_src_spacing=recreate_src_spacing)
             if len(clusters_labels_hemi) > 0 and calc_cluster_contours:
                 new_atlas_name = 'clusters-{}-{}'.format(utils.namebase(clusters_fol), hemi)
                 contours[hemi] = calc_contours(
                     subject, new_atlas_name, hemi, clusters_cortical_labels, clusters_fol, mri_subject,
-                    verts_dict, verts_neighbors_dict)
+                    verts, verts_neighbors_dict)
             clusters_labels.values.extend(clusters_labels_hemi)
     if save_results:
         if clusters_output_name == '':
@@ -5395,7 +5405,7 @@ def calc_contours(subject, atlas_name, hemi, clusters_labels, clusters_labels_fo
     #     utils.copy_file(annot_fname, dest_annot_fname)
     # else:
     #     print('calc_contours: No annot file!')
-    contours = anat.calc_labeles_contours(
+    contours, _ = anat.calc_labeles_contours(
         subject, atlas_name[:-3], hemi=hemi, overwrite=True, labels_dict=labels_dict, verts_dict=verts_dict,
         verts_neighbors_dict=verts_neighbors_dict, check_unknown=False, save_lookup=False, return_contours=True)
     return contours[hemi]
