@@ -158,6 +158,10 @@ def plot_stc_over_time():
     mmvt.coloring.plot_stc(
         stc, 0, 0, data_max, data_min, use_abs=False, bigger_or_equal=True)
     mmvt.coloring.set_lower_threshold(threshold) # Set threshold to its previous value
+    if bpy.context.scene.epilepsy_save_stc_over_time:
+        stc_output_fname = '{}_{}_{}'.format(get_stc_fname()[:-len('-rh.stc')], data_min, data_max)
+        print('Saving stc over time to: {}'.format(stc_output_fname))
+        stc.save(stc_output_fname)
 
 
 def plot_evoked():
@@ -205,6 +209,7 @@ def draw(self, context):
         row.prop(context.scene, "play_to", text="To")
         row.operator(GrabToPlay.bl_idname, text="", icon='BORDERMOVE')
         col.operator(EpilepsyPlotStcOverTime.bl_idname, text="Plot {} over time".format(modality), icon='FORCE_HARMONIC')
+        col.prop(context.scene, "epilepsy_save_stc_over_time", text="Save stc over time")
     layout.operator(EpilepsySaveImage.bl_idname, text="Save image ", icon='ROTATE')
 
 
@@ -293,7 +298,7 @@ class EpilepsySaveImage(bpy.types.Operator):
 
 
 bpy.types.Scene.epilepsy_only_zvals = bpy.props.BoolProperty(default=True, update=epilepsy_only_zvals_update)
-
+bpy.types.Scene.epilepsy_save_stc_over_time = bpy.props.BoolProperty(default=False)
 
 def init(mmvt):
     mu = mmvt.mmvt_utils
