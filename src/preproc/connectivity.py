@@ -689,7 +689,7 @@ def _mi_vec_parallel(windows_chunk):
 
 # @utils.tryit()
 def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, labels_names, conditions, output_fname,
-                      con_vertices_fname='', windows=0, stat=STAT_DIFF, norm_by_percentile=True, norm_percs=[1, 99],
+                      windows=0, stat=STAT_DIFF, norm_by_percentile=True, norm_percs=[1, 99],
                       threshold=0, threshold_percentile=0, symetric_colors=True, labels=None, locations=None,
                       hemis=None):
     d = dict()
@@ -698,7 +698,7 @@ def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, label
     if labels is None or locations is None or hemis is None:
         if obj_type == ROIS_TYPE:
             d['labels'], d['locations'], d['verts'], d['hemis'] = calc_lables_info(
-                subject, atlas, False, labels_names)
+                subject, atlas, False, labels_names, labels)
         elif obj_type == ELECTRODES_TYPE:
             bipolar = '-' in labels_names[0]
             d['labels'], d['locations'] = get_electrodes_info(subject, bipolar)
@@ -719,12 +719,14 @@ def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, label
         conn, d['labels'], d['hemis'], conditions, windows, stat, norm_by_percentile, norm_percs, threshold,
         threshold_percentile, symetric_colors)
     d['connectivity_method'] = connectivity_method
+    d['vertices'], d['vertices_lookup'] = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
     print('Saving results to {}'.format(output_fname))
     np.savez(output_fname, **d)
-    if con_vertices_fname != '':
-        vertices, vertices_lookup = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
-        utils.save((vertices, vertices_lookup), con_vertices_fname)
+    # if con_vertices_fname != '':
+        # vertices, vertices_lookup = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
+        # utils.save((vertices, vertices_lookup), con_vertices_fname)
     return d
+
 
 
 def create_vertices_lookup(con_indices, con_names, labels):
@@ -738,10 +740,11 @@ def create_vertices_lookup(con_indices, con_names, labels):
     return np.array(list(vertices)), vertices_lookup
 
 
-def calc_lables_info(subject, atlas, sorted_according_to_annot_file=True, sorted_labels_names=None):
-    labels = lu.read_labels(
-        subject, SUBJECTS_DIR, atlas, # exclude=tuple(args.labels_exclude)
-        sorted_according_to_annot_file=sorted_according_to_annot_file)
+def calc_lables_info(subject, atlas, sorted_according_to_annot_file=True, sorted_labels_names=None, labels=None):
+    if labels is None:
+        labels = lu.read_labels(
+            subject, SUBJECTS_DIR, atlas, # exclude=tuple(args.labels_exclude)
+            sorted_according_to_annot_file=sorted_according_to_annot_file)
     if not sorted_labels_names is None:
         sorted_labels_names_fix = []
         org_delim, org_pos, label, label_hemi = lu.get_hemi_delim_and_pos(labels[0].name)
@@ -813,7 +816,6 @@ def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_D
     con_indices = np.array(lower_rec_indices)
     for ind, (i, j) in enumerate(utils.lower_rec_indices(M)):
         try:
-            # con_indices[ind, :] = [i, j]
             con_names[ind] = '{}-{}'.format(labels[i], labels[j])
             con_type[ind] = HEMIS_WITHIN if hemis[i] == hemis[j] else HEMIS_BETWEEN
         except:

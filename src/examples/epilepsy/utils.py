@@ -98,55 +98,6 @@ def get_window_times(window_fname, downsample=2):
     return utils.downsample(times, downsample)
 
 
-def get_freqs(low_freq=1, high_freqs=120):
-    # return np.concatenate([np.arange(low_freq, 30), np.arange(31, 60, 3), np.arange(60, high_freqs + 5, 5)])
-    return np.arange(low_freq, high_freqs + 1, 1)
-
-
-def calc_bands(min_f=1, high_gamma_max=120, as_dict=True):
-    if min_f < 4:
-        if as_dict:
-            bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
-        else:
-            bands = [[1, 4], [4, 8], [8, 15], [15, 30], [30, 55]]
-    elif min_f < 8:
-        if as_dict:
-            bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
-        else:
-            bands = [[4, 8], [8, 15], [15, 30], [30, 55]]
-    elif min_f < 15:
-        if as_dict:
-            bands = dict(alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
-        else:
-            bands = [[8, 15], [15, 30], [30, 55]]
-    elif min_f < 30:
-        if as_dict:
-            bands = dict(beta=[15, 30], gamma=[30, 55])
-        else:
-            bands = [[15, 30], [30, 55]]
-    elif min_f < 55:
-        if as_dict:
-            bands = dict(gamma=[30, 55])
-        else:
-            bands = [[30, 55]]
-    else:
-        raise Exception('min_f is too big!')
-
-    if high_gamma_max <= 120:
-        if as_dict:
-            bands['high_gamma'] = [55, high_gamma_max]
-        else:
-            bands.append([55, high_gamma_max])
-    else:
-        if as_dict:
-            bands['high_gamma'] = [55, 120]
-            bands['hfo'] = [120, high_gamma_max]
-        else:
-            bands.append([55, 120])
-            bands.append([120, high_gamma_max])
-    return bands
-
-
 def nans(shape, dtype=np.float32):
     x = np.empty(shape, dtype)
     x.fill(np.nan)

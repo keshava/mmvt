@@ -2,7 +2,9 @@ from builtins import enumerate
 
 from src.preproc import eeg
 from src.preproc import meg
+from src.preproc import connectivity
 from src.utils import utils
+from src.utils import labels_utils as lu
 import glob
 import os.path as op
 import mne
@@ -429,7 +431,6 @@ def _calc_induced_power_zvals_parallel(p):
 
 def calc_stc_power_specturm(subject, modality, power_stc_name, window_fname, baseline_window, avg_time_crop, run_num,
                             inverse_method='dSPM', atlas='aparc.DKTatlas', high_gamma_max=120, win_suffix=''):
-    from src.utils import labels_utils as lu
     from collections import defaultdict
     import time
 
@@ -541,7 +542,6 @@ def calc_stc_power_specturm(subject, modality, power_stc_name, window_fname, bas
 def calc_avg_power_specturm_stc(
         subject, modality, power_stc_name, windows, baseline_window, avg_time_crop, run_num,
         inverse_method='dSPM', atlas='aparc.DKTatlas40', high_gamma_max=120, overwrite=False):
-    from src.utils import labels_utils as lu
     from collections import defaultdict
     import time
 
@@ -699,9 +699,9 @@ def get_fwd_flags(modality):
 
 
 def calc_labels_connectivity(
-        subject, windows, baseline_window, condition, modality, atlas='laus125', func_rois_atlas=False,
+        subject, windows, baseline_window, condition, modality, atlas='laus125', func_rois_atlas=True,
         inverse_method='dSPM', low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet',
-        n_cycles=7, overwrite=False, n_jobs=6):
+        n_cycles=7, overwrite=False, overwrite_connectivity=False, n_jobs=6):
     if len(windows) == 0:
         print('No windows to combine into an epoch object!')
         return
@@ -734,8 +734,8 @@ def calc_labels_connectivity(
 
     # freqs = meg.calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120)
     # todo: calc this 10 automatically
-    freqs = epi_utils.get_freqs(10, high_freq)
-    bands = epi_utils.calc_bands(10, high_freq)
+    freqs = utils.get_freqs(10, high_freq)
+    bands = utils.calc_bands(10, high_freq)
 
     if func_rois_atlas:
         template = '{}-epilepsy-{}-{}-{}-*'.format(subject, inverse_method, modality, specific_window)
@@ -746,31 +746,43 @@ def calc_labels_connectivity(
         atlas = utils.namebase(utils.select_one_file(con_atlas_files))
         con_indentifer = 'func_rois'
 
-    for epochs, condition in zip([baseline_epochs, windows_epochs], ['baseline', condition]):
+    labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, n_jobs=n_jobs)
+    # for connectivity we need shorter names
+    for l in labels:
+        l.name = '{}_{}-{}'.format('_'.join(l.name.split('_')[-2:])[:-3], len(l.vertices), l.hemi)
+
+    for epochs, cond in zip([baseline_epochs, windows_epochs],
+                            ['{}_baseline'.format(condition), '{}_interictals'.format(condition)]):
         meg.calc_labels_connectivity(
-            subject, atlas, {condition:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
+            subject, atlas, {cond:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
-            con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=False,
-            epochs=epochs, bands=bands, cwt_frequencies=freqs, con_indentifer=con_indentifer, n_jobs=1)
+            con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=overwrite_connectivity,
+            epochs=epochs, bands=bands, cwt_frequencies=freqs, con_indentifer=con_indentifer, labels=labels,
+            n_jobs=1)
 
 
 def normalize_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
-                           overwrite=False, n_jobs=6):
-    bands = epi_utils.calc_bands(1, high_freq)
+                           extract_mode='mean_flip', func_rois_atlas=True, overwrite=False, n_jobs=6):
+    bands = utils.calc_bands(1, high_freq)
+    if func_rois_atlas:
+        con_indentifer = 'func_rois'
     for band_name in bands.keys():
-        template = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}_{}_{}.npz'.format(
-            modality, band_name, '{condition}', con_method))
-        output_fname = template.format(condition='{}_zvals'.format(condition))
+        connectivity_template = connectivity.get_output_fname(
+            subject, con_method, modality, extract_mode, '{}_{}_{}'.format(band_name, '{condition}', con_indentifer))
+        # template = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}_{}_{}.npz'.format(
+        #     modality, band_name, '{condition}', con_method))
+        output_fname = '{}_zvals.npz'.format(
+            connectivity_template.format(condition='{}_interictals'.format(condition))[:-4])
         # if op.isfile(output_fname) and not overwrite:
         #     print('{} already exist'.format(output_fname))
         #     continue
-        cond_fname = template.format(condition=condition)
+        cond_fname = connectivity_template.format(condition='{}_interictals'.format(condition))
         if not op.isfile(cond_fname):
             print('{} is missing!'.format(cond_fname))
             continue
-        baseline_stat_fname = template.format(condition='baseline_stat')
+        baseline_stat_fname = connectivity_template.format(condition='{}_baseline_stat'.format(condition))
         if not op.isfile(baseline_stat_fname) or overwrite:
-            baseline_fname = template.format(condition='baseline')
+            baseline_fname = connectivity_template.format(condition='{}_baseline'.format(condition))
             if not op.isfile(baseline_fname):
                 print('{} is missing!'.format(baseline_fname))
                 continue
@@ -901,7 +913,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # calc_labels_connectivity(
         #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
         #     low_freq, high_freq, con_method, con_mode, n_cycles=2,
-        #     overwrite=False, n_jobs=n_jobs)
+        #     overwrite=False, overwrite_connectivity=True, n_jobs=n_jobs)
         normalize_connectivity(
             subject, specific_window, modality, high_freq, con_method, overwrite=False, n_jobs=n_jobs)
         # 4) Induced power
@@ -968,7 +980,7 @@ if __name__ == '__main__':
     inverse_method = 'dSPM'
     atlas = 'aparc.DKTatlas40'
     recursive = False
-    check_windows = True
+    check_windows = False
     subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01327()
     run_files = [utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))]
     if recursive:
@@ -983,7 +995,7 @@ if __name__ == '__main__':
         runs = ['01']
     n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['L'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:

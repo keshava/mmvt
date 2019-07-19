@@ -423,8 +423,8 @@ def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True
         powers -= np.mean(powers[:, 0])
 
     if freqs is None or bands is None:
-        freqs = epi_utils.get_freqs(min_f, high_gamma_max)
-        bands = epi_utils.calc_bands(min_f, high_gamma_max)
+        freqs = utils.get_freqs(min_f, high_gamma_max)
+        bands = utils.calc_bands(min_f, high_gamma_max)
         # if F == 88:
         #     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 305, 5)])
         #     bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[55, 120],

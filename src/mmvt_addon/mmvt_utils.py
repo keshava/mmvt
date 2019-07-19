@@ -266,6 +266,7 @@ def add_keyframe(parent_obj, conn_name, value, T):
 def insert_keyframe_to_custom_prop(obj, prop_name, value, keyframe):
     bpy.context.scene.objects.active = obj
     obj.select = True
+    # prop_name =  '{}{}'.format(prop_name[-58:], rand_letters(3)) # the length of IDProperty names is limited to 63 characters
     obj[prop_name] = value
     obj.keyframe_insert(data_path='[' + '"' + prop_name + '"' + ']', frame=keyframe)
 

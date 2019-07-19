@@ -1140,7 +1140,8 @@ def calc_labels_connectivity(
         epo_fname='', inv_fname='', raw_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'], surf_name='pial',
         con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, overwrite_connectivity=False,
-        raw=None, epochs=None, src=None, bands=None, cwt_frequencies=None, con_indentifer='', n_jobs=6):
+        raw=None, epochs=None, src=None, bands=None, labels=None, cwt_frequencies=None, con_indentifer='',
+        n_jobs=6):
     if fwd_usingMEG and fwd_usingEEG:
         modality = 'meeg'
     elif fwd_usingMEG and not fwd_usingEEG:
@@ -1165,28 +1166,28 @@ def calc_labels_connectivity(
         else ['all']
     lambda2 = 1.0 / snr ** 2
     if bands is None or bands == '':
-        bands = [[1, 4], [4, 8], [8, 15], [15, 30], [30, 55], [65, 120]]
+        bands = utils.calc_bands(1, 120)
+        # bands = [[1, 4], [4, 8], [8, 15], [15, 30], [30, 55], [65, 120]]
     if cwt_frequencies is None or cwt_frequencies == '':
         cwt_frequencies = np.arange(4, 120, 2)
-    fol = utils.make_dir(op.join(mmvt_dir, mri_subject, 'connectivity'))
     ret = True
     first_time = True
-    con_vertices_fname = op.join(
-        MMVT_DIR, subject, 'connectivity', '{}_vertices.pkl'.format(modality))
 
     for cond_name, em in product(events_keys, extract_modes):
-        output_fname = op.join(fol, '{}_{}_{}_{}_{}.npz'.format(cond_name, modality, em, con_method, con_mode))
-        if op.isfile(output_fname) and not overwrite_connectivity:
-            ret = ret and save_connectivity_to_mmvt(
-                subject, atlas, bands, [cond_name], em, con_method, con_mode, modality)
+        connectivity_template = connectivity.get_output_fname(
+            subject, con_method, modality, em, '{}_{}_{}'.format('{band_name}', cond_name, con_indentifer))
+        files_exist = all([op.isfile(connectivity_template.format(band_name=band)) for band in bands.keys()])
+        if files_exist and not overwrite_connectivity:
+            print('Connectivity files already exist ({})'.format(connectivity_template))
             continue
 
         if first_time:
             first_time = False
-            labels = lu.read_labels(mri_subject, subjects_dir, atlas, surf_name=surf_name, n_jobs=n_jobs)
-            if len(labels) == 0:
-                print('No labels!')
-                return False
+            if labels is None:
+                labels = lu.read_labels(mri_subject, subjects_dir, atlas, surf_name=surf_name, n_jobs=n_jobs)
+                if len(labels) == 0:
+                    print('No labels!')
+                    return False
             labels_names = [l.name for l in labels]
             inverse_operator, src = get_inv_src(inv_fname, src)
             if inverse_operator is None or src is None:
@@ -1211,45 +1212,15 @@ def calc_labels_connectivity(
         stcs = mne.minimum_norm.apply_inverse_epochs(
             epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=False)
         con_indentifer = '' if con_indentifer == '' else '_{}'.format(con_indentifer)
-        connectivity_template = connectivity.get_output_fname(
-            subject, con_method, modality, em, '{}_{}{}'.format('{band_name}', cond_name, con_indentifer))
         for con_data, band_name in calc_stcs_spectral_connectivity(
                 stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles,
                 connectivity_template, overwrite_connectivity, n_jobs):
             output_fname = connectivity_template.format(band_name=band_name)
             connectivity.save_connectivity(
                 subject, con_data[:, :, 0, :], atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
-                output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99], symetric_colors=True)
+                output_fname, norm_by_percentile=True, norm_percs=[1, 99], symetric_colors=True, labels=labels)
             del con_data
             ret = ret and op.isfile(output_fname)
-    return ret
-
-
-def save_connectivity_to_mmvt(subject, atlas, bands, events_keys, extract_mode='mean_flip',
-                              con_method='coh', con_mode='cwt_morlet', modality='meg', overwrite=False):
-    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity'))
-    if len(events_keys) > 1:
-        print('This function does not support more than one condition!')
-        return False
-    cond_name = events_keys[0]
-    input_fname = op.join(fol, '{}_{}_{}_{}_{}.npz'.format(cond_name, modality, extract_mode, con_method, con_mode))
-    con_vertices_fname = op.join(
-        MMVT_DIR, subject, 'connectivity', '{}_vertices.pkl'.format(modality))
-    first, ret = True, True
-    for band_ind, band_name in enumerate(bands.keys()):
-        mmvt_connectivity_output_fname = connectivity.get_output_fname(
-            subject, con_method, modality, extract_mode, '{}_{}'.format(band_name, cond_name))
-        if op.isfile(mmvt_connectivity_output_fname) and not overwrite:
-            print('{} already exist'.format(mmvt_connectivity_output_fname))
-            continue
-        if first:
-            d = utils.Bag(np.load(input_fname))
-            first = False
-        connectivity.save_connectivity(
-            subject, d.con[:, :, band_ind, :], atlas, con_method, connectivity.ROIS_TYPE, d.names, [cond_name],
-            mmvt_connectivity_output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
-            symetric_colors=True)
-        ret = ret and op.isfile(mmvt_connectivity_output_fname)
     return ret
 
 
@@ -1346,8 +1317,6 @@ def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file
         else:
             ret = False
 
-    con_vertices_fname = op.join(
-        MMVT_DIR, subject, 'connectivity', '{}_vertices.pkl'.format(connectivity_modality))
     first = True
     for band_ind, band_name in enumerate(bands.keys()):
         mmvt_connectivity_output_fname = connectivity.get_output_fname(
@@ -1359,7 +1328,7 @@ def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file
             first = False
         connectivity.save_connectivity(
             subject, d.con[:, :, band_ind, :], atlas, con_method, connectivity.ROIS_TYPE, d.names, events_keys,
-            mmvt_connectivity_output_fname, con_vertices_fname, norm_by_percentile=True, norm_percs=[1, 99],
+            mmvt_connectivity_output_fname, norm_by_percentile=True, norm_percs=[1, 99],
             symetric_colors=True)
         ret = ret and op.isfile(mmvt_connectivity_output_fname)
 
