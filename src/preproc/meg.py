@@ -1412,7 +1412,7 @@ def _granger_causality_parallel(p):
 
     epoch_ts, sfreq, fmin, fmax = p
     C, T = epoch_ts.shape
-    O = int(T/ 5)
+    O = 100 # int(T/ 5)
     time_series = ts.TimeSeries(epoch_ts, sampling_interval=1 / sfreq)
     res = np.zeros((C, C, O))
     now = time.time()
