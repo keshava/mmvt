@@ -1412,11 +1412,12 @@ def _granger_causality_parallel(p):
 
     epoch_ts, sfreq, fmin, fmax = p
     C, T = epoch_ts.shape
+    O = int(T/ 5)
     time_series = ts.TimeSeries(epoch_ts, sampling_interval=1 / sfreq)
-    res = np.zeros((C, C, T))
+    res = np.zeros((C, C, O))
     now = time.time()
-    for ord in range(1, T):
-        utils.time_to_go(now, ord - 1, T - 1, 1)
+    for ord in range(1, O):
+        utils.time_to_go(now, ord - 1, O - 1, 1)
         G = nta.GrangerAnalyzer(time_series, order=ord)
         freq_idx_G = np.where((G.frequencies > fmin) * (G.frequencies < fmax))[0]
         g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
