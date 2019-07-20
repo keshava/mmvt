@@ -1426,10 +1426,11 @@ def _granger_causality_parallel(p):
             g1[np.where(np.isnan(g1))] = 0
             g2[np.where(np.isnan(g2))] = 0
             res[:, :, ord - 1] = g1.T + g2
+            del G, g1, g2
         except:
             print('error with ord {}'.format(ord))
             utils.print_last_error_line()
-        del G, g1, g2
+            del G
     return res
 
 
