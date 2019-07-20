@@ -1420,11 +1420,15 @@ def _granger_causality_parallel(p):
         utils.time_to_go(now, ord - 1, O - 1, 1)
         G = nta.GrangerAnalyzer(time_series, order=ord)
         freq_idx_G = np.where((G.frequencies > fmin) * (G.frequencies < fmax))[0]
-        g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
-        g2 = np.mean(G.causality_yx[:, :, freq_idx_G], -1)
-        g1[np.where(np.isnan(g1))] = 0
-        g2[np.where(np.isnan(g2))] = 0
-        res[:, :, ord - 1] = g1.T + g2
+        try:
+            g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
+            g2 = np.mean(G.causality_yx[:, :, freq_idx_G], -1)
+            g1[np.where(np.isnan(g1))] = 0
+            g2[np.where(np.isnan(g2))] = 0
+            res[:, :, ord - 1] = g1.T + g2
+        except:
+            print('error with ord {}'.format(ord))
+            utils.print_last_error_line()
         del G, g1, g2
     return res
 
