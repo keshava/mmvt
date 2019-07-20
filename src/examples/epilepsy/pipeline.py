@@ -879,7 +879,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     avg_use_abs = False
     avg_time_crop = 100
     power_specturm_win_suffix = '-avg'
-    con_method = 'wpli2_debiased' # 'granger-causality' #
+    con_method =  'granger-causality' # 'wpli2_debiased'
     con_mode = 'cwt_morlet'
     con_atlas = 'laus125'
     min_cluster_size = 10
@@ -995,7 +995,7 @@ if __name__ == '__main__':
         runs = ['01']
     n_jobs = 20# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['L'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:
