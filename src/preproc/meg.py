@@ -1400,7 +1400,7 @@ def granger_causality(epochs_ts, sfreq, fmin, fmax, parallel):
     C, T = epochs_ts[0].shape
     N = len(epochs_ts)
     res = np.zeros((N, C, C, T))
-    params = [(epoch_ts, sfreqs, fmin, fmax) for epoch_ts in epochs_ts]
+    params = [(epoch_ts, sfreq, fmin, fmax) for epoch_ts in epochs_ts]
     results = utils.run_parallel(_granger_causality_parallel, params, N if parallel else 1)
     res = np.array(results).mean(0)
     return res
@@ -1410,7 +1410,7 @@ def _granger_causality_parallel(p):
     import nitime.timeseries as ts
     import nitime.analysis as nta
 
-    epoch_ts, sfreqs, fmin, fmax = p
+    epoch_ts, sfreq, fmin, fmax = p
     C, T = epoch_ts.shape
     res = np.zeros((C, C, T))
     now = time.time()
