@@ -879,7 +879,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     avg_use_abs = False
     avg_time_crop = 100
     power_specturm_win_suffix = '-avg'
-    con_method = 'wpli2_debiased'
+    con_method = 'granger-causality' # 'wpli2_debiased'
     con_mode = 'cwt_morlet'
     con_atlas = 'laus125'
     min_cluster_size = 10
@@ -910,12 +910,12 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
         #                         do_plot=True, overwrite=True)
         # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
-        # calc_labels_connectivity(
-        #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-        #     low_freq, high_freq, con_method, con_mode, n_cycles=2,
-        #     overwrite=False, overwrite_connectivity=True, n_jobs=n_jobs)
-        normalize_connectivity(
-            subject, specific_window, modality, high_freq, con_method, overwrite=False, n_jobs=n_jobs)
+        calc_labels_connectivity(
+            subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
+            low_freq, high_freq, con_method, con_mode, n_cycles=2,
+            overwrite=False, overwrite_connectivity=True, n_jobs=n_jobs)
+        # normalize_connectivity(
+        #     subject, specific_window, modality, high_freq, con_method, overwrite=False, n_jobs=n_jobs)
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
         #                    overwrite=True)

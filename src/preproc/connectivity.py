@@ -728,7 +728,6 @@ def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, label
     return d
 
 
-
 def create_vertices_lookup(con_indices, con_names, labels):
     from collections import defaultdict
     vertices, vertices_lookup = set(), defaultdict(list)

@@ -1217,7 +1217,7 @@ def calc_labels_connectivity(
                 connectivity_template, overwrite_connectivity, n_jobs):
             output_fname = connectivity_template.format(band_name=band_name)
             connectivity.save_connectivity(
-                subject, con_data[:, :, 0, :], atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
+                subject, con_data[:, :, :], atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
                 output_fname, norm_by_percentile=True, norm_percs=[1, 99], symetric_colors=True, labels=labels)
             del con_data
             ret = ret and op.isfile(output_fname)
@@ -1236,9 +1236,13 @@ def calc_stcs_spectral_connectivity(
         if op.isfile(output_fname) and not overwrite:
             print('{} already exist'.format(output_fname))
             continue
-        con, freqs, times, n_epochs, n_tapers = spectral_connectivity(
-            label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
-            cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
+        if con_method == 'granger-causality':
+            con = granger_causality(label_ts, sfreq, fmin, fmax, n_jobs > 1)
+        else:
+            con, _, _, _, _ = spectral_connectivity(
+                label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
+                cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
+        con = con.squeeze()
         yield con, band_name
 
 
@@ -1390,6 +1394,39 @@ def spectral_connectivity(label_ts, con_method, con_mode, sfreq, fmin, fmax, fav
     except:
         print(traceback.format_exc())
         return None, None, None, 0, 0
+
+
+def granger_causality(epochs_ts, sfreq, fmin, fmax, parallel):
+    C, T = epochs_ts[0].shape
+    N = len(epochs_ts)
+    res = np.zeros((N, C, C, T))
+    params = [(epoch_ts, sfreqs, fmin, fmax) for epoch_ts in epochs_ts]
+    results = utils.run_parallel(_granger_causality_parallel, params, N if parallel else 1)
+    res = np.array(results).mean(0)
+    return res
+
+
+def _granger_causality_parallel(p):
+    import nitime.timeseries as ts
+    import nitime.analysis as nta
+
+    epoch_ts, sfreqs, fmin, fmax = p
+    C, T = epoch_ts.shape
+    res = np.zeros((C, C, T))
+    now = time.time()
+    for ord in range(1, T):
+        utils.time_to_go(now, ord - 1, T - 1, 1)
+        epoch_ts, sfreq, ord = p
+        time_series = ts.TimeSeries(epoch_ts, sampling_interval=1 / sfreq)
+        G = nta.GrangerAnalyzer(time_series, order=ord)
+        freq_idx_G = np.where((G.frequencies > fmin) * (G.frequencies < fmax))[0]
+        g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
+        g2 = np.mean(G.causality_yx[:, :, freq_idx_G], -1)
+        g1[np.where(np.isnan(g1))] = 0
+        g2[np.where(np.isnan(g2))] = 0
+        res[:, :, ord - 1] = g1.T + g2
+        del G, g1, g2
+    return res
 
 
 def get_inv_src(inv_fname, src=None, cond_name=''):
