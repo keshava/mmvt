@@ -758,7 +758,7 @@ def calc_labels_connectivity(
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
             con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=overwrite_connectivity,
             epochs=epochs, bands=bands, cwt_frequencies=freqs, con_indentifer=con_indentifer, labels=labels,
-            n_jobs=1)
+            n_jobs=n_jobs)
 
 
 def normalize_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
