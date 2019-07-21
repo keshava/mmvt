@@ -1397,9 +1397,6 @@ def spectral_connectivity(label_ts, con_method, con_mode, sfreq, fmin, fmax, fav
 
 
 def granger_causality(epochs_ts, sfreq, fmin, fmax, parallel):
-    # C, T = epochs_ts[0].shape
-    # N = len(epochs_ts)
-    # res = np.zeros((N, C, C, T))
     params = [(epoch_ts, sfreq, fmin, fmax) for epoch_ts in epochs_ts]
     results = utils.run_parallel(_granger_causality_parallel, params, len(epochs_ts) if parallel else 1)
     res = np.array(results).mean(0)

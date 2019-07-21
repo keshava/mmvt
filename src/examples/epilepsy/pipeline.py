@@ -972,8 +972,14 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
 
 
 if __name__ == '__main__':
+    import argparse
     from src.examples.epilepsy import init_files
     from src.utils import args_utils as au
+
+    parser.add_argument('--n_jobs', help='cpu num', required=True)
+    args = utils.Bag(au.parse_parser(parser))
+    n_jobs = utils.get_n_jobs(args.n_jobs)
+
 
     modalities = ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
@@ -993,7 +999,6 @@ if __name__ == '__main__':
     if len(runs) == 0 or no_runs:
         print('No run were found!')
         runs = ['01']
-    n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
     specific_windows = ['L'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
