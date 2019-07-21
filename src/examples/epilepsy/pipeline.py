@@ -981,7 +981,6 @@ if __name__ == '__main__':
     args = utils.Bag(au.parse_parser(parser))
     n_jobs = utils.get_n_jobs(args.n_jobs)
 
-
     modalities = ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'

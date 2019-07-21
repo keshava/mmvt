@@ -1230,6 +1230,7 @@ def calc_stcs_spectral_connectivity(
     label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=False)
     bands_freqs = bands.values()
     fmins, fmaxs = [t[0] for t in bands_freqs], [t[1] for t in bands_freqs]
+    eq_labels = np.zeros((len(labels), len(labels)))
     # for fmin, fmax in zip(fmins, fmaxs):
     for band_ind, (band_name, (fmin, fmax)) in enumerate(bands.items()):
         output_fname = connectivity_template.format(band_name=band_name)
@@ -1397,7 +1398,14 @@ def spectral_connectivity(label_ts, con_method, con_mode, sfreq, fmin, fmax, fav
 
 
 def granger_causality(epochs_ts, sfreq, fmin, fmax, parallel):
-    params = [(epoch_ts, sfreq, fmin, fmax) for epoch_ts in epochs_ts]
+    ijs = []
+    N = epochs_ts[0].shape[0]
+    for i in range(N):
+        for j in range(i, N):
+            if not np.all(epochs_ts[0][i] == epochs_ts[0][j]):
+                ijs.append((i, j))
+
+    params = [(epoch_ts, sfreq, fmin, fmax, ijs) for epoch_ts in epochs_ts]
     results = utils.run_parallel(_granger_causality_parallel, params, len(epochs_ts) if parallel else 1)
     res = np.array(results).mean(0)
     return res
@@ -1407,15 +1415,15 @@ def _granger_causality_parallel(p):
     import nitime.timeseries as ts
     import nitime.analysis as nta
 
-    epoch_ts, sfreq, fmin, fmax = p
+    epoch_ts, sfreq, fmin, fmax, ijs = p
     C, T = epoch_ts.shape
     O = 100 # int(T/ 5)
     time_series = ts.TimeSeries(epoch_ts, sampling_interval=1 / sfreq)
     res = np.zeros((C, C, O))
     now = time.time()
-    for ord in range(1, O):
-        utils.time_to_go(now, ord - 1, O - 1, 1)
-        G = nta.GrangerAnalyzer(time_series, order=ord)
+    for ord in range(1, O + 1):
+        utils.time_to_go(now, ord, O, 1)
+        G = nta.GrangerAnalyzer(time_series, order=ord, ij=ijs)
         freq_idx_G = np.where((G.frequencies > fmin) * (G.frequencies < fmax))[0]
         try:
             g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
@@ -1426,9 +1434,31 @@ def _granger_causality_parallel(p):
             del G, g1, g2
         except:
             print('error with ord {}'.format(ord))
+            g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
             utils.print_last_error_line()
             del G
     return res
+
+#
+# def calc_granger_ij(time_series, order):
+#     from nitime import index_utils as iu
+#     from nitime import utils as niutils
+#     import nitime.algorithms as alg
+#     N = time_series.shape[0]
+#     x, y = np.meshgrid(np.arange(N), np.arange(N))
+#     ij = list(zip(x[iu.tril_indices_from(x, -1)],
+#                   y[iu.tril_indices_from(y, -1)]))
+#     good_ijs = []
+#     for i, j in ij:
+#         x1, x2 = time_series[i], time_series[j]
+#         lag = order + 1
+#         try:
+#             Rxx = niutils.autocov_vector(np.vstack([x1, x2]), nlags=lag)
+#             alg.lwr_recursion(np.array(Rxx).transpose(2, 0, 1))
+#             good_ijs.append((i, j))
+#         except:
+#             print('error with {} {}'.format(i, j))
+#     return good_ijs
 
 
 def get_inv_src(inv_fname, src=None, cond_name=''):
