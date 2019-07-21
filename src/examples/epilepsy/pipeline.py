@@ -976,7 +976,8 @@ if __name__ == '__main__':
     from src.examples.epilepsy import init_files
     from src.utils import args_utils as au
 
-    parser.add_argument('--n_jobs', help='cpu num', required=True)
+    parser = argparse.ArgumentParser(description='MMVT')
+    parser.add_argument('-n', '--n_jobs', help='cpu num', required=True)
     args = utils.Bag(au.parse_parser(parser))
     n_jobs = utils.get_n_jobs(args.n_jobs)
 
