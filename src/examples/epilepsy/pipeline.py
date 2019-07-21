@@ -751,8 +751,8 @@ def calc_labels_connectivity(
     for l in labels:
         l.name = '{}_{}-{}'.format('_'.join(l.name.split('_')[-2:])[:-3], len(l.vertices), l.hemi)
 
-    for epochs, cond in zip([baseline_epochs, windows_epochs],
-                            ['{}_baseline'.format(condition), '{}_interictals'.format(condition)]):
+    for epochs, cond in zip([windows_epochs, baseline_epochs],
+                            ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]):
         meg.calc_labels_connectivity(
             subject, atlas, {cond:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
@@ -993,9 +993,9 @@ if __name__ == '__main__':
     if len(runs) == 0 or no_runs:
         print('No run were found!')
         runs = ['01']
-    n_jobs = 20# utils.get_n_jobs(-5)
+    n_jobs = 1# utils.get_n_jobs(-5)
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['L'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:
