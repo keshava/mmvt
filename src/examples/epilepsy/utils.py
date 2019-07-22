@@ -217,3 +217,19 @@ def combine_windows_into_epochs(windows, epochs_fname='', overwrite=False):
         print('Saving epochs to {}'.format(epochs_fname))
         epochs.save(epochs_fname)
     return epochs
+
+
+def shorten_labels_names(labels):
+    # for connectivity we need shorter names
+    new_labels_names = set()
+    for l in labels:
+        new_name = '{}_{}-{}'.format('_'.join(l.name.split('_')[-2:])[:-3], len(l.vertices), l.hemi)
+        ind, first = 2, True
+        while new_name in new_labels_names:
+            new_name = '{}_{}{}'.format(new_name[:-3], 2, new_name[-3:]) if first else \
+                '{}{}{}'.format(new_name[:-4], int(new_name[-4]) + 1, new_name[-3:])
+        l.name = new_name
+        new_labels_names.add(new_name)
+    if len(labels) != len(set([l.name for l in labels])):
+        raise Exception('Duplicates in the labels names!')
+    return labels

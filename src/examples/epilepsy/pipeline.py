@@ -748,8 +748,9 @@ def calc_labels_connectivity(
 
     labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, n_jobs=n_jobs)
     # for connectivity we need shorter names
-    for l in labels:
-        l.name = '{}_{}-{}'.format('_'.join(l.name.split('_')[-2:])[:-3], len(l.vertices), l.hemi)
+    labels = epi_utils.shorten_labels_names(labels)
+    # Check if can calc the labels info (if not, we want to know now...)
+    connectivity.calc_lables_info(subject, atlas, False, [l.name for l in labels], labels)
 
     for epochs, cond in zip([windows_epochs, baseline_epochs],
                             ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]):
