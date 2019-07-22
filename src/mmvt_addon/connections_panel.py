@@ -179,12 +179,9 @@ def create_conncection_per_condition(d, layers_rods, indices, mask, windows_num,
             for t in range(windows_num):
                 extra_time_points = 0 if norm_fac == 1 else 2
                 timepoint = t * norm_fac + extra_time_points
-                try:
-                    mu.insert_keyframe_to_custom_prop(
-                        cur_obj, '{}-{}'.format(conn_name, cond), d.con_values[ind, t, cond_id], timepoint)
-                except:
-                    mu.insert_keyframe_to_custom_prop(
-                        cur_obj, '{}-{}'.format(conn_name, cond), d.con_values[ind, t, cond_id], timepoint)
+                keyframe_cond_name = '{}-{}'.format(conn_name, cond)
+                mu.insert_keyframe_to_custom_prop(
+                    cur_obj, keyframe_cond_name, d.con_values[ind, t, cond_id], timepoint)
             fcurve = cur_obj.animation_data.action.fcurves[cond_id]
             fcurve.keyframe_points[0].co[1] = 0
             fcurve.keyframe_points[-1].co[1] = 0
@@ -258,7 +255,8 @@ def get_vertices_obj():
 
 
 def get_connection_parent():
-    return bpy.data.objects.get('connections_{}'.format(bpy.context.scene.connectivity_files))
+    parent_name = bpy.context.scene.connectivity_files.replace(' ', '_')
+    return bpy.data.objects.get(parent_name)
 
 
 @mu.timeit

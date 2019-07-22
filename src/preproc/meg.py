@@ -1237,7 +1237,7 @@ def calc_stcs_spectral_connectivity(
         if op.isfile(output_fname) and not overwrite:
             print('{} already exist'.format(output_fname))
             continue
-        if con_method == 'granger-causality':
+        if con_method == 'gc': # granger-causality
             con = granger_causality(label_ts, sfreq, fmin, fmax, n_jobs > 1)
         else:
             con, _, _, _, _ = spectral_connectivity(
