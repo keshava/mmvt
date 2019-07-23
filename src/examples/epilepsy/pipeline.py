@@ -763,8 +763,9 @@ def calc_labels_connectivity(
 
 
 def normalize_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
-                           extract_mode='mean_flip', func_rois_atlas=True, overwrite=False, n_jobs=6):
-    bands = utils.calc_bands(1, high_freq)
+                           extract_mode='mean_flip', func_rois_atlas=True, divide_by_baseline_std=True,
+                           overwrite=False, n_jobs=6):
+    bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
     if func_rois_atlas:
         con_indentifer = 'func_rois'
     for band_name in bands.keys():
@@ -789,13 +790,16 @@ def normalize_connectivity(subject, condition, modality, high_freq=120, con_meth
                 continue
             d_baseline = utils.Bag(np.load(baseline_fname))
             baseline_mean = d_baseline.con_values.mean(axis=1, keepdims=True)
-            baseline_std = d_baseline.con_values.std(axis=1, keepdims=True)
+            baseline_std = d_baseline.con_values.std(axis=1, keepdims=True) if divide_by_baseline_std else None
             np.savez(baseline_stat_fname, mean=baseline_mean, std=baseline_std)
         else:
             d_stat = np.load(baseline_stat_fname)
             baseline_mean, baseline_std = d_stat['mean'], d_stat['std']
         d_cond = utils.Bag(np.load(cond_fname))
-        d_cond.con_values = (d_cond.con_values - baseline_mean) / baseline_std
+        if divide_by_baseline_std:
+            d_cond.con_values = (d_cond.con_values - baseline_mean) / baseline_std
+        else:
+            d_cond.con_values = d_cond.con_values - baseline_mean
         print('{} min max: {:.4f} {:.4f}'.format(
             utils.namebase(output_fname), np.nanmin(d_cond.con_values), np.nanmax(d_cond.con_values)))
         print('Saving norm connectivity in {}'.format(output_fname))
@@ -911,12 +915,13 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
         #                         do_plot=True, overwrite=True)
         # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
-        calc_labels_connectivity(
-            subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-            low_freq, high_freq, con_method, con_mode, n_cycles=2, max_order=50,
-            overwrite=False, overwrite_connectivity=True, n_jobs=n_jobs)
-        # normalize_connectivity(
-        #     subject, specific_window, modality, high_freq, con_method, overwrite=False, n_jobs=n_jobs)
+        # calc_labels_connectivity(
+        #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
+        #     low_freq, high_freq, con_method, con_mode, n_cycles=2, max_order=50,
+        #     overwrite=False, overwrite_connectivity=True, n_jobs=n_jobs)
+        normalize_connectivity(
+            subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
+            overwrite=True, n_jobs=n_jobs)
 
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
@@ -1002,7 +1007,7 @@ if __name__ == '__main__':
         print('No run were found!')
         runs = ['01']
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['R', 'L'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:

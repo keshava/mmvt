@@ -2361,7 +2361,7 @@ def create_epoch(data, info):
     return mne.EpochsArray(data, info, np.array([[0, 0, 1]]), 0, 1)[0]
 
 
-def calc_bands(min_f=1, high_gamma_max=120, as_dict=True):
+def calc_bands(min_f=1, high_gamma_max=120, as_dict=True, include_all_freqs=False):
     if min_f < 4:
         if as_dict:
             bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
@@ -2402,6 +2402,13 @@ def calc_bands(min_f=1, high_gamma_max=120, as_dict=True):
         else:
             bands.append([55, 120])
             bands.append([120, high_gamma_max])
+
+    if include_all_freqs:
+        if as_dict:
+            bands['all'] = [min_f, high_gamma_max]
+        else:
+            bands.append([min_f, high_gamma_max])
+
     return bands
 
 

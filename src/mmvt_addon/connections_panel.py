@@ -72,7 +72,8 @@ def check_connections(stat=STAT_DIFF):
         stat_data = calc_stat_data(d.con_values, stat, windows_num)
     else:
         stat_data = d.con_values
-    mask = calc_mask(stat_data, threshold, threshold_type, windows_num)
+    mask = calc_mask(stat_data, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type)
+    # mask = calc_masked_con_names(d, threshold, threshold_type, bpy.context.scene.connections_type, stat_data)
     indices = np.where(mask)[0]
     parent_obj = bpy.data.objects.get(get_connections_parent_name(), None)
     if parent_obj and len(parent_obj.children) > 0:
@@ -114,7 +115,7 @@ def create_keyframes(d, threshold, threshold_type, radius=.1, stat=STAT_DIFF, ve
         stat_data = calc_stat_data(d.con_values, stat, windows_num)
     else:
         stat_data = d.con_values
-    ConnectionsPanel.mask = mask = calc_mask(stat_data, threshold, threshold_type, windows_num)
+    ConnectionsPanel.mask = mask = calc_mask(stat_data, threshold, threshold_type)
     indices = np.where(mask)[0]
     parent_obj = bpy.data.objects[get_connections_parent_name()]
     parent_obj.animation_data_clear()
@@ -128,7 +129,7 @@ def create_keyframes(d, threshold, threshold_type, radius=.1, stat=STAT_DIFF, ve
     print('finish keyframing!')
 
 
-def calc_mask(stat_data, threshold, threshold_type, windows_num):
+def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_type=None):
     if threshold_type == 'percentile':
         threshold = np.percentile(np.abs(stat_data), threshold)
     threshold_type = bpy.context.scene.above_below_threshold
@@ -143,6 +144,16 @@ def calc_mask(stat_data, threshold, threshold_type, windows_num):
     else:
         print('Wrong threshold_type! {}'.format(threshold_type))
         mask = [False] * len(stat_data)
+    if con_types is not None:
+        if connections_type == 'between':
+            maks2 = con_types == HEMIS_BETWEEN
+        elif connections_type == 'within':
+            maks2 = con_types == HEMIS_WITHIN
+        else:
+            maks2 = [True] * len(stat_data)
+    else:
+        maks2 = [True] * len(stat_data)
+
     return mask
 
 
@@ -389,7 +400,7 @@ def unfilter_graph(context, d, condition):
 def filter_graph(context, d, condition, threshold, threshold_type, connections_type, stat=STAT_DIFF):
     parent_obj_name = get_connections_parent_name()
     mu.show_hide_hierarchy(False, parent_obj_name)
-    masked_con_names = calc_masked_con_names(d, threshold, threshold_type, connections_type, condition, stat)
+    masked_con_names = calc_masked_con_names(d, threshold, threshold_type, connections_type, stat)
     parent_obj = bpy.data.objects[parent_obj_name]
     bpy.context.scene.connections_num = min(len(masked_con_names), len(parent_obj.children) - 1)
     conn_show = 0
@@ -429,7 +440,7 @@ def filter_graph(context, d, condition, threshold, threshold_type, connections_t
     mu.view_all_in_graph_editor(context)
 
 
-def calc_masked_con_names(d, threshold, threshold_type, connections_type, condition, stat):
+def calc_masked_con_names(d, threshold, threshold_type, connections_type, stat):
     # For now, we filter only according to both conditions, not each one seperatly
     #todo: filter only the connections that were created, not all the possible connections
     if bpy.context.scene.selection_type == 'conds' and d.con_values.ndim == 3 and d.con_values.shape[2] > 1:
@@ -452,7 +463,7 @@ def calc_masked_con_names(d, threshold, threshold_type, connections_type, condit
     else:
         windows_num = d.con_values.shape[1] if d.con_values.ndim >= 2 else 1
         stat_data = calc_stat_data(d.con_values, stat, windows_num)
-        threshold_mask = calc_mask(stat_data, threshold, threshold_type, windows_num)
+        threshold_mask = calc_mask(stat_data, threshold, threshold_type)
         # threshold_mask = np.max(stat_data, axis=1) > threshold
     if connections_type == 'between':
         con_names_hemis = set(d.con_names[d.con_types == HEMIS_BETWEEN])
@@ -699,6 +710,23 @@ def load_connections_file(connectivity_files=''):
         d.conditions = [l for l in d.conditions]
         if d.con_values.ndim == 2:
             d.con_values = d.con_values[:, :, np.newaxis]
+        if 'con_values2' in d:
+            # todo: let the user alternate between the two
+            if d.con_values2.ndim == 2:
+                d.con_values2 = d.con_values2[:, :, np.newaxis]
+            if bpy.context.scene.connectivity_direction == 'x->y':
+                # This is the deafult
+                pass
+            elif bpy.context.scene.connectivity_direction == 'y->x':
+                d.con_indices = d.con_indices2
+                d.con_names = d.con_names2
+                d.con_values = d.con_values2
+                d.con_types = d.con_types2
+                d.data_max = d.data_max2
+                d.data_min = d.data_min2
+            elif bpy.context.scene.connectivity_direction == 'max':
+                d.con_values = np.maximum(d.con_values, d.con_values2)
+
         conditions_items = [(cond, cond, '', cond_ind) for cond_ind, cond in enumerate(d.conditions)]
         if len(d.conditions) > 1:
             diff_cond = '{}-{} difference'.format(d.conditions[0], d.conditions[1])
@@ -928,13 +956,15 @@ def connections_draw(self, context):
     # layout.prop(context.scene, "connections_origin", text="")
     layout.prop(context.scene, "connectivity_files", text="")
     layout.prop(context.scene, 'connections_threshold', text="Threshold")
+    if 'con_values2' in ConnectionsPanel.d:
+        layout.prop(context.scene, "connectivity_direction", text="")
     layout.prop(context.scene, 'above_below_threshold', text='')
+    layout.prop(context.scene, "connections_type", text="")
     layout.operator(CheckConnections.bl_idname, text="Check connections ", icon='RNA_ADD')
     layout.label(text='# Connections: {}'.format(bpy.context.scene.connections_num))
     layout.label(text='{:.2f} < values < {:.2f}'.format(bpy.context.scene.connections_min, bpy.context.scene.connections_max))
     layout.operator(CreateConnections.bl_idname, text="Create connections ", icon='RNA_ADD')
     # layout.prop(context.scene, 'abs_threshold')
-    layout.prop(context.scene, "connections_type", text="")
     layout.label(text='Show connections for:')
     layout.prop(context.scene, "conditions", text="")
     layout.label(text='Filter type:')
@@ -964,7 +994,7 @@ bpy.types.Scene.abs_threshold = bpy.props.BoolProperty(
 bpy.types.Scene.connections_type = bpy.props.EnumProperty(
         items=[("all", "All connections", "", 1), ("between", "Only between hemispheres", "", 2),
                ("within", "Only within hemispheres", "", 3)],
-        description='Displays the connections within/between hemispheres.\n\nCurrent')
+        description='Displays the connections within/between hemispheres.\n\nCurrent', update=connectivity_files_update)
 bpy.types.Scene.above_below_threshold = bpy.props.EnumProperty(
         items=[("abs_above", "Abs above threshold", "", 1), ("above", "Above threshold", "", 2),
                ("abs_below", "Below threshold", "", 2), ("below", "Below threshold", "", 3)],
@@ -1046,6 +1076,11 @@ def init(addon):
                 conn_index = conn_obj_names.index(parent_obj.name)
                 bpy.context.scene.connectivity_files = conn_names[conn_index]  # get_first_existing_parent_obj_name() #
                 break
+
+    conn_dirs = [(c, c, '', ind) for ind, c in enumerate(['x->y', 'y->x', 'max'])]
+    bpy.types.Scene.connectivity_direction = bpy.props.EnumProperty(
+        items=conn_dirs, description='Connectivity direction', update=connectivity_files_update)
+    bpy.context.scene.connectivity_direction = 'x->y'
 
     ConnectionsPanel.T = addon.get_max_time_steps()
     ConnectionsPanel.addon = addon
