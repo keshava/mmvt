@@ -687,7 +687,7 @@ def _mi_vec_parallel(windows_chunk):
     return res
 
 
-# @utils.tryit()
+@utils.tryit()
 def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, labels_names, conditions, output_fname,
                       windows=0, stat=STAT_DIFF, norm_by_percentile=True, norm_percs=[1, 99],
                       threshold=0, threshold_percentile=0, symetric_colors=True, labels=None, locations=None,
