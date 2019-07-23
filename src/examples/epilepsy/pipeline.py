@@ -913,7 +913,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
         calc_labels_connectivity(
             subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-            low_freq, high_freq, con_method, con_mode, n_cycles=2, max_order=30,
+            low_freq, high_freq, con_method, con_mode, n_cycles=2, max_order=50,
             overwrite=False, overwrite_connectivity=True, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, overwrite=False, n_jobs=n_jobs)
