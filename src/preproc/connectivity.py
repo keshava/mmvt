@@ -717,12 +717,12 @@ def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, label
     (_, d['con_indices'], d['con_names'], d['con_values'], d['con_types'],
      d['data_max'], d['data_min'], threshold) = calc_connectivity(
         conn, d['labels'], d['hemis'], conditions, windows, stat, norm_by_percentile, norm_percs, threshold,
-        threshold_percentile, symetric_colors, symetric_con)
+        threshold_percentile, symetric_colors)
     if not symetric_con:
         (_, d['con_indices2'], d['con_names2'], d['con_values2'], d['con_types2'],
          d['data_max2'], d['data_min2'], threshold) = calc_connectivity(
             conn, d['labels'], d['hemis'], conditions, windows, stat, norm_by_percentile, norm_percs, threshold,
-            threshold_percentile, symetric_colors, symetric_con, pick_lower_inds=False)
+            threshold_percentile, symetric_colors, False)
     d['connectivity_method'] = connectivity_method
     d['vertices'], d['vertices_lookup'] = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
     print('Saving results to {}'.format(output_fname))
