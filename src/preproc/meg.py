@@ -1217,6 +1217,9 @@ def calc_labels_connectivity(
         for con_data, band_name in calc_stcs_spectral_connectivity(
                 stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles,
                 connectivity_template,  max_order, downsample, overwrite_connectivity, n_jobs):
+            tmp_con_output_fname = op.join(mmvt_dir, subject, 'connectivity', '{}_{}.npy'.format(con_method, band_name))
+            print('Saving tmp connectivity file in {}'.format(tmp_con_output_fname))
+            np.save(tmp_con_output_fname, con_data)
             output_fname = connectivity_template.format(band_name=band_name)
             connectivity.save_connectivity(
                 subject, con_data[:, :, :], atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
