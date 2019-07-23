@@ -1497,6 +1497,12 @@ def lower_rec_indices(m):
             yield (i, j)
 
 
+def upper_rec_indices(m):
+    for i in range(m):
+        for j in range(i):
+            yield (j, i)
+
+
 def lower_rec_to_arr(x):
     M = x.shape[0]
     L = int((M*M+M)/2-M)

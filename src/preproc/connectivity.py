@@ -691,7 +691,7 @@ def _mi_vec_parallel(windows_chunk):
 def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, labels_names, conditions, output_fname,
                       windows=0, stat=STAT_DIFF, norm_by_percentile=True, norm_percs=[1, 99],
                       threshold=0, threshold_percentile=0, symetric_colors=True, labels=None, locations=None,
-                      hemis=None):
+                      hemis=None, symetric_con=True):
     d = dict()
     d['conditions'] = conditions
     # args.labels_exclude = []
@@ -717,7 +717,12 @@ def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, label
     (_, d['con_indices'], d['con_names'], d['con_values'], d['con_types'],
      d['data_max'], d['data_min'], threshold) = calc_connectivity(
         conn, d['labels'], d['hemis'], conditions, windows, stat, norm_by_percentile, norm_percs, threshold,
-        threshold_percentile, symetric_colors)
+        threshold_percentile, symetric_colors, symetric_con)
+    if not symetric_con:
+        (_, d['con_indices2'], d['con_names2'], d['con_values2'], d['con_types2'],
+         d['data_max2'], d['data_min2'], threshold) = calc_connectivity(
+            conn, d['labels'], d['hemis'], conditions, windows, stat, norm_by_percentile, norm_percs, threshold,
+            threshold_percentile, symetric_colors, symetric_con, pick_lower_inds=False)
     d['connectivity_method'] = connectivity_method
     d['vertices'], d['vertices_lookup'] = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
     print('Saving results to {}'.format(output_fname))
@@ -771,49 +776,36 @@ def calc_lables_info(subject, atlas, sorted_according_to_annot_file=True, sorted
 
 
 def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_DIFF, norm_by_percentile=True,
-                      norm_percs=[1, 99], threshold=0, threshold_percentile=0, symetric_colors=True):
-    # stat, conditions, w, threshold=0, threshold_percentile=0, color_map='jet',
-    #                         norm_by_percentile=True, norm_percs=(1, 99), symetric_colors=True):
-    # import time
+                      norm_percs=[1, 99], threshold=0, threshold_percentile=0, symetric_colors=True,
+                      pick_lower_inds=True):
     M = data.shape[0]
     if data.ndim == 2:
         data = data[:, :, np.newaxis]
     W = data.shape[2] if windows == 0 else windows
     L = int((M * M + M) / 2 - M)
     conds_len = len(conditions) if conditions != '' else 1
-    # con_indices = np.zeros((L, 2))
     con_values = np.zeros((L, W, conds_len))
     con_names = [None] * L
     con_type = np.zeros((L))
-    lower_rec_indices = list(utils.lower_rec_indices(M))
-    # LRI = len(lower_rec_indices)
+    rec_indices = list(utils.lower_rec_indices(M)) if pick_lower_inds else list(utils.upper_rec_indices(M))
     data[np.where(np.isnan(data))] = 0
     for cond in range(conds_len):
         for w in range(W):
-            # now = time.time()
             if W > 1 and data.ndim == 4:
-                con_values[:, w, cond] = [data[i, j, w, cond] for i, j in lower_rec_indices]
+                con_values[:, w, cond] = [data[i, j, w, cond] for i, j in rec_indices]
             elif W > 1 and data.ndim == 3:
-                con_values[:, w, cond] = [data[i, j, w] for i, j in lower_rec_indices]
+                con_values[:, w, cond] = [data[i, j, w] for i, j in rec_indices]
             elif data.ndim > 2:
-                con_values[:, w, cond] = [data[i, j, cond] for i, j in lower_rec_indices]
+                con_values[:, w, cond] = [data[i, j, cond] for i, j in rec_indices]
             else:
-                con_values[:, w, cond] = [data[i, j] for i, j in lower_rec_indices]
-            # for ind, (i, j) in enumerate(lower_rec_indices):
-            #     # utils.time_to_go(now, ind, LRI, LRI/10)
-            #     if W > 1 and data.ndim == 4:
-            #         con_values[ind, w, cond] = data[i, j, w, cond]
-            #     elif data.ndim > 2:
-            #         con_values[ind, w, cond] = data[i, j, cond]
-            #     else:
-            #         con_values[ind, w, cond] = data[i, j]
+                con_values[:, w, cond] = [data[i, j] for i, j in rec_indices]
     if conds_len > 1:
         stat_data = utils.calc_stat_data(con_values, stat)
     else:
         stat_data = np.squeeze(con_values)
 
-    con_indices = np.array(lower_rec_indices)
-    for ind, (i, j) in enumerate(utils.lower_rec_indices(M)):
+    con_indices = np.array(rec_indices)
+    for ind, (i, j) in enumerate(utils.lower_rec_indices(M) if pick_lower_inds else utils.upper_rec_indices(M)):
         try:
             con_names[ind] = '{}-{}'.format(labels[i], labels[j])
             con_type[ind] = HEMIS_WITHIN if hemis[i] == hemis[j] else HEMIS_BETWEEN
@@ -832,20 +824,15 @@ def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_D
             indices = np.where(np.max(abs(stat_data), axis=1) > threshold)[0]
         else:
             indices = np.where(abs(stat_data) > threshold)[0]
-        # indices = np.where(np.abs(stat_data) > args.threshold)[0]
-        # con_colors = con_colors[indices]
         con_indices = con_indices[indices]
         con_names = con_names[indices]
         con_values = con_values[indices]
         con_type  = con_type[indices]
-        stat_data = stat_data[indices]
 
     con_values = np.squeeze(con_values)
-    # con_values = np.squeeze(stat_data)
     if symetric_colors and np.sign(data_max) != np.sign(data_min) and data_min != 0 and data_max != 0:
         data_max, data_min = data_minmax, -data_minmax
     print('data_max: {}, data_min: {}, con len: {}'.format(data_max, data_min, len(con_names)))
-    # con_colors = utils.mat_to_colors(stat_data, data_min, data_max, args.color_map)
     return None, con_indices, con_names, con_values, con_type, data_max, data_min, threshold
 
 

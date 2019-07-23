@@ -1139,9 +1139,9 @@ def calc_labels_connectivity(
         subject, atlas, events, mri_subject='', subjects_dir='', mmvt_dir='', inverse_method='dSPM',
         epo_fname='', inv_fname='', raw_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'], surf_name='pial',
-        con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, overwrite_connectivity=False,
-        raw=None, epochs=None, src=None, bands=None, labels=None, cwt_frequencies=None, con_indentifer='',
-        n_jobs=6):
+        con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, max_order=100,
+        overwrite_connectivity=False, raw=None, epochs=None, src=None, bands=None, labels=None, cwt_frequencies=None,
+        con_indentifer='', symetric_con=None, downsample=1, n_jobs=6):
     if fwd_usingMEG and fwd_usingEEG:
         modality = 'meeg'
     elif fwd_usingMEG and not fwd_usingEEG:
@@ -1164,6 +1164,8 @@ def calc_labels_connectivity(
         extract_modes = [extract_modes]
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) and len(events) > 0 \
         else ['all']
+    if symetric_con is None:
+        symetric_con = con_method not in ['gc']
     lambda2 = 1.0 / snr ** 2
     if bands is None or bands == '':
         bands = utils.calc_bands(1, 120)
@@ -1214,11 +1216,12 @@ def calc_labels_connectivity(
         con_indentifer = '' if con_indentifer == '' else '_{}'.format(con_indentifer)
         for con_data, band_name in calc_stcs_spectral_connectivity(
                 stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles,
-                connectivity_template, overwrite_connectivity, n_jobs):
+                connectivity_template,  max_order, downsample, overwrite_connectivity, n_jobs):
             output_fname = connectivity_template.format(band_name=band_name)
             connectivity.save_connectivity(
                 subject, con_data[:, :, :], atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
-                output_fname, norm_by_percentile=True, norm_percs=[1, 99], symetric_colors=True, labels=labels)
+                output_fname, norm_by_percentile=True, norm_percs=[1, 99], symetric_colors=True, labels=labels,
+                symetric_con=symetric_con)
             del con_data
             ret = ret and op.isfile(output_fname)
     return ret
@@ -1226,11 +1229,16 @@ def calc_labels_connectivity(
 
 def calc_stcs_spectral_connectivity(
         stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies,
-        cwt_n_cycles, connectivity_template, overwrite=False, n_jobs=1):
+        cwt_n_cycles, connectivity_template, max_order=100, downsample=1, overwrite=False, n_jobs=1):
     label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=False)
+    if downsample > 1:
+        label_ts = [utils.downsample_2d(ts, downsample) for ts in label_ts]
+        sfreq /= downsample
+    if con_method == 'gc':
+        bands['all'] = [None, None]
     bands_freqs = bands.values()
-    fmins, fmaxs = [t[0] for t in bands_freqs], [t[1] for t in bands_freqs]
-    eq_labels = np.zeros((len(labels), len(labels)))
+    # fmins, fmaxs = [t[0] for t in bands_freqs], [t[1] for t in bands_freqs]
+    # eq_labels = np.zeros((len(labels), len(labels)))
     # for fmin, fmax in zip(fmins, fmaxs):
     for band_ind, (band_name, (fmin, fmax)) in enumerate(bands.items()):
         output_fname = connectivity_template.format(band_name=band_name)
@@ -1238,7 +1246,7 @@ def calc_stcs_spectral_connectivity(
             print('{} already exist'.format(output_fname))
             continue
         if con_method == 'gc': # granger-causality
-            con = granger_causality(label_ts, sfreq, fmin, fmax, n_jobs > 1)
+            con = granger_causality(label_ts, sfreq, max_order, fmin, fmax, n_jobs > 1)
         else:
             con, _, _, _, _ = spectral_connectivity(
                 label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
@@ -1397,7 +1405,7 @@ def spectral_connectivity(label_ts, con_method, con_mode, sfreq, fmin, fmax, fav
         return None, None, None, 0, 0
 
 
-def granger_causality(epochs_ts, sfreq, fmin, fmax, parallel):
+def granger_causality(epochs_ts, sfreq, max_order, fmin=None, fmax=None, parallel=True):
     ijs = []
     N = epochs_ts[0].shape[0]
     for i in range(N):
@@ -1405,7 +1413,7 @@ def granger_causality(epochs_ts, sfreq, fmin, fmax, parallel):
             if not np.all(epochs_ts[0][i] == epochs_ts[0][j]):
                 ijs.append((i, j))
 
-    params = [(epoch_ts, sfreq, fmin, fmax, ijs) for epoch_ts in epochs_ts]
+    params = [(epoch_ts, sfreq, max_order, fmin, fmax, ijs) for epoch_ts in epochs_ts]
     results = utils.run_parallel(_granger_causality_parallel, params, len(epochs_ts) if parallel else 1)
     res = np.array(results).mean(0)
     return res
@@ -1415,16 +1423,23 @@ def _granger_causality_parallel(p):
     import nitime.timeseries as ts
     import nitime.analysis as nta
 
-    epoch_ts, sfreq, fmin, fmax, ijs = p
+    epoch_ts, sfreq, max_order, fmin, fmax, ijs = p
     C, T = epoch_ts.shape
-    O = 100 # int(T/ 5)
     time_series = ts.TimeSeries(epoch_ts, sampling_interval=1 / sfreq)
-    res = np.zeros((C, C, O))
+    res = np.zeros((C, C, max_order))
     now = time.time()
-    for ord in range(1, O + 1):
-        utils.time_to_go(now, ord, O, 1)
+    for ord in range(1, max_order + 1):
+        print('Calc granger causality for order {}, {}-{}Hz'.format(ord, fmin, fmax))
+        utils.time_to_go(now, ord, max_order, 1)
         G = nta.GrangerAnalyzer(time_series, order=ord, ij=ijs)
-        freq_idx_G = np.where((G.frequencies > fmin) * (G.frequencies < fmax))[0]
+        if fmin is None and fmax is None:
+            freq_idx_G = np.arange(len(G.frequencies))
+        elif fmin is None and fmax is not None:
+            freq_idx_G = np.where((G.frequencies < fmax))[0]
+        elif fmin is not None and fmax is None:
+            freq_idx_G = np.where((G.frequencies > fmin))[0]
+        else:
+            freq_idx_G = np.where((G.frequencies > fmin) * (G.frequencies < fmax))[0]
         try:
             g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
             g2 = np.mean(G.causality_yx[:, :, freq_idx_G], -1)
