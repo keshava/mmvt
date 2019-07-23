@@ -2325,13 +2325,13 @@ def clear_colors():
 
 
 def clear_connections():
-    vertices_obj = _addon().connections.get_vertices_obj() # bpy.data.objects.get('connections_vertices')
-    if vertices_obj:
-        if any([obj.hide for obj in vertices_obj.children]):
-            _addon().plot_connections(_addon().get_connections_data(), bpy.context.scene.frame_current, 0)
-            if _addon().connections.get_connections_show_vertices():
-                _addon().filter_nodes(False)
-                _addon().filter_nodes(True)
+    # vertices_obj = _addon().connections.get_vertices_obj() # bpy.data.objects.get('connections_vertices')
+    # if vertices_obj:
+        # if any([obj.hide for obj in vertices_obj.children]):
+    _addon().plot_connections(_addon().get_connections_data(), bpy.context.scene.frame_current, 0)
+    if _addon().connections.get_connections_show_vertices():
+        _addon().filter_nodes(False)
+        _addon().filter_nodes(True)
 
 
 def get_fMRI_activity(hemi, clusters=False):

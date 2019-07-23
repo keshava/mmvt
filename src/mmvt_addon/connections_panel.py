@@ -247,7 +247,7 @@ def get_vertices_obj():
     vertices_obj = None
     connection_parent = get_connection_parent()
     if connection_parent is not None:
-        vertices_parent_name = '{}_connections_vertices'.format(bpy.context.scene.connectivity_files)
+        vertices_parent_name = '{}_connections_vertices'.format(bpy.context.scene.connectivity_files.replace(' ', '_'))
         vertices_objs = [c for c in connection_parent.children if c.name == vertices_parent_name]
         if len(vertices_objs) == 1:
             vertices_obj = vertices_objs[0]
