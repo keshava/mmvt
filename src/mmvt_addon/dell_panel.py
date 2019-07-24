@@ -889,10 +889,12 @@ def dell_draw(self, context):
         row = layout.row(align=0)
         row.prop(context.scene, 'dell_ct_max_dist_between_electrodes', text="Max dist between")
         row.prop(context.scene, 'dell_ct_min_distance', text="Min dist between")
-        layout.prop(context.scene, 'dell_debug', text='debug')
+        if bpy.context.scene.dell_more_settings:
+            layout.prop(context.scene, 'dell_debug', text='debug')
         row = layout.row(align=0)
         row.prop(context.scene, 'ct_mark_noise', text='Mark noise')
-        row.operator(InitNoise.bl_idname, text="Init noise", icon='RECOVER_LAST')
+        if bpy.context.scene.dell_more_settings:
+            row.operator(InitNoise.bl_idname, text="Init noise", icon='RECOVER_LAST')
         if bpy.context.scene.ct_mark_noise:
             row.prop(context.scene, 'dell_ct_noise_color', text='')
         row = layout.row(align=0)
@@ -930,12 +932,14 @@ def dell_draw(self, context):
                 layout.operator(SaveCTElectrodesFigures.bl_idname, text="Save CT figures", icon='OUTLINER_OB_FORCE_FIELD')
             layout.operator(MarkElectrodeLeadAsNoise.bl_idname, text="Mark electrode's lead as noise",
                             icon='PANEL_CLOSE')
-        layout.operator(ProjectElectrodesOnLeads.bl_idname, text="Project electrodes on leads", icon='SURFACE_DATA')
+        if bpy.context.scene.dell_more_settings:
+            layout.operator(ProjectElectrodesOnLeads.bl_idname, text="Project electrodes on leads", icon='SURFACE_DATA')
         if len(bpy.context.selected_objects) == 2 and all(bpy.context.selected_objects[k].name in DellPanel.names for k in range(2)):
             layout.operator(CreateNewElectrodeBetween.bl_idname, text="Create new electrode between",
                             icon='WORLD_DATA')
             layout.operator(FindElectrodeLead.bl_idname, text="Find lead between selected electrodes", icon='PARTICLE_DATA')
-            layout.operator(FindGroupBetweenTwoElectrodesOnDural.bl_idname, text="Find group on dural", icon='EXPORT')
+            if bpy.context.scene.dell_more_settings:
+                layout.operator(FindGroupBetweenTwoElectrodesOnDural.bl_idname, text="Find group on dural", icon='EXPORT')
         if len(bpy.context.selected_objects) > 0:
             layout.operator(MarkSelectedElectrodesAsNoise.bl_idname, text="Mark selected electrodes as noise", icon='PANEL_CLOSE')
             layout.operator(MarkSelectedNoiseAsElectrodes.bl_idname, text="Mark selected noise as electrodes", icon='EYEDROPPER')
@@ -946,13 +950,15 @@ def dell_draw(self, context):
 
         # if len(bpy.context.selected_objects) == 4 and all(
         #         bpy.context.selected_objects[k].name in DellPanel.names for k in range(4)):
-        if len(bpy.context.selected_objects) == 0:
+        if len(bpy.context.selected_objects) == 0 and bpy.context.scene.dell_more_settings:
             layout.operator(FindGroupBetweenTwoElectrodesOnDural.bl_idname, text="Find grid on dural", icon='EXPORT')
         if not bpy.context.scene.dell_all_groups_were_found:
-            layout.operator(FindRandomLead.bl_idname, text="Find a group", icon='POSE_HLT')
+            if bpy.context.scene.dell_more_settings:
+                layout.operator(FindRandomLead.bl_idname, text="Find a group", icon='POSE_HLT')
             layout.operator(FindAllLeads.bl_idname, text="Find all groups", icon='LAMP_SUN')
             layout.prop(context.scene, 'dell_do_post_search', text='Do post search')
-            layout.prop(context.scene, 'dell_find_all_group_using_timer', text='Use timer')
+            if bpy.context.scene.dell_more_settings:
+                layout.prop(context.scene, 'dell_find_all_group_using_timer', text='Use timer')
         # layout.operator(SaveCTNeighborhood.bl_idname, text="Save CT neighborhood", icon='EDIT')
         layout.label(text='#Groups found: {}'.format(len(DellPanel.groups)))
         if len(DellPanel.groups) > 0:
@@ -973,11 +979,12 @@ def dell_draw(self, context):
             g = DellPanel.groups[select_elc_group]
             group_name = '{}-{}'.format(DellPanel.names[g[0]], DellPanel.names[g[-1]])
             row.label(text=group_name)
-        row = layout.row(align=True)
-        row.prop(context.scene, 'dell_move_x')
-        row.prop(context.scene, 'dell_move_y')
-        row.prop(context.scene, 'dell_move_z')
-    if len(bpy.context.selected_objects) > 1:
+        if bpy.context.scene.dell_more_settings:
+            row = layout.row(align=True)
+            row.prop(context.scene, 'dell_move_x')
+            row.prop(context.scene, 'dell_move_y')
+            row.prop(context.scene, 'dell_move_z')
+    if len(bpy.context.selected_objects) > 1 and bpy.context.scene.dell_more_settings:
         layout.operator(DeleteElectrodesFromGroup.bl_idname, text="Leave highest CT int", icon='CANCEL')
     if electrode_with_group_selected:
         row = layout.row(align=0)
@@ -1004,14 +1011,16 @@ def dell_draw(self, context):
     # row.operator(CheckIfElectrodeOutsidePial.bl_idname, text="Find outer electrodes", icon='ROTATE')
     # row.prop(context.scene, 'dell_brain_mask_sigma', text='Brain mask sigma')
     # row.prop(context.scene, 'dell_brain_mask_use_aseg', text='Use aseg')
-    layout.prop(context.scene, 'dell_ct_print_distances', text='Show distances within group')
-    if bpy.context.scene.dell_ct_print_distances and len(DellPanel.dists) > 0 and len(DellPanel.groups) > 0:
-        layout.label(text='Group inner distances:')
-        box = layout.box()
-        col = box.column()
-        last_group = DellPanel.groups[-1]
-        for elc1, elc2, dist in zip([DellPanel.names[k] for k in last_group[:-1]], [DellPanel.names[k] for k in last_group[1:]], DellPanel.dists):
-            mu.add_box_line(col, '{}-{}'.format(elc1, elc2), '{:.2f}'.format(dist), 0.8)
+    if bpy.context.scene.dell_more_settings:
+        layout.prop(context.scene, 'dell_ct_print_distances', text='Show distances within group')
+        if bpy.context.scene.dell_ct_print_distances and len(DellPanel.dists) > 0 and len(DellPanel.groups) > 0:
+            layout.label(text='Group inner distances:')
+            box = layout.box()
+            col = box.column()
+            last_group = DellPanel.groups[-1]
+            for elc1, elc2, dist in zip([DellPanel.names[k] for k in last_group[:-1]], [DellPanel.names[k] for k in last_group[1:]], DellPanel.dists):
+                mu.add_box_line(col, '{}-{}'.format(elc1, elc2), '{:.2f}'.format(dist), 0.8)
+    layout.prop(context.scene, 'dell_more_settings', text='More Settings')
 
 
 def start_timer():
@@ -1455,6 +1464,7 @@ bpy.types.Scene.dell_selected_electrode_group_name = bpy.props.StringProperty()
 bpy.types.Scene.dell_how_many_electrodes_above_threshold = bpy.props.StringProperty()
 bpy.types.Scene.dell_files = bpy.props.EnumProperty(items=[], description="Dell files")
 bpy.types.Scene.dell_all_groups_were_found = bpy.props.BoolProperty(default=True)
+bpy.types.Scene.dell_more_settings = bpy.props.BoolProperty(default=False)
 
 
 class DellPanel(bpy.types.Panel):
