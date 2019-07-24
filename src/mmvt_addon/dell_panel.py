@@ -72,7 +72,20 @@ def find_electrodes_pipeline():
     _addon().show_electrodes()
 
 
+def import_dura_surface():
+    # material_name = 'dura_mat'
+    for hemi in mu.HEMIS:
+        obj_name = 'dural-{}'.format(hemi)
+        surf_obj = _addon().utils.get_obj(obj_name)
+        if surf_obj is None:
+            ply_fname = op.join(mu.get_user_fol(), 'surf', '{}.dural.ply'.format(hemi))
+            print('Importing {}'.format(ply_fname))
+            surf_obj = _addon().data.load_ply(ply_fname, obj_name)
+        surf_obj.hide = True
+
+
 def find_how_many_electrodes_above_threshold():
+    import_dura_surface()
     local_maxima_fname = op.join(DellPanel.output_fol, 'local_maxima_{}.npy'.format(
         bpy.context.scene.dell_ct_threshold))
     if bpy.context.scene.dell_binary_erosion:
@@ -91,11 +104,15 @@ def find_how_many_electrodes_above_threshold():
     print('{} local maxima were found'.format(len(ct_voxels)))
     ct_voxels = fect.remove_neighbors_voxels(DellPanel.ct_data, ct_voxels)
     print('{} local maxima after removing neighbors'.format(len(ct_voxels)))
-    print('mask_voxels_outside_brain...')
-    ct_electrodes, _ = fect.mask_voxels_outside_brain(
-        ct_voxels, DellPanel.ct.header, DellPanel.brain, mu.get_user_fol(), mu.get_subject_dir(),
-        bpy.context.scene.dell_brain_mask_sigma)
-    print('{} voxels in the brain were found'.format(len(ct_electrodes)))
+    if bpy.context.scene.dell_mask_voxels_outside_brain:
+        print('mask_voxels_outside_brain...')
+        ct_electrodes, _ = fect.mask_voxels_outside_brain(
+            ct_voxels, DellPanel.ct.header, DellPanel.brain, mu.get_user_fol(), mu.get_subject_dir(),
+            bpy.context.scene.dell_brain_mask_sigma)
+        print('{} voxels in the brain were found'.format(len(ct_electrodes)))
+    else:
+        ct_electrodes = ct_voxels
+        print('{} voxels  were found'.format(len(ct_electrodes)))
     if len(ct_electrodes) == 0:
         bpy.context.scene.dell_how_many_electrodes_above_threshold = '0'
         return
@@ -193,6 +210,7 @@ def refresh_pos_and_names(overwrite=False):
 
 def rename_group():
     pass
+
 
 def export_electrodes(group_hemi_default='G'):
     from collections import Counter
@@ -851,6 +869,7 @@ def dell_draw(self, context):
         row.operator(CalcThresholdPercentile.bl_idname, text="Calc threshold", icon='STRANDS')
         layout.prop(context.scene, 'dell_brain_mask_sigma', text='Brain mask sigma')
         layout.prop(context.scene, 'dell_find_nei_maxima', text='Find local nei maxima')
+        layout.prop(context.scene, 'dell_mask_voxels_outside_brain', text='Mask voxels outside brain')
         # layout.prop(context.scene, 'use_only_brain_mask', text='Use only the brain mask')
         # layout.prop(context.scene, 'dell_binary_erosion', text='USe Binary Erosion')
         layout.operator(FindHowManyElectrodesAboveThrshold.bl_idname, text="Find how many electrodes", icon='NODE_SEL')
@@ -1424,6 +1443,7 @@ bpy.types.Scene.dell_brain_mask_use_aseg = bpy.props.BoolProperty(default=True)
 # bpy.types.Scene.use_only_brain_mask = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.dell_binary_erosion = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.dell_find_nei_maxima = bpy.props.BoolProperty(default=True)
+bpy.types.Scene.dell_mask_voxels_outside_brain = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.dell_refresh_pos_and_names_overwrite = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.dell_debug = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.dell_move_x = bpy.props.IntProperty(default=0, step=1, name='x', update=dell_move_elec_update)
