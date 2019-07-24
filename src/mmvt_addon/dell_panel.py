@@ -227,6 +227,7 @@ def export_electrodes(group_hemi_default='G'):
             print('len(DellPanel.pos) ({}) != len(groups[0]) ({})!'.format(len(DellPanel.pos), len(groups[0])))
             return
         group_hemi = group_hemi_default
+    mu.make_dir(output_fol)
     csv_fname = op.join(output_fol, '{}_RAS.csv'.format(subject))
     for fname in glob.glob(op.join(output_fol, '*.dat')):
         os.remove(fname)
