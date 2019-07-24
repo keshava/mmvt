@@ -115,7 +115,9 @@ def create_keyframes(d, threshold, threshold_type, radius=.1, stat=STAT_DIFF, ve
         stat_data = calc_stat_data(d.con_values, stat, windows_num)
     else:
         stat_data = d.con_values
-    ConnectionsPanel.mask = mask = calc_mask(stat_data, threshold, threshold_type)
+    # ConnectionsPanel.mask = mask = calc_mask(stat_data, threshold, threshold_type)
+    ConnectionsPanel.mask = mask = calc_mask(
+        stat_data, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type)
     indices = np.where(mask)[0]
     parent_obj = bpy.data.objects[get_connections_parent_name()]
     parent_obj.animation_data_clear()
@@ -146,15 +148,15 @@ def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_
         mask = [False] * len(stat_data)
     if con_types is not None:
         if connections_type == 'between':
-            maks2 = con_types == HEMIS_BETWEEN
+            mask2 = con_types == HEMIS_BETWEEN
         elif connections_type == 'within':
-            maks2 = con_types == HEMIS_WITHIN
+            mask2 = con_types == HEMIS_WITHIN
         else:
-            maks2 = [True] * len(stat_data)
+            mask2 = [True] * len(stat_data)
     else:
-        maks2 = [True] * len(stat_data)
+        mask2 = [True] * len(stat_data)
 
-    return mask
+    return np.logical_and(mask.squeeze(), mask2)
 
 
 def create_conncection_per_condition(d, layers_rods, indices, mask, windows_num, norm_fac, T, radius):
