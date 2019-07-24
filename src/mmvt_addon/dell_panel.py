@@ -81,7 +81,7 @@ def import_dura_surface():
             ply_fname = op.join(mu.get_user_fol(), 'surf', '{}.dural.ply'.format(hemi))
             print('Importing {}'.format(ply_fname))
             surf_obj = _addon().data.load_ply(ply_fname, obj_name)
-        surf_obj.hide = True
+        mu.show_hide_obj(surf_obj, False)
 
 
 def find_how_many_electrodes_above_threshold():
@@ -261,7 +261,8 @@ def delete_noise_electrodes():
     bpy.ops.object.select_all(action='DESELECT')
     noise_elctrodes = [DellPanel.names[elc_ind] for elc_ind in DellPanel.noise]
     for noise_elc in noise_elctrodes:
-        bpy.data.objects[noise_elc].select = True
+        if bpy.data.objects.get(noise_elc, None) is not None:
+            bpy.data.objects[noise_elc].select = True
     bpy.ops.object.delete()
 
 
