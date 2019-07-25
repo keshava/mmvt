@@ -798,7 +798,10 @@ def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_D
         data = data[:, :, np.newaxis]
     W = data.shape[2] if windows == 0 else windows
     L = int((M * M + M) / 2 - M)
-    conds_len = len(conditions) if conditions != '' else 1
+    if data.ndim == 4:
+        conds_len = data.shape[3]
+    else:
+        conds_len = len(conditions) if conditions != '' else 1
     con_values = np.zeros((L, W, conds_len))
     con_names = [None] * L
     con_type = np.zeros((L))
@@ -814,7 +817,7 @@ def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_D
                 con_values[:, w, cond] = [data[i, j, cond] for i, j in rec_indices]
             else:
                 con_values[:, w, cond] = [data[i, j] for i, j in rec_indices]
-    if conds_len > 1:
+    if conds_len == 2:
         stat_data = utils.calc_stat_data(con_values, stat)
     else:
         stat_data = np.squeeze(con_values)
@@ -834,7 +837,7 @@ def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_D
         threshold = np.percentile(np.abs(stat_data), threshold_percentile)
     if threshold > data_minmax:
         raise Exception('threshold > abs(max(data)) ({})'.format(data_minmax))
-    if threshold >= 0:
+    if threshold > 0:
         if stat_data.ndim >= 2:
             indices = np.where(np.max(abs(stat_data), axis=1) > threshold)[0]
         else:
@@ -842,7 +845,7 @@ def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_D
         con_indices = con_indices[indices]
         con_names = con_names[indices]
         con_values = con_values[indices]
-        con_type  = con_type[indices]
+        con_type = con_type[indices]
 
     con_values = np.squeeze(con_values)
     if symetric_colors and np.sign(data_max) != np.sign(data_min) and data_min != 0 and data_max != 0:

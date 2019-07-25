@@ -22,6 +22,7 @@ from mne.minimum_norm.inverse import _prepare_forward
 from mne.preprocessing import ICA
 from mne.preprocessing import create_ecg_epochs, create_eog_epochs
 
+from src.preproc.connectivity import SUBJECTS_DIR
 from src.utils import utils
 from src.utils import preproc_utils as pu
 from src.utils import labels_utils as lu
@@ -1224,12 +1225,45 @@ def calc_labels_connectivity(
             np.save(tmp_con_output_fname, con_data)
             output_fname = connectivity_template.format(band_name=band_name)
             connectivity.save_connectivity(
-                subject, con_data[:, :, :], atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
+                subject, con_data, atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
                 output_fname, norm_by_percentile=True, norm_percs=[1, 99], symetric_colors=True, labels=labels,
                 symetric_con=symetric_con)
             del con_data
             ret = ret and op.isfile(output_fname)
     return ret
+
+
+def save_connectivity(subject, atlas, events, modality='meg', extract_modes=['mean_flip'],
+        con_method='coh', con_indentifer='', bands=None, labels=None, symetric_con=None, norm_percs=[1, 99],
+        overwrite=False, n_jobs=4):
+    events_keys = list(events.keys()) if events is not None and isinstance(events, dict) and len(events) > 0 \
+        else ['all']
+    if bands is None:
+        bands = utils.calc_bands(1, 120, include_all_freqs=True)
+    if labels is None:
+        labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, n_jobs=n_jobs)
+        if len(labels) == 0:
+            print('No labels!')
+            return False
+    labels_names = [l.name for l in labels]
+    if symetric_con is None:
+        symetric_con = con_method not in ['gc']
+    con_indentifer = '' if con_indentifer == '' else '_{}'.format(con_indentifer)
+    for cond_name, em, band_name in product(events_keys, extract_modes, bands.keys()):
+        output_fname = connectivity.get_output_fname(
+            subject, con_method, modality, em, '{}_{}{}'.format(band_name, cond_name, con_indentifer))
+        if op.isfile(output_fname) and not overwrite:
+            continue
+        tmp_con_input_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}_{}_{}.npy'.format(
+            con_method, band_name, cond_name, con_indentifer))
+        if not op.isfile(tmp_con_input_fname):
+            print('No tmp connectivity file for {} {} {} {}!'.format(con_method, band_name, cond_name, con_indentifer))
+            continue
+        con_data = np.load(tmp_con_input_fname)
+        connectivity.save_connectivity(
+            subject, con_data, atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
+            output_fname, norm_by_percentile=True, norm_percs=norm_percs, symetric_colors=True, labels=labels,
+            symetric_con=symetric_con)
 
 
 def calc_stcs_spectral_connectivity(

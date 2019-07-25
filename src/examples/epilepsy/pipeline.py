@@ -702,13 +702,44 @@ def calc_labels_connectivity(
         subject, windows, baseline_window, condition, modality, atlas='laus125', func_rois_atlas=True,
         inverse_method='dSPM', low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet',
         n_cycles=7, min_order=1, max_order=100, windows_length=0, windows_shift=0, calc_only_for_all_freqs=False,
-        overwrite=False, overwrite_connectivity=False, n_jobs=6):
+        extract_modes=['mean_flip'], overwrite=False, overwrite_connectivity=False, n_jobs=6):
     if len(windows) == 0:
         print('No windows to combine into an epoch object!')
         return
+
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     fwd_usingMEG, fwd_usingEEG = get_fwd_flags(modality)
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
+
+    # todo: calc this 10 automatically
+    freqs = utils.get_freqs(10, high_freq)
+    if calc_only_for_all_freqs:
+        bands = {'all': [None, None]}
+    else:
+        bands = utils.calc_bands(10, high_freq)
+
+    labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, n_jobs=n_jobs)
+    # for connectivity we need shorter names
+    labels = epi_utils.shorten_labels_names(labels)
+    # Check if can calc the labels info (if not, we want to know now...)
+    connectivity.calc_lables_info(subject, atlas, False, [l.name for l in labels], labels)
+
+    con_indentifer = ''
+    if func_rois_atlas:
+        template = '{}-epilepsy-{}-{}-{}-*'.format(subject, inverse_method, modality, specific_window)
+        con_atlas_files = glob.glob(op.join(SUBJECTS_DIR, subject, 'label', template))
+        if len(con_atlas_files) == 0:
+            print('Can\'t find func rois atlas! {}'.format(op.join(SUBJECTS_DIR, 'label', template)))
+            return False
+        atlas = utils.namebase(utils.select_one_file(con_atlas_files))
+        con_indentifer = 'func_rois'
+
+    if not overwrite_connectivity:
+        for cond in ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]:
+            meg.save_connectivity(
+                subject, atlas, {cond:1}, modality, extract_modes, con_method, con_indentifer, bands, labels,
+                overwrite=True)
+        return
 
     windows_epochs_template = op.join(
         root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, '{condition}'))
@@ -733,27 +764,6 @@ def calc_labels_connectivity(
     else:
         baseline_epochs = mne.read_epochs(baseline_epochs_fname)
 
-    # todo: calc this 10 automatically
-    freqs = utils.get_freqs(10, high_freq)
-    if calc_only_for_all_freqs:
-        bands = {'all': [None, None]}
-    else:
-        bands = utils.calc_bands(10, high_freq)
-
-    if func_rois_atlas:
-        template = '{}-epilepsy-{}-{}-{}-*'.format(subject, inverse_method, modality, specific_window)
-        con_atlas_files = glob.glob(op.join(SUBJECTS_DIR, subject, 'label', template))
-        if len(con_atlas_files) == 0:
-            print('Can\'t find func rois atlas! {}'.format(op.join(SUBJECTS_DIR, 'label', template)))
-            return False
-        atlas = utils.namebase(utils.select_one_file(con_atlas_files))
-        con_indentifer = 'func_rois'
-
-    labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, n_jobs=n_jobs)
-    # for connectivity we need shorter names
-    labels = epi_utils.shorten_labels_names(labels)
-    # Check if can calc the labels info (if not, we want to know now...)
-    connectivity.calc_lables_info(subject, atlas, False, [l.name for l in labels], labels)
 
     for epochs, cond in zip([windows_epochs, baseline_epochs],
                             ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]):
@@ -923,7 +933,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
             subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
             low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
             windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
-            overwrite_connectivity=True, n_jobs=n_jobs)
+            overwrite_connectivity=False, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
         #     overwrite=True, n_jobs=n_jobs)
