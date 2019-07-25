@@ -993,9 +993,18 @@ def init_sorted_groups():
             shutil.move(op.join(mu.get_user_fol(), 'sorted_groups.pkl'), sorted_groups_fname)
         else:
             print("electrodes_panel: no sorted groups file")
-            # return
+            try:
+                mu.add_mmvt_code_root_to_path()
+                import importlib
+                from src.preproc import electrodes
+                importlib.reload(electrodes)
+                electrodes.find_electrodes_hemis(
+                    mu.get_user(), bpy.context.scene.ela_bipolar, sigma=0, manual=False, electrodes_type=None)
+            except:
+                print('Couldn\'t run src.preproc.electrodes.find_electrodes_hemis')
     if op.isfile(sorted_groups_fname):
         ElecsPanel.sorted_groups = mu.load(sorted_groups_fname)
+
 
 
 def init_leads_list(leads=None):

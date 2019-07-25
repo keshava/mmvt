@@ -254,7 +254,12 @@ def export_electrodes(group_hemi_default='G'):
                 groups_inds[group_hemi] += 1
 
     _addon().electrodes.init(_addon(), False)
+    run_electrodes_preproc()
     print('The electrodes were exported to {}'.format(csv_fname))
+
+
+def run_electrodes_preproc():
+    mu.run_mmvt_func('src.preproc.electrodes', 'all,run_ela', flags='--exclude get_ras_file')
 
 
 def delete_noise_electrodes():
@@ -1020,6 +1025,7 @@ def dell_draw(self, context):
             last_group = DellPanel.groups[-1]
             for elc1, elc2, dist in zip([DellPanel.names[k] for k in last_group[:-1]], [DellPanel.names[k] for k in last_group[1:]], DellPanel.dists):
                 mu.add_box_line(col, '{}-{}'.format(elc1, elc2), '{:.2f}'.format(dist), 0.8)
+        layout.operator(DellRunElectrodesPreproc.bl_idname, text="Run electrodes preproc", icon='OUTLINER_DATA_META')
     layout.prop(context.scene, 'dell_more_settings', text='More Settings')
 
 
@@ -1277,6 +1283,16 @@ class NextCTElectrode(bpy.types.Operator):
 
     def invoke(self, context, event=None):
         next_ct_electrode()
+        return {'FINISHED'}
+
+
+class DellRunElectrodesPreproc(bpy.types.Operator):
+    bl_idname = 'mmvt.run_electrodes_preproc'
+    bl_label = 'run_electrodes_preproc'
+    bl_options = {'UNDO'}
+
+    def invoke(self, context, event=None):
+        run_electrodes_preproc()
         return {'FINISHED'}
 
 
@@ -1631,6 +1647,7 @@ def register():
         bpy.utils.register_class(RefreshElectrodesObjects)
         bpy.utils.register_class(ModalDellTimerOperator)
         bpy.utils.register_class(DellGroupItem)
+        bpy.utils.register_class(DellRunElectrodesPreproc)
     except:
         print("Can't register Dell Panel!")
 
@@ -1672,6 +1689,7 @@ def unregister():
         bpy.utils.unregister_class(ModalDellTimerOperator)
         bpy.utils.unregister_class(DellGroupItem)
         bpy.utils.unregister_class(ProjectElectrodesOnLeads)
+        bpy.utils.unregister_class(DellRunElectrodesPreproc)
     except:
         pass
 
