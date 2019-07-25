@@ -922,7 +922,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         calc_labels_connectivity(
             subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
             low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
-            windows_length=100, windows_shift=50, calc_only_for_all_freqs=True, overwrite=True,
+            windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
             overwrite_connectivity=True, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
@@ -1012,7 +1012,7 @@ if __name__ == '__main__':
         print('No run were found!')
         runs = ['01']
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['L'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['L', 'R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:
