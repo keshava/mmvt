@@ -1435,34 +1435,35 @@ def _granger_causality_parallel(p):
 
     epoch_ts, sfreq, min_order, max_order, fmin, fmax, ijs, windows_length, windows_shift = p
     C, T = epoch_ts.shape
-    epoch_ts_norm = tsu.percent_change(epoch_ts)
-    time_series = ts.TimeSeries(epoch_ts_norm, sampling_interval=1 / sfreq)
-    res = np.zeros((C, C, max_order))
-    now = time.time()
+    # epoch_ts = tsu.percent_change(epoch_ts)
     windows = connectivity.calc_windows(T, windows_length, windows_shift)
+    res = np.zeros((C, C, len(windows), max_order))
+    now = time.time()
     for ord in range(min_order, max_order + 1):
-        print('Calc granger causality for order {}, {}-{} Hz'.format(ord, fmin, fmax))
         utils.time_to_go(now, ord, max_order, 1)
-        G = nta.GrangerAnalyzer(time_series, order=ord, ij=ijs)
-        if fmin is None and fmax is None:
-            freq_idx_G = np.arange(len(G.frequencies))
-        elif fmin is None and fmax is not None:
-            freq_idx_G = np.where((G.frequencies < fmax))[0]
-        elif fmin is not None and fmax is None:
-            freq_idx_G = np.where((G.frequencies > fmin))[0]
-        else:
-            freq_idx_G = np.where((G.frequencies > fmin) * (G.frequencies < fmax))[0]
-        try:
-            g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
-            g2 = np.mean(G.causality_yx[:, :, freq_idx_G], -1)
-            g1[np.where(np.isnan(g1))] = 0
-            g2[np.where(np.isnan(g2))] = 0
-            res[:, :, ord - 1] = g1.T + g2
-            del G, g1, g2
-        except:
-            print('error with ord {}'.format(ord))
-            utils.print_last_error_line()
-            del G
+        print('Calc granger causality for order {}, {}-{} Hz, {} windows'.format(ord, fmin, fmax, len(windows)))
+        for w_ind, (t_from, t_to) in enumerate(windows):
+            time_series = ts.TimeSeries(epoch_ts[:, t_from: t_to], sampling_interval=1 / sfreq)
+            G = nta.GrangerAnalyzer(time_series, order=ord, ij=ijs)
+            if fmin is None and fmax is None:
+                freq_idx_G = np.arange(len(G.frequencies))
+            elif fmin is None and fmax is not None:
+                freq_idx_G = np.where((G.frequencies < fmax))[0]
+            elif fmin is not None and fmax is None:
+                freq_idx_G = np.where((G.frequencies > fmin))[0]
+            else:
+                freq_idx_G = np.where((G.frequencies > fmin) * (G.frequencies < fmax))[0]
+            try:
+                g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
+                g2 = np.mean(G.causality_yx[:, :, freq_idx_G], -1)
+                g1[np.where(np.isnan(g1))] = 0
+                g2[np.where(np.isnan(g2))] = 0
+                res[:, :, w_ind, ord - 1] = g1.T + g2
+                del G, g1, g2
+            except:
+                print('error with ord {}'.format(ord))
+                utils.print_last_error_line()
+                del G
     return res
 
 #

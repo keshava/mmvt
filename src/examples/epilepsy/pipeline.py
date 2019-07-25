@@ -701,8 +701,8 @@ def get_fwd_flags(modality):
 def calc_labels_connectivity(
         subject, windows, baseline_window, condition, modality, atlas='laus125', func_rois_atlas=True,
         inverse_method='dSPM', low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet',
-        n_cycles=7, min_order=1, max_order=100, calc_only_for_all_freqs=False, overwrite=False,
-        overwrite_connectivity=False, n_jobs=6):
+        n_cycles=7, min_order=1, max_order=100, windows_length=0, windows_shift=0, calc_only_for_all_freqs=False,
+        overwrite=False, overwrite_connectivity=False, n_jobs=6):
     if len(windows) == 0:
         print('No windows to combine into an epoch object!')
         return
@@ -762,7 +762,8 @@ def calc_labels_connectivity(
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
             con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=overwrite_connectivity,
             epochs=epochs, bands=bands, cwt_frequencies=freqs, con_indentifer=con_indentifer, labels=labels,
-            min_order=min_order, max_order=max_order, downsample=2, n_jobs=n_jobs)
+            min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
+            windows_shift=windows_shift, n_jobs=n_jobs)
 
 
 def normalize_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
@@ -920,8 +921,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
         calc_labels_connectivity(
             subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-            low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=30,
-            calc_only_for_all_freqs=False, overwrite=True, overwrite_connectivity=True, n_jobs=n_jobs)
+            low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
+            windows_length=100, windows_shift=50, calc_only_for_all_freqs=True, overwrite=True,
+            overwrite_connectivity=True, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
         #     overwrite=True, n_jobs=n_jobs)
