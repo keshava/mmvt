@@ -223,11 +223,12 @@ def shorten_labels_names(labels):
     # for connectivity we need shorter names
     new_labels_names = set()
     for l in labels:
-        new_name = '{}_{}-{}'.format('_'.join(l.name.split('_')[-2:])[:-3], len(l.vertices), l.hemi)
-        ind, first = 2, True
+        elms = l.name[:-3].split('_')[-2:]
+        ind = 1
+        new_name = '{}-{}-{}-{}'.format(elms[0], elms[1], ind, l.hemi)
         while new_name in new_labels_names:
-            new_name = '{}_{}{}'.format(new_name[:-3], 2, new_name[-3:]) if first else \
-                '{}{}{}'.format(new_name[:-4], int(new_name[-4]) + 1, new_name[-3:])
+            ind += 1
+            new_name = '{}-{}-{}-{}'.format(elms[0], elms[1], ind, l.hemi)
         l.name = new_name
         new_labels_names.add(new_name)
     if len(labels) != len(set([l.name for l in labels])):

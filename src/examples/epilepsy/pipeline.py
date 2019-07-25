@@ -718,12 +718,6 @@ def calc_labels_connectivity(
     else:
         bands = utils.calc_bands(10, high_freq)
 
-    labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, n_jobs=n_jobs)
-    # for connectivity we need shorter names
-    labels = epi_utils.shorten_labels_names(labels)
-    # Check if can calc the labels info (if not, we want to know now...)
-    connectivity.calc_lables_info(subject, atlas, False, [l.name for l in labels], labels)
-
     con_indentifer = ''
     if func_rois_atlas:
         template = '{}-epilepsy-{}-{}-{}-*'.format(subject, inverse_method, modality, specific_window)
@@ -733,6 +727,13 @@ def calc_labels_connectivity(
             return False
         atlas = utils.namebase(utils.select_one_file(con_atlas_files))
         con_indentifer = 'func_rois'
+
+    labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, n_jobs=n_jobs)
+    # for connectivity we need shorter names
+    labels = epi_utils.shorten_labels_names(labels)
+    # Check if can calc the labels info (if not, we want to know now...)
+    connectivity.calc_lables_info(subject, atlas, False, [l.name for l in labels], labels)
+
 
     if not overwrite_connectivity:
         for cond in ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]:
@@ -763,7 +764,6 @@ def calc_labels_connectivity(
             baseline_epochs.save(baseline_epochs_fname)
     else:
         baseline_epochs = mne.read_epochs(baseline_epochs_fname)
-
 
     for epochs, cond in zip([windows_epochs, baseline_epochs],
                             ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]):
