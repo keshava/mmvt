@@ -701,7 +701,8 @@ def get_fwd_flags(modality):
 def calc_labels_connectivity(
         subject, windows, baseline_window, condition, modality, atlas='laus125', func_rois_atlas=True,
         inverse_method='dSPM', low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet',
-        n_cycles=7, max_order=100, overwrite=False, overwrite_connectivity=False, n_jobs=6):
+        n_cycles=7, min_order=1, max_order=100, calc_only_for_all_freqs=False, overwrite=False,
+        overwrite_connectivity=False, n_jobs=6):
     if len(windows) == 0:
         print('No windows to combine into an epoch object!')
         return
@@ -732,10 +733,12 @@ def calc_labels_connectivity(
     else:
         baseline_epochs = mne.read_epochs(baseline_epochs_fname)
 
-    # freqs = meg.calc_morlet_freqs(epochs, n_cycles=2, max_high_gamma=120)
     # todo: calc this 10 automatically
     freqs = utils.get_freqs(10, high_freq)
-    bands = utils.calc_bands(10, high_freq)
+    if calc_only_for_all_freqs:
+        bands = {'all': [None, None]}
+    else:
+        bands = utils.calc_bands(10, high_freq)
 
     if func_rois_atlas:
         template = '{}-epilepsy-{}-{}-{}-*'.format(subject, inverse_method, modality, specific_window)
@@ -759,7 +762,7 @@ def calc_labels_connectivity(
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
             con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=overwrite_connectivity,
             epochs=epochs, bands=bands, cwt_frequencies=freqs, con_indentifer=con_indentifer, labels=labels,
-            max_order=max_order, downsample=2, n_jobs=n_jobs)
+            min_order=min_order, max_order=max_order, downsample=2, n_jobs=n_jobs)
 
 
 def normalize_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
@@ -915,13 +918,13 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
         #                         do_plot=True, overwrite=True)
         # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
-        # calc_labels_connectivity(
-        #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-        #     low_freq, high_freq, con_method, con_mode, n_cycles=2, max_order=50,
-        #     overwrite=False, overwrite_connectivity=True, n_jobs=n_jobs)
-        normalize_connectivity(
-            subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
-            overwrite=True, n_jobs=n_jobs)
+        calc_labels_connectivity(
+            subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
+            low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=30,
+            calc_only_for_all_freqs=False, overwrite=True, overwrite_connectivity=True, n_jobs=n_jobs)
+        # normalize_connectivity(
+        #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
+        #     overwrite=True, n_jobs=n_jobs)
 
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,
@@ -1007,7 +1010,7 @@ if __name__ == '__main__':
         print('No run were found!')
         runs = ['01']
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['R', 'L'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:

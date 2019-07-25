@@ -201,6 +201,20 @@ def get_output_fname(subject, connectivity_method, connectivity_modality, labels
         connectivity_modality, identifier, connectivity_method, comps_num))
 
 
+def calc_windows(data_len, windows_length, windows_shift):
+    import math
+    if windows_length == 0:
+        windows_length = data_len
+        windows_num = 1
+    else:
+        windows_num = math.floor((data_len - windows_length) / windows_shift + 1)
+    windows = np.zeros((windows_num, 2))
+    for win_ind in range(windows_num):
+        windows[win_ind] = [win_ind * windows_shift, win_ind * windows_shift + windows_length]
+    windows = windows.astype(np.int)
+    return windows
+
+
 def calc_lables_connectivity(subject, labels_extract_mode, args):
 
     def get_output_mat_fname(connectivity_method, labels_extract_mode=''):
@@ -322,17 +336,18 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
             (labels_extract_mode.startswith('pca_') and data.ndim == 3) or \
             (data.ndim == 3 and len(conditions) == data.shape[2]):
         # No windows yet
-        import math
-        T = data.shape[1] # If this is fMRI data, the real T is T*tr
-        if args.windows_length == 0:
-            args.windows_length = T
-            windows_num = 1
-        else:
-            windows_num = math.floor((T - args.windows_length) / args.windows_shift + 1)
-        windows = np.zeros((windows_num, 2))
-        for win_ind in range(windows_num):
-            windows[win_ind] = [win_ind * args.windows_shift, win_ind * args.windows_shift + args.windows_length]
-        windows = windows.astype(np.int)
+        windows = calc_windows(data.shape[1], args.windows_length, args.windows_shift)
+        # import math
+        # T = data.shape[1] # If this is fMRI data, the real T is T*tr
+        # if args.windows_length == 0:
+        #     args.windows_length = T
+        #     windows_num = 1
+        # else:
+        #     windows_num = math.floor((T - args.windows_length) / args.windows_shift + 1)
+        # windows = np.zeros((windows_num, 2))
+        # for win_ind in range(windows_num):
+        #     windows[win_ind] = [win_ind * args.windows_shift, win_ind * args.windows_shift + args.windows_length]
+        # windows = windows.astype(np.int)
     elif data.ndim == 3:
         windows_num = data.shape[2]
     else:
