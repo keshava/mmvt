@@ -85,7 +85,6 @@ def import_dura_surface():
 
 
 def find_how_many_electrodes_above_threshold():
-    import_dura_surface()
     local_maxima_fname = op.join(DellPanel.output_fol, 'local_maxima_{}.npy'.format(
         bpy.context.scene.dell_ct_threshold))
     if bpy.context.scene.dell_binary_erosion:
@@ -106,6 +105,7 @@ def find_how_many_electrodes_above_threshold():
     print('{} local maxima after removing neighbors'.format(len(ct_voxels)))
     if bpy.context.scene.dell_mask_voxels_outside_brain:
         print('mask_voxels_outside_brain...')
+        import_dura_surface()
         ct_electrodes, _ = fect.mask_voxels_outside_brain(
             ct_voxels, DellPanel.ct.header, DellPanel.brain, mu.get_user_fol(), mu.get_subject_dir(),
             bpy.context.scene.dell_brain_mask_sigma)
