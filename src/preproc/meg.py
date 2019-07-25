@@ -1139,9 +1139,9 @@ def calc_labels_connectivity(
         subject, atlas, events, mri_subject='', subjects_dir='', mmvt_dir='', inverse_method='dSPM',
         epo_fname='', inv_fname='', raw_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'], surf_name='pial',
-        con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, max_order=100,
-        overwrite_connectivity=False, raw=None, epochs=None, src=None, bands=None, labels=None, cwt_frequencies=None,
-        con_indentifer='', symetric_con=None, downsample=1, n_jobs=6):
+        con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, min_order=1, max_order=100,
+        windows_length=0, windows_shift=0, overwrite_connectivity=False, raw=None, epochs=None, src=None, bands=None,
+        labels=None, cwt_frequencies=None, con_indentifer='', symetric_con=None, downsample=1, n_jobs=6):
     if fwd_usingMEG and fwd_usingEEG:
         modality = 'meeg'
     elif fwd_usingMEG and not fwd_usingEEG:
@@ -1216,8 +1216,10 @@ def calc_labels_connectivity(
         con_indentifer = '' if con_indentifer == '' else '_{}'.format(con_indentifer)
         for con_data, band_name in calc_stcs_spectral_connectivity(
                 stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles,
-                connectivity_template,  max_order, downsample, overwrite_connectivity, n_jobs):
-            tmp_con_output_fname = op.join(mmvt_dir, subject, 'connectivity', '{}_{}.npy'.format(con_method, band_name))
+                connectivity_template,  min_order, max_order, downsample, windows_length, windows_shift, overwrite_connectivity,
+                n_jobs):
+            tmp_con_output_fname = op.join(mmvt_dir, subject, 'connectivity', '{}_{}_{}_{}.npy'.format(
+                con_method, band_name, cond_name, con_indentifer))
             print('Saving tmp connectivity file in {}'.format(tmp_con_output_fname))
             np.save(tmp_con_output_fname, con_data)
             output_fname = connectivity_template.format(band_name=band_name)
@@ -1232,14 +1234,15 @@ def calc_labels_connectivity(
 
 def calc_stcs_spectral_connectivity(
         stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies,
-        cwt_n_cycles, connectivity_template, max_order=100, downsample=1, overwrite=False, n_jobs=1):
+        cwt_n_cycles, connectivity_template, min_order=1, max_order=100, downsample=1,
+        windows_length=0, windows_shift=0, overwrite=False, n_jobs=1):
     label_ts = mne.extract_label_time_course(stcs, labels, src, mode=em, allow_empty=True, return_generator=False)
     if downsample > 1:
         label_ts = [utils.downsample_2d(ts, downsample) for ts in label_ts]
         sfreq /= downsample
     if con_method == 'gc':
         bands['all'] = [None, None]
-    bands_freqs = bands.values()
+    # bands_freqs = bands.values()
     # fmins, fmaxs = [t[0] for t in bands_freqs], [t[1] for t in bands_freqs]
     # eq_labels = np.zeros((len(labels), len(labels)))
     # for fmin, fmax in zip(fmins, fmaxs):
@@ -1249,7 +1252,8 @@ def calc_stcs_spectral_connectivity(
             print('{} already exist'.format(output_fname))
             continue
         if con_method == 'gc': # granger-causality
-            con = granger_causality(label_ts, sfreq, max_order, fmin, fmax, n_jobs > 1)
+            con = granger_causality(
+                label_ts, sfreq, max_order, min_order, fmin, fmax, windows_length, windows_shift, n_jobs > 1)
         else:
             con, _, _, _, _ = spectral_connectivity(
                 label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
@@ -1408,7 +1412,8 @@ def spectral_connectivity(label_ts, con_method, con_mode, sfreq, fmin, fmax, fav
         return None, None, None, 0, 0
 
 
-def granger_causality(epochs_ts, sfreq, max_order, fmin=None, fmax=None, parallel=True):
+def granger_causality(epochs_ts, sfreq, max_order, min_order=1, fmin=None, fmax=None, windows_length=0, windows_shift=0,
+                      parallel=True):
     ijs = []
     N = epochs_ts[0].shape[0]
     for i in range(N):
@@ -1416,7 +1421,8 @@ def granger_causality(epochs_ts, sfreq, max_order, fmin=None, fmax=None, paralle
             if not np.all(epochs_ts[0][i] == epochs_ts[0][j]):
                 ijs.append((i, j))
 
-    params = [(epoch_ts, sfreq, max_order, fmin, fmax, ijs) for epoch_ts in epochs_ts]
+    params = [(epoch_ts, sfreq, min_order, max_order, fmin, fmax, ijs, windows_length, windows_shift)
+              for epoch_ts in epochs_ts]
     results = utils.run_parallel(_granger_causality_parallel, params, len(epochs_ts) if parallel else 1)
     res = np.array(results).mean(0)
     return res
@@ -1425,14 +1431,17 @@ def granger_causality(epochs_ts, sfreq, max_order, fmin=None, fmax=None, paralle
 def _granger_causality_parallel(p):
     import nitime.timeseries as ts
     import nitime.analysis as nta
+    import nitime.utils as tsu
 
-    epoch_ts, sfreq, max_order, fmin, fmax, ijs = p
+    epoch_ts, sfreq, min_order, max_order, fmin, fmax, ijs, windows_length, windows_shift = p
     C, T = epoch_ts.shape
-    time_series = ts.TimeSeries(epoch_ts, sampling_interval=1 / sfreq)
+    epoch_ts_norm = tsu.percent_change(epoch_ts)
+    time_series = ts.TimeSeries(epoch_ts_norm, sampling_interval=1 / sfreq)
     res = np.zeros((C, C, max_order))
     now = time.time()
-    for ord in range(1, max_order + 1):
-        print('Calc granger causality for order {}, {}-{}Hz'.format(ord, fmin, fmax))
+    windows = connectivity.calc_windows(T, windows_length, windows_shift)
+    for ord in range(min_order, max_order + 1):
+        print('Calc granger causality for order {}, {}-{} Hz'.format(ord, fmin, fmax))
         utils.time_to_go(now, ord, max_order, 1)
         G = nta.GrangerAnalyzer(time_series, order=ord, ij=ijs)
         if fmin is None and fmax is None:
@@ -1452,7 +1461,6 @@ def _granger_causality_parallel(p):
             del G, g1, g2
         except:
             print('error with ord {}'.format(ord))
-            g1 = np.mean(G.causality_xy[:, :, freq_idx_G], -1)
             utils.print_last_error_line()
             del G
     return res
