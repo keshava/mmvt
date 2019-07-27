@@ -796,7 +796,7 @@ def plot_connectivity(subject, condition, modality, high_freq=120, con_method='w
 
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
-        time = np.arange(norm.shape[1]) * 10
+        time = np.arange(0, norm.shape[1], 5) * 10
         plt.plot(x_axis, norm.T)
         if stc_data is not None:
             ax2 = ax1.twinx()
@@ -882,15 +882,14 @@ def plot_connectivity(subject, condition, modality, high_freq=120, con_method='w
         norm2_zvals = (d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)) / \
                       d_baseline['con_values2'].std(1, keepdims=True)
         plot_norm_data(norm1_mean, norm2_mean, 0.5)
-        plot_norm_data(norm1_zvals, norm2_zvals, 2)
-
+        # plot_norm_data(norm1_zvals, norm2_zvals, 2)
 
 
 def filter_connections(node_name, con_values, con_names, threshold):
     mask = [False] * len(con_names)
     for ind, con_name in enumerate(con_names):
         node_from, _, _, hemi_from, node_to, _, _, hemi_to = con_name.split('-')
-        mask[ind] = node_name in node_from and node_name in node_to and hemi_from != hemi_to and \
+        mask[ind] = node_name in node_from and node_name in node_to and \
                     np.abs(con_values[ind, :].max()) >= threshold  # and hemi_from == 'lh' and hemi_to == 'rh'
     return mask
 
