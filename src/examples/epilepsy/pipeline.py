@@ -430,7 +430,8 @@ def _calc_induced_power_zvals_parallel(p):
 
 
 def calc_stc_power_specturm(subject, modality, power_stc_name, window_fname, baseline_window, avg_time_crop, run_num,
-                            inverse_method='dSPM', atlas='aparc.DKTatlas', high_gamma_max=120, win_suffix=''):
+                            inverse_method='dSPM', atlas='aparc.DKTatlas', high_gamma_max=120, win_suffix='',
+                            vertices_ind=None):
     from collections import defaultdict
     import time
 
@@ -776,9 +777,86 @@ def calc_labels_connectivity(
             windows_shift=windows_shift, n_jobs=n_jobs)
 
 
+def plot_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
+                           extract_mode='mean_flip', func_rois_atlas=True, use_zvals=False):
+    import matplotlib.pyplot as plt
+    bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
+    if func_rois_atlas:
+        con_indentifer = 'func_rois'
+    node_name = 'occipital'  # ''lateraloccipital'
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'connectivity'))
+    for band_name in bands.keys():
+        data_dict, data_dict2, ords_dict, ords_dict2 = {}, {}, {}, {}
+        for cond in ['interictals', 'baseline']:
+            template = connectivity.get_output_fname(
+                subject, con_method, modality, extract_mode, '{}_{}_{}'.format(band_name, '{}_{}'.format(condition, cond), con_indentifer))
+            input_fname = '{}{}.npz'.format(template[:-4], '_zvals' if use_zvals else '')
+            if not op.isfile(input_fname):
+                # print('Can\'t find {}'.format(input_fname))
+                continue
+            d = np.load(input_fname)
+            con_values1, best_ords1 = find_best_ord(d['con_values'], return_ords=True)
+            con_values2, best_ords2 = find_best_ord(d['con_values2'], return_ords=True)
+
+            data_dict[cond] = con_values1
+            data_dict2[cond] = con_values2
+            ords_dict[cond] = best_ords1
+            ords_dict2[cond] = best_ords2
+
+            mask1 = filter_connections(node_name, con_values1, d['con_names'], 0.8)
+            mask2 = filter_connections(node_name, con_values2, d['con_names2'], 0.8)
+            x = np.concatenate((con_values1[mask1], con_values2[mask2]))
+            names = np.concatenate((d['con_names'][mask1], d['con_names2'][mask2]))
+            if best_ords1 is not None:
+                best_ords = np.concatenate((best_ords1[mask1], best_ords2[mask2]))
+                names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
+            if len(names) == 0:
+                print('{} {} no connections'.format(condition, cond))
+                continue
+            plt.figure()
+            plt.plot(x.T)
+            plt.axvline(x=11, color='r', linestyle='--')
+            plt.title('{}-{}'.format(condition, cond))
+            plt.legend(names)
+            plt.savefig(op.join(figures_fol, '{}-{}'.format(condition, cond)), dpi=300)
+            plt.close()
+
+        if len(data_dict) == 0:
+            continue
+
+        mask1 = filter_connections(node_name, data_dict['interictals'] - data_dict['baseline'], d['con_names'], 0.5)
+        mask2 = filter_connections(node_name, data_dict2['interictals'] - data_dict2['baseline'], d['con_names2'], 0.5)
+        x = np.concatenate((data_dict['interictals'][mask1], data_dict2['interictals'][mask2]))
+        names = np.concatenate((d['con_names'][mask1], d['con_names2'][mask2]))
+        names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
+        if len(names) == 0:
+            print('{} {} no connections'.format(condition, cond))
+            continue
+        best_ords = np.concatenate((ords_dict['interictals'][mask1], ords_dict2['interictals'][mask2]))
+        names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
+
+        plt.figure()
+        plt.plot(x.T)
+        plt.axvline(x=11, color='r', linestyle='--')
+        plt.title('{} interictals-basline'.format(condition))
+        plt.legend(names)
+        plt.savefig(op.join(figures_fol, '{} interictals-basline'.format(condition)), dpi=300)
+        plt.close()
+
+
+
+def filter_connections(node_name, con_values, con_names, threshold):
+    mask = [False] * len(con_names)
+    for ind, con_name in enumerate(con_names):
+        node_from, _, _, hemi_from, node_to, _, _, hemi_to = con_name.split('-')
+        mask[ind] = node_name in node_from and node_name in node_to and hemi_from != hemi_to and \
+                    np.abs(con_values[ind, :].max()) >= threshold  # and hemi_from == 'lh' and hemi_to == 'rh'
+    return mask
+
+
 def normalize_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
                            extract_mode='mean_flip', func_rois_atlas=True, divide_by_baseline_std=True,
-                           overwrite=False, n_jobs=6):
+                           threshold=0, overwrite=False, n_jobs=6):
     bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
     if func_rois_atlas:
         con_indentifer = 'func_rois'
@@ -797,27 +875,89 @@ def normalize_connectivity(subject, condition, modality, high_freq=120, con_meth
             print('{} is missing!'.format(cond_fname))
             continue
         baseline_stat_fname = connectivity_template.format(condition='{}_baseline_stat'.format(condition))
-        if not op.isfile(baseline_stat_fname) or overwrite:
-            baseline_fname = connectivity_template.format(condition='{}_baseline'.format(condition))
-            if not op.isfile(baseline_fname):
-                print('{} is missing!'.format(baseline_fname))
-                continue
-            d_baseline = utils.Bag(np.load(baseline_fname))
-            baseline_mean = d_baseline.con_values.mean(axis=1, keepdims=True)
-            baseline_std = d_baseline.con_values.std(axis=1, keepdims=True) if divide_by_baseline_std else None
-            np.savez(baseline_stat_fname, mean=baseline_mean, std=baseline_std)
-        else:
-            d_stat = np.load(baseline_stat_fname)
-            baseline_mean, baseline_std = d_stat['mean'], d_stat['std']
+        # if not op.isfile(baseline_stat_fname) or overwrite:
+        #     baseline_fname = connectivity_template.format(condition='{}_baseline'.format(condition))
+        #     if not op.isfile(baseline_fname):
+        #         print('{} is missing!'.format(baseline_fname))
+        #         continue
+        #     d_baseline = utils.Bag(np.load(baseline_fname))
+        #     baseline_mean = d_baseline.con_values.mean(axis=1, keepdims=True)
+        #     baseline_std = d_baseline.con_values.std(axis=1, keepdims=True) if divide_by_baseline_std else None
+        #     np.savez(baseline_stat_fname, mean=baseline_mean, std=baseline_std)
+        # else:
+        #     d_stat = np.load(baseline_stat_fname)
+        #     baseline_mean, baseline_std = d_stat['mean'], d_stat['std']
+
+        baseline_fname = connectivity_template.format(condition='{}_baseline'.format(condition))
+        if not op.isfile(baseline_fname):
+            print('{} is missing!'.format(baseline_fname))
+            continue
+        print('normalize_connectivity: {} {}:'.format(utils.namebase(cond_fname), band_name))
+        d_baseline = utils.Bag(np.load(baseline_fname))
         d_cond = utils.Bag(np.load(cond_fname))
-        if divide_by_baseline_std:
-            d_cond.con_values = (d_cond.con_values - baseline_mean) / baseline_std
-        else:
-            d_cond.con_values = d_cond.con_values - baseline_mean
-        print('{} min max: {:.4f} {:.4f}'.format(
-            utils.namebase(output_fname), np.nanmin(d_cond.con_values), np.nanmax(d_cond.con_values)))
+        d_cond.con_values = norm_values(
+            d_baseline.con_values, d_cond.con_values, divide_by_baseline_std, threshold)
+        if 'con_values2' in d_baseline:
+            d_cond.con_values2 = norm_values(
+                d_baseline.con_values2, d_cond.con_values2, divide_by_baseline_std, threshold)
         print('Saving norm connectivity in {}'.format(output_fname))
         np.savez(output_fname, **d_cond)
+
+
+# def norm_values(baseline_x, cond_x, divide_by_baseline_std, threshold, find_best_ord=False):
+#     baseline_mean = baseline_x.mean(axis=1, keepdims=True)
+#     baseline_std = baseline_x.std(axis=1, keepdims=True) if divide_by_baseline_std else None
+#     if threshold > 0:
+#         mask_indices = np.where(np.max(np.abs(cond_x), axis=1) < threshold)
+#     if divide_by_baseline_std:
+#         cond_x = (cond_x - baseline_mean) / baseline_std
+#     else:
+#         cond_x = cond_x - baseline_mean
+#     if threshold > 0:
+#         cond_x[mask_indices[0], :, mask_indices[1]] = np.zeros(cond_x.shape[1])
+#     if find_best_ord:
+#         new_con_x = np.zeros((cond_x.shape[0], cond_x.shape[1]))
+#         for n in range(cond_x.shape[0]):
+#             best_ord = np.argmax(np.abs(cond_x[n]).max(0))
+#             new_con_x[n] = cond_x[n, :, best_ord]
+#     print('{:.4f} {:.4f}'.format(np.nanmin(cond_x), np.nanmax(cond_x)))
+#     return cond_x
+
+
+def norm_values(baseline_x, cond_x, divide_by_baseline_std, threshold):
+    cond_x = find_best_ord(cond_x)
+    baseline_x = find_best_ord(baseline_x)
+
+    baseline_mean = baseline_x.mean(axis=1, keepdims=True)
+    baseline_std = cond_x.std(axis=1, keepdims=True) if divide_by_baseline_std else None
+
+    if threshold > 0:
+        mask_indices = np.where(np.max(np.abs(cond_x), axis=1) < threshold)
+    if divide_by_baseline_std:
+        cond_x = (cond_x - baseline_mean) / baseline_std
+    else:
+        cond_x = cond_x - baseline_mean
+    if threshold > 0:
+        cond_x[mask_indices[0]] = np.zeros(cond_x.shape[1])
+
+    print('{:.4f} {:.4f}'.format(np.nanmin(cond_x), np.nanmax(cond_x)))
+    return cond_x
+
+
+def find_best_ord(cond_x, return_ords=False):
+    if cond_x.ndim < 3:
+        return cond_x, None if return_ords else cond_x
+    new_con_x = np.zeros((cond_x.shape[0], cond_x.shape[1]))
+    best_ords = np.zeros((cond_x.shape[0]))
+    for n in range(cond_x.shape[0]):
+        best_ord = np.argmax(np.abs(cond_x[n]).max(0))
+        new_con_x[n] = cond_x[n, :, best_ord]
+        if return_ords:
+            best_ords[n] = best_ord
+    if return_ords:
+        return new_con_x, best_ords
+    else:
+        return new_con_x
 
 
 def find_functional_rois(subject, condition, modality, atlas='laus125', min_cluster_size=10, inverse_method='dSPM'):
@@ -934,9 +1074,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
         #     windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
         #     overwrite_connectivity=False, n_jobs=n_jobs)
-        normalize_connectivity(
-            subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=True,
-            overwrite=True, n_jobs=n_jobs)
+        # normalize_connectivity(
+        #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=True,
+        #     threshold=0.5, overwrite=True, n_jobs=n_jobs)
+        plot_connectivity(subject, specific_window, modality, high_freq, con_method)
 
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,

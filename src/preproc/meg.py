@@ -22,7 +22,6 @@ from mne.minimum_norm.inverse import _prepare_forward
 from mne.preprocessing import ICA
 from mne.preprocessing import create_ecg_epochs, create_eog_epochs
 
-from src.preproc.connectivity import SUBJECTS_DIR
 from src.utils import utils
 from src.utils import preproc_utils as pu
 from src.utils import labels_utils as lu
@@ -1241,7 +1240,7 @@ def save_connectivity(subject, atlas, events, modality='meg', extract_modes=['me
     if bands is None:
         bands = utils.calc_bands(1, 120, include_all_freqs=True)
     if labels is None:
-        labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, n_jobs=n_jobs)
+        labels = lu.read_labels(subject, SUBJECTS_MRI_DIR, atlas, n_jobs=n_jobs)
         if len(labels) == 0:
             print('No labels!')
             return False

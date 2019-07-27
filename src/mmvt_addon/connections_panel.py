@@ -72,7 +72,8 @@ def check_connections(stat=STAT_DIFF):
         stat_data = calc_stat_data(d.con_values, stat, windows_num)
     else:
         stat_data = d.con_values
-    mask = calc_mask(stat_data, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type)
+    mask = calc_mask(stat_data, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type, d.con_names,
+                     bpy.context.scene.connections_label)
     # mask = calc_masked_con_names(d, threshold, threshold_type, bpy.context.scene.connections_type, stat_data)
     indices = np.where(mask)[0]
     parent_obj = bpy.data.objects.get(get_connections_parent_name(), None)
@@ -117,7 +118,8 @@ def create_keyframes(d, threshold, threshold_type, radius=.1, stat=STAT_DIFF, ve
         stat_data = d.con_values
     # ConnectionsPanel.mask = mask = calc_mask(stat_data, threshold, threshold_type)
     ConnectionsPanel.mask = mask = calc_mask(
-        stat_data, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type)
+        stat_data, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type, d.con_names,
+        bpy.context.scene.connections_label)
     indices = np.where(mask)[0]
     parent_obj = bpy.data.objects[get_connections_parent_name()]
     parent_obj.animation_data_clear()
@@ -131,7 +133,7 @@ def create_keyframes(d, threshold, threshold_type, radius=.1, stat=STAT_DIFF, ve
     print('finish keyframing!')
 
 
-def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_type=None):
+def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_type=None, con_names=None, node_name=''):
     if threshold_type == 'percentile':
         threshold = np.percentile(np.abs(stat_data), threshold)
     threshold_type = bpy.context.scene.above_below_threshold
@@ -147,6 +149,7 @@ def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_
     else:
         print('Wrong threshold_type! {}'.format(threshold_type))
         mask = np.array([False] * len(stat_data))
+
     if con_types is not None:
         if connections_type == 'between':
             mask2 = con_types == HEMIS_BETWEEN
@@ -157,7 +160,14 @@ def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_
     else:
         mask2 = [True] * len(stat_data)
 
-    return np.logical_and(mask.squeeze(), mask2)
+    ret = np.logical_and(mask.squeeze(), mask2)
+    if node_name != '':
+        mask3 = [node_name in con_name.split('-') for con_name in con_names]
+        return np.logical_and(ret, mask3)
+    else:
+        return ret
+
+
 
 
 def create_conncection_per_condition(d, layers_rods, indices, mask, windows_num, norm_fac, T, radius):
@@ -531,6 +541,10 @@ def plot_connections(d=None, plot_time=None, threshold=None, calc_t=True, data_m
         elif d.con_values.ndim >= 2 and d.con_values.shape[2] > 2:
             k = int(bpy.context.scene.connections_3rd_axis) - 1
             stat_vals = [d.con_values[ind, t, k] for ind in selected_indices]
+        elif d.con_values.ndim >= 2 and d.con_values.shape[2] == 1:
+            stat_vals = d.con_values[:, t].squeeze()
+        else:
+            raise Exception('What should I do here?!?')
         if not isinstance(stat_vals[0], float) and len(stat_vals[0]) == 2:
             stat_vals = [np.diff(v) for v in stat_vals]
         colors = _addon().calc_colors(np.array(stat_vals).squeeze(), data_min, colors_ratio)
@@ -979,7 +993,8 @@ def connections_3rd_axis_update(self, context):
         threshold = bpy.context.scene.connections_threshold
         threshold_type = bpy.context.scene.connections_threshold_type
         ConnectionsPanel.mask = calc_mask(
-            d.con_values, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type)
+            d.con_values, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type, d.con_names,
+            bpy.context.scene.connections_label)
     indices = np.where(ConnectionsPanel.mask)[0]
     T = ConnectionsPanel.d.con_values.shape[1]
     update_fcurves(d, cond_ind, indices, ConnectionsPanel.mask, T)
@@ -994,6 +1009,7 @@ def connections_draw(self, context):
         layout.prop(context.scene, "connectivity_direction", text="")
     layout.prop(context.scene, 'above_below_threshold', text='')
     layout.prop(context.scene, "connections_type", text="")
+    layout.prop(context.scene, "connections_label", text="Specific label")
     layout.operator(CheckConnections.bl_idname, text="Check connections ", icon='RNA_ADD')
     layout.label(text='# Connections: {}'.format(bpy.context.scene.connections_num))
     layout.label(text='{:.2f} < values < {:.2f}'.format(bpy.context.scene.connections_min, bpy.context.scene.connections_max))
@@ -1036,6 +1052,7 @@ bpy.types.Scene.above_below_threshold = bpy.props.EnumProperty(
                ("abs_below", "Below threshold", "", 2), ("below", "Below threshold", "", 3)],
         description='Selects the method used to calculate the number of connections using the threshold.\n\n Current method')
 bpy.types.Scene.conditions = bpy.props.EnumProperty(items=[], description="Conditions")
+bpy.types.Scene.connections_label = bpy.props.StringProperty(default='', description="connection label")
 bpy.types.Scene.connections_file = bpy.props.StringProperty(default='', description="connection file")
 bpy.types.Scene.connections_threshold_type = bpy.props.EnumProperty(
     items=[("value", "value", "", 1), ("percentile", "percentile", "", 2)], #, ("top_k", "top k", "", 3)],
