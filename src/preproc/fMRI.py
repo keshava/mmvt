@@ -1407,9 +1407,9 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     def create_analysis_info_file(fsd, trg_subject, tr, fwhm=6, lfp=0.08, nskip=4):
         rs = utils.partial_run_script(locals(), cwd=FMRI_DIR, print_only=print_only)
         for hemi in utils.HEMIS:
-            rs('mkanalysis-sess -analysis {fsd}_{hemi} -notask -TR {tr} -surface {trg_subject} {hemi} -fsd {fsd}' +
-               ' -per-run -nuisreg global.waveform.dat 1 -nuisreg wm.dat 1 -nuisreg vcsf.dat 1 -lpf {lfp} -mcextreg' +
-               ' -fwhm {fwhm} -nskip {nskip} -stc up -force', hemi=hemi)
+            rs('mkanalysis-sess -analysis {fsd}_{hemi} -paradigm {par} -event-related -refeventdur 1 -nconditions {ncond} -TR {tr} -surface {trg_subject} {hemi} -fsd {fsd}' +
+               ' -per-run -nuisreg  -nuisreg wm.dat 1 -nuisreg vcsf.dat 1 -polyfit 5 ' +
+               ' -fwhm {fwhm} -nskip {nskip} -stc siemens -force', hemi=hemi)
 
     def find_trg_subject(trg_subject):
         if not op.isdir(op.join(SUBJECTS_DIR, trg_subject)):
@@ -1501,7 +1501,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     create_analysis_info_file(fsd, trg_subject, tr, fwhm, lfp, nskip)
     for hemi in utils.HEMIS:
         # computes the average signal intensity maps
-        run('selxavg3-sess -s {subject} -a {fsd}_{hemi} -svres -no-con-ok',
+        run('selxavg3-sess -s {subject} -a {fsd}_{hemi} ',
             '{}_{}'.format(fsd, hemi), 'res', 'res-001.nii.gz', hemi=hemi)
 
     return copy_output_files() if not print_only else True
