@@ -1375,136 +1375,96 @@ def get_fmri_fname(subject, fmri_file_template, no_files_were_found_func=lambda:
 
 
 @utils.check_for_freesurfer
-def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', fsd='rest', only_preproc=False,
-                             fwhm=6, lfp=0.08, nskip=4, remote_fmri_dir='', overwrite=False, print_only=False):
+def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', fsd='sycabs', only_preproc=False,
+        fwhm=6, lfp=0.08, nskip=4, nconditions=0, contrast_name='words_v_symbols', contrast_flags='-a 1 -c 2',
+        remote_fmri_dir='', plot_registration=True, overwrite=False, print_only=False):
     # fsd: functional subdirectory
-    def no_files_were_found():
-        print('Trying to find remote files in {}'.format(op.join(remote_fmri_dir, fsd, '001', fmri_file_template)))
-        files = find_volume_files_from_template(op.join(remote_fmri_dir, fsd, '001', fmri_file_template)) + \
-                find_volume_files_from_template(op.join(remote_fmri_dir, fmri_file_template))
-        print('files: {}'.format(files))
-        files_num = len(set([utils.namebase(f) for f in files]))
-        if files_num == 1:
-            fmri_fname = op.join(FMRI_DIR, subject, files[0].split(op.sep)[-1])
-            utils.make_dir(op.join(FMRI_DIR, subject))
-            utils.copy_file(files[0], fmri_fname)
-        else:
-            print("Can't find any file in {}!".format(fmri_file_template))
-            return ''
-            # raise Exception("Can't find any file in {}!".format(fmri_file_template))
 
-    def create_folders_tree(fmri_fname):
-        # Fisrt it's needed to create the freesurfer folders tree for the preproc-sess
-        fol = utils.make_dir(op.join(FMRI_DIR, subject, fsd, '001'))
-        if not op.isfile(op.join(fol, 'f.nii.gz')):
-            if utils.file_type(fmri_fname) == 'mgz':
-                fmri_fname = fu.mgz_to_nii_gz(fmri_fname)
-            utils.copy_file(fmri_fname, op.join(fol, 'f.nii.gz'))
-        if not op.isfile(op.join(FMRI_DIR, subject, 'subjectname')):
-            with open(op.join(FMRI_DIR, subject, 'subjectname'), 'w') as sub_file:
-                sub_file.write(subject)
-
-    def create_analysis_info_file(fsd, trg_subject, tr, fwhm=6, lfp=0.08, nskip=4):
-        rs = utils.partial_run_script(locals(), cwd=FMRI_DIR, print_only=print_only)
+    def create_analysis_info_file(fsd, trg_subject, tr, fwhm=6, lfp=0.08, nskip=4, nconditions=0, spmhrf=0,
+                                  refeventdur=1, par=''):
+        if par == '':
+            par = '{}.par'.format(fsd)
+        rs = utils.partial_run_script(locals(), cwd=fmri_dir, print_only=print_only)
         for hemi in utils.HEMIS:
-            rs('mkanalysis-sess -analysis {fsd}_{hemi} -paradigm {par} -event-related -refeventdur 1 -nconditions {ncond} -TR {tr} -surface {trg_subject} {hemi} -fsd {fsd}' +
-               ' -per-run -nuisreg  -nuisreg wm.dat 1 -nuisreg vcsf.dat 1 -polyfit 5 ' +
-               ' -fwhm {fwhm} -nskip {nskip} -stc siemens -force', hemi=hemi)
-
-    def find_trg_subject(trg_subject):
-        if not op.isdir(op.join(SUBJECTS_DIR, trg_subject)):
-            if op.isdir(op.join(FREESURFER_HOME, 'subjects', trg_subject)):
-                os.symlink(op.join(FREESURFER_HOME, 'subjects', trg_subject),
-                           op.join(SUBJECTS_DIR, trg_subject))
-            else:
-                raise Exception("The target subject {} doesn't exist!".format(trg_subject))
+            if op.isfile(op.join(fmri_dir, '{}_sm05_{}'.format(fsd, hemi), 'analysis.info')):
+                continue
+            rs('mkanalysis-sess -analysis {fsd}_sm05_{hemi} -paradigm {par} -event-related -refeventdur {refeventdur} ' +
+               '-nconditions {nconditions} -TR {tr} -surface {trg_subject} {hemi} -fsd {fsd} ' +
+               '-per-run -polyfit 5 -fwhm {fwhm} -nskip {nskip} -stc siemens -spmhrf {spmhrf} -force', hemi=hemi)
 
     def copy_output_files():
-        new_fname_template = op.join(FMRI_DIR, subject, '{}.sm{}.{}.{}.mgz'.format(
-            fsd, int(fwhm), trg_subject, '{hemi}'))
         for hemi in utils.HEMIS:
-            new_fname = new_fname_template.format(hemi=hemi)
-            if not op.isfile(new_fname):
-                res_fname = op.join(FMRI_DIR, subject, fsd, '{}_{}'.format(fsd, hemi), 'res', 'res-001.nii.gz')
-                if op.isfile(res_fname):
-                    fu.nii_gz_to_mgz(res_fname)
-                    res_fname = utils.change_fname_extension(res_fname, 'mgz')
-                    utils.copy_file(res_fname, new_fname)
+            files = glob.glob(op.join(fmri_dir, subject, fsd, '{}_self_{hemi}', '*_v_*', 'sig.nii.gz'))
+        fu.nii_gz_to_mgz(res_fname)
         for hemi in utils.HEMIS:
             utils.make_link(new_fname_template.format(hemi=hemi), op.join(
                 MMVT_DIR, subject, 'fmri', utils.namebase_with_ext(new_fname_template.format(hemi=hemi))))
         return utils.both_hemi_files_exist(new_fname_template)
 
-    def copy_preproc_sess_outputs():
-        hemi_file_name = 'fmcpr.sm6.{}.{}.{}'.format(subject, '{hemi}', '{format}')
-        for hemi in utils.HEMIS:
-            res_fname = op.join(FMRI_DIR, subject, fsd, '001', hemi_file_name.format(hemi=hemi, format='nii.gz'))
-            new_fname = op.join(FMRI_DIR, subject, hemi_file_name.format(hemi=hemi, format='mgz'))
-            if not op.isfile(new_fname) or overwrite:
-                res_fname = fu.nii_gz_to_mgz(res_fname)
-                os.link(res_fname, new_fname)
-        volume_fname = op.join(FMRI_DIR, subject, fsd, '001', 'fmcpr.sm6.mni305.2mm.nii.gz')
-        volume_new_fname = op.join(FMRI_DIR, subject, 'fmcpr.sm6.mni305.2mm.mgz')
-        volume_fname = fu.nii_gz_to_mgz(volume_fname)
-        os.link(volume_fname, volume_new_fname)
-        return utils.both_hemi_files_exist(op.join(FMRI_DIR, subject, hemi_file_name.format(
-            hemi='{hemi}', format='mgz'))) and op.isfile(volume_new_fname)
-
     def no_output(*args):
-        return not op.isfile(op.join(FMRI_DIR, subject, fsd, *args))
+        if len(args) == 0:
+            return True
+        if any('*' in fol for fol in args[:-1]) or any('?' in fol for fol in args[:-1]):
+            files = glob.glob(op.join(fmri_dir, subject, fsd, *args))
+            fols = glob.glob(op.join(fmri_dir, subject, fsd, *args[:-1]))
+            return len(files) != len(fols) or len(files) == 0
+        else:
+            return not op.isfile(op.join(fmri_dir, subject, fsd, *args))
 
     def run(cmd, *output_args, **kargs):
         if no_output(*output_args) or overwrite or print_only:
             rs(cmd, **kargs)
-            if not print_only and no_output(*output_args):
+            if not print_only and no_output(*output_args) and len(output_args) > 0:
                 raise Exception('{}\nNo output created in {}!!\n\n'.format(
                     cmd, op.join(FMRI_DIR, subject, fsd, *output_args)))
 
     trg_subject = subject if trg_subject == '' else trg_subject
-    new_fname_template = op.join(FMRI_DIR, subject, '{}.sm{}.{}.{}.mgz'.format(
-        fsd, int(fwhm), trg_subject, '{hemi}'))
-    if utils.both_hemi_files_exist(new_fname_template) and not overwrite:
-        return True
-
-    find_trg_subject(trg_subject)
-    if fmri_file_template == '':
-        fmri_file_template = '*'
-    fmri_fname = get_fmri_fname(
-        subject, fmri_file_template, no_files_were_found, only_volumes=True, raise_exception=False)
-    if fmri_fname == '':
+    if nconditions == 0:
+        print('You should set the --nconditions to the number of conditions')
         return False
-    output_files_exist = copy_output_files()
-    if output_files_exist:
-        return True
-    create_folders_tree(fmri_fname)
-    rs = utils.partial_run_script(locals(), cwd=FMRI_DIR, print_only=print_only)
-    run('preproc-sess -surface {trg_subject} lhrh -s {subject} -fwhm {fwhm} -fsd {fsd} -mni305 -per-run',
-        '001', 'fmcpr.sm{}.mni305.2mm.nii.gz'.format(int(fwhm)))
-    if only_preproc:
-        return copy_preproc_sess_outputs()
-    run('plot-twf-sess -s {subject} -dat f.nii.gz -mc -fsd {fsd} && killall display', 'fmcpr.mcdat.png')
-    run('plot-twf-sess -s {subject} -dat f.nii.gz -fsd {fsd} -meantwf && killall display', 'global.waveform.dat.png')
 
-    # registration
-    run('tkregister-sess -s {subject} -per-run -fsd {fsd} -bbr-sum > {subject}/{fsd}/reg_quality.txt',
-        'reg_quality.txt')
+    fmri_dir = remote_fmri_dir if remote_fmri_dir != '' else FMRI_DIR
+    fmri_files_template = op.join(fmri_dir, subject, fsd, '00?', 'f.nii.gz')
+    fmri_files = glob.glob(fmri_files_template)
+    if len(fmri_files) == 0:
+        print('No fMRI files were found! ({})'.format(fmri_files_template))
+        print('Maybe you should set the -remote_fmri_dir flag')
+        return False
+    fmri_fname = fmri_files[0]
+    sm = 'sm{}'.format(int(fwhm))
+    rs = utils.partial_run_script(locals(), cwd=fmri_dir, print_only=print_only)
+    run('preproc-sess -surface {trg_subject} lhrh -s {subject} -fwhm {fwhm} -fsd {fsd} -mni305 -per-run -stc siemens',
+        '00?', 'fmcpr.siemens.sm6.mni305.2mm.nii.gz')
 
-    # Computes seeds (regressors) that can be used for functional connectivity analysis or for use as nuisance regressors.
-    if no_output('001', 'wm.dat'):
-        rs('fcseed-config -wm -overwrite -fcname wm.dat -fsd {fsd} -cfg {subject}/wm_{fsd}.cfg')
-        run('fcseed-sess -s {subject} -cfg {subject}/wm_{fsd}.cfg', '001', 'wm.dat')
-    if no_output('001', 'vcsf.dat'):
-        rs('fcseed-config -vcsf -overwrite -fcname vcsf.dat -fsd {fsd} -mean -cfg {subject}/vcsf_{fsd}.cfg')
-        run('fcseed-sess -s {subject} -cfg {subject}/vcsf_{fsd}.cfg', '001', 'vcsf.dat')
+    if plot_registration:
+        run('plot-twf-sess -s {subject} -dat f.nii.gz -mc -fsd {fsd}') #, 'fmcpr.mcdat.png') # && killall display
+        run('plot-twf-sess -s {subject} -dat f.nii.gz -fsd {fsd} -meantwf') #, 'global.waveform.dat.png') # && killall display
+        # registration
+        run('tkregister-sess -s {subject} -per-run -fsd {fsd} -bbr-sum')# > {subject}/{fsd}/reg_quality.txt', 'reg_quality.txt')
+        run('tkregister-sess -s {subject} -per-run -fsd {fsd} -reg register.dof6.lta')
 
     tr = get_tr(fmri_fname)
-    create_analysis_info_file(fsd, trg_subject, tr, fwhm, lfp, nskip)
+    create_analysis_info_file(fsd, trg_subject, tr, fwhm, lfp, nskip, nconditions)
+    # utils.run_parallel(_contrast_parallel, [(fsd, hemi, contrast_name, contrast_flags) for hemi in utils.HEMIS], args.n_jobs)
     for hemi in utils.HEMIS:
+        # configure a contrast
+        run('mkcontrast-sess -analysis {fsd}_{sm}_{hemi} -contrast {contrast_name} {contrast_flags}',
+            '..', '..', '{}_sm05_{}'.format(fsd, hemi), '{}.config'.format(contrast_name), hemi=hemi)
         # computes the average signal intensity maps
-        run('selxavg3-sess -s {subject} -a {fsd}_{hemi} ',
-            '{}_{}'.format(fsd, hemi), 'res', 'res-001.nii.gz', hemi=hemi)
+        run('selxavg3-sess -s {subject} -analysis {fsd}_{sm}_{hemi} ',
+            '{}_{sm}_{}'.format(fsd, hemi), '*_v_*', 'sig.nii.gz', hemi=hemi)
 
     return copy_output_files() if not print_only else True
+
+
+# def _contrast_parallel(p):
+#     fsd, hemi, contrast_name, contrast_flags = p
+#     # configure a contrast
+#     run('mkcontrast-sess -analysis {fsd}_sm05_{hemi} -contrast {contrast_name} {contrast_flags}',
+#         '..', '..', '{}_sm05_{}'.format(fsd, hemi),  '{}.config'.format(contrast_name), hemi=hemi)
+#     # computes the average signal intensity maps
+#     run('selxavg3-sess -s {subject} -analysis {fsd}_sm05_{hemi} ',
+#         '{}_self_{}'.format(fsd, hemi), '*_v_*', 'sig.nii.gz', hemi=hemi)
 
 
 # def functional_connectivity_freesurfer(subject, fsd='rest', measure='mean', seg_id=1010, fcname='L_Posteriorcingulate',
@@ -2023,7 +1983,9 @@ def main(subject, remote_subject_dir, args, flags):
     if 'clean_4d_data' in args.function:
         flags['clean_4d_data'] = clean_4d_data(
             subject, args.atlas, args.fmri_file_template, args.template_brain, args.fsd, args.only_preproc,
-            args.fwhm, args.lfp, args.nskip, remote_fmri_dir, args.overwrite_4d_preproc, args.print_only)
+            args.fwhm, args.lfp, args.nskip, args.nconditions, args.contrast_name, args.contrast_flags,
+            remote_fmri_dir, args.plot_registration,
+            args.overwrite_4d_preproc, args.print_only)
 
     if 'analyze_4d_data' in args.function:
         flags['analyze_4d_data'] = analyze_4d_data(
@@ -2108,9 +2070,11 @@ def read_cmd_args(argv=None):
 
     parser = argparse.ArgumentParser(description='Description of your program')
     parser.add_argument('-c', '--contrast', help='contrast map', required=False, default='')
-    parser.add_argument('-n', '--contrast_name', help='contrast map', required=False, default='')
+    parser.add_argument('-n', '--contrast_name', help='contrast map', required=False, default='words_v_symbols')
     parser.add_argument('-t', '--task', help='task', required=False, default='')#, type=au.str_arr_type)
     parser.add_argument('--threshold', help='clustering threshold', required=False, default=2, type=float)
+    parser.add_argument('--contrast_flags', help='contrast flags for fsfast', required=False, default='-a 1 -c 2')
+
     parser.add_argument('--create_clusters_labels', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--fsfast', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--is_pet', help='', required=False, default=0, type=au.is_true)
@@ -2164,7 +2128,9 @@ def read_cmd_args(argv=None):
     parser.add_argument('--fwhm', help='', required=False, default=6, type=float)
     parser.add_argument('--lfp', help='', required=False, default=0.08, type=float)
     parser.add_argument('--nskip', help='', required=False, default=4, type=int)
+    parser.add_argument('--nconditions', help='', required=False, default=0, type=int)
     parser.add_argument('--print_only', help='', required=False, default=0, type=au.is_true)
+    parser.add_argument('--plot_registration', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--overwrite_4d_preproc', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--backup_existing_files', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--pick_the_first_one', help='', required=False, default=0, type=au.is_true)

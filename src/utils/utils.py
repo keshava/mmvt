@@ -2416,7 +2416,3 @@ def get_freqs(low_freq=1, high_freqs=120):
     # return np.concatenate([np.arange(low_freq, 30), np.arange(31, 60, 3), np.arange(60, high_freqs + 5, 5)])
     return np.arange(low_freq, high_freqs + 1, 1)
 
-
-def max_abs(x, axis=0):
-    x_min = np.min(x, axis=axis)
-    x_max = np.max(x, axis=axis)
