@@ -1452,7 +1452,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
             '..', '..', '{}_sm05_{}'.format(fsd, hemi), '{}.config'.format(contrast_name), hemi=hemi)
         # computes the average signal intensity maps
         run('selxavg3-sess -s {subject} -analysis {fsd}_{sm}_{hemi} ',
-            '{}_{sm}_{}'.format(fsd, hemi), '*_v_*', 'sig.nii.gz', hemi=hemi)
+            '{}_{}_{}'.format(fsd, sm, hemi), '*_v_*', 'sig.nii.gz', hemi=hemi)
 
     return copy_output_files() if not print_only else True
 
