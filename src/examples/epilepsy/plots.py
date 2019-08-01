@@ -65,27 +65,33 @@ def _plot_evokes_parallel(p):
 def plot_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
                       extract_mode='mean_flip', func_rois_atlas=True, node_name='occipital', # ''lateraloccipital'
                       use_zvals=False):
+    bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
+    if func_rois_atlas:
+        con_indentifer = 'func_rois'
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'connectivity'))
+    for band_name in bands.keys():
+        d_cond, d_baseline, x_cond, x_baseline, names, stc_data = calc_cond_and_basline(
+            subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name)
+        if d_cond is None:
+            continue
+        x_axis = np.arange(x_cond.shape[1]) * 10
+        plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names)
+
+        plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.5, node_name, stc_data)
+        # norm1_zvals = (d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)) / \
+        #               d_baseline['con_values'].std(1, keepdims=True)
+        # norm2_zvals = (d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)) / \
+        #               d_baseline['con_values2'].std(1, keepdims=True)
+        # plot_norm_data(norm1_zvals, norm2_zvals, 2)
+
+
+def plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names):
     import matplotlib.pyplot as plt
-    from src.preproc import connectivity
-    import mne
-
-    def plot_norm_data(norm1, norm2, threshold):
-        norm1, best_ords1 = epi_utils.find_best_ord(norm1, return_ords=True)
-        norm2, best_ords2 = epi_utils.find_best_ord(norm2, return_ords=True)
-        mask1 = epi_utils.filter_connections(node_name, norm1, d_cond['con_names'], threshold)
-        mask2 = epi_utils.filter_connections(node_name, norm2, d_cond['con_names2'], threshold)
-        norm = np.concatenate((norm1[mask1], norm2[mask2]))
-        best_ords = np.concatenate((best_ords1[mask1], best_ords2[mask2]))
-        names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
-        names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
-        if len(names) == 0:
-            print('{} {} no connections'.format(condition, cond))
-            return
-
+    time = np.arange(0, x_cond.shape[1], 5) * 10
+    for x, cond in zip([x_cond, x_baseline], ['interictals', 'baseline']):
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
-        time = np.arange(0, norm.shape[1], 5) * 10
-        plt.plot(x_axis, norm.T)
+        plt.plot(x_axis, x.T)
         if stc_data is not None:
             ax2 = ax1.twinx()
             ax2.plot(stc_data.T, 'y--')
@@ -93,79 +99,125 @@ def plot_connectivity(subject, condition, modality, high_freq=120, con_method='w
         ax1.set_xticklabels(['{}-{}'.format(t, t + 100) for t in time], rotation=30)
         # plt.axvline(x=x_axis[10], color='r', linestyle='--')
         # plt.axvline(x=x_axis[20], color='r', linestyle='--')
-        plt.title('{} interictals-basline'.format(condition))
-        # plt.legend(names)
+        plt.title('{}-{}'.format(condition, cond))
+        plt.legend(names)
         plt.show()
-        # plt.savefig(op.join(figures_fol, '{} interictals-basline'.format(condition)), dpi=300)
+        # plt.savefig(op.join(figures_fol, '{}-{}'.format(condition, cond)), dpi=300)
         # plt.close()
+
+
+def plot_norm_data(d_cond, d_baseline, x_axis, condition, threshold, node_name, stc_data, ax=None):
+    import matplotlib.pyplot as plt
+    from src.preproc import connectivity
+    norm1 = d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)
+    norm2 = d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)
+    norm1, best_ords1 = connectivity.find_best_ord(norm1, return_ords=True)
+    norm2, best_ords2 = connectivity.find_best_ord(norm2, return_ords=True)
+    mask1 = epi_utils.filter_connections(node_name, norm1, d_cond['con_names'], threshold)
+    mask2 = epi_utils.filter_connections(node_name, norm2, d_cond['con_names2'], threshold)
+    norm = np.concatenate((norm1[mask1], norm2[mask2]))
+    names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
+    if best_ords1 is not None and best_ords2 is not None:
+        best_ords = np.concatenate((best_ords1[mask1], best_ords2[mask2]))
+        names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
+    if len(names) == 0:
+        print('{} no connections'.format(condition))
+        return
+
+    time = np.arange(0, norm.shape[1], 5) * 10
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+    ax.plot(x_axis, norm.T)
+    if stc_data is not None:
+        ax2 = ax.twinx()
+        ax2.plot(stc_data.T, 'y--')
+    ax.set_xticks(time)
+    ax.set_xticklabels(['{}-{}'.format(t, t + 100) for t in time], rotation=30)
+    # plt.axvline(x=x_axis[10], color='r', linestyle='--')
+    # plt.axvline(x=x_axis[20], color='r', linestyle='--')
+    plt.title('{} interictals-basline'.format(condition))
+    # plt.legend(names)
+    if ax is None:
+        plt.show()
+    # plt.savefig(op.join(figures_fol, '{} interictals-basline'.format(condition)), dpi=300)
+    # plt.close()
+
+
+def get_cond_and_baseline_fnames(subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals):
+    from src.preproc import connectivity
+    template = connectivity.get_output_fname(
+        subject, con_method, modality, extract_mode, '{}_{}_{}'.format(band_name, '{}_{}'.format(
+            condition, '{cond}'), con_indentifer))
+    input_fname = '{}{}.npz'.format(template.format(cond='interictals')[:-4], '_zvals' if use_zvals else '')
+    baseline_fname = '{}{}.npz'.format(template.format(cond='baseline')[:-4], '_zvals' if use_zvals else '')
+    return input_fname, baseline_fname
+
+
+def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name):
+    import mne
+    from src.preproc import connectivity
+
+    input_fname, baseline_fname = get_cond_and_baseline_fnames(
+        subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals)
+    if not op.isfile(input_fname) or not op.isfile(baseline_fname):
+        # print('Can\'t find {}'.format(input_fname))
+        return None, None, None, None, None, None
+
+    stcs_fol = op.join(MMVT_DIR, subject, 'meg', 'zvals')
+    stc_fname = op.join(
+        stcs_fol, '{}-epilepsy-dSPM-meg-{}-average-amplitude-zvals-rh.stc'.format(subject, condition))
+    if op.isfile(stc_fname):
+        stc = mne.read_source_estimate(stc_fname)
+        stc_data = np.max(stc.data, axis=0)
+        stc_data = utils.downsample(stc_data, 2)[100:]
+        # plt.figure()
+        # plt.plot(stc_data.T)
+    else:
+        stc_data = None
+
+    d_cond, d_baseline = np.load(input_fname), np.load(baseline_fname)
+    con_values1, best_ords1 = connectivity.find_best_ord(d_cond['con_values'], return_ords=True)
+    con_values2, best_ords2 = connectivity.find_best_ord(d_cond['con_values2'], return_ords=True)
+    baseline_values1 = epi_utils.set_new_ords(d_baseline['con_values'], best_ords1)
+    baseline_values2 = epi_utils.set_new_ords(d_baseline['con_values2'], best_ords2)
+
+    mask1 = epi_utils.filter_connections(node_name, con_values1, d_cond['con_names'], 0.8)
+    mask2 = epi_utils.filter_connections(node_name, con_values2, d_cond['con_names2'], 0.8)
+    names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
+    if len(names) == 0:
+        print('{} no connections'.format(condition))
+        return None, None, None, None, None, None
+
+    x_cond = np.concatenate((con_values1[mask1], con_values2[mask2]))
+    x_baseline = np.concatenate((baseline_values1[mask1], baseline_values2[mask2]))
+    if best_ords1 is not None and best_ords2 is not None:
+        best_ords = np.concatenate((best_ords1[mask1], best_ords2[mask2]))
+        names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
+    return d_cond, d_baseline, x_cond, x_baseline, names, stc_data
+
+
+def plot_both_conditions(subject, conditions, modality, high_freq=120, con_method='wpli2_debiased',
+                      extract_mode='mean_flip', func_rois_atlas=True, node_name='occipital', # ''lateraloccipital'
+                      use_zvals=False):
+    import matplotlib.pyplot as plt
 
     bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
     if func_rois_atlas:
         con_indentifer = 'func_rois'
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'connectivity'))
-    stcs_fol = op.join(MMVT_DIR, subject, 'meg', 'zvals')
     for band_name in bands.keys():
-        template = connectivity.get_output_fname(
-            subject, con_method, modality, extract_mode, '{}_{}_{}'.format(band_name, '{}_{}'.format(
-                condition, '{cond}'), con_indentifer))
-        input_fname = '{}{}.npz'.format(template.format(cond='interictals')[:-4], '_zvals' if use_zvals else '')
-        baseline_fname = '{}{}.npz'.format(template.format(cond='baseline')[:-4], '_zvals' if use_zvals else '')
-        if not op.isfile(input_fname) or not op.isfile(baseline_fname):
-            # print('Can\'t find {}'.format(input_fname))
+        files_exist = True
+        for condition in conditions:
+            input_fname, baseline_fname = get_cond_and_baseline_fnames(
+                subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals)
+            files_exist = files_exist and op.isfile(input_fname) and op.isfile(baseline_fname)
+        if not files_exist:
             continue
-
-        stc_fname = op.join(
-            stcs_fol, 'nmr01327-epilepsy-dSPM-meg-{}-average-amplitude-zvals-rh.stc'.format(condition))
-        if op.isfile(stc_fname):
-            stc = mne.read_source_estimate(stc_fname)
-            stc_data = np.max(stc.data, axis=0)
-            stc_data = utils.downsample(stc_data, 2)[100:]
-            # plt.figure()
-            # plt.plot(stc_data.T)
-        else:
-            stc_data = None
-
-        d_cond, d_baseline = np.load(input_fname), np.load(baseline_fname)
-        con_values1, best_ords1 = epi_utils.find_best_ord(d_cond['con_values'], return_ords=True)
-        con_values2, best_ords2 = epi_utils.find_best_ord(d_cond['con_values2'], return_ords=True)
-        baseline_values1 = epi_utils.set_new_ords(d_baseline['con_values'], best_ords1)
-        baseline_values2 = epi_utils.set_new_ords(d_baseline['con_values2'], best_ords2)
-
-        mask1 = epi_utils.filter_connections(node_name, con_values1, d_cond['con_names'], 0.8)
-        mask2 = epi_utils.filter_connections(node_name, con_values2, d_cond['con_names2'], 0.8)
-        names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
-        if len(names) == 0:
-            print('{} no connections'.format(condition))
-            continue
-
-        x_cond = np.concatenate((con_values1[mask1], con_values2[mask2]))
-        x_baseline = np.concatenate((baseline_values1[mask1], baseline_values2[mask2]))
-        best_ords = np.concatenate((best_ords1[mask1], best_ords2[mask2]))
-        names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
-        time = np.arange(0, x_cond.shape[1], 5) * 10
-        x_axis = np.arange(x_cond.shape[1]) * 10
-        for x, cond in zip([x_cond, x_baseline], ['interictals', 'baseline']):
-            fig = plt.figure()
-            ax1 = fig.add_subplot(111)
-            plt.plot(x_axis, x.T)
-            if stc_data is not None:
-                ax2 = ax1.twinx()
-                ax2.plot(stc_data.T, 'y--')
-            ax1.set_xticks(time)
-            ax1.set_xticklabels(['{}-{}'.format(t, t+100) for t in time], rotation=30)
-            # plt.axvline(x=x_axis[10], color='r', linestyle='--')
-            # plt.axvline(x=x_axis[20], color='r', linestyle='--')
-            plt.title('{}-{}'.format(condition, cond))
-            # plt.legend(names)
-            plt.show()
-            # plt.savefig(op.join(figures_fol, '{}-{}'.format(condition, cond)), dpi=300)
-            # plt.close()
-
-        norm1_mean = d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)
-        norm2_mean = d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)
-        norm1_zvals = (d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)) / \
-                      d_baseline['con_values'].std(1, keepdims=True)
-        norm2_zvals = (d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)) / \
-                      d_baseline['con_values2'].std(1, keepdims=True)
-        plot_norm_data(norm1_mean, norm2_mean, 0.5)
-        # plot_norm_data(norm1_zvals, norm2_zvals, 2)
+        f, (axs) = plt.subplots(2, sharex=True, sharey=False)
+        for ax, condition in zip(axs, conditions):
+            d_cond, d_baseline, x_cond, x_baseline, names, stc_data = calc_cond_and_basline(
+                subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name)
+            x_axis = np.arange(x_cond.shape[1]) * 10
+            plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.5, node_name, stc_data, ax)
+        plt.show()

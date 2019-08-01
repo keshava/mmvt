@@ -963,9 +963,9 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
         #     windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
         #     overwrite_connectivity=False, n_jobs=n_jobs)
-        normalize_connectivity(
-            subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
-            threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
+        # normalize_connectivity(
+        #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
+        #     threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
         # plots.plot_connectivity(subject, specific_window, modality, high_freq, con_method)
 
         # 4) Induced power
@@ -1022,6 +1022,18 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     # plot_baseline(subject, baseline_name)
     # fix_amplitude_fnames(subject, bands)
 
+def all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
+         inverse_method='dSPM', specific_windows=[], exclude_windows=[], no_runs=False, recursive=False,
+         check_windows=True, atlas='aparc.DKTatlas40', n_jobs=4):
+    high_freq = 120
+    con_method = 'gc'  # 'granger-causality' # 'wpli2_debiased'
+    extract_mode = 'mean_flip'
+    for modality in modalities:
+        plots.plot_both_conditions(
+            subject, specific_windows, modality, high_freq, con_method,
+            extract_mode, func_rois_atlas=True, node_name='occipital',
+            use_zvals=False)
+
 
 if __name__ == '__main__':
     import argparse
@@ -1067,4 +1079,6 @@ if __name__ == '__main__':
         for specific_window in specific_windows:
             main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
                  inverse_method, specific_window, exclude_windows, no_runs, recursive, check_windows, atlas, n_jobs)
+        all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
+                 inverse_method, specific_windows, exclude_windows, no_runs, recursive, check_windows, atlas, n_jobs)
     print('Finish!')

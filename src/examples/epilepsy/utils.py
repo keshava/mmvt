@@ -236,12 +236,9 @@ def shorten_labels_names(labels):
     return labels
 
 
-def find_best_ord(cond_x, return_ords=False):
-    from src.preproc import connectivity
-    return connectivity.find_best_ord(cond_x, return_ords)
-
-
 def set_new_ords(cond_x, new_ords):
+    if new_ords is None:
+        return cond_x
     new_con_x = np.zeros((cond_x.shape[0], cond_x.shape[1]))
     for n in range(cond_x.shape[0]):
         new_con_x[n] = cond_x[n, :, new_ords[n]]
