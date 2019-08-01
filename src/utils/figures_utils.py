@@ -311,6 +311,8 @@ def combine_brain_with_color_bar(image_fname, cb_img=None, w_offset=10, overwrit
         plot_color_bar(cb_max, cb_min, cb_cm, do_save=True, cb_ticks=cb_ticks, fol=fol, background_color=background,
                        cb_ticks_font_size=cb_ticks_font_size)
         cb_img = Image.open(cb_fname)
+    elif isinstance(cb_img, str) and op.isfile(cb_img):
+        cb_img = Image.open(cb_img)
 
     background = Image.open(image_fname)
     bg_w, bg_h = background.size
@@ -319,7 +321,8 @@ def combine_brain_with_color_bar(image_fname, cb_img=None, w_offset=10, overwrit
     background.paste(cb_img, offset)
     if not overwrite:
         image_fol = utils.get_fname_folder(image_fname)
-        image_fname = op.join(image_fol, '{}_cb.{}'.format(image_fname[:-4], image_fname[-3:]))
+        utils.add_str_to_file_name(image_fname, '_cb')
+        # image_fname = op.join(image_fol, '{}_cb.{}'.format(image_fname[:-4], image_fname[-3:]))
     background.save(image_fname)
     return image_fname
 
