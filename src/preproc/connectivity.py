@@ -706,7 +706,7 @@ def _mi_vec_parallel(windows_chunk):
 def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, labels_names, conditions, output_fname,
                       windows=0, stat=STAT_DIFF, norm_by_percentile=True, norm_percs=[1, 99],
                       threshold=0, threshold_percentile=0, symetric_colors=True, labels=None, locations=None,
-                      hemis=None, symetric_con=True):
+                      hemis=None, symetric_con=True, reduce_to_3d=False):
     d = dict()
     d['conditions'] = conditions
     # args.labels_exclude = []
@@ -740,12 +740,34 @@ def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, label
             threshold_percentile, symetric_colors, False)
     d['connectivity_method'] = connectivity_method
     d['vertices'], d['vertices_lookup'] = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
+    if reduce_to_3d:
+        d['con_values'] = find_best_ord(d['con_values'], False)
+        d['con_values2'] = find_best_ord(d['con_values2'], False)
     print('Saving results to {}'.format(output_fname))
     np.savez(output_fname, **d)
     # if con_vertices_fname != '':
         # vertices, vertices_lookup = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
         # utils.save((vertices, vertices_lookup), con_vertices_fname)
     return d
+
+
+def find_best_ord(cond_x, return_ords=False):
+    if cond_x.ndim < 3:
+        if return_ords:
+            return cond_x, None
+        else:
+            return cond_x
+    new_con_x = np.zeros((cond_x.shape[0], cond_x.shape[1]))
+    best_ords = np.zeros((cond_x.shape[0]), dtype=int)
+    for n in range(cond_x.shape[0]):
+        best_ord = np.argmax(np.abs(cond_x[n]).max(0))
+        new_con_x[n] = cond_x[n, :, best_ord]
+        if return_ords:
+            best_ords[n] = best_ord
+    if return_ords:
+        return new_con_x, best_ords
+    else:
+        return new_con_x
 
 
 def create_vertices_lookup(con_indices, con_names, labels):

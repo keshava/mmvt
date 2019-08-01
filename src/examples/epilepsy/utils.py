@@ -234,3 +234,45 @@ def shorten_labels_names(labels):
     if len(labels) != len(set([l.name for l in labels])):
         raise Exception('Duplicates in the labels names!')
     return labels
+
+
+def find_best_ord(cond_x, return_ords=False):
+    from src.preproc import connectivity
+    return connectivity.find_best_ord(cond_x, return_ords)
+
+
+def set_new_ords(cond_x, new_ords):
+    new_con_x = np.zeros((cond_x.shape[0], cond_x.shape[1]))
+    for n in range(cond_x.shape[0]):
+        new_con_x[n] = cond_x[n, :, new_ords[n]]
+    return new_con_x
+
+
+def filter_connections(node_name, con_values, con_names, threshold):
+    mask = [False] * len(con_names)
+    for ind, con_name in enumerate(con_names):
+        node_from, _, _, hemi_from, node_to, _, _, hemi_to = con_name.split('-')
+        mask[ind] = node_name in node_from and node_name in node_to and \
+                    np.abs(con_values[ind, :].max()) >= threshold  # and hemi_from == 'lh' and hemi_to == 'rh'
+    return mask
+
+
+def norm_values(baseline_x, cond_x, divide_by_baseline_std, threshold, reduce_to_3d=False):
+    # cond_x = find_best_ord(cond_x)
+    # baseline_x = find_best_ord(baseline_x)
+
+    baseline_mean = baseline_x.mean(axis=1, keepdims=True)
+    baseline_std = cond_x.std(axis=1, keepdims=True) if divide_by_baseline_std else None
+
+    if threshold > 0:
+        mask_indices = np.where(np.max(np.abs(cond_x), axis=1) < threshold)
+    if divide_by_baseline_std:
+        cond_x = (cond_x - baseline_mean) / baseline_std
+    else:
+        cond_x = cond_x - baseline_mean
+    if threshold > 0:
+        cond_x[mask_indices[0]] = np.zeros(cond_x.shape[1])
+    if reduce_to_3d and cond_x.ndim == 4:
+        cond_x = find_best_ord(cond_x)
+    print('{:.4f} {:.4f}'.format(np.nanmin(cond_x), np.nanmax(cond_x)))
+    return cond_x

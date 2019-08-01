@@ -1234,7 +1234,7 @@ def calc_labels_connectivity(
 
 def save_connectivity(subject, atlas, events, modality='meg', extract_modes=['mean_flip'],
         con_method='coh', con_indentifer='', bands=None, labels=None, symetric_con=None, norm_percs=[1, 99],
-        overwrite=False, n_jobs=4):
+        reduce_to_3d=False, overwrite=False, n_jobs=4):
     events_keys = list(events.keys()) if events is not None and isinstance(events, dict) and len(events) > 0 \
         else ['all']
     if bands is None:
@@ -1262,7 +1262,7 @@ def save_connectivity(subject, atlas, events, modality='meg', extract_modes=['me
         connectivity.save_connectivity(
             subject, con_data, atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
             output_fname, norm_by_percentile=True, norm_percs=norm_percs, symetric_colors=True, labels=labels,
-            symetric_con=symetric_con)
+            symetric_con=symetric_con, reduce_to_3d=reduce_to_3d)
 
 
 def calc_stcs_spectral_connectivity(

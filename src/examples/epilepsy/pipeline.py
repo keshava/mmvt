@@ -735,12 +735,11 @@ def calc_labels_connectivity(
     # Check if can calc the labels info (if not, we want to know now...)
     connectivity.calc_lables_info(subject, atlas, False, [l.name for l in labels], labels)
 
-
     if not overwrite_connectivity:
         for cond in ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]:
             meg.save_connectivity(
                 subject, atlas, {cond:1}, modality, extract_modes, con_method, con_indentifer, bands, labels,
-                overwrite=True)
+                reduce_to_3d=True, overwrite=True)
         return
 
     windows_epochs_template = op.join(
@@ -777,126 +776,9 @@ def calc_labels_connectivity(
             windows_shift=windows_shift, n_jobs=n_jobs)
 
 
-def plot_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
-                           extract_mode='mean_flip', func_rois_atlas=True, use_zvals=False):
-    import matplotlib.pyplot as plt
-
-    def plot_norm_data(norm1, norm2, threshold):
-        norm1, best_ords1 = find_best_ord(norm1, return_ords=True)
-        norm2, best_ords2 = find_best_ord(norm2, return_ords=True)
-        mask1 = filter_connections(node_name, norm1, d_cond['con_names'], threshold)
-        mask2 = filter_connections(node_name, norm2, d_cond['con_names2'], threshold)
-        norm = np.concatenate((norm1[mask1], norm2[mask2]))
-        best_ords = np.concatenate((best_ords1[mask1], best_ords2[mask2]))
-        names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
-        names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
-        if len(names) == 0:
-            print('{} {} no connections'.format(condition, cond))
-            return
-
-        fig = plt.figure()
-        ax1 = fig.add_subplot(111)
-        time = np.arange(0, norm.shape[1], 5) * 10
-        plt.plot(x_axis, norm.T)
-        if stc_data is not None:
-            ax2 = ax1.twinx()
-            ax2.plot(stc_data.T, 'y--')
-        ax1.set_xticks(time)
-        ax1.set_xticklabels(['{}-{}'.format(t, t + 100) for t in time], rotation=30)
-        # plt.axvline(x=x_axis[10], color='r', linestyle='--')
-        # plt.axvline(x=x_axis[20], color='r', linestyle='--')
-        plt.title('{} interictals-basline'.format(condition))
-        # plt.legend(names)
-        plt.show()
-        # plt.savefig(op.join(figures_fol, '{} interictals-basline'.format(condition)), dpi=300)
-        # plt.close()
-
-
-    bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
-    if func_rois_atlas:
-        con_indentifer = 'func_rois'
-    node_name = 'occipital'  # ''lateraloccipital'
-    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'connectivity'))
-    stcs_fol = op.join(MMVT_DIR, subject, 'meg', 'zvals')
-    for band_name in bands.keys():
-        template = connectivity.get_output_fname(
-            subject, con_method, modality, extract_mode, '{}_{}_{}'.format(band_name, '{}_{}'.format(
-                condition, '{cond}'), con_indentifer))
-        input_fname = '{}{}.npz'.format(template.format(cond='interictals')[:-4], '_zvals' if use_zvals else '')
-        baseline_fname = '{}{}.npz'.format(template.format(cond='baseline')[:-4], '_zvals' if use_zvals else '')
-        if not op.isfile(input_fname) or not op.isfile(baseline_fname):
-            # print('Can\'t find {}'.format(input_fname))
-            continue
-
-        stc_fname = op.join(
-            stcs_fol, 'nmr01327-epilepsy-dSPM-meg-{}-average-amplitude-zvals-rh.stc'.format(condition))
-        if op.isfile(stc_fname):
-            stc = mne.read_source_estimate(stc_fname)
-            stc_data = np.max(stc.data, axis=0)
-            stc_data = utils.downsample(stc_data, 2)[100:]
-            # plt.figure()
-            # plt.plot(stc_data.T)
-        else:
-            stc_data = None
-
-        d_cond, d_baseline = np.load(input_fname), np.load(baseline_fname)
-        con_values1, best_ords1 = find_best_ord(d_cond['con_values'], return_ords=True)
-        con_values2, best_ords2 = find_best_ord(d_cond['con_values2'], return_ords=True)
-        baseline_values1 = set_new_ords(d_baseline['con_values'], best_ords1)
-        baseline_values2 = set_new_ords(d_baseline['con_values2'], best_ords2)
-
-        mask1 = filter_connections(node_name, con_values1, d_cond['con_names'], 0.8)
-        mask2 = filter_connections(node_name, con_values2, d_cond['con_names2'], 0.8)
-        names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
-        if len(names) == 0:
-            print('{} no connections'.format(condition))
-            continue
-
-        x_cond = np.concatenate((con_values1[mask1], con_values2[mask2]))
-        x_baseline = np.concatenate((baseline_values1[mask1], baseline_values2[mask2]))
-        best_ords = np.concatenate((best_ords1[mask1], best_ords2[mask2]))
-        names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
-        time = np.arange(0, x_cond.shape[1], 5) * 10
-        x_axis = np.arange(x_cond.shape[1]) * 10
-        for x, cond in zip([x_cond, x_baseline], ['interictals', 'baseline']):
-            fig = plt.figure()
-            ax1 = fig.add_subplot(111)
-            plt.plot(x_axis, x.T)
-            if stc_data is not None:
-                ax2 = ax1.twinx()
-                ax2.plot(stc_data.T, 'y--')
-            ax1.set_xticks(time)
-            ax1.set_xticklabels(['{}-{}'.format(t, t+100) for t in time], rotation=30)
-            # plt.axvline(x=x_axis[10], color='r', linestyle='--')
-            # plt.axvline(x=x_axis[20], color='r', linestyle='--')
-            plt.title('{}-{}'.format(condition, cond))
-            # plt.legend(names)
-            plt.show()
-            # plt.savefig(op.join(figures_fol, '{}-{}'.format(condition, cond)), dpi=300)
-            # plt.close()
-
-        norm1_mean = d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)
-        norm2_mean = d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)
-        norm1_zvals = (d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)) / \
-                      d_baseline['con_values'].std(1, keepdims=True)
-        norm2_zvals = (d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)) / \
-                      d_baseline['con_values2'].std(1, keepdims=True)
-        plot_norm_data(norm1_mean, norm2_mean, 0.5)
-        # plot_norm_data(norm1_zvals, norm2_zvals, 2)
-
-
-def filter_connections(node_name, con_values, con_names, threshold):
-    mask = [False] * len(con_names)
-    for ind, con_name in enumerate(con_names):
-        node_from, _, _, hemi_from, node_to, _, _, hemi_to = con_name.split('-')
-        mask[ind] = node_name in node_from and node_name in node_to and \
-                    np.abs(con_values[ind, :].max()) >= threshold  # and hemi_from == 'lh' and hemi_to == 'rh'
-    return mask
-
-
 def normalize_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
                            extract_mode='mean_flip', func_rois_atlas=True, divide_by_baseline_std=True,
-                           threshold=0, overwrite=False, n_jobs=6):
+                           threshold=0, reduce_to_3d=False, overwrite=False, n_jobs=6):
     bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
     if func_rois_atlas:
         con_indentifer = 'func_rois'
@@ -914,7 +796,7 @@ def normalize_connectivity(subject, condition, modality, high_freq=120, con_meth
         if not op.isfile(cond_fname):
             print('{} is missing!'.format(cond_fname))
             continue
-        baseline_stat_fname = connectivity_template.format(condition='{}_baseline_stat'.format(condition))
+        # baseline_stat_fname = connectivity_template.format(condition='{}_baseline_stat'.format(condition))
         # if not op.isfile(baseline_stat_fname) or overwrite:
         #     baseline_fname = connectivity_template.format(condition='{}_baseline'.format(condition))
         #     if not op.isfile(baseline_fname):
@@ -935,11 +817,14 @@ def normalize_connectivity(subject, condition, modality, high_freq=120, con_meth
         print('normalize_connectivity: {} {}:'.format(utils.namebase(cond_fname), band_name))
         d_baseline = utils.Bag(np.load(baseline_fname))
         d_cond = utils.Bag(np.load(cond_fname))
-        d_cond.con_values = norm_values(
-            d_baseline.con_values, d_cond.con_values, divide_by_baseline_std, threshold)
+        d_cond.con_values = epi_utils.norm_values(
+            d_baseline.con_values, d_cond.con_values, divide_by_baseline_std, threshold, True)
         if 'con_values2' in d_baseline:
-            d_cond.con_values2 = norm_values(
-                d_baseline.con_values2, d_cond.con_values2, divide_by_baseline_std, threshold)
+            d_cond.con_values2 = epi_utils.norm_values(
+                d_baseline.con_values2, d_cond.con_values2, divide_by_baseline_std, threshold, True)
+        if reduce_to_3d:
+            d_cond.con_values = connectivity.find_best_ord(d_cond.con_values, False)
+            d_cond.con_values2 = connectivity.find_best_ord(d_cond.con_values2, False)
         print('Saving norm connectivity in {}'.format(output_fname))
         np.savez(output_fname, **d_cond)
 
@@ -962,49 +847,6 @@ def normalize_connectivity(subject, condition, modality, high_freq=120, con_meth
 #             new_con_x[n] = cond_x[n, :, best_ord]
 #     print('{:.4f} {:.4f}'.format(np.nanmin(cond_x), np.nanmax(cond_x)))
 #     return cond_x
-
-
-def norm_values(baseline_x, cond_x, divide_by_baseline_std, threshold):
-    cond_x = find_best_ord(cond_x)
-    baseline_x = find_best_ord(baseline_x)
-
-    baseline_mean = baseline_x.mean(axis=1, keepdims=True)
-    baseline_std = cond_x.std(axis=1, keepdims=True) if divide_by_baseline_std else None
-
-    if threshold > 0:
-        mask_indices = np.where(np.max(np.abs(cond_x), axis=1) < threshold)
-    if divide_by_baseline_std:
-        cond_x = (cond_x - baseline_mean) / baseline_std
-    else:
-        cond_x = cond_x - baseline_mean
-    if threshold > 0:
-        cond_x[mask_indices[0]] = np.zeros(cond_x.shape[1])
-
-    print('{:.4f} {:.4f}'.format(np.nanmin(cond_x), np.nanmax(cond_x)))
-    return cond_x
-
-
-def find_best_ord(cond_x, return_ords=False):
-    if cond_x.ndim < 3:
-        return cond_x, None if return_ords else cond_x
-    new_con_x = np.zeros((cond_x.shape[0], cond_x.shape[1]))
-    best_ords = np.zeros((cond_x.shape[0]), dtype=int)
-    for n in range(cond_x.shape[0]):
-        best_ord = np.argmax(np.abs(cond_x[n]).max(0))
-        new_con_x[n] = cond_x[n, :, best_ord]
-        if return_ords:
-            best_ords[n] = best_ord
-    if return_ords:
-        return new_con_x, best_ords
-    else:
-        return new_con_x
-
-
-def set_new_ords(cond_x, new_ords):
-    new_con_x = np.zeros((cond_x.shape[0], cond_x.shape[1]))
-    for n in range(cond_x.shape[0]):
-        new_con_x[n] = cond_x[n, :, new_ords[n]]
-    return new_con_x
 
 
 def find_functional_rois(subject, condition, modality, atlas='laus125', min_cluster_size=10, inverse_method='dSPM'):
@@ -1121,10 +963,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
         #     windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
         #     overwrite_connectivity=False, n_jobs=n_jobs)
-        # normalize_connectivity(
-        #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=True,
-        #     threshold=0.5, overwrite=True, n_jobs=n_jobs)
-        plot_connectivity(subject, specific_window, modality, high_freq, con_method)
+        normalize_connectivity(
+            subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
+            threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
+        # plots.plot_connectivity(subject, specific_window, modality, high_freq, con_method)
 
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,

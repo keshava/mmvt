@@ -73,7 +73,7 @@ def check_connections(stat=STAT_DIFF):
     else:
         stat_data = d.con_values
     mask = calc_mask(stat_data, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type, d.con_names,
-                     bpy.context.scene.connections_label)
+                     bpy.context.scene.connections_from_label, bpy.context.scene.connections_to_label)
     # mask = calc_masked_con_names(d, threshold, threshold_type, bpy.context.scene.connections_type, stat_data)
     indices = np.where(mask)[0]
     parent_obj = bpy.data.objects.get(get_connections_parent_name(), None)
@@ -119,7 +119,7 @@ def create_keyframes(d, threshold, threshold_type, radius=.1, stat=STAT_DIFF, ve
     # ConnectionsPanel.mask = mask = calc_mask(stat_data, threshold, threshold_type)
     ConnectionsPanel.mask = mask = calc_mask(
         stat_data, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type, d.con_names,
-        bpy.context.scene.connections_label)
+        bpy.context.scene.connections_from_label, bpy.context.scene.connections_to_label)
     indices = np.where(mask)[0]
     parent_obj = bpy.data.objects[get_connections_parent_name()]
     parent_obj.animation_data_clear()
@@ -133,7 +133,8 @@ def create_keyframes(d, threshold, threshold_type, radius=.1, stat=STAT_DIFF, ve
     print('finish keyframing!')
 
 
-def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_type=None, con_names=None, node_name=''):
+def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_type=None, con_names=None,
+              from_node_name='', to_node_name=''):
     if threshold_type == 'percentile':
         threshold = np.percentile(np.abs(stat_data), threshold)
     threshold_type = bpy.context.scene.above_below_threshold
@@ -161,9 +162,14 @@ def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_
         mask2 = [True] * len(stat_data)
 
     ret = np.logical_and(mask.squeeze(), mask2)
-    if node_name != '':
-        mask3 = [node_name in con_name.split('-') for con_name in con_names]
-        return np.logical_and(ret, mask3)
+    if from_node_name != '' or to_node_name != '':
+        con_name_elms_len = len(con_names[0].split('-'))
+        names_id1, names_id2 = 0, int(con_name_elms_len / 2)
+        mask3 = [from_node_name in con_name.split('-')[names_id1] for con_name in con_names]
+        mask4 = [to_node_name in con_name.split('-')[names_id2] for con_name in con_names]
+        ret = np.logical_and(ret, mask3)
+        ret = np.logical_and(ret, mask4)
+        return ret
     else:
         return ret
 
@@ -283,7 +289,7 @@ def get_vertices_obj():
     vertices_obj = None
     connection_parent = get_connection_parent()
     if connection_parent is not None:
-        vertices_parent_name = '{}_connections_vertices'.format(bpy.context.scene.connectivity_files.replace(' ', '_'))
+        vertices_parent_name = '{}_vertices'.format(bpy.context.scene.connectivity_files.replace(' ', '_'))
         vertices_objs = [c for c in connection_parent.children if c.name == vertices_parent_name]
         if len(vertices_objs) == 1:
             vertices_obj = vertices_objs[0]
@@ -635,7 +641,7 @@ def filter_nodes(do_filter=True, connectivity_file=''):
     if parent is None:
         print('{} is None!'.format(parent))
         return
-    vertices_parent_name = '{}_connections_vertices'.format(bpy.context.scene.connectivity_files)
+    vertices_parent_name = '{}_vertices'.format(bpy.context.scene.connectivity_files.replace(' ', '_'))
     vertices_obj = bpy.data.objects.get(vertices_parent_name)
     if vertices_obj is None:
         print('connections_vertices is None!')
@@ -994,7 +1000,7 @@ def connections_3rd_axis_update(self, context):
         threshold_type = bpy.context.scene.connections_threshold_type
         ConnectionsPanel.mask = calc_mask(
             d.con_values, threshold, threshold_type, d.con_types, bpy.context.scene.connections_type, d.con_names,
-            bpy.context.scene.connections_label)
+            bpy.context.scene.connections_from_label, bpy.context.scene.connections_to_label)
     indices = np.where(ConnectionsPanel.mask)[0]
     T = ConnectionsPanel.d.con_values.shape[1]
     update_fcurves(d, cond_ind, indices, ConnectionsPanel.mask, T)
@@ -1009,7 +1015,8 @@ def connections_draw(self, context):
         layout.prop(context.scene, "connectivity_direction", text="")
     layout.prop(context.scene, 'above_below_threshold', text='')
     layout.prop(context.scene, "connections_type", text="")
-    layout.prop(context.scene, "connections_label", text="Specific label")
+    layout.prop(context.scene, "connections_from_label", text="From label")
+    layout.prop(context.scene, "connections_to_label", text="To label")
     layout.operator(CheckConnections.bl_idname, text="Check connections ", icon='RNA_ADD')
     layout.label(text='# Connections: {}'.format(bpy.context.scene.connections_num))
     layout.label(text='{:.2f} < values < {:.2f}'.format(bpy.context.scene.connections_min, bpy.context.scene.connections_max))
@@ -1052,7 +1059,8 @@ bpy.types.Scene.above_below_threshold = bpy.props.EnumProperty(
                ("abs_below", "Below threshold", "", 2), ("below", "Below threshold", "", 3)],
         description='Selects the method used to calculate the number of connections using the threshold.\n\n Current method')
 bpy.types.Scene.conditions = bpy.props.EnumProperty(items=[], description="Conditions")
-bpy.types.Scene.connections_label = bpy.props.StringProperty(default='', description="connection label")
+bpy.types.Scene.connections_from_label = bpy.props.StringProperty(default='', description="connection from label")
+bpy.types.Scene.connections_to_label = bpy.props.StringProperty(default='', description="connection to label")
 bpy.types.Scene.connections_file = bpy.props.StringProperty(default='', description="connection file")
 bpy.types.Scene.connections_threshold_type = bpy.props.EnumProperty(
     items=[("value", "value", "", 1), ("percentile", "percentile", "", 2)], #, ("top_k", "top k", "", 3)],
