@@ -245,12 +245,24 @@ def set_new_ords(cond_x, new_ords):
     return new_con_x
 
 
-def filter_connections(node_name, con_values, con_names, threshold):
+def filter_connections(node_name, con_values, con_names, threshold, conn_type='', use_abs=True):
     mask = [False] * len(con_names)
     for ind, con_name in enumerate(con_names):
         node_from, _, _, hemi_from, node_to, _, _, hemi_to = con_name.split('-')
-        mask[ind] = node_name in node_from and node_name in node_to and \
-                    np.abs(con_values[ind, :].max()) >= threshold  # and hemi_from == 'lh' and hemi_to == 'rh'
+        mask[ind] = node_name in node_from and node_name in node_to
+        if use_abs:
+            mask[ind] = mask[ind] and np.abs(con_values[ind, :].max()) >= threshold
+        else:
+            mask[ind] = mask[ind] and con_values[ind, :].max() >= threshold
+        if conn_type == '':
+            continue
+        elif conn_type[0] == 'within':
+            mask[ind] = mask[ind] and hemi_from == conn_type[1] and hemi_to == conn_type[1]
+        elif conn_type[0] == 'between':
+            con_to_hemi = conn_type[1]
+            con_from_hemi = 'rh' if con_to_hemi == 'lh' else 'lh'
+            mask[ind] = mask[ind] and hemi_from == con_from_hemi and hemi_to == con_to_hemi
+
     return mask
 
 

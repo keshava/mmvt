@@ -125,8 +125,8 @@ def create_keyframes(d, threshold, threshold_type, radius=.1, stat=STAT_DIFF, ve
     parent_obj.animation_data_clear()
     N = len(indices)
     print('{} connections are above the threshold'.format(N))
-    create_vertices(d, mask, verts_color)
-    create_conncection_per_condition(d, layers_rods, indices, mask, windows_num, norm_fac, T, radius)
+    create_vertices(d, mask, verts_color, size=0.2)
+    create_conncection_per_condition(d, layers_rods, indices, mask, windows_num, norm_fac)
     if d.con_values.ndim > 2 and d.con_values.shape[2] == 2:
         print('Create connections for the conditions {}'.format('difference' if stat == STAT_DIFF else 'mean'))
         create_keyframes_for_parent_obj(d, indices, mask, windows_num, norm_fac, T, stat)
@@ -174,9 +174,7 @@ def calc_mask(stat_data, threshold, threshold_type, con_types=None, connections_
         return ret
 
 
-
-
-def create_conncection_per_condition(d, layers_rods, indices, mask, windows_num, norm_fac, T, radius):
+def create_conncection_per_condition(d, layers_rods, indices, mask, windows_num, norm_fac, conn_type='bezier'):
     N = len(indices)
     parent_obj = bpy.data.objects[get_connections_parent_name()]
     if d.con_values.ndim == 2:
@@ -190,15 +188,18 @@ def create_conncection_per_condition(d, layers_rods, indices, mask, windows_num,
         # mu.cylinder_between(p1, p2, radius, layers_rods)
 
         node1_obj, node2_obj = [bpy.data.objects['{}_vertice'.format(d.labels[k])] for k in [i, j]]
-        mu.create_bezier_curve(node1_obj, node2_obj, layers_rods)
-        # p1, p2 = d.locations[i, :] * 0.01, d.locations[j, :] * 0.01
-        # mu.hook_curves(node1_obj, node2_obj, p1, p2)
-        cur_obj = bpy.context.active_object
+        p1, p2 = d.locations[i, :] * 0.1, d.locations[j, :] * 0.1
+        if conn_type == 'bezier':
+            mu.create_bezier_curve(node1_obj, node2_obj, layers_rods)
+            # mu.hook_curves(node1_obj, node2_obj, p1, p2)
+            cur_obj = bpy.context.active_object
+        elif conn_type == 'arrow':
+            # p1, p2 = d.locations[i], d.locations[j]
+            cur_obj = draw_arrow(ind, p1, p2 - p1)
         cur_obj.name = conn_name
         cur_obj.parent = parent_obj
-
-        # mu.create_material('{}_mat'.format(conn_name), con_color, 1)
         mu.create_and_set_material(cur_obj)
+        # mu.create_material('{}_mat'.format(conn_name), con_color, 1)
         # cur_mat = bpy.data.materials['{}_mat'.format(conn_name)]
         # cur_obj.active_material = cur_mat
         # cur_obj.animation_data_clear()
@@ -219,6 +220,23 @@ def create_conncection_per_condition(d, layers_rods, indices, mask, windows_num,
     mu.change_fcurves_colors(parent_obj.children)
 
 
+def draw_arrow(vert_ind, loc, dir):
+    from mathutils import Vector
+    loc = Vector(loc)
+    dir = Vector(dir)
+    R = (-dir).to_track_quat('Z', 'X').to_matrix().to_4x4()
+    mt = bpy.data.objects.new('arrow_{}'.format(vert_ind), None)
+    # mt.name = 'arrow_{}'.format(vert_ind)
+    R.translation = loc + dir
+    # mt.show_name = True
+    mt.matrix_world = R
+    mt.empty_draw_type = 'SINGLE_ARROW'
+    mt.empty_draw_size = dir.length
+    bpy.context.scene.objects.link(mt)
+    # mt.parent = bpy.data.objects[empty_name]
+    return mt
+
+
 def update_fcurves(d, cond_id, indices, mask, T):
     for run, (ind, conn_name) in enumerate(zip(indices, d.con_names[mask])):
         cur_obj = bpy.data.objects.get(conn_name, None)
@@ -231,7 +249,7 @@ def update_fcurves(d, cond_id, indices, mask, T):
             fcurve.keyframe_points[t].co[1] = d.con_values[ind, t, cond_id]
 
 
-def create_vertices(d, mask, verts_color='green'):
+def create_vertices(d, mask, verts_color='green', size=0.3):
     layers = [False] * 20
     layers[_addon().CONNECTIONS_LAYER] = True
     vert_color = np.hstack((cu.name_to_rgb(verts_color), [0.]))
@@ -243,7 +261,7 @@ def create_vertices(d, mask, verts_color='green'):
     # for indice in indices:
         p1 = d.locations[vertice, :] * 0.1
         vert_name = '{}_vertice'.format(d.labels[vertice])
-        mu.create_ico_sphere(p1, layers, vert_name)
+        mu.create_ico_sphere(p1, layers, vert_name, size=size)
         mu.create_material('{}_mat'.format(vert_name), vert_color, 1)
         cur_obj = bpy.context.active_object
         cur_obj.name = vert_name
@@ -638,7 +656,7 @@ def filter_nodes(do_filter=True, connectivity_file=''):
     if connectivity_file != '':
         bpy.context.scene.connectivity_files = connectivity_file
     parent = get_connections_parent_name()
-    if parent is None:
+    if bpy.data.objects.get(parent, None) is None:
         print('{} is None!'.format(parent))
         return
     vertices_parent_name = '{}_vertices'.format(bpy.context.scene.connectivity_files.replace(' ', '_'))
@@ -766,6 +784,14 @@ def load_connections_file(connectivity_files=''):
                 d.data_min = d.data_min2
             elif bpy.context.scene.connectivity_direction == 'max':
                 d.con_values = np.maximum(d.con_values, d.con_values2)
+            elif bpy.context.scene.connectivity_direction == 'both':
+                d.con_indices = np.concatenate((d.con_indices, d.con_indices2))
+                d.con_names = np.concatenate((d.con_names, d.con_names2))
+                d.con_values = np.concatenate((d.con_values, d.con_values2))
+                d.con_types = np.concatenate((d.con_types, d.con_types2))
+                d.data_max = max((d.data_max, d.data_max2))
+                d.data_min = min((d.data_min, d.data_min2))
+
 
         conditions_items = [(cond, cond, '', cond_ind) for cond_ind, cond in enumerate(d.conditions)]
         if len(d.conditions) > 1:
@@ -1138,7 +1164,7 @@ def init(addon):
                 bpy.context.scene.connectivity_files = conn_names[conn_index]  # get_first_existing_parent_obj_name() #
                 break
 
-    conn_dirs = [(c, c, '', ind) for ind, c in enumerate(['x->y', 'y->x', 'max'])]
+    conn_dirs = [(c, c, '', ind) for ind, c in enumerate(['x->y', 'y->x', 'both', 'max'])]
     bpy.types.Scene.connectivity_direction = bpy.props.EnumProperty(
         items=conn_dirs, description='Connectivity direction', update=connectivity_files_update)
     bpy.context.scene.connectivity_direction = 'x->y'

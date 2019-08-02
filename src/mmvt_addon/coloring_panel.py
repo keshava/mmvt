@@ -329,8 +329,11 @@ def get_use_abs_threshold():
 
 
 def can_color_obj(obj):
-    cur_mat = obj.active_material
-    return 'RGB' in cur_mat.node_tree.nodes
+    try:
+        cur_mat = obj.active_material
+        return 'RGB' in cur_mat.node_tree.nodes
+    except:
+        return False
 
 
 def object_coloring(obj, rgb):
@@ -352,7 +355,7 @@ def object_coloring(obj, rgb):
         cur_mat.diffuse_color = new_color[:3]
     except:
         print('object_coloring: No diffuse_color for {}'.format(obj.name))
-        return False
+        # return False
     if can_color_obj(obj):
         cur_mat.node_tree.nodes["RGB"].outputs[0].default_value = new_color
     else:
