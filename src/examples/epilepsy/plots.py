@@ -109,6 +109,7 @@ def plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names):
 def plot_norm_data(d_cond, d_baseline, x_axis, condition, threshold, node_name, stc_data, ax=None):
     import matplotlib.pyplot as plt
     from src.preproc import connectivity
+
     norm1 = d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)
     norm2 = d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)
     norm1, best_ords1 = connectivity.find_best_ord(norm1, return_ords=True)
@@ -128,16 +129,26 @@ def plot_norm_data(d_cond, d_baseline, x_axis, condition, threshold, node_name, 
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    ax.plot(x_axis, norm.T)
+    l1 = ax.plot(x_axis, norm.T, label=list(names))
     if stc_data is not None:
         ax2 = ax.twinx()
-        ax2.plot(stc_data.T, 'y--')
+        l2 = ax2.plot(stc_data.T, 'y--', label='Source normalized activity')
+        ax2.set_ylim([0.5, 4.5])
+        ax2.set_yticks(range(1, 5))
+        ax2.set_ylabel('Source z-values', fontsize=14)
     ax.set_xticks(time)
-    ax.set_xticklabels(['{}-{}'.format(t, t + 100) for t in time], rotation=30)
-    # plt.axvline(x=x_axis[10], color='r', linestyle='--')
-    # plt.axvline(x=x_axis[20], color='r', linestyle='--')
-    plt.title('{} interictals-basline'.format(condition))
-    # plt.legend(names)
+    xticklabels = ['{}-{}'.format(t, t + 100) for t in time]
+    xticklabels[2] = '{}\nonset'.format(xticklabels[2])
+    ax.set_xticklabels(xticklabels, rotation=30)
+    ax.set_ylabel('Causality', fontsize=14)
+    ax.set_yticks([-0.5, 0, 0.5])
+    ax.set_ylim([-0.6, 0.7])
+    ax.axvline(x=x_axis[10], color='r', linestyle='--')
+    plt.title('{} interictals minus basline'.format('Right' if condition == 'R' else 'Left'))
+
+    labs = list(names) + ['Source normalized activity']
+    ax.legend(l1 + l2, labs, loc=0)
+
     if ax is None:
         plt.show()
     # plt.savefig(op.join(figures_fol, '{} interictals-basline'.format(condition)), dpi=300)
@@ -171,8 +182,6 @@ def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode
         stc = mne.read_source_estimate(stc_fname)
         stc_data = np.max(stc.data, axis=0)
         stc_data = utils.downsample(stc_data, 2)[100:]
-        # plt.figure()
-        # plt.plot(stc_data.T)
     else:
         stc_data = None
 
@@ -220,4 +229,6 @@ def plot_both_conditions(subject, conditions, modality, high_freq=120, con_metho
                 subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name)
             x_axis = np.arange(x_cond.shape[1]) * 10
             plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.5, node_name, stc_data, ax)
+        axs[1].set_xlabel('Time (ms)', fontsize=14)
         plt.show()
+    print('Done!')

@@ -406,6 +406,15 @@ def get_image_w_h(image_fname):
     return w, h
 
 
+def add_xticklabels(ax, xticklabels):
+    xticks = ax.get_xticks()
+    x_labels = list(xticks)
+    for xlable_time, xticklabel in xticklabels.items():
+        if xlable_time in xticks:
+            x_labels[x_labels.index(xlable_time)] = xticklabel
+    ax.set_xticklabels(x_labels)
+
+
 if __name__ is '__main__':
     import argparse
     from src.utils.utils import Bag
@@ -460,3 +469,4 @@ if __name__ is '__main__':
     # plot_color_bar_from_two_color_maps(10, -10, fol='C:\\Users\\2014\\mmvt\\ESZC25\\figures')
     # combine_four_brain_perspectives('/homes/5/npeled/space1/mmvt/colin27/figures/ver3', facecolor='black', crop=True)
     print('finish!')
+
