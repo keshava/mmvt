@@ -959,7 +959,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
             subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
             low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
             windows_length=25, windows_shift=5, calc_only_for_all_freqs=True, overwrite=True,
-            overwrite_connectivity=True, n_jobs=n_jobs)
+            overwrite_connectivity=False, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
         #     threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
