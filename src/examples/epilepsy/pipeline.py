@@ -772,7 +772,7 @@ def calc_labels_connectivity(
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
             con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=overwrite_connectivity,
             epochs=epochs, bands=bands, cwt_frequencies=freqs, con_indentifer=con_indentifer, labels=labels,
-            min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
+            min_order=min_order, max_order=max_order, downsample=1, windows_length=windows_length,
             windows_shift=windows_shift, n_jobs=n_jobs)
 
 
@@ -864,9 +864,6 @@ def find_functional_rois(subject, condition, modality, atlas='laus125', min_clus
         time_index=0, abs_max=False, modality=modality, n_jobs=n_jobs)
 
 
-def calc_functional_rois_connectivity(subject, condition, modality, atlas='laus125', min_cluster_size=10, inverse_method='dSPM'):
-
-    pass
 # @utils.profileit(root_folder=op.join(MMVT_DIR, 'profileit'))
 def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
          inverse_method='dSPM', specific_window='', exclude_windows=[], no_runs=False, recursive=False,
@@ -958,11 +955,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
         #                         do_plot=True, overwrite=True)
         # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
-        # calc_labels_connectivity(
-        #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-        #     low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
-        #     windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
-        #     overwrite_connectivity=False, n_jobs=n_jobs)
+        calc_labels_connectivity(
+            subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
+            low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
+            windows_length=25, windows_shift=5, calc_only_for_all_freqs=True, overwrite=True,
+            overwrite_connectivity=True, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
         #     threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
@@ -1022,6 +1019,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     # plot_baseline(subject, baseline_name)
     # fix_amplitude_fnames(subject, bands)
 
+
 def all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_template,
          inverse_method='dSPM', specific_windows=[], exclude_windows=[], no_runs=False, recursive=False,
          check_windows=True, atlas='aparc.DKTatlas40', n_jobs=4):
@@ -1029,11 +1027,11 @@ def all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, 
     con_method = 'gc'  # 'granger-causality' # 'wpli2_debiased'
     extract_mode = 'mean_flip'
     for modality in modalities:
-        plots.plot_both_conditions(
-            subject, specific_windows, modality, high_freq, con_method,
-            extract_mode, func_rois_atlas=True, node_name='occipital',
-            use_zvals=False)
-
+        # plots.plot_both_conditions(
+        #     subject, specific_windows, modality, high_freq, con_method,
+        #     extract_mode, func_rois_atlas=True, node_name='occipital',
+        #     use_zvals=False)
+        pass
 
 if __name__ == '__main__':
     import argparse
@@ -1064,7 +1062,7 @@ if __name__ == '__main__':
         print('No run were found!')
         runs = ['01']
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['L', 'R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['L']# 'R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:
