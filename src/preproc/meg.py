@@ -2715,7 +2715,7 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
     return utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}'))
 
 
-def plot_max_stc(subject, stc_name, modality='meg', use_abs=True):
+def plot_max_stc(subject, stc_name, modality='meg', use_abs=True, do_plot=True, return_stc=False):
     def onclick(event):
         print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
               ('double' if event.dblclick else 'single', event.button,
@@ -2743,11 +2743,12 @@ def plot_max_stc(subject, stc_name, modality='meg', use_abs=True):
     # if evokes_fname != '' and op.isfile(evokes_fname):
 
     fig, ax = plt.subplots()
-    plt.plot(data.T)
-    plt.title(utils.namebase(stc_name))
     fig.canvas.mpl_connect('button_press_event', onclick)
-    plt.show()
-    return True
+    if do_plot:
+        plt.plot(data.T)
+        plt.title(utils.namebase(stc_name))
+        plt.show()
+    return data if return_stc else True
 
 
 def plot_evoked(subject, evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=True, pick_eog=False, ssp_proj=False,
