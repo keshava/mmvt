@@ -59,7 +59,7 @@ def subject_nmr01321():
         # '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
         op.join(MMVT_DIR, subject, 'evoked')] if op.isdir(d)][0]
     meg_fol = [d for d in [
-        '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
+        '/autofs/space/violet_001/users/valia/epilepsy2019/4272326_01321/190501',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG001,EEG003,EEG004,EEG005,EEG008,EEG034,EEG045,EEG051,EEG057,EEG058,EEG060,EEG061,EEG062,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'

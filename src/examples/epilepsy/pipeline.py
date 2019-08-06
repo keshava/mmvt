@@ -943,8 +943,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     plot_baseline_stat=plot_baseline_stat, bad_channels=bad_channels, overwrite=False, parallel=False)
 
         # 2) calc fwd and inv
-        # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
-        #              overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
+        calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
+                     overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
         # check_inv_fwd(subject, modality, run_num)
 
         # 3) Amplitude
@@ -955,11 +955,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
         #                         do_plot=True, overwrite=True)
         # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
-        calc_labels_connectivity(
-            subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-            low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
-            windows_length=25, windows_shift=5, calc_only_for_all_freqs=True, overwrite=True,
-            overwrite_connectivity=False, n_jobs=n_jobs)
+        # calc_labels_connectivity(
+        #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
+        #     low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
+        #     windows_length=25, windows_shift=5, calc_only_for_all_freqs=True, overwrite=True,
+        #     overwrite_connectivity=False, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
         #     threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
@@ -1033,6 +1033,7 @@ def all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, 
         #     use_zvals=False)
         pass
 
+
 if __name__ == '__main__':
     import argparse
     from src.examples.epilepsy import init_files
@@ -1043,13 +1044,13 @@ if __name__ == '__main__':
     args = utils.Bag(au.parse_parser(parser))
     n_jobs = utils.get_n_jobs(args.n_jobs)
 
-    modalities = ['meg', 'eeg', 'meeg']
+    modalities = ['eeg'] # ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     atlas = 'aparc.DKTatlas40'
     recursive = False
     check_windows = False
-    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01327()
+    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01321()
     run_files = [utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))]
     if recursive:
         evokes_files = glob.glob(op.join(evokes_fol, '**', '*.fif'), recursive=True)
