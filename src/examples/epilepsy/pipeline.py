@@ -735,12 +735,12 @@ def calc_labels_connectivity(
     # Check if can calc the labels info (if not, we want to know now...)
     connectivity.calc_lables_info(subject, atlas, False, [l.name for l in labels], labels)
 
-    if not overwrite_connectivity:
-        for cond in ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]:
-            meg.save_connectivity(
-                subject, atlas, {cond:1}, modality, extract_modes, con_method, con_indentifer, bands, labels,
-                reduce_to_3d=True, overwrite=True)
-        return
+    # if not overwrite_connectivity:
+    #     for cond in ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]:
+    #         meg.save_connectivity(
+    #             subject, atlas, {cond:1}, modality, extract_modes, con_method, con_indentifer, bands, labels,
+    #             reduce_to_3d=True, overwrite=True)
+    #     return
 
     windows_epochs_template = op.join(
         root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, '{condition}'))
