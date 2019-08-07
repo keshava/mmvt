@@ -765,8 +765,7 @@ def calc_labels_connectivity(
     else:
         baseline_epochs = mne.read_epochs(baseline_epochs_fname)
 
-    for epochs, cond in zip([windows_epochs, baseline_epochs],
-                            ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]):
+    for epochs, cond in zip([windows_epochs, baseline_epochs], ['{}_interictals'.format(condition), 'baseline']):
         meg.calc_labels_connectivity(
             subject, atlas, {cond:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
@@ -943,8 +942,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         #     plot_baseline_stat=plot_baseline_stat, bad_channels=bad_channels, overwrite=False, parallel=False)
 
         # 2) calc fwd and inv
-        calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
-                     overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
+        # calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
+        #              overwrite_inv=overwrite_inv, overwrite_fwd=overwrite_fwd)
         # check_inv_fwd(subject, modality, run_num)
 
         # 3) Amplitude
@@ -955,11 +954,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
         #                         do_plot=True, overwrite=True)
         # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
-        # calc_labels_connectivity(
-        #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-        #     low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
-        #     windows_length=25, windows_shift=5, calc_only_for_all_freqs=True, overwrite=True,
-        #     overwrite_connectivity=False, n_jobs=n_jobs)
+        calc_labels_connectivity(
+            subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
+            low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
+            windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
+            overwrite_connectivity=False, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
         #     threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
@@ -1028,9 +1027,8 @@ def all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, 
     extract_mode = 'mean_flip'
     for modality in modalities:
         # plots.plot_both_conditions(
-        #     subject, specific_windows, modality, high_freq, con_method,
-        #     extract_mode, func_rois_atlas=True, node_name='occipital',
-        #     use_zvals=False)
+        #     subject, specific_windows, modality, high_freq, con_method, extract_mode, func_rois_atlas=True,
+        #     node_name='occipital', use_zvals=False)
         pass
 
 
@@ -1044,13 +1042,13 @@ if __name__ == '__main__':
     args = utils.Bag(au.parse_parser(parser))
     n_jobs = utils.get_n_jobs(args.n_jobs)
 
-    modalities = ['eeg'] # ['meg', 'eeg', 'meeg']
+    modalities = ['meg', 'eeg', 'meeg']
     bands = ['delta', 'theta', 'alpha', 'beta', 'gamma', 'high_gamma']
     inverse_method = 'dSPM'
     atlas = 'aparc.DKTatlas40'
     recursive = False
     check_windows = False
-    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01321()
+    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01327()
     run_files = [utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))]
     if recursive:
         evokes_files = glob.glob(op.join(evokes_fol, '**', '*.fif'), recursive=True)
@@ -1063,7 +1061,7 @@ if __name__ == '__main__':
         print('No run were found!')
         runs = ['01']
     print('n_jobs: {}'.format(n_jobs))
-    specific_windows = ['L', 'R'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
+    specific_windows = ['R', 'L'] # 'L', # ['baseline_run1_195'] # ['L', 'R'] # 'MEG_SZ_run1_107.7_11sec' # 'sz_1.3s' # '550_20sec'#  #'bl_474s' #  #' # 'sz_1.3s' #'550_20sec' #  'bl_474s' # 'run2_bl_248s'
     exclude_windows = []#['baseline_run1_SHORT_600ms', 'MEG_SZ_run1_108.6', 'MEG_SZ_run1_107.7_11se',
                        # 'EEG_SZ_run1_114.3_11sec', 'EEG_SZ_run1_114.3']
     for run in runs:
