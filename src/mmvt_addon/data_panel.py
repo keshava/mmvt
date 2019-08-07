@@ -39,6 +39,10 @@ bpy.types.Scene.meg_sensors_radius = bpy.props.FloatProperty(default=0.15, min=0
     description='Sets the spheres radius')
 bpy.types.Scene.eeg_sensors_radius = bpy.props.FloatProperty(default=0.15, min=0.01, max=1,
     description='Sets the spheres radius')
+bpy.types.Scene.eeg_sensors_color = bpy.props.FloatVectorProperty(
+    name="eeg_sensors_color", subtype='COLOR', default=(0.7, 0.7, 0.7), min=0.0, max=1.0)
+bpy.types.Scene.meg_sensors_color = bpy.props.FloatVectorProperty(
+    name="meg_sensors_color", subtype='COLOR', default=(0.7, 0.7, 0.7), min=0.0, max=1.0)
 bpy.types.Scene.import_unknown = bpy.props.BoolProperty(default=False, description='Imports the data of all unknown labels')
 bpy.types.Scene.inflated_morphing = bpy.props.BoolProperty(default=True, description="inflated_morphing")
 bpy.types.Scene.meg_labels_data_files = bpy.props.EnumProperty(items=[],
@@ -514,17 +518,23 @@ def import_meg_sensors(overwrite_sensors=False):
         sensors_type = mu.namebase(input_file).split('_')[1]
         create_empty_if_doesnt_exists(
             'MEG_{}_sensors'.format(sensors_type), _addon().BRAIN_EMPTY_LAYER, layers_array, 'MEG_sensors')
-        import_electrodes(
+        sensors_names = import_electrodes(
             input_file, _addon().MEG_LAYER, bipolar=False, parnet_name='MEG_{}_sensors'.format(sensors_type),
             overwrite=overwrite_sensors, electrode_size=bpy.context.scene.meg_sensors_radius)
+        for sensor_name in sensors_names:
+            _addon().coloring.object_coloring(
+                bpy.data.objects.get(sensor_name), bpy.context.scene.meg_sensors_color)
     bpy.types.Scene.meg_sensors_imported = True
     print('MEG sensors importing is Finished ')
 
 
 def import_eeg_sensors(overwrite_sensors=False):
     input_file = op.join(mu.get_user_fol(), 'eeg', 'eeg_sensors_positions.npz')
-    import_electrodes(input_file, _addon().EEG_LAYER, bipolar=False, parnet_name='EEG_sensors',
-                      overwrite=overwrite_sensors, electrode_size=bpy.context.scene.eeg_sensors_radius)
+    sensors_names = import_electrodes(
+        input_file, _addon().EEG_LAYER, bipolar=False, parnet_name='EEG_sensors',
+        overwrite=overwrite_sensors, electrode_size=bpy.context.scene.eeg_sensors_radius)
+    for sensor_name in sensors_names:
+        _addon().coloring.object_coloring(bpy.data.objects.get(sensor_name), bpy.context.scene.eeg_sensors_color)
     bpy.types.Scene.eeg_imported = True
     print('EEG sensors importing is Finished ')
 
@@ -641,6 +651,7 @@ def import_electrodes(input_file='', electrodes_layer=None, bipolar='', electrod
             elc_name = elc_name.astype(str)
         elc_name = elc_name.replace(' ', '')
         create_electrode(elc_pos, elc_name, electrode_size, layers_array, parnet_name)
+    return elecs_names
 
 
 @mu.tryit(None, False)
@@ -1403,7 +1414,9 @@ def data_draw(self, context):
         col = layout.box().column()
         if bpy.data.objects.get('MEG_sensors', None) is None:
             col.operator(ImportMEGSensors.bl_idname, text="Import MEG sensors", icon='COLOR_GREEN')
-            col.prop(context.scene, 'meg_sensors_radius', text="Sensors' radius")
+            row = col.row(align=True)
+            row.prop(context.scene, 'meg_sensors_radius', text="Sensors' radius")
+            row.prop(context.scene, 'meg_sensors_color', text="")
         else:
             col.operator(ImportMEGSensors.bl_idname, text="Export MEG sensors", icon='LAMP_AREA')
             if _addon().meg.meg_sensors_exist():
@@ -1419,7 +1432,9 @@ def data_draw(self, context):
         col = layout.box().column()
         if bpy.data.objects.get('EEG_sensors', None) is None:
             col.operator(ImportEEGSensors.bl_idname, text="Import EEG sensors", icon='COLOR_GREEN')
-            col.prop(context.scene, 'eeg_sensors_radius', text="Sensors' radius")
+            row = col.row(align=True)
+            row.prop(context.scene, 'eeg_sensors_radius', text="Sensors' radius")
+            row.prop(context.scene, 'eeg_sensors_color', text="")
         else:
             col.operator(ImportEEGSensors.bl_idname, text="Export EEG sensors", icon='LAMP_AREA')
             if _addon().meg.eeg_sensors_exist():

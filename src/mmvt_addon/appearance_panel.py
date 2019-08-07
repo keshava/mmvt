@@ -452,14 +452,20 @@ def set_transparency(material_name='Activity_map_mat', val=None):
         val = bpy.context.scene.appearance_solid_slider
     else:
         val = 1 - val
-    bpy.data.materials[material_name].node_tree.nodes['transparency_node'].inputs['Fac'].default_value = val
+    if 'transparency_node' in bpy.data.materials[material_name].node_tree.nodes:
+        bpy.data.materials[material_name].node_tree.nodes['transparency_node'].inputs['Fac'].default_value = val
+    else:
+        print('transparency_node not in {}!'.format(material_name))
 
 
 def set_layers_depth_trans(material_name='Activity_map_mat', depth=None):
     # depth = bpy.context.scene.appearance_depth_slider if bpy.context.scene.appearance_depth_Bool else 0
     if depth is None:
         depth = bpy.context.scene.appearance_depth_slider
-    bpy.data.materials[material_name].node_tree.nodes["layers_depth"].inputs[1].default_value = depth
+    if 'layers_depth' in bpy.data.materials[material_name].node_tree.nodes:
+        bpy.data.materials[material_name].node_tree.nodes["layers_depth"].inputs[1].default_value = depth
+    else:
+        print('layers_depthtop not in {}!'.format(material_name))
 
 
 def appearance_draw(self, context):
