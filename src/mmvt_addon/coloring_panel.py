@@ -14,7 +14,10 @@ import shutil
 import math
 import importlib
 
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except:
+    print('No tqdm!')
 
 try:
     import bpy
@@ -1312,18 +1315,18 @@ def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur
     # step = len(valid_verts) / 100
     # ind = 0
     bpy.context.window.cursor_set("WAIT")
-    for vert in tqdm(valid_verts):
-        # if ind > step:
-        #     progress += 1
-        #     ind = 0
-        #     _addon().colorbar.show_progress(progress)
-        x = lookup[vert]
-        for loop_ind in x[x > -1]:
-            d = vcol_layer.data[loop_ind]
-            # if save_prev_colors:
-            #     ColoringMakerPanel.prev_colors[cur_obj_name]['colors'][vert][loop_ind] = d.color.copy()
-            d.color = colors_func(vert)
-        # ind += 1
+    try:
+        for vert in tqdm(valid_verts):
+            x = lookup[vert]
+            for loop_ind in x[x > -1]:
+                d = vcol_layer.data[loop_ind]
+                d.color = colors_func(vert)
+    except:
+        for vert in valid_verts:
+            x = lookup[vert]
+            for loop_ind in x[x > -1]:
+                d = vcol_layer.data[loop_ind]
+                d.color = colors_func(vert)
     bpy.context.window.cursor_set("DEFAULT")
 
 

@@ -38,6 +38,13 @@ def _plot_topomaps_parallel(p):
         title=window, save_fig=True, fig_fname=fig_fname)
 
 
+def plot_sensors_windows(subject, modality, windows, bad_channels, parallel=True, overwrite=False):
+    module = eeg if modality == 'eeg' else meg
+    window = utils.namebase(window_fname)
+    evo_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'evoked'))
+    evo_fname = op.join(evo_fol, '{}.fif'.format(window))
+
+
 def plot_evokes(subject, modality, windows, bad_channels, parallel=True, overwrite=False):
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'evokes'))
     params = [(subject, modality, window_fname, bad_channels, figs_fol, overwrite) for window_fname in windows]
@@ -244,6 +251,10 @@ def plot_both_conditions(subject, conditions, modality, high_freq=120, con_metho
             input_fname, baseline_fname = get_cond_and_baseline_fnames(
                 subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals)
             files_exist = files_exist and op.isfile(input_fname) and op.isfile(baseline_fname)
+            if not files_exist:
+                print('connectivity files are not exist for condition {} band {}!'.format(condition, band_name))
+                print(input_fname, baseline_fname)
+                break
         if not files_exist:
             continue
         f, (axs) = plt.subplots(2, sharex=True, sharey=False)

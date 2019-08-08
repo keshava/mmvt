@@ -765,7 +765,8 @@ def calc_labels_connectivity(
     else:
         baseline_epochs = mne.read_epochs(baseline_epochs_fname)
 
-    for epochs, cond in zip([windows_epochs, baseline_epochs], ['{}_interictals'.format(condition), 'baseline']):
+    for epochs, cond in zip([windows_epochs, baseline_epochs],
+                            ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]):
         meg.calc_labels_connectivity(
             subject, atlas, {cond:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
             pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
