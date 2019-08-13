@@ -933,6 +933,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     # epi_utils.create_evokeds_links(subject, windows_with_baseline)
     for modality in modalities:
         # 1) Sensors
+        # plots.plot_sensors_windows(subject, windows, specific_window, modality, bad_channels)
         # plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
@@ -955,11 +956,11 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
         #                         do_plot=True, overwrite=True)
         # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
-        calc_labels_connectivity(
-            subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-            low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
-            windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
-            overwrite_connectivity=False, n_jobs=n_jobs)
+        # calc_labels_connectivity(
+        #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
+        #     low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
+        #     windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
+        #     overwrite_connectivity=False, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
         #     threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
@@ -1027,9 +1028,9 @@ def all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, 
     con_method = 'gc'  # 'granger-causality' # 'wpli2_debiased'
     extract_mode = 'mean_flip'
     for modality in modalities:
-        # plots.plot_both_conditions(
-        #     subject, specific_windows, modality, high_freq, con_method, extract_mode, func_rois_atlas=True,
-        #     node_name='occipital', use_zvals=False)
+        plots.plot_both_conditions(
+            subject, specific_windows, modality, high_freq, con_method, extract_mode, func_rois_atlas=True,
+            node_name='occipital', use_zvals=False, windows_len=100, windows_shift=10)
         pass
 
 

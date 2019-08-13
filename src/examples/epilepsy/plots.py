@@ -38,11 +38,33 @@ def _plot_topomaps_parallel(p):
         title=window, save_fig=True, fig_fname=fig_fname)
 
 
-def plot_sensors_windows(subject, modality, windows, bad_channels, parallel=True, overwrite=False):
-    module = eeg if modality == 'eeg' else meg
-    window = utils.namebase(window_fname)
-    evo_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'evoked'))
-    evo_fname = op.join(evo_fol, '{}.fif'.format(window))
+def plot_sensors_windows(subject, windows, condition, modality, bad_channels, do_plot=False):
+    import matplotlib.pyplot as plt
+    import mne
+    plt.figure()
+    if modality == 'meeg':
+        return
+    sensors_types = ['eeg'] if modality == 'eeg' else ['mag', 'grad']
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'sensors'))
+    all_data = {}
+    for sensors_type in sensors_types:
+        for window_fname in windows:
+            window = utils.namebase(window_fname)
+            evoked = mne.read_evokeds(window_fname)[0]
+            if modality == 'eeg':
+                ev = evoked.pick_types(meg=False, eeg=True, exclude=bad_channels)
+            else:
+                ev = evoked.pick_types(meg=sensors_type, eeg=False, exclude=bad_channels)
+            # best_channel = np.argmax(np.max(np.abs(ev.crop(-0.1, 0.1).data), axis=1))
+            # plt.plot(ev.times, ev.data[best_channel], label=window)
+            plt.plot(ev.times, ev.data.mean(0), label=window)
+        # plt.legend(loc=0)
+        plt.title('{} {}'.format(condition, sensors_type))
+        if do_plot:
+            plt.show()
+        else:
+            plt.savefig(op.join(figures_fol, '{}-{}.jpg'.format(condition, sensors_type)), dpi=300)
+            plt.close()
 
 
 def plot_evokes(subject, modality, windows, bad_channels, parallel=True, overwrite=False):
@@ -113,7 +135,8 @@ def plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names):
         # plt.close()
 
 
-def plot_norm_data(d_cond, d_baseline, x_axis, condition, threshold, node_name, stc_data, stc_times, windows_len=25, windows_shift=10, ax=None):
+def plot_norm_data(d_cond, d_baseline, x_axis, condition, threshold, node_name, stc_data, stc_times, windows_len=100,
+                   windows_shift=10, ax=None):
     import matplotlib.pyplot as plt
     from src.preproc import connectivity
     # from src.mmvt_addon import colors_utils as cu
@@ -147,6 +170,8 @@ def plot_norm_data(d_cond, d_baseline, x_axis, condition, threshold, node_name, 
         else:
             windows_num = norm[conn_type].shape[1]
             dt = (stc_times[-1] - stc_times[windows_len]) / windows_num
+            print('windows num: {} windows length: {:.2f}ms windows shift: {:2f}ms'.format(
+                windows_num, (stc_times[windows_len] - stc_times[0]) * 1000, dt * 1000))
             time = np.arange(stc_times[windows_len], stc_times[-1], dt)
             marker = '+' if conn_type[0] == 'within' else 'x'
             l = ax.scatter(time, norm[conn_type].max(0), color=color)#, marker=marker)
@@ -238,7 +263,7 @@ def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode
 
 def plot_both_conditions(subject, conditions, modality, high_freq=120, con_method='wpli2_debiased',
                       extract_mode='mean_flip', func_rois_atlas=True, node_name='occipital', # ''lateraloccipital'
-                      use_zvals=False, threshold=0.7, windows_len=25, windows_shift=10):
+                      use_zvals=False, threshold=0.7, windows_len=100, windows_shift=10):
     import matplotlib.pyplot as plt
 
     bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
@@ -263,7 +288,8 @@ def plot_both_conditions(subject, conditions, modality, high_freq=120, con_metho
                 subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name,
                 use_abs=False, threshold=threshold, stc_downsample=1)
             x_axis = np.arange(x_cond.shape[1]) * 10
-            plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.1, node_name, stc_data, stc_times, windows_len, windows_shift, ax)
+            plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.1, node_name, stc_data, stc_times,
+                           windows_len, windows_shift, ax)
         axs[1].set_xlabel('Time (ms)', fontsize=12)
         plt.show()
     print('Done!')
