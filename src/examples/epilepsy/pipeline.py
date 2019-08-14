@@ -1028,9 +1028,9 @@ def all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, 
     con_method = 'gc'  # 'granger-causality' # 'wpli2_debiased'
     extract_mode = 'mean_flip'
     for modality in modalities:
-        plots.plot_both_conditions(
-            subject, specific_windows, modality, high_freq, con_method, extract_mode, func_rois_atlas=True,
-            node_name='occipital', use_zvals=False, windows_len=100, windows_shift=10)
+        # plots.plot_both_conditions(
+        #     subject, specific_windows, modality, high_freq, con_method, extract_mode, func_rois_atlas=True,
+        #     node_name='occipital', use_zvals=False, windows_len=100, windows_shift=10)
         pass
 
 

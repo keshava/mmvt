@@ -24,7 +24,7 @@ def run(mmvt):
     mmvt.appearance.show_electrodes(True)
 
 
-def import_csv(mmvt, csv_fname, balls_c=None, balls_r=None, suffix=''):
+def import_csv(mmvt, csv_fname, balls_c=None, balls_r=None, suffix='', flip_x=False, flip_y=False, flip_z=False):
     mu = mmvt.utils
     if balls_c is None:
         balls_c = {1: 'blue', 2: 'red'}
@@ -49,8 +49,12 @@ def import_csv(mmvt, csv_fname, balls_c=None, balls_r=None, suffix=''):
             matrix_world = mu.get_matrix_world()
             subject_tkreg_ras = mathutils.Vector(mni305_ras) * matrix_world
 
-        subject_tkreg_ras[0] *= -1
-        subject_tkreg_ras[1] *= -1
+        if flip_x:
+            subject_tkreg_ras[0] *= -1
+        if flip_y:
+            subject_tkreg_ras[1] *= -1
+        if flip_z:
+            subject_tkreg_ras[2] *= -1
         ball_name = 'peak_{}_{}_{}{}'.format(ind, cond, primary, '_{}'.format(suffix) if suffix != '' else '')
         mmvt.data.create_electrode(
             subject_tkreg_ras, ball_name, balls_r[primary], color=balls_c[cond], subject_tkreg_ras=True)
