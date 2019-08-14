@@ -41,9 +41,9 @@ def _plot_topomaps_parallel(p):
 def plot_sensors_windows(subject, windows, condition, modality, bad_channels, do_plot=False):
     import matplotlib.pyplot as plt
     import mne
-    plt.figure()
     if modality == 'meeg':
         return
+    plt.figure()
     sensors_types = ['eeg'] if modality == 'eeg' else ['mag', 'grad']
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'sensors'))
     all_data = {}
@@ -65,6 +65,33 @@ def plot_sensors_windows(subject, windows, condition, modality, bad_channels, do
         else:
             plt.savefig(op.join(figures_fol, '{}-{}.jpg'.format(condition, sensors_type)), dpi=300)
             plt.close()
+
+
+def plot_average_sensors(subject, windows, condition, modality, bad_channels):
+    import mne
+    import matplotlib.pyplot as plt
+    if modality == 'meeg':
+        return
+    evokes = []
+    info = None
+    title = '{}-{}-{}-windows'.format(subject, modality, condition)
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'average-sensors'))
+    fig_fname = op.join(figures_fol, '{}.jpg'.format(title))
+    meg_evoked_fname = op.join(root_dir, '{}.fif'.format(title))
+    for window_fname in windows:
+        evoked = mne.read_evokeds(window_fname)[0]
+        evoked = evoked.pick_types(meg=modality == 'meg', eeg=modality == 'eeg', exclude=bad_channels)
+        if info is None:
+            info = evoked.info
+        evokes.append(evoked.data)
+    evokes = np.array(evokes).mean(0)
+    evoked_object = mne.EvokedArray(evokes, info, comment=title)
+    fig = evoked_object.plot(window_title=title, spatial_colors=True, show=False)
+    fig.tight_layout()
+    plt.savefig(fig_fname, dpi=300)
+    plt.close()
+    mne.write_evokeds(meg_evoked_fname, evoked_object)
 
 
 def plot_evokes(subject, modality, windows, bad_channels, parallel=True, overwrite=False):

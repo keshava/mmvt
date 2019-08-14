@@ -934,6 +934,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     for modality in modalities:
         # 1) Sensors
         # plots.plot_sensors_windows(subject, windows, specific_window, modality, bad_channels)
+        plots.plot_average_sensors(subject, windows, specific_window, modality, bad_channels)
         # plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
