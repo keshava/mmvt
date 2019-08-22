@@ -29,7 +29,7 @@ def import_csv(mmvt, csv_fname, balls_c=None, balls_r=None, suffix='', flip_x=Fa
     if balls_c is None:
         balls_c = {1: 'blue', 2: 'red'}
     if balls_r is None:
-        balls_r = {1: 0.1, 2: 0.2}
+        balls_r = {1: 0.15, 2: 0.25}
     lines = list(mu.csv_file_reader(csv_fname, find_encoding=True))
     now = time.time()
     for ind, line in enumerate(lines):

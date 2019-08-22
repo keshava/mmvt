@@ -934,8 +934,8 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
     for modality in modalities:
         # 1) Sensors
         # plots.plot_sensors_windows(subject, windows, specific_window, modality, bad_channels)
-        plots.plot_average_sensors(subject, windows, specific_window, modality, bad_channels)
-        # plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
+        # plots.plot_average_sensors(subject, windows, specific_window, modality, bad_channels)
+        plots.plot_evokes(subject, modality, windows, bad_channels, n_jobs > 1, overwrite_evokes)
         # plots.plot_topomaps(subject, modality, windows, bad_channels, parallel=n_jobs > 1)
         # calc_sensors_power(subject, windows_with_baseline, modality, inverse_method, bad_channels,
         #                    high_gamma_max=high_freq, downsample=2, parallel=n_jobs > 1, overwrite=False)
@@ -1051,7 +1051,7 @@ if __name__ == '__main__':
     atlas = 'aparc.DKTatlas40'
     recursive = False
     check_windows = False
-    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01327()
+    subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, no_runs = init_files.subject_nmr01321()
     run_files = [utils.namebase(f).split('_')[0] for f in glob.glob(op.join(evokes_fol, 'run*_*.fif'))]
     if recursive:
         evokes_files = glob.glob(op.join(evokes_fol, '**', '*.fif'), recursive=True)
