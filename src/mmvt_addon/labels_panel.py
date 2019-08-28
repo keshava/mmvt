@@ -52,7 +52,11 @@ def load_labels_contours(atlas=''):
     if atlas == '':
         atlas = bpy.context.scene.contours_coloring
     for hemi in mu.HEMIS:
-        labels_contours[hemi] = np.load(op.join(mu.get_user_fol(), 'labels', '{}_contours_{}.npz'.format(atlas, hemi)))
+        fnames = glob.glob(op.join(mu.get_user_fol(), 'labels', '{}*contours*{}.npz'.format(atlas, hemi)))
+        if len(fnames) == 0:
+            print('No contour was found for {} {}'.format(atlas, hemi))
+            continue
+        labels_contours[hemi] = np.load(fnames[0])
         if len(np.where(labels_contours[hemi]['contours'])[0]) == 0:
             print('No contours in {} {}!'.format(atlas, hemi))
     return labels_contours
@@ -647,7 +651,7 @@ def init(addon):
 
 def init_contours_coloring():
     user_fol = mu.get_user_fol()
-    contours_files = glob.glob(op.join(user_fol, 'labels', '*contours_lh.npz'))
+    contours_files = glob.glob(op.join(user_fol, 'labels', '*contours*lh.npz'))
     if len(contours_files) > 0:
         LabelsPanel.contours_coloring_exist = True
         LabelsPanel.existing_contoures = files_names = \

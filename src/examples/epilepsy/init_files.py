@@ -20,7 +20,8 @@ def find_room_noise(fol):
     file_name = input('Can\'t find the room noise file, please input its name: ')
     fname = op.join(fol, file_name)
     if not op.isfile(fname):
-        raise Exception('No room noise!')
+        print('*** No room noise! ***')
+        return ''
     else:
         return fname
 
@@ -32,7 +33,7 @@ def find_raw_fname(meg_fol, run):
     if not op.isfile(raw_fname):
         raw_run_files = [f for f in raw_files if 'annot' not in utils.namebase(f) and 'eve' not in utils.namebase(f)]
         if len(raw_run_files) == 0:
-            return ''
+            return '', run_num
         ssst_raw_files = [f for f in raw_run_files if 'ssst' in utils.namebase(f)]
         if len(ssst_raw_files) > 0:
             raw_fname = utils.select_one_file(ssst_raw_files, 'raw file for run {}'.format(run_num))
@@ -58,7 +59,7 @@ def subject_nmr01321():
         # '/homes/5/npeled/space1/MEG/nmr01321/evokeds',
         op.join(MMVT_DIR, subject, 'evoked')] if op.isdir(d)][0]
     meg_fol = [d for d in [
-        '/autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123',
+        '/autofs/space/violet_001/users/valia/epilepsy2019/4272326_01321/190501',
         op.join(MEG_DIR, subject)] if op.isdir(d)][0]
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG001,EEG003,EEG004,EEG005,EEG008,EEG034,EEG045,EEG051,EEG057,EEG058,EEG060,EEG061,EEG062,EEG074,MEG1422,MEG1532,MEG2012,MEG2022'
@@ -77,4 +78,18 @@ def subject_nmr01325():
     empty_fname = find_room_noise(meg_fol)
     bad_channels = 'EEG020,EEG021,EEG050,EEG051'
     baseline_name = 'baseline_607' # '33_35secAWAKE' #'108_35secSLEEP' # 'baseline_607' # 'bl_502s' # 'bl_474s' #  #  '108_35secSLEEP' '33_35secAWAKE' '550_20sec'
+    return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, True
+
+
+def subject_nmr01327():
+    subject = 'nmr01327'
+    evokes_fol = [d for d in [
+        # '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/epochs', #/right-left',
+        op.join(MMVT_DIR, subject, 'evokes')] if op.isdir(d)][0]
+    meg_fol = [d for d in [
+        # '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/190626',
+        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
+    empty_fname = find_room_noise(meg_fol)
+    bad_channels = 'EEG059,EEG019,MEG1532'
+    baseline_name = 'baseline_run1_195.7_12sec'
     return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, True

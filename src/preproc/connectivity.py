@@ -197,8 +197,22 @@ def calc_windows(windows_length, windows_shift, T, windows_num=0):
 
 def get_output_fname(subject, connectivity_method, connectivity_modality, labels_extract_mode='', identifier=''):
     comps_num = '_{}'.format(labels_extract_mode.split('_')[1]) if labels_extract_mode.startswith('pca_') else ''
-    return op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}{}.npz'.format(
+    return op.join(MMVT_DIR, subject, 'connectivity', '{}_{}_{}{}.npz'.format(
         connectivity_modality, identifier, connectivity_method, comps_num))
+
+
+def calc_windows(data_len, windows_length, windows_shift):
+    import math
+    if windows_length == 0:
+        windows_length = data_len
+        windows_num = 1
+    else:
+        windows_num = math.floor((data_len - windows_length) / windows_shift + 1)
+    windows = np.zeros((windows_num, 2))
+    for win_ind in range(windows_num):
+        windows[win_ind] = [win_ind * windows_shift, win_ind * windows_shift + windows_length]
+    windows = windows.astype(np.int)
+    return windows
 
 
 def calc_lables_connectivity(subject, labels_extract_mode, args):
@@ -322,17 +336,18 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
             (labels_extract_mode.startswith('pca_') and data.ndim == 3) or \
             (data.ndim == 3 and len(conditions) == data.shape[2]):
         # No windows yet
-        import math
-        T = data.shape[1] # If this is fMRI data, the real T is T*tr
-        if args.windows_length == 0:
-            args.windows_length = T
-            windows_num = 1
-        else:
-            windows_num = math.floor((T - args.windows_length) / args.windows_shift + 1)
-        windows = np.zeros((windows_num, 2))
-        for win_ind in range(windows_num):
-            windows[win_ind] = [win_ind * args.windows_shift, win_ind * args.windows_shift + args.windows_length]
-        windows = windows.astype(np.int)
+        windows = calc_windows(data.shape[1], args.windows_length, args.windows_shift)
+        # import math
+        # T = data.shape[1] # If this is fMRI data, the real T is T*tr
+        # if args.windows_length == 0:
+        #     args.windows_length = T
+        #     windows_num = 1
+        # else:
+        #     windows_num = math.floor((T - args.windows_length) / args.windows_shift + 1)
+        # windows = np.zeros((windows_num, 2))
+        # for win_ind in range(windows_num):
+        #     windows[win_ind] = [win_ind * args.windows_shift, win_ind * args.windows_shift + args.windows_length]
+        # windows = windows.astype(np.int)
     elif data.ndim == 3:
         windows_num = data.shape[2]
     else:
@@ -687,18 +702,18 @@ def _mi_vec_parallel(windows_chunk):
     return res
 
 
-# @utils.tryit()
+@utils.tryit()
 def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, labels_names, conditions, output_fname,
-                      con_vertices_fname='', windows=0, stat=STAT_DIFF, norm_by_percentile=True, norm_percs=[1, 99],
+                      windows=0, stat=STAT_DIFF, norm_by_percentile=True, norm_percs=[1, 99],
                       threshold=0, threshold_percentile=0, symetric_colors=True, labels=None, locations=None,
-                      hemis=None):
+                      hemis=None, symetric_con=True, reduce_to_3d=False):
     d = dict()
     d['conditions'] = conditions
     # args.labels_exclude = []
     if labels is None or locations is None or hemis is None:
         if obj_type == ROIS_TYPE:
             d['labels'], d['locations'], d['verts'], d['hemis'] = calc_lables_info(
-                subject, atlas, False, labels_names)
+                subject, atlas, False, labels_names, labels)
         elif obj_type == ELECTRODES_TYPE:
             bipolar = '-' in labels_names[0]
             d['labels'], d['locations'] = get_electrodes_info(subject, bipolar)
@@ -718,13 +733,41 @@ def save_connectivity(subject, conn, atlas, connectivity_method, obj_type, label
      d['data_max'], d['data_min'], threshold) = calc_connectivity(
         conn, d['labels'], d['hemis'], conditions, windows, stat, norm_by_percentile, norm_percs, threshold,
         threshold_percentile, symetric_colors)
+    if not symetric_con:
+        (_, d['con_indices2'], d['con_names2'], d['con_values2'], d['con_types2'],
+         d['data_max2'], d['data_min2'], threshold) = calc_connectivity(
+            conn, d['labels'], d['hemis'], conditions, windows, stat, norm_by_percentile, norm_percs, threshold,
+            threshold_percentile, symetric_colors, False)
     d['connectivity_method'] = connectivity_method
+    d['vertices'], d['vertices_lookup'] = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
+    if reduce_to_3d:
+        d['con_values'] = find_best_ord(d['con_values'], False)
+        d['con_values2'] = find_best_ord(d['con_values2'], False)
     print('Saving results to {}'.format(output_fname))
     np.savez(output_fname, **d)
-    if con_vertices_fname != '':
-        vertices, vertices_lookup = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
-        utils.save((vertices, vertices_lookup), con_vertices_fname)
+    # if con_vertices_fname != '':
+        # vertices, vertices_lookup = create_vertices_lookup(d['con_indices'], d['con_names'], d['labels'])
+        # utils.save((vertices, vertices_lookup), con_vertices_fname)
     return d
+
+
+def find_best_ord(cond_x, return_ords=False):
+    if cond_x.ndim < 3:
+        if return_ords:
+            return cond_x, None
+        else:
+            return cond_x
+    new_con_x = np.zeros((cond_x.shape[0], cond_x.shape[1]))
+    best_ords = np.zeros((cond_x.shape[0]), dtype=int)
+    for n in range(cond_x.shape[0]):
+        best_ord = np.argmax(np.abs(cond_x[n]).max(0))
+        new_con_x[n] = cond_x[n, :, best_ord]
+        if return_ords:
+            best_ords[n] = best_ord
+    if return_ords:
+        return new_con_x, best_ords
+    else:
+        return new_con_x
 
 
 def create_vertices_lookup(con_indices, con_names, labels):
@@ -738,10 +781,11 @@ def create_vertices_lookup(con_indices, con_names, labels):
     return np.array(list(vertices)), vertices_lookup
 
 
-def calc_lables_info(subject, atlas, sorted_according_to_annot_file=True, sorted_labels_names=None):
-    labels = lu.read_labels(
-        subject, SUBJECTS_DIR, atlas, # exclude=tuple(args.labels_exclude)
-        sorted_according_to_annot_file=sorted_according_to_annot_file)
+def calc_lables_info(subject, atlas, sorted_according_to_annot_file=True, sorted_labels_names=None, labels=None):
+    if labels is None:
+        labels = lu.read_labels(
+            subject, SUBJECTS_DIR, atlas, # exclude=tuple(args.labels_exclude)
+            sorted_according_to_annot_file=sorted_according_to_annot_file)
     if not sorted_labels_names is None:
         sorted_labels_names_fix = []
         org_delim, org_pos, label, label_hemi = lu.get_hemi_delim_and_pos(labels[0].name)
@@ -769,49 +813,40 @@ def calc_lables_info(subject, atlas, sorted_according_to_annot_file=True, sorted
 
 
 def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_DIFF, norm_by_percentile=True,
-                      norm_percs=[1, 99], threshold=0, threshold_percentile=0, symetric_colors=True):
-    # stat, conditions, w, threshold=0, threshold_percentile=0, color_map='jet',
-    #                         norm_by_percentile=True, norm_percs=(1, 99), symetric_colors=True):
-    # import time
+                      norm_percs=[1, 99], threshold=0, threshold_percentile=0, symetric_colors=True,
+                      pick_lower_inds=True):
     M = data.shape[0]
     if data.ndim == 2:
         data = data[:, :, np.newaxis]
     W = data.shape[2] if windows == 0 else windows
     L = int((M * M + M) / 2 - M)
-    conds_len = len(conditions) if conditions != '' else 1
-    # con_indices = np.zeros((L, 2))
+    if data.ndim == 4:
+        conds_len = data.shape[3]
+    else:
+        conds_len = len(conditions) if conditions != '' else 1
     con_values = np.zeros((L, W, conds_len))
     con_names = [None] * L
     con_type = np.zeros((L))
-    lower_rec_indices = list(utils.lower_rec_indices(M))
-    # LRI = len(lower_rec_indices)
+    rec_indices = list(utils.lower_rec_indices(M)) if pick_lower_inds else list(utils.upper_rec_indices(M))
     data[np.where(np.isnan(data))] = 0
     for cond in range(conds_len):
         for w in range(W):
-            # now = time.time()
             if W > 1 and data.ndim == 4:
-                con_values[:, w, cond] = [data[i, j, w, cond] for i, j in lower_rec_indices]
+                con_values[:, w, cond] = [data[i, j, w, cond] for i, j in rec_indices]
+            elif W > 1 and data.ndim == 3:
+                con_values[:, w, cond] = [data[i, j, w] for i, j in rec_indices]
             elif data.ndim > 2:
-                con_values[:, w, cond] = [data[i, j, cond] for i, j in lower_rec_indices]
+                con_values[:, w, cond] = [data[i, j, cond] for i, j in rec_indices]
             else:
-                con_values[:, w, cond] = [data[i, j] for i, j in lower_rec_indices]
-            # for ind, (i, j) in enumerate(lower_rec_indices):
-            #     # utils.time_to_go(now, ind, LRI, LRI/10)
-            #     if W > 1 and data.ndim == 4:
-            #         con_values[ind, w, cond] = data[i, j, w, cond]
-            #     elif data.ndim > 2:
-            #         con_values[ind, w, cond] = data[i, j, cond]
-            #     else:
-            #         con_values[ind, w, cond] = data[i, j]
-    if conds_len > 1:
+                con_values[:, w, cond] = [data[i, j] for i, j in rec_indices]
+    if conds_len == 2:
         stat_data = utils.calc_stat_data(con_values, stat)
     else:
         stat_data = np.squeeze(con_values)
 
-    con_indices = np.array(lower_rec_indices)
-    for ind, (i, j) in enumerate(utils.lower_rec_indices(M)):
+    con_indices = np.array(rec_indices)
+    for ind, (i, j) in enumerate(utils.lower_rec_indices(M) if pick_lower_inds else utils.upper_rec_indices(M)):
         try:
-            # con_indices[ind, :] = [i, j]
             con_names[ind] = '{}-{}'.format(labels[i], labels[j])
             con_type[ind] = HEMIS_WITHIN if hemis[i] == hemis[j] else HEMIS_BETWEEN
         except:
@@ -824,25 +859,20 @@ def calc_connectivity(data, labels, hemis, conditions='', windows=0, stat=STAT_D
         threshold = np.percentile(np.abs(stat_data), threshold_percentile)
     if threshold > data_minmax:
         raise Exception('threshold > abs(max(data)) ({})'.format(data_minmax))
-    if threshold >= 0:
+    if threshold > 0:
         if stat_data.ndim >= 2:
             indices = np.where(np.max(abs(stat_data), axis=1) > threshold)[0]
         else:
             indices = np.where(abs(stat_data) > threshold)[0]
-        # indices = np.where(np.abs(stat_data) > args.threshold)[0]
-        # con_colors = con_colors[indices]
         con_indices = con_indices[indices]
         con_names = con_names[indices]
         con_values = con_values[indices]
-        con_type  = con_type[indices]
-        stat_data = stat_data[indices]
+        con_type = con_type[indices]
 
     con_values = np.squeeze(con_values)
-    # con_values = np.squeeze(stat_data)
     if symetric_colors and np.sign(data_max) != np.sign(data_min) and data_min != 0 and data_max != 0:
         data_max, data_min = data_minmax, -data_minmax
     print('data_max: {}, data_min: {}, con len: {}'.format(data_max, data_min, len(con_names)))
-    # con_colors = utils.mat_to_colors(stat_data, data_min, data_max, args.color_map)
     return None, con_indices, con_names, con_values, con_type, data_max, data_min, threshold
 
 

@@ -26,6 +26,11 @@ def appearance_update(self=None, context=None):
             print('No seghead_mat mix shader')
 
 
+def appearance_cerebellum_trans(self=None, context=None):
+    _addon().appearance.set_transparency(
+        material_name='cerebellumHD_mat', val=bpy.context.scene.appearance_cerebellum_trans)
+
+
 def set_brain_transparency(val):
     if 0 <= val <= 1:
         bpy.context.scene.appearance_solid_slider = 1 - val
@@ -58,6 +63,8 @@ def transparency_draw(self, context):
         layout.prop(context.scene, 'appearance_depth_slider', text="Depth")
         if bpy.data.objects.get('seghead', None) is not None:
             layout.prop(context.scene, 'appearance_seghead_trans', text="Transparent head")
+        if bpy.data.objects.get('cerebellumHD', None) is not None:
+            layout.prop(context.scene, 'appearance_cerebellum_trans', text="Transparent cerebellum")
         layout.prop(context.scene, 'appearance_layer_weight', text='Light weight')
     else:
         layout.label(text='This panel works only in rendered brain and activity map mode')
@@ -94,6 +101,9 @@ bpy.types.Scene.appearance_depth_slider = bpy.props.IntProperty(default=0, min=0
     description='Sets the amount of surface layers that will be seen')
 bpy.types.Scene.appearance_seghead_trans = bpy.props.FloatProperty(default=0, min=0, max=1, update=appearance_update,
     description='Sets the transparency value of the head from 0 to 1 ')
+bpy.types.Scene.appearance_cerebellum_trans = bpy.props.FloatProperty(
+    default=0, min=0, max=1, update=appearance_cerebellum_trans,
+    description='Sets the transparency value of the cerebellum from 0 to 1 ')
 bpy.types.Scene.appearance_layer_weight = bpy.props.FloatProperty(default=0.3, update=layer_weight_update)
 
 

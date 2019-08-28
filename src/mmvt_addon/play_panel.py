@@ -546,13 +546,25 @@ def set_play_from(play_from):
     ModalTimerOperator.limits = play_from
 
 
+def get_play_from():
+    return bpy.context.scene.play_from
+
+
 def set_play_to(play_to):
     bpy.context.scene.play_to = play_to
     bpy.data.scenes['Scene'].frame_preview_end = play_to
 
 
+def get_play_to():
+    return bpy.context.scene.play_to
+
+
 def set_play_dt(play_dt):
     bpy.context.scene.play_dt = play_dt
+
+
+def get_play_dt():
+    return bpy.context.scene.play_dt
 
 
 def set_play_type(play_type):

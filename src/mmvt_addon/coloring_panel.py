@@ -14,7 +14,10 @@ import shutil
 import math
 import importlib
 
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except:
+    print('No tqdm!')
 
 try:
     import bpy
@@ -106,20 +109,26 @@ def plot_meg():
     return ret
 
 
-def plot_max_stc_graph(stc_name='', modality=''):
-    if stc_name == '':
-        stc_name = bpy.context.scene.meg_files
-    if modality == '':
-        if mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-            modality = 'meg'
-        elif mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'eeg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-            modality = 'eeg'
-        else:
-            print('Can\'t find the stc file!')
-            return
+def plot_max_stc_graph(stc_name='', modality='', stc_fname='', use_abs=False):
+    if stc_fname != '' and op.isfile(stc_fname):
+        stc_name = stc_fname
+        # mu.run_mmvt_func(
+        #     'src.preproc.meg', 'plot_max_stc', flags='--stc_name "{}" --modality {}'.format(stc_fname, modality))
+    else:
+        if stc_name == '':
+            stc_name = bpy.context.scene.meg_files
+        if modality == '':
+            if mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+                modality = 'meg'
+            elif mu.both_hemi_files_exist(op.join(mu.get_user_fol(), 'eeg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+                modality = 'eeg'
+            else:
+                print('Can\'t find the stc file!')
+                return
     if modality != '':
         mu.run_mmvt_func(
-            'src.preproc.meg', 'plot_max_stc', flags='--stc_name {} --modality {}'.format(stc_name, modality))
+            'src.preproc.meg', 'plot_max_stc', flags='--stc_name {} --modality {} --use_abs {}'.format(
+                stc_name, modality, use_abs))
 
 
 # def plot_meg(t=-1, save_image=False, view_selected=False):
@@ -134,9 +143,9 @@ def plot_max_stc_graph(stc_name='', modality=''):
 
 # @mu.dump_args
 @mu.timeit
-def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
-             view_selected=False, subject='', save_prev_colors=False, cm=None,
-             save_with_color_bar=True, read_chache=False, n_jobs=-1):
+def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percentiles=None, save_image=False,
+             view_selected=False, subject='', save_prev_colors=False, cm=None, save_with_color_bar=True,
+             read_chache=False, use_abs=None, bigger_or_equal=False, valid_verts=None, n_jobs=-1):
     import mne
     # cursor (enum in ['DEFAULT', 'NONE', 'WAIT', 'CROSSHAIR', 'MOVE_X', 'MOVE_Y', 'KNIFE', 'TEXT', 'PAINT_BRUSH', 'HAND', 'SCROLL_X', 'SCROLL_Y', 'SCROLL_XY', 'EYEDROPPER'])
     bpy.context.window.cursor_set("WAIT")
@@ -214,12 +223,7 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
             if ColoringMakerPanel.smooth_map is None:
                 ColoringMakerPanel.smooth_map = _addon().meg.calc_smooth_mat(stc_t)
             if ColoringMakerPanel.smooth_map is not None:
-                try:
-                    stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc_t)
-                except:
-                    print('Need to recalculate the smooth map!')
-                    ColoringMakerPanel.smooth_map = _addon().meg.calc_smooth_mat(stc_t, overwrite=True)
-                    stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc_t)
+                stc_t_smooth = apply_smooth_map(stc_t)
             else:
                 vertices_to = mne.grade_to_vertices(subject, None, subjects_dir=subjects_dir)
                 stc_t_smooth = mne.morph_data(
@@ -230,7 +234,10 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
     if _addon().colorbar_values_are_locked():
         data_max, data_min = _addon().get_colorbar_max_min()
     else:
-        data_min, data_max = ColoringMakerPanel.meg_data_min, ColoringMakerPanel.meg_data_max
+        if data_max is None:
+            data_max = ColoringMakerPanel.meg_data_max
+        if data_min is None:
+            data_min = ColoringMakerPanel.meg_data_min
         if cm is not None:
             _addon().set_colormap(cm)
             _addon().change_colorbar_default_cm(('hot', 'hot'))
@@ -241,13 +248,15 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
         _addon().set_colorbar_max_min(data_max, data_min)
         _addon().set_colorbar_prec(2)
         _addon().set_colorbar_title('MEG')
-    if threshold > ColoringMakerPanel.meg_data_max:
-        print('threshold ({}) > data_max ({})!'.format(threshold, ColoringMakerPanel.meg_data_max))
-        threshold = bpy.context.scene.coloring_lower_threshold = 0
+    if threshold > data_max:
+        print('threshold ({}) > data_max ({})!'.format(threshold, data_max))
+        # threshold = bpy.context.scene.coloring_lower_threshold = 0
     colors_ratio = 256 / (data_max - data_min)
     # set_default_colormap(data_min, data_max)
-    fname = plot_stc_t(stc_t_smooth.rh_data, stc_t_smooth.lh_data, t, data_min, colors_ratio,
-                       threshold, save_image, save_with_color_bar, view_selected, save_prev_colors=save_prev_colors)
+    fname = plot_stc_t(
+        stc_t_smooth.rh_data, stc_t_smooth.lh_data, t, data_min, colors_ratio, threshold, save_image,
+        save_with_color_bar, view_selected, save_prev_colors=save_prev_colors, use_abs=use_abs,
+        bigger_or_equal=bigger_or_equal, valid_verts=valid_verts)
     bpy.context.window.cursor_set("DEFAULT")
     return fname, stc_t_smooth
 
@@ -260,9 +269,19 @@ def plot_stc(stc, t=-1, threshold=None, cb_percentiles=None, save_image=False,
 #         else:
 #             _addon().set_colormap('BuPu-YlOrRd')
 
+def apply_smooth_map(stc):
+    try:
+        stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc)
+    except:
+        print('Need to recalculate the smooth map!')
+        ColoringMakerPanel.smooth_map = _addon().meg.calc_smooth_mat(stc, overwrite=True)
+        stc_t_smooth = ColoringMakerPanel.smooth_map.apply(stc)
+    return stc_t_smooth
+
 
 def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=0, save_image=False,
-               save_with_color_bar=True, view_selected=False, save_prev_colors=False):
+               save_with_color_bar=True, view_selected=False, save_prev_colors=False, use_abs=None,
+               bigger_or_equal=False, valid_verts=None):
     if data_min is None or colors_ratio is None:
         data_min = min([np.min(rh_data), np.min(lh_data)])
         data_max = max([np.max(rh_data), np.max(lh_data)])
@@ -272,7 +291,9 @@ def plot_stc_t(rh_data, lh_data, t, data_min=None, colors_ratio=None, threshold=
     print('plot stc ({}-{})'.format(data_min, data_max))
     for hemi in mu.HEMIS:
         data = rh_data if hemi == 'rh' else lh_data
-        color_hemi_data(hemi, data, data_min, colors_ratio, threshold, save_prev_colors=save_prev_colors)
+        color_hemi_data(
+            hemi, data, data_min, colors_ratio, threshold, save_prev_colors=save_prev_colors, use_abs=use_abs,
+            bigger_or_equal=bigger_or_equal, valid_verts=valid_verts[hemi] if not valid_verts is None else None)
     _addon().render.save_views_with_cb(save_with_color_bar)
     if save_image:
         return _addon().render.save_image('stc', view_selected, t)
@@ -311,8 +332,11 @@ def get_use_abs_threshold():
 
 
 def can_color_obj(obj):
-    cur_mat = obj.active_material
-    return 'RGB' in cur_mat.node_tree.nodes
+    try:
+        cur_mat = obj.active_material
+        return 'RGB' in cur_mat.node_tree.nodes
+    except:
+        return False
 
 
 def object_coloring(obj, rgb):
@@ -334,7 +358,7 @@ def object_coloring(obj, rgb):
         cur_mat.diffuse_color = new_color[:3]
     except:
         print('object_coloring: No diffuse_color for {}'.format(obj.name))
-        return False
+        # return False
     if can_color_obj(obj):
         cur_mat.node_tree.nodes["RGB"].outputs[0].default_value = new_color
     else:
@@ -888,8 +912,8 @@ def labels_coloring_hemi(labels_data, faces_verts, hemi, threshold=0, labels_col
 
 
 def color_hemi_data(hemi, data, data_min=None, colors_ratio=None, threshold=0, override_current_mat=True,
-                    save_prev_colors=False, coloring_layer='Col', use_abs=None, check_valid_verts=True,
-                    color_even_if_hide=False):
+                    save_prev_colors=False, coloring_layer='Col', use_abs=None, bigger_or_equal=False,
+                    check_valid_verts=True, color_even_if_hide=False, valid_verts=None):
     org_hemi = hemi
     if use_abs is None:
         use_abs = bpy.context.scene.coloring_use_abs
@@ -905,9 +929,10 @@ def color_hemi_data(hemi, data, data_min=None, colors_ratio=None, threshold=0, o
         colors_ratio = 256 / (np.max(data) - np.min(data))
     faces_verts = ColoringMakerPanel.faces_verts[pial_hemi]
     cur_obj = bpy.data.objects[hemi]
-    activity_map_obj_coloring(cur_obj, data, faces_verts, threshold, override_current_mat, data_min,
-                              colors_ratio, use_abs, save_prev_colors=save_prev_colors, coloring_layer=coloring_layer,
-                              check_valid_verts=check_valid_verts, hemi=org_hemi)
+    activity_map_obj_coloring(
+        cur_obj, data, faces_verts, threshold, override_current_mat, data_min, colors_ratio, use_abs, bigger_or_equal,
+        save_prev_colors=save_prev_colors, coloring_layer=coloring_layer, check_valid_verts=check_valid_verts,
+        hemi=org_hemi, valid_verts=valid_verts)
 
 
 @mu.timeit
@@ -1098,9 +1123,12 @@ def calc_color(value, min_data=None, colors_ratio=None, cm=None):
 def calc_colors(vert_values, min_data=None, colors_ratio=None, cm=None):
     if cm is None:
         cm = _addon().get_cm()
+    if isinstance(cm, str):
+        colormap_fname = op.join(mu.file_fol(), 'color_maps', '{}.npy'.format(cm))
+        cm = np.load(colormap_fname) if op.isfile(colormap_fname) else None
     if cm is None:
         return np.zeros((len(vert_values), 3))
-    if min_data is None or colors_ratio is None:
+    if min_data is None:
         max_data, min_data = _addon().colorbar.get_colorbar_max_min()
         colors_ratio = 256 / (max_data - min_data)
     return mu.calc_colors_from_cm(vert_values, min_data, colors_ratio, cm)
@@ -1141,9 +1169,10 @@ def set_activity_values(cur_obj, values):
 
 
 # @mu.timeit
-def activity_map_obj_coloring(cur_obj, vert_values, lookup=None, threshold=0, override_current_mat=True, data_min=None,
-                              colors_ratio=None, use_abs=None, bigger_or_equall=False, save_prev_colors=False,
-                              coloring_layer='Col', check_valid_verts=True, uv_size=300, remove_unknown=False, hemi=''):
+def activity_map_obj_coloring(
+        cur_obj, vert_values, lookup=None, threshold=0, override_current_mat=True, data_min=None, colors_ratio=None,
+        use_abs=None, bigger_or_equall=False, save_prev_colors=False, coloring_layer='Col', check_valid_verts=True,
+        uv_size=300, remove_unknown=False, hemi='', valid_verts=None):
     if isinstance(cur_obj, str):
         cur_obj = bpy.data.objects[cur_obj]
     if lookup is None:
@@ -1163,7 +1192,8 @@ def activity_map_obj_coloring(cur_obj, vert_values, lookup=None, threshold=0, ov
     values = vert_values[:, 0] if vert_values.ndim > 1 else vert_values
     if coloring_layer == 'Col':
         set_activity_values(cur_obj, values)
-    valid_verts = find_valid_verts(values, threshold, use_abs, bigger_or_equall)
+    if valid_verts is None:
+        valid_verts = find_valid_verts(values, threshold, use_abs, bigger_or_equall)
     # print('activity_map_obj_coloring: Num of valid_verts above {}: {}'.format(threshold, len(valid_verts)))
     if len(valid_verts) == 0 and check_valid_verts:
         print('No vertices values are above the threhold {} ({} to {})'.format(threshold, np.min(values), np.max(values)))
@@ -1278,27 +1308,28 @@ def vertex_object_coloring(cur_obj, mesh, coloring_layer, valid_verts, vert_valu
             valid_verts, lookup, vcol_layer, lambda vert:vert_values[vert, 1:], cur_obj.name, save_prev_colors)
 
 
-# @jit(nopython=True)
-def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur_obj_name, save_prev_colors=False):
-    # if save_prev_colors:
-    #     ColoringMakerPanel.prev_colors[cur_obj_name]['colors'] = defaultdict(dict)
-    # progress = 0
-    # step = len(valid_verts) / 100
-    # ind = 0
+def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur_obj_name='', save_prev_colors=False):
     bpy.context.window.cursor_set("WAIT")
-    for vert in tqdm(valid_verts):
-        # if ind > step:
-        #     progress += 1
-        #     ind = 0
-        #     _addon().colorbar.show_progress(progress)
-        x = lookup[vert]
-        for loop_ind in x[x > -1]:
-            d = vcol_layer.data[loop_ind]
-            # if save_prev_colors:
-            #     ColoringMakerPanel.prev_colors[cur_obj_name]['colors'][vert][loop_ind] = d.color.copy()
-            d.color = colors_func(vert)
-        # ind += 1
+    try:
+        for vert in tqdm(valid_verts):
+            x = lookup[vert]
+            for loop_ind in x[x > -1]:
+                d = vcol_layer.data[loop_ind]
+                d.color = colors_func(vert)
+    except:
+        for vert in valid_verts:
+            x = lookup[vert]
+            for loop_ind in x[x > -1]:
+                d = vcol_layer.data[loop_ind]
+                d.color = colors_func(vert)
     bpy.context.window.cursor_set("DEFAULT")
+
+
+def clear_vertices(obj, vertices, lookup):
+    mesh = obj.data
+    vcol_layer = mesh.vertex_colors['Col']
+    colors_func = lambda vert:(0, 0, 0)
+    verts_lookup_loop_coloring(vertices, lookup, vcol_layer, colors_func)
 
 
 def recreate_coloring_layers(mesh, coloring_layer='Col'):
@@ -2015,7 +2046,9 @@ def color_electrodes_stim():
 
 def color_connections(threshold=None):
     clear_connections()
-    _addon().plot_connections(_addon().get_connections_data(), bpy.context.scene.frame_current, threshold)
+    _addon().plot_connections(
+        _addon().get_connections_data(), bpy.context.scene.frame_current, threshold,
+        bpy.context.scene.calc_connectivity_time)
 
 
 def clear_and_recolor():
@@ -2293,13 +2326,14 @@ def clear_colors():
 
 
 def clear_connections():
-    vertices_obj = _addon().connections.get_vertices_obj() # bpy.data.objects.get('connections_vertices')
-    if vertices_obj:
-        if any([obj.hide for obj in vertices_obj.children]):
-            _addon().plot_connections(_addon().get_connections_data(), bpy.context.scene.frame_current, 0)
-            if _addon().connections.get_connections_show_vertices():
-                _addon().filter_nodes(False)
-                _addon().filter_nodes(True)
+    # vertices_obj = _addon().connections.get_vertices_obj() # bpy.data.objects.get('connections_vertices')
+    # if vertices_obj:
+        # if any([obj.hide for obj in vertices_obj.children]):
+    _addon().plot_connections(
+        _addon().get_connections_data(), bpy.context.scene.frame_current, 0, bpy.context.scene.calc_connectivity_time)
+    if _addon().connections.get_connections_show_vertices():
+        _addon().filter_nodes(False)
+        _addon().filter_nodes(True)
 
 
 def get_fMRI_activity(hemi, clusters=False):
@@ -2445,6 +2479,9 @@ def draw(self, context):
         col = layout.box().column()
         col.operator(ColorConnections.bl_idname, text="Plot Connections", icon='POTATO')
         col.prop(context.scene, 'hide_connection_under_threshold', text='Hide connections under threshold')
+        col.prop(context.scene, 'calc_connectivity_time', text='Calc connectivity time index')
+        if bpy.context.scene.calc_connectivity_time:
+            col.label(text='Connectivity time index: {}'.format(bpy.context.scene.connectivity_t))
         # if ColoringMakerPanel.conn_labels_avg_files_exit:
         #     col.prop(context.scene, 'conn_labels_avg_files', text='')
         #     col.operator(ColorConnectionsLabelsAvg.bl_idname, text="Plot Connections Labels Avg", icon='POTATO')
@@ -2481,6 +2518,10 @@ def draw(self, context):
 
 bpy.types.Scene.hide_connection_under_threshold = bpy.props.BoolProperty(
     default=True, description='Hides the connections under the threshold')
+bpy.types.Scene.calc_connectivity_time = bpy.props.BoolProperty(
+    default=True, description='Calc connectivity time index')
+bpy.types.Scene.connectivity_t = bpy.props.IntProperty(
+    default=True, description='Connectivity time index')
 bpy.types.Scene.meg_activitiy_type = bpy.props.EnumProperty(
     items=[('diff', 'Conditions difference', '', 0)], description="MEG activity type")
 bpy.types.Scene.meg_peak_mode = bpy.props.EnumProperty(

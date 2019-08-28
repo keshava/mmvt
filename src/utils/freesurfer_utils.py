@@ -406,6 +406,7 @@ def check_env_var(var_name, var_val, **kargs):
 @utils.check_for_freesurfer
 def aseg_to_srf(subject, subjects_dir, output_fol, region_id, lookup, mask_fname, norm_fname,
                 overwrite_subcortical_objs=False, **kargs):
+    from src.utils import geometry_utils as gu
     ret = True
     tmp_fol = op.join(subjects_dir, subject, 'tmp', utils.rand_letters(6))
     utils.make_dir(tmp_fol)
@@ -419,7 +420,8 @@ def aseg_to_srf(subject, subjects_dir, output_fol, region_id, lookup, mask_fname
         rs(mri_tessellate)
         rs(mris_smooth)
         fs_file = op.join(tmp_fol, '{}_smooth'.format(region_id))
-        verts, faces = nib_fs.read_geometry(fs_file)
+        verts, faces = gu.read_surface(fs_file)
+        # verts, faces = nib_fs.read_geometry(fs_file)
         num = int(op.basename(fs_file).split('_')[0])
         if num not in lookup:
             print('Error in the subcorticals lookup table!')
@@ -759,13 +761,15 @@ def is_fs_atlas(atlas):
 
 
 def read_surface(subject, subjects_dir, surf_type='pial'):
+    from src.utils import geometry_utils as gu
     verts, faces = {}, {}
     for hemi in utils.HEMIS:
         surf_fname = op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type))
         if not op.isfile(surf_fname):
             print('{} does not exist!'.format(surf_fname))
             return None, None
-        verts[hemi], faces[hemi] = nib.freesurfer.read_geometry(surf_fname)
+        # verts[hemi], faces[hemi] = nib.freesurfer.read_geometry(surf_fname)
+        verts[hemi], faces[hemi] = gu.read_surface(surf_fname)
     return verts, faces
 
 

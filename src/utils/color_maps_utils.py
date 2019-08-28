@@ -1,5 +1,6 @@
 import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
+from matplotlib.pyplot import cm
 import numpy as np
 import os.path as op
 
@@ -11,22 +12,22 @@ MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 
 
 def create_YlOrRd_cm(n=256):
-    colors = plt.cm.YlOrRd(np.linspace(0, 1, n))
+    colors = cm.YlOrRd(np.linspace(0, 1, n))
     colors[0] = [1., 1., 1., 1.]
     colors_map = mcolors.LinearSegmentedColormap.from_list('YlOrRd', colors)
     return colors_map
 
 
 def create_PuBu_cm(n=256):
-    colors = plt.cm.PuBu(np.linspace(1, 0, n))
+    colors = cm.PuBu(np.linspace(1, 0, n))
     colors[-1] = [1., 1., 1., 1.]
     colors_map = mcolors.LinearSegmentedColormap.from_list('BuPu', colors)
     return colors_map
 
 
 def create_BuPu_YlOrRd_cm(n=128):
-    colors1 = plt.cm.PuBu(np.linspace(1, 0, n))
-    colors2 = plt.cm.YlOrRd(np.linspace(0, 1, n))
+    colors1 = cm.PuBu(np.linspace(1, 0, n))
+    colors2 = cm.YlOrRd(np.linspace(0, 1, n))
     colors1[-1] = colors2[0] = [1., 1., 1., 1.]
     colors = np.vstack((colors1, colors2))
     colors_map = mcolors.LinearSegmentedColormap.from_list('BuPu_YlOrRd', colors)
@@ -34,8 +35,8 @@ def create_BuPu_YlOrRd_cm(n=128):
 
 
 def create_PuBu_RdOrYl_cm(n=128):
-    colors1 = plt.cm.PuBu(np.linspace(0.2, 1, n))
-    colors2 = plt.cm.YlOrRd(np.linspace(1, 0.2, n))
+    colors1 = cm.PuBu(np.linspace(0.2, 1, n))
+    colors2 = cm.YlOrRd(np.linspace(1, 0.2, n))
     colors = np.vstack((colors1, colors2))
     colors_map = mcolors.LinearSegmentedColormap.from_list('PuBu_RdOrYl', colors)
     return colors_map
@@ -49,26 +50,26 @@ def combine_two_colormaps(cm1_name, cm2_name, new_cm_name='', invert_cm1=False, 
         cm1_minmax[1], cm1_minmax[0], n)
     cm2_linespace = np.linspace(cm2_minmax[0], cm2_minmax[1], n) if not invert_cm2 else np.linspace(
         cm2_minmax[1], cm2_minmax[0], n)
-    colors1 = plt.cm.__dict__[cm1_name](cm1_linespace)
-    colors2 = plt.cm.__dict__[cm2_name](cm2_linespace)
+    colors1 = cm.__dict__[cm1_name](cm1_linespace)
+    colors2 = cm.__dict__[cm2_name](cm2_linespace)
     colors = np.vstack((colors1, colors2))
     colors_map = mcolors.LinearSegmentedColormap.from_list(new_cm_name, colors)
     return colors_map
 
 
 def create_linear_segmented_colormap(cm_name, invert_cm=False, n=256):
-    if cm_name in plt.cm.__dict__:
+    if cm_name in cm.__dict__:
         if not invert_cm:
-            colors = plt.cm.__dict__[cm_name](np.linspace(0, 1, n))
+            colors = cm.__dict__[cm_name](np.linspace(0, 1, n))
         else:
-            colors = plt.cm.__dict__[cm_name](np.linspace(1, 0, n))
+            colors = cm.__dict__[cm_name](np.linspace(1, 0, n))
     else: # try the inverse cm_name (pubu - bupu)
         if len(cm_name) == 4:
             inverse_cm_name = '{}{}'.format(cm_name[2:4], cm_name[0:2])
         elif len(cm_name) == 6:
             inverse_cm_name = '{}{}{}'.format(cm_name[4:6], cm_name[2:4], cm_name[0:2])
-        if inverse_cm_name in plt.cm.__dict__:
-            colors = plt.cm.__dict__[inverse_cm_name](np.linspace(1, 0, n))
+        if inverse_cm_name in cm.__dict__:
+            colors = cm.__dict__[inverse_cm_name](np.linspace(1, 0, n))
         else:
             raise Exception('Can\'t find the colormap {}!'.format(cm_name))
     colors_map = mcolors.LinearSegmentedColormap.from_list(cm_name, colors)
@@ -90,6 +91,7 @@ def save_colors_map(cm_mat, cm_name):
 
 
 def check_cm_mat(cm_mat):
+    import matplotlib.pyplot as plt
     plt.figure()
     for i, color in enumerate(cm_mat):
         plt.plot([0, 1], [i, i], color=color)

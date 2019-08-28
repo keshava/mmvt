@@ -784,13 +784,18 @@ def load_stc():
         else:
             print('load_stc: Can\'t find {}!'.format(stc_fname))
 
+
 def load_contours():
     contours = mu.Bag({hemi:None for hemi in mu.HEMIS})
     for hemi in mu.HEMIS:
         verts_num = len(bpy.data.objects[hemi].data.vertices)
         contours[hemi] = mu.Bag(dict(contours=np.zeros(verts_num), labels=[], max=0))
-        contours_fnames = glob.glob(op.join(mu.get_user_fol(), 'labels', 'clusters-{}*_contours_{}.npz'.format(
-            bpy.context.scene.meg_clusters_labels_files, hemi)))
+        template = op.join(mu.get_user_fol(), 'labels', 'clusters-{}*_contours*{}.npz'.format(
+            bpy.context.scene.meg_clusters_labels_files, hemi))
+        contours_fnames = glob.glob(template)
+        if len(contours_fnames) == 0:
+            print('No contours were found ({})!'.format(template))
+            continue
         for contours_fname in contours_fnames:
             d = np.load(contours_fname)
             # print(contours_fname, d['labels'], np.unique(d['contours']))

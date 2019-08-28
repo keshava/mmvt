@@ -1,3 +1,5 @@
+from builtins import Exception, enumerate
+
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -75,22 +77,8 @@ def plot_sensors_powers(subject, windows_fnames, baseline_window_fname, modality
                 print('baseline freqs dim is {} and powers freqs dim is {}!'.format(baseline.shape[1], powers.shape[1]))
                 powers = powers[:, :baseline.shape[1], :]
             norm_powers = (powers - baseline_mean) # / baseline_std
-            # norm_powers = np.diff(norm_powers, 5)
-            # norm_powers = (norm_powers[:, :, 170:] - norm_powers[:, :, :-170])
-            # times = times[:-170]
             norm_powers_min, norm_powers_max, min_vertices, max_vertices = epi_utils.calc_powers_abs_minmax(
                 norm_powers, both_min_and_max=True)
-
-            # freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-            # band_freqs = [1, 4]
-            # idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
-            # band_power = np.mean(norm_powers_max[idx, :], axis=0)
-            # plt.plot(band_power.T)
-            # plt.show()
-
-
-            # norm_powers_max = np.max(norm_powers, axis=0) # over vertices
-            # norm_powers_min = np.min(norm_powers, axis=0)  # over vertices
             np.savez(fname, min=norm_powers_min, max=norm_powers_max)
 
         print('***** {} is baseline corrected using {} *******'.format(window, utils.namebase(baseline_window)))
@@ -190,93 +178,67 @@ def plot_baseline_source_powers(subject, baseline_fname, modality, inverse_metho
             baseline_correction=False, high_gamma_max=high_gamma_max)
 
 
+@utils.tryit(print_only_last_error_line=False)
 def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse_method='dSPM', figures_type='jpg',
-                     calc_also_non_norm_powers=False, use_norm_labels_powers=False, high_gamma_max=120, overwrite=False):
+        high_gamma_max=120, overwrite=False):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
-    if use_norm_labels_powers:
-        output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power_labels.npy'.format(
-            subject, inverse_method, modality, '{window}'))
-    else:
-        output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npz'.format(
-            subject, inverse_method, modality, '{window}'))
+    output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npz'.format(
+        subject, inverse_method, modality, '{window}'))
     baseline_stat_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power_stat.npz'.format(
             subject, inverse_method, modality, utils.namebase(baseline_window)))
-    not_norm_output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_minmax_power.npy'.format(
-        subject, inverse_method, modality, '{window}'))
     figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
-    figs_fol_not_norm = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum-not-norm'))
     figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_{}_norm_power.{}'.format(
             subject, inverse_method, modality, '{window}', '{method}', figures_type))
-    figures_template_not_norm = op.join(figs_fol_not_norm, '{}-epilepsy-{}-{}-{}-induced_mean_norm_power.jpg'.format(
-            subject, inverse_method, modality, '{window}'))
-    # if not all([op.isfile(output_fname.format(window=utils.namebase(window_fname)))
-    #             for window_fname in windows_fnames]) or overwrite:
-    #          or not op.isfile(figures_template.format(window=utils.namebase(baseline_window)))
-    if not op.isfile(baseline_stat_fname) or overwrite:
+    if not op.isfile(baseline_stat_fname) or overwrite or \
+            not utils.file_mod_after_date(baseline_stat_fname, 12, 7, 2019):
         baseline_fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
                 subject, inverse_method, modality, utils.namebase(baseline_window)))
         baseline = epi_utils.concatenate_powers(baseline_fol) # (vertices x freqs x time)
         if baseline is None:
+            print('plot_norm_powers: No baseline!!')
             return
         baseline_std = np.std(baseline, axis=2, keepdims=True) # the standard deviation (over time) of log baseline values
         baseline_mean = np.mean(baseline, axis=2, keepdims=True) # the mean (over time) of log baseline values
         np.savez(baseline_stat_fname, mean=baseline_mean, std=baseline_std)
-        # baseline_mean_over_vertices = np.mean(baseline, axis=0)
-        # plot_power_spectrum(baseline_mean_over_vertices, figures_template.format(window=utils.namebase(baseline_window)),
-        #                     remove_non_sig=False)
     else:
         d = np.load(baseline_stat_fname)
         baseline_mean, baseline_std = d['mean'], d['std']
 
     for window_fname in windows_fnames:
         window = utils.namebase(window_fname)
+        figure_fname = figures_template.format(window=window, method='pos_and_neg')
+        if op.isfile(figure_fname) and not overwrite and utils.file_mod_after_date(figure_fname, 12, 7, 2019):
+            print('{} already exist'.format(figure_fname))
+            continue
+        print('Normalizing {}'.format(window))
         window_output_fname = output_fname.format(window=window)
-        window_not_norm_fname = not_norm_output_fname.format(window=window)
         fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(subject, inverse_method, modality, window))
-        if not op.isfile(window_output_fname) or overwrite or \
-                (not op.isfile(window_not_norm_fname) and calc_also_non_norm_powers):
+        if not op.isfile(window_output_fname) or overwrite or not \
+                utils.file_mod_after_date(window_output_fname, 12, 7, 2019):
             powers = epi_utils.concatenate_powers(fol)
-            # if calc_also_non_norm_powers:
-            #     freqs_norm = np.max(powers, axis=(0, 2), keepdims=True)
-            #     freqs_norm_powers = powers / freqs_norm
-            #     powers_abs_minmax = epi_utils.calc_powers_abs_minmax(freqs_norm_powers)
-            #     np.save(window_not_norm_fname, powers_abs_minmax)
             # dividing by the mean of baseline values, taking the log, and  dividing by the standard deviation of
             # log baseline values ('zlogratio')
-            norm_powers = (powers - baseline_mean) / baseline_std
-            # if use_norm_labels_powers:
-            #     fol = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_power'.format(
-            #         subject, inverse_method, modality, window))
-            #     label_norm_powers = glob.glob(op.join(fol, 'epilepsy_*_induced_norm_power.npy'))
-            # else:
-            #     label_norm_powers = None
-
-            # norm_powers_abs_minmax = epi_utils.calc_powers_abs_minmax(norm_powers, both_min_and_max=False)#label_norm_powers)
-            # np.save(window_output_fname, norm_powers_abs_minmax)
+            powersF, baselineF = powers.shape[1], baseline_mean.shape[1]
+            min_f_ind = baselineF - powersF
+            norm_powers = (powers - baseline_mean[:, min_f_ind:, :]) / baseline_std[:, min_f_ind:, :]
             norm_powers_min, norm_powers_max, min_vertices, max_vertices = epi_utils.calc_powers_abs_minmax(
                 norm_powers, both_min_and_max=True)
-            np.savez(window_output_fname.replace('npy', 'npz'), min=norm_powers_min, max=norm_powers_max,
-                     min_vertices=min_vertices, max_vertices=max_vertices)
+            np.savez(window_output_fname, min=norm_powers_min, max=norm_powers_max,
+                     min_vertices=min_vertices, max_vertices=max_vertices, min_f_ind=min_f_ind)
         else:
-            # norm_powers_abs_minmax = np.load(window_output_fname)
-            d = np.load(window_output_fname.replace('npy', 'npz'))
+            d = np.load(window_output_fname)
             norm_powers_min, norm_powers_max = d['min'], d['max']
-            if calc_also_non_norm_powers:
-                powers_abs_minmax = np.load(window_not_norm_fname)
+            min_f_ind = d['min_f_ind'] if 'min_f_ind' in d else 0
+            # if calc_also_non_norm_powers:
+            #     powers_abs_minmax = np.load(window_not_norm_fname)
 
-        # percentiles = [5, 95]
-        # negative_powers, positive_powers = epi_utils.calc_masked_negative_and_positive_powers(
-        #     norm_powers_min, norm_powers_max, percentiles)
-
-        # x1, x2 = nans(norm_powers_max.shape), nans(norm_powers_max.shape)
-        # x1[max_inds] = norm_powers_max[max_inds]
-        # x2[min_inds] = norm_powers_min[min_inds]
-        times = epi_utils.get_window_times(window_fname, downsample=2)
-
-        figure_fname = figures_template.format(window=window, method='pos_and_neg')
-        plot_positive_and_negative_power_spectrum(
-            norm_powers_min, norm_powers_max, times,  '{} {}'.format(modality, window),
-            figure_fname=figure_fname, high_gamma_max=high_gamma_max, show_only_sig_in_graph=True)
+        fig_files = glob.glob(op.join(figs_fol, '**', utils.namebase_with_ext(figure_fname)), recursive=True)
+        if len(fig_files) == 0 or overwrite:
+            times = epi_utils.get_window_times(window_fname, downsample=2)
+            plot_positive_and_negative_power_spectrum(
+                norm_powers_min, norm_powers_max, times,  '{} {}'.format(modality, window),
+                figure_fname=figure_fname, high_gamma_max=high_gamma_max, min_f=min_f_ind + 1,
+                show_only_sig_in_graph=True)
 
 
         # figure_fname = figures_template.format(window=window, method='minmax_two_layers')
@@ -286,10 +248,70 @@ def plot_norm_powers(subject, windows_fnames, baseline_window, modality, inverse
         # plot_power_spectrum(norm_powers_abs_minmax, figures_template.format(window=window, method='minmax'), baseline_correction=False)
         # plot_power_spectrum(norm_powers_min, figures_template.format(window=window, method='min'), baseline_correction=False)
         # plot_power_spectrum(norm_powers_max, figures_template.format(window=window, method='max'), baseline_correction=False)
-        if calc_also_non_norm_powers:
-            plot_power_spectrum(
-                powers_abs_minmax, times, figures_template_not_norm.format(window=window), vmax=1,
-                baseline_correction=False, remove_non_sig=False)
+        # if calc_also_non_norm_powers:
+        #     if times is None:
+        #         times = epi_utils.get_window_times(window_fname, downsample=2)
+        #     plot_power_spectrum(
+        #         powers_abs_minmax, times, figures_template_not_norm.format(window=window), vmax=1,
+        #         baseline_correction=False, remove_non_sig=False)
+
+
+def average_norm_powers(subject, windows_fnames, modality, average_window_name='', inverse_method='dSPM',
+                        avg_time_crop=0, figures_type='jpg', high_gamma_max=120, save_fig=True, overwrite=False):
+    root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
+    output_fname = op.join(root_dir, '{}-epilepsy-{}-{}-{}-induced_norm_power.npz'.format(
+        subject, inverse_method, modality, '{window}'))
+    figs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'power-spectrum'))
+    figures_template = op.join(figs_fol, '{}-epilepsy-{}-{}-{}-induced_{}_norm_power.{}'.format(
+            subject, inverse_method, modality, '{window}', '{method}', figures_type))
+    norm_powers_mins, norm_powers_maxs, min_f_inds = [], [], []
+    window_ind = 0
+    print('Averaging the power specturm over:')
+    for window_fname in windows_fnames:
+        window = utils.namebase(window_fname)
+        window_output_fname = output_fname.format(window=window)
+        if average_window_name not in utils.namebase(window_output_fname):
+            continue
+        if not op.isfile(window_output_fname):
+            print('{} does not exist!'.format(window_output_fname))
+            continue
+        window_ind += 1
+        print('{}) {}'.format(window_ind, window))
+        d = np.load(window_output_fname)
+        norm_powers_min, norm_powers_max = d['min'], d['max']
+        min_f_ind = d['min_f_ind'] if 'min_f_ind' in d else 0
+        norm_powers_mins.append(norm_powers_min)
+        norm_powers_maxs.append(norm_powers_max)
+        min_f_inds.append(min_f_ind)
+    if not np.array_equal(np.array(min_f_inds)[1:], np.array(min_f_inds)[:-1]):
+        print('Not all min_f are the same!')
+    norm_powers_mins = np.array(norm_powers_mins).mean(0)[:, avg_time_crop:-avg_time_crop]
+    norm_powers_maxs = np.array(norm_powers_maxs).mean(0)[:, avg_time_crop:-avg_time_crop]
+
+    times = epi_utils.get_window_times(window_fname, downsample=2)[avg_time_crop:-avg_time_crop]
+    freqs = epi_utils.get_freqs(min_f_ind + 1, high_gamma_max)
+    max_f, max_t = np.unravel_index(np.flip(norm_powers_maxs, 0).argmax(), norm_powers_maxs.shape)
+    min_f, min_t = np.unravel_index(np.flip(norm_powers_mins, 0).argmin(), norm_powers_mins.shape)
+    print('norm_powers_maxs: {:.3f} at {:.2f}s and {}Hz'.format(
+        np.max(norm_powers_maxs), times[max_t], freqs[max_f - min_f_ind]))
+    print('norm_powers_mins: {:.3f} at {:.2f}s and {}Hz'.format(
+        np.min(norm_powers_mins), times[min_t], freqs[min_f - min_f_ind]))
+
+    max_vertices = epi_utils.calc_max_vertice(norm_powers_maxs)
+    min_vertices = epi_utils.calc_min_vertice(norm_powers_mins)
+    avg_output_fname = output_fname.format(window='{}-avg'.format(average_window_name))
+    print('Saving avg in {}'.format(avg_output_fname))
+    np.savez(avg_output_fname.replace('npy', 'npz'), min=norm_powers_mins, max=norm_powers_maxs,
+             min_vertices=min_vertices, max_vertices=max_vertices, min_f_ind=min_f_ind)
+
+    average_window_name = average_window_name if average_window_name != '' else 'average'
+    figure_fname = figures_template.format(window=average_window_name, method='pos_and_neg') if save_fig else ''
+    fig_files = glob.glob(op.join(figs_fol, '**', utils.namebase_with_ext(figure_fname)), recursive=True)
+    if len(fig_files) == 0 or overwrite:
+        plot_positive_and_negative_power_spectrum(
+            norm_powers_mins, norm_powers_maxs, times, '{} {}'.format(modality, average_window_name),
+            figure_fname=figure_fname, high_gamma_max=high_gamma_max, min_f=min_f_ind + 1,
+            show_only_sig_in_graph=True)
 
 
 def plot_norm_powers_per_label(subject, windows_fnames, baseline_window, modality, inverse_method='dSPM',
@@ -383,33 +405,40 @@ def _plot_max_powers_parllel(p):
 
 
 # @utils.tryit()
-def plot_power_spectrum(powers, times, figure_fname, remove_non_sig=True, baseline_correction=True,
-                        xlabel='Time (s)', high_gamma_max=120):
+def plot_power_spectrum(powers, times=None, figure_fname='', remove_non_sig=True, baseline_correction=True,
+                        xlabel='Time (s)', title='', high_gamma_max=120, vmin=None, vmax=None, freqs=None, bands=None,
+                        min_f=1):
     # powers: (freqs x time)
     powers = powers.astype(np.float32).squeeze()
     F, T = powers.shape
-    if F not in [88, 52]:
-        powers = powers.T
-        F, T = powers.shape
+    # if freqs is None and bands is None and F not in [88, 52]:
+    #     powers = powers.T
+    #     F, T = powers.shape
+    if times is None:
+        times = np.arange(powers.shape[1])
     min_t, max_t = times[0], times[-1]
 
     print('Plotting {}'.format(figure_fname))
     if baseline_correction:
         powers -= np.mean(powers[:, 0])
 
-    if F == 88:
-        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 305, 5)])
-        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[55, 120],
-                     hfo=[120, 300])
-    elif F == 52:
-        freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-        bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
-    else:
-        raise Exception('Not supported number of freqs ({})!'.format(F))
+    if freqs is None or bands is None:
+        freqs = utils.get_freqs(min_f, high_gamma_max)
+        bands = utils.calc_bands(min_f, high_gamma_max)
+        # if F == 88:
+        #     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, 305, 5)])
+        #     bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[55, 120],
+        #                  hfo=[120, 300])
+        # elif F == 52:
+        #     freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
+        #     bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+        # else:
+        #     raise Exception('Not supported number of freqs ({})!'.format(F))
     if F != len(freqs):
-        print('powers.shape[0] != len(freqs)!!!')
+        print('powers.shape[0] ({}) != len(freqs) ({})!!!'.format(powers.shape[0], len(freqs)))
         return
-    vmax, vmin = np.max(powers), np.min(powers)
+    vmin = np.min(powers) if vmin is None else vmin
+    vmax = np.max(powers) if vmax is None else vmax
     print('vmin: {}, vmax: {}'.format(vmin, vmax))
     cmap, vmin, vmax = get_cm(vmin, vmax)
     if remove_non_sig:
@@ -420,7 +449,8 @@ def plot_power_spectrum(powers, times, figure_fname, remove_non_sig=True, baseli
         np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
         extent=extents(times) + extents(freqs), cmap=cmap)
     powers_ax.set_ylabel('Frequency (Hz)')
-    add_colorbar(powers_ax, im)
+    # add_colorbar(powers_ax, im)
+    fig.colorbar(im, ax=powers_ax)
     for band_name, band_freqs in bands.items():
         idx = [k for k, f in enumerate(freqs) if band_freqs[0] <= f <= band_freqs[1]]
         band_power = np.mean(powers[idx, :], axis=0)
@@ -428,10 +458,13 @@ def plot_power_spectrum(powers, times, figure_fname, remove_non_sig=True, baseli
     graph_ax.set_xlim([min_t, max_t])
     graph_ax.set_xlabel(xlabel)
     # graph_ax.legend() #    add_legend(graph_ax)
+    # graph_ax.legend()# loc='center left', bbox_to_anchor=(1, 0.5))
+    powers_ax.title.set_text(title)
 
-    plt.tight_layout()
-    plt.subplots_adjust(left=None, bottom=None, right=0.92, top=None, wspace=None, hspace=None)
+    # plt.tight_layout()
+    # plt.subplots_adjust(left=None, bottom=None, right=0.92, top=None, wspace=None, hspace=None)
     if figure_fname != '':
+        print('Saving {}'.format(figure_fname))
         plt.savefig(figure_fname, dpi=300)
         plt.close()
     else:
@@ -508,29 +541,26 @@ def _plot_powers(powers, ax, xaxis=None, freqs=None, cmap_vmin_vmax=None, high_g
 
     # powers[np.where(powers == 0)] = np.nan
     # cmap.set_bad(color='white')
-    im = ax.imshow(np.flip(powers, 0), vmin=vmin, vmax=vmax, aspect='auto', interpolation='nearest',
-               extent=extents(times) + extents(freqs), cmap=cmap)
+    # np.flip(powers, 0)
+    im = ax.imshow(powers, vmin=vmin, vmax=vmax, aspect='auto', interpolation='none', # nearest
+                   extent=extents(times) + extents(freqs), cmap=cmap, origin='lower')
     return im
 
 
 def plot_positive_and_negative_power_spectrum(
         powers_negative, powers_positive, times, title='', figure_fname='',
-        only_power_spectrum=True, show_only_sig_in_graph=True, sig_threshold=2, high_gamma_max=120):
+        only_power_spectrum=True, show_only_sig_in_graph=True, sig_threshold=2, high_gamma_max=120,
+        min_f=1):
     from src.utils import color_maps_utils as cmu
     YlOrRd = cmu.create_YlOrRd_cm()
     PuBu = cmu.create_PuBu_cm()
 
-    freqs = np.concatenate([np.arange(1, 30), np.arange(31, 60, 3), np.arange(60, high_gamma_max + 5, 5)])
-    bands = dict(delta=[1, 4], gamma=[30, 55], theta=[4, 8], alpha=[8, 15], beta=[15, 30])
-    if high_gamma_max <= 120:
-        bands['high_gamma'] = [55, high_gamma_max]
-    else:
-        bands['high_gamma'] = [55, 120]
-        bands['hfo'] = [120, high_gamma_max]
+    freqs = epi_utils.get_freqs(min_f, high_gamma_max)
+    bands = epi_utils.calc_bands(min_f, high_gamma_max)
 
     if show_only_sig_in_graph:
+        powers_positive[np.where(np.abs(powers_positive) < sig_threshold)] = 0
         powers_negative[np.where(np.abs(powers_negative) < sig_threshold)] = 0
-        powers_negative[np.where(np.abs(powers_positive) < powers_positive)] = 0
 
     min_t, max_t = round(times[0], 1), round(times[-1], 1)
     fig, axs = plt.subplots(2, 2)
@@ -682,11 +712,13 @@ def add_legend(powers_ax):
 def get_cm(vmin, vmax):
     from src.utils import color_maps_utils as cmu
     BuPu_YlOrRd_cm = cmu.create_BuPu_YlOrRd_cm()
+    YlOrRd = cmu.create_YlOrRd_cm()
+    PuBu = cmu.create_PuBu_cm()
 
     if vmin >= 0:
-        cmap = matplotlib.cm.YlOrRd
+        cmap = YlOrRd
     elif vmax <= 0:
-        cmap = matplotlib.cm.BuPu
+        cmap = Pubu
     else:
         cmap = BuPu_YlOrRd_cm
         maxmin = max(map(abs, [vmax, vmin]))

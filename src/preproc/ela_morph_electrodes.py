@@ -27,6 +27,7 @@ mri_robust_register = 'mri_robust_register --mov {subjects_dir}/{subject_from}/m
 
 
 def init(subject, atlas, n_jobs):
+    from src.utils import geometry_utils as gu
     if not utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
         anat.create_annotation(subject, atlas)
         if not utils.both_hemi_files_exist(
@@ -40,8 +41,9 @@ def init(subject, atlas, n_jobs):
     lut = fu.import_freesurfer_lut()
     pia_verts = {}
     for hemi in ['rh', 'lh']:
-        pia_verts[hemi], _ = nib.freesurfer.read_geometry(
-            op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
+        pia_verts[hemi], _ = gu.read_surface(op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
+        # pia_verts[hemi], _ = nib.freesurfer.read_geometry(
+        #     op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi)))
     subs_center_of_mass, subs_names = calc_subcorticals_pos(subject, aseg_data, lut)
     labels_center_of_mass = lu.calc_center_of_mass(labels, ret_mat=True) * 1000
     regions_center_of_mass = np.concatenate((labels_center_of_mass, subs_center_of_mass))

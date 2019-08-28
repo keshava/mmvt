@@ -36,6 +36,7 @@ except:
 from src.mmvt_addon import mmvt_utils as mu
 # links to mmvt_utils
 Bag = mu.Bag
+copy_file = mu.copy_file
 make_dir = mu.make_dir
 hemi_files_exists = mu.hemi_files_exists
 get_hemi_from_full_fname = mu.get_hemi_from_full_fname
@@ -294,9 +295,11 @@ def load_surf(subject, mmvt_dir, subjects_dir, surf_type='pial'):
             hemi_verts, _ = read_ply_file(
                 op.join(subjects_dir, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
         elif op.isfile(op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type))):
-            import nibabel as nib
-            hemi_verts, _ = nib.freesurfer.read_geometry(
-                op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type)))
+            from src.utils import geometry_utils as gu
+            hemi_verts, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type)))
+            # import nibabel as nib
+            # hemi_verts, _ = nib.freesurfer.read_geometry(
+            #     op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type)))
         else:
             print("Can't find {} {} ply/npz files!".format(hemi, surf_type))
             return None
@@ -747,6 +750,8 @@ def get_spaced_colors(n):
 
 
 def downsample(x, R):
+    if R == 1:
+        return x
     if x.ndim == 1:
         return x.reshape(-1, R).mean(1)
     elif x.ndim == 2:
@@ -1490,6 +1495,12 @@ def lower_rec_indices(m):
     for i in range(m):
         for j in range(i):
             yield (i, j)
+
+
+def upper_rec_indices(m):
+    for i in range(m):
+        for j in range(i):
+            yield (j, i)
 
 
 def lower_rec_to_arr(x):
@@ -2298,6 +2309,7 @@ def copy_args(args):
 
 
 def find_hemi_using_vertices_num(subject, fname, subjects_dir):
+    from src.utils import geometry_utils as gu
     hemi = ''
     x = nib.load(fname).get_data()
     vertices_num = [n for n in x.shape if n > 5]
@@ -2305,8 +2317,10 @@ def find_hemi_using_vertices_num(subject, fname, subjects_dir):
         print("Can'f find the vertices number of the nii file! {}".format(fname))
     else:
         vertices_num = vertices_num[0]
-        rh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
-        lh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
+        rh_verts_num, = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
+        lh_verts_num, = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
+        # rh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
+        # lh_verts_num,  = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
         if vertices_num == rh_verts_num:
             hemi = 'rh'
         elif vertices_num == lh_verts_num:
@@ -2322,6 +2336,83 @@ def extract_numpy_values_with_zero_dimensions(x):
     return x.item()
 
 
-def copy_file(src, dst):
-    if src != dst:
-        shutil.copyfile(src, dst)
+def remove_duplicates(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
+
+
+def index_in_str(str, k):
+    ind = -1
+    try:
+        ind = str.index(k)
+    except:
+        pass
+    return ind
+
+
+def file_mod_after_date(fname, day, month, year=2019):
+    file_mod_time = file_modification_time_struct(fname)
+    return (file_mod_time.tm_year >= year and (file_mod_time.tm_mon == month and file_mod_time.tm_mday >= day) or
+            (file_mod_time.tm_mon > month))
+
+
+def create_epoch(data, info):
+    return mne.EpochsArray(data, info, np.array([[0, 0, 1]]), 0, 1)[0]
+
+
+def calc_bands(min_f=1, high_gamma_max=120, as_dict=True, include_all_freqs=False):
+    if min_f < 4:
+        if as_dict:
+            bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
+        else:
+            bands = [[1, 4], [4, 8], [8, 15], [15, 30], [30, 55]]
+    elif min_f < 8:
+        if as_dict:
+            bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
+        else:
+            bands = [[4, 8], [8, 15], [15, 30], [30, 55]]
+    elif min_f < 15:
+        if as_dict:
+            bands = dict(alpha=[8, 15], beta=[15, 30], gamma=[30, 55])
+        else:
+            bands = [[8, 15], [15, 30], [30, 55]]
+    elif min_f < 30:
+        if as_dict:
+            bands = dict(beta=[15, 30], gamma=[30, 55])
+        else:
+            bands = [[15, 30], [30, 55]]
+    elif min_f < 55:
+        if as_dict:
+            bands = dict(gamma=[30, 55])
+        else:
+            bands = [[30, 55]]
+    else:
+        raise Exception('min_f is too big!')
+
+    if high_gamma_max <= 120:
+        if as_dict:
+            bands['high_gamma'] = [55, high_gamma_max]
+        else:
+            bands.append([55, high_gamma_max])
+    else:
+        if as_dict:
+            bands['high_gamma'] = [55, 120]
+            bands['hfo'] = [120, high_gamma_max]
+        else:
+            bands.append([55, 120])
+            bands.append([120, high_gamma_max])
+
+    if include_all_freqs:
+        if as_dict:
+            bands['all'] = [min_f, high_gamma_max]
+        else:
+            bands.append([min_f, high_gamma_max])
+
+    return bands
+
+
+def get_freqs(low_freq=1, high_freqs=120):
+    # return np.concatenate([np.arange(low_freq, 30), np.arange(31, 60, 3), np.arange(60, high_freqs + 5, 5)])
+    return np.arange(low_freq, high_freqs + 1, 1)
+

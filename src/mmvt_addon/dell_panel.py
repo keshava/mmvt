@@ -72,6 +72,18 @@ def find_electrodes_pipeline():
     _addon().show_electrodes()
 
 
+def import_dura_surface():
+    # material_name = 'dura_mat'
+    for hemi in mu.HEMIS:
+        obj_name = 'dural-{}'.format(hemi)
+        surf_obj = _addon().utils.get_obj(obj_name)
+        if surf_obj is None:
+            ply_fname = op.join(mu.get_user_fol(), 'surf', '{}.dural.ply'.format(hemi))
+            print('Importing {}'.format(ply_fname))
+            surf_obj = _addon().data.load_ply(ply_fname, obj_name)
+        mu.show_hide_obj(surf_obj, False)
+
+
 def find_how_many_electrodes_above_threshold():
     local_maxima_fname = op.join(DellPanel.output_fol, 'local_maxima_{}.npy'.format(
         bpy.context.scene.dell_ct_threshold))
@@ -91,11 +103,16 @@ def find_how_many_electrodes_above_threshold():
     print('{} local maxima were found'.format(len(ct_voxels)))
     ct_voxels = fect.remove_neighbors_voxels(DellPanel.ct_data, ct_voxels)
     print('{} local maxima after removing neighbors'.format(len(ct_voxels)))
-    print('mask_voxels_outside_brain...')
-    ct_electrodes, _ = fect.mask_voxels_outside_brain(
-        ct_voxels, DellPanel.ct.header, DellPanel.brain, mu.get_user_fol(), mu.get_subject_dir(),
-        bpy.context.scene.dell_brain_mask_sigma)
-    print('{} voxels in the brain were found'.format(len(ct_electrodes)))
+    if bpy.context.scene.dell_mask_voxels_outside_brain:
+        print('mask_voxels_outside_brain...')
+        import_dura_surface()
+        ct_electrodes, _ = fect.mask_voxels_outside_brain(
+            ct_voxels, DellPanel.ct.header, DellPanel.brain, mu.get_user_fol(), mu.get_subject_dir(),
+            bpy.context.scene.dell_brain_mask_sigma)
+        print('{} voxels in the brain were found'.format(len(ct_electrodes)))
+    else:
+        ct_electrodes = ct_voxels
+        print('{} voxels  were found'.format(len(ct_electrodes)))
     if len(ct_electrodes) == 0:
         bpy.context.scene.dell_how_many_electrodes_above_threshold = '0'
         return
@@ -194,6 +211,7 @@ def refresh_pos_and_names(overwrite=False):
 def rename_group():
     pass
 
+
 def export_electrodes(group_hemi_default='G'):
     from collections import Counter
     output_fol = op.join(mu.get_user_fol(), 'electrodes')
@@ -209,6 +227,7 @@ def export_electrodes(group_hemi_default='G'):
             print('len(DellPanel.pos) ({}) != len(groups[0]) ({})!'.format(len(DellPanel.pos), len(groups[0])))
             return
         group_hemi = group_hemi_default
+    mu.make_dir(output_fol)
     csv_fname = op.join(output_fol, '{}_RAS.csv'.format(subject))
     for fname in glob.glob(op.join(output_fol, '*.dat')):
         os.remove(fname)
@@ -235,14 +254,20 @@ def export_electrodes(group_hemi_default='G'):
                 groups_inds[group_hemi] += 1
 
     _addon().electrodes.init(_addon(), False)
+    run_electrodes_preproc()
     print('The electrodes were exported to {}'.format(csv_fname))
+
+
+def run_electrodes_preproc():
+    mu.run_mmvt_func('src.preproc.electrodes', 'all,run_ela', flags='--exclude get_ras_file')
 
 
 def delete_noise_electrodes():
     bpy.ops.object.select_all(action='DESELECT')
     noise_elctrodes = [DellPanel.names[elc_ind] for elc_ind in DellPanel.noise]
     for noise_elc in noise_elctrodes:
-        bpy.data.objects[noise_elc].select = True
+        if bpy.data.objects.get(noise_elc, None) is not None:
+            bpy.data.objects[noise_elc].select = True
     bpy.ops.object.delete()
 
 
@@ -851,6 +876,7 @@ def dell_draw(self, context):
         row.operator(CalcThresholdPercentile.bl_idname, text="Calc threshold", icon='STRANDS')
         layout.prop(context.scene, 'dell_brain_mask_sigma', text='Brain mask sigma')
         layout.prop(context.scene, 'dell_find_nei_maxima', text='Find local nei maxima')
+        layout.prop(context.scene, 'dell_mask_voxels_outside_brain', text='Mask voxels outside brain')
         # layout.prop(context.scene, 'use_only_brain_mask', text='Use only the brain mask')
         # layout.prop(context.scene, 'dell_binary_erosion', text='USe Binary Erosion')
         layout.operator(FindHowManyElectrodesAboveThrshold.bl_idname, text="Find how many electrodes", icon='NODE_SEL')
@@ -868,10 +894,12 @@ def dell_draw(self, context):
         row = layout.row(align=0)
         row.prop(context.scene, 'dell_ct_max_dist_between_electrodes', text="Max dist between")
         row.prop(context.scene, 'dell_ct_min_distance', text="Min dist between")
-        layout.prop(context.scene, 'dell_debug', text='debug')
+        if bpy.context.scene.dell_more_settings:
+            layout.prop(context.scene, 'dell_debug', text='debug')
         row = layout.row(align=0)
         row.prop(context.scene, 'ct_mark_noise', text='Mark noise')
-        row.operator(InitNoise.bl_idname, text="Init noise", icon='RECOVER_LAST')
+        if bpy.context.scene.dell_more_settings:
+            row.operator(InitNoise.bl_idname, text="Init noise", icon='RECOVER_LAST')
         if bpy.context.scene.ct_mark_noise:
             row.prop(context.scene, 'dell_ct_noise_color', text='')
         row = layout.row(align=0)
@@ -909,12 +937,14 @@ def dell_draw(self, context):
                 layout.operator(SaveCTElectrodesFigures.bl_idname, text="Save CT figures", icon='OUTLINER_OB_FORCE_FIELD')
             layout.operator(MarkElectrodeLeadAsNoise.bl_idname, text="Mark electrode's lead as noise",
                             icon='PANEL_CLOSE')
-        layout.operator(ProjectElectrodesOnLeads.bl_idname, text="Project electrodes on leads", icon='SURFACE_DATA')
+        if bpy.context.scene.dell_more_settings:
+            layout.operator(ProjectElectrodesOnLeads.bl_idname, text="Project electrodes on leads", icon='SURFACE_DATA')
         if len(bpy.context.selected_objects) == 2 and all(bpy.context.selected_objects[k].name in DellPanel.names for k in range(2)):
             layout.operator(CreateNewElectrodeBetween.bl_idname, text="Create new electrode between",
                             icon='WORLD_DATA')
             layout.operator(FindElectrodeLead.bl_idname, text="Find lead between selected electrodes", icon='PARTICLE_DATA')
-            layout.operator(FindGroupBetweenTwoElectrodesOnDural.bl_idname, text="Find group on dural", icon='EXPORT')
+            if bpy.context.scene.dell_more_settings:
+                layout.operator(FindGroupBetweenTwoElectrodesOnDural.bl_idname, text="Find group on dural", icon='EXPORT')
         if len(bpy.context.selected_objects) > 0:
             layout.operator(MarkSelectedElectrodesAsNoise.bl_idname, text="Mark selected electrodes as noise", icon='PANEL_CLOSE')
             layout.operator(MarkSelectedNoiseAsElectrodes.bl_idname, text="Mark selected noise as electrodes", icon='EYEDROPPER')
@@ -925,13 +955,15 @@ def dell_draw(self, context):
 
         # if len(bpy.context.selected_objects) == 4 and all(
         #         bpy.context.selected_objects[k].name in DellPanel.names for k in range(4)):
-        if len(bpy.context.selected_objects) == 0:
+        if len(bpy.context.selected_objects) == 0 and bpy.context.scene.dell_more_settings:
             layout.operator(FindGroupBetweenTwoElectrodesOnDural.bl_idname, text="Find grid on dural", icon='EXPORT')
         if not bpy.context.scene.dell_all_groups_were_found:
-            layout.operator(FindRandomLead.bl_idname, text="Find a group", icon='POSE_HLT')
+            if bpy.context.scene.dell_more_settings:
+                layout.operator(FindRandomLead.bl_idname, text="Find a group", icon='POSE_HLT')
             layout.operator(FindAllLeads.bl_idname, text="Find all groups", icon='LAMP_SUN')
             layout.prop(context.scene, 'dell_do_post_search', text='Do post search')
-            layout.prop(context.scene, 'dell_find_all_group_using_timer', text='Use timer')
+            if bpy.context.scene.dell_more_settings:
+                layout.prop(context.scene, 'dell_find_all_group_using_timer', text='Use timer')
         # layout.operator(SaveCTNeighborhood.bl_idname, text="Save CT neighborhood", icon='EDIT')
         layout.label(text='#Groups found: {}'.format(len(DellPanel.groups)))
         if len(DellPanel.groups) > 0:
@@ -952,11 +984,12 @@ def dell_draw(self, context):
             g = DellPanel.groups[select_elc_group]
             group_name = '{}-{}'.format(DellPanel.names[g[0]], DellPanel.names[g[-1]])
             row.label(text=group_name)
-        row = layout.row(align=True)
-        row.prop(context.scene, 'dell_move_x')
-        row.prop(context.scene, 'dell_move_y')
-        row.prop(context.scene, 'dell_move_z')
-    if len(bpy.context.selected_objects) > 1:
+        if bpy.context.scene.dell_more_settings:
+            row = layout.row(align=True)
+            row.prop(context.scene, 'dell_move_x')
+            row.prop(context.scene, 'dell_move_y')
+            row.prop(context.scene, 'dell_move_z')
+    if len(bpy.context.selected_objects) > 1 and bpy.context.scene.dell_more_settings:
         layout.operator(DeleteElectrodesFromGroup.bl_idname, text="Leave highest CT int", icon='CANCEL')
     if electrode_with_group_selected:
         row = layout.row(align=0)
@@ -983,14 +1016,17 @@ def dell_draw(self, context):
     # row.operator(CheckIfElectrodeOutsidePial.bl_idname, text="Find outer electrodes", icon='ROTATE')
     # row.prop(context.scene, 'dell_brain_mask_sigma', text='Brain mask sigma')
     # row.prop(context.scene, 'dell_brain_mask_use_aseg', text='Use aseg')
-    layout.prop(context.scene, 'dell_ct_print_distances', text='Show distances within group')
-    if bpy.context.scene.dell_ct_print_distances and len(DellPanel.dists) > 0 and len(DellPanel.groups) > 0:
-        layout.label(text='Group inner distances:')
-        box = layout.box()
-        col = box.column()
-        last_group = DellPanel.groups[-1]
-        for elc1, elc2, dist in zip([DellPanel.names[k] for k in last_group[:-1]], [DellPanel.names[k] for k in last_group[1:]], DellPanel.dists):
-            mu.add_box_line(col, '{}-{}'.format(elc1, elc2), '{:.2f}'.format(dist), 0.8)
+    if bpy.context.scene.dell_more_settings:
+        layout.prop(context.scene, 'dell_ct_print_distances', text='Show distances within group')
+        if bpy.context.scene.dell_ct_print_distances and len(DellPanel.dists) > 0 and len(DellPanel.groups) > 0:
+            layout.label(text='Group inner distances:')
+            box = layout.box()
+            col = box.column()
+            last_group = DellPanel.groups[-1]
+            for elc1, elc2, dist in zip([DellPanel.names[k] for k in last_group[:-1]], [DellPanel.names[k] for k in last_group[1:]], DellPanel.dists):
+                mu.add_box_line(col, '{}-{}'.format(elc1, elc2), '{:.2f}'.format(dist), 0.8)
+        layout.operator(DellRunElectrodesPreproc.bl_idname, text="Run electrodes preproc", icon='OUTLINER_DATA_META')
+    layout.prop(context.scene, 'dell_more_settings', text='More Settings')
 
 
 def start_timer():
@@ -1250,6 +1286,16 @@ class NextCTElectrode(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class DellRunElectrodesPreproc(bpy.types.Operator):
+    bl_idname = 'mmvt.run_electrodes_preproc'
+    bl_label = 'run_electrodes_preproc'
+    bl_options = {'UNDO'}
+
+    def invoke(self, context, event=None):
+        run_electrodes_preproc()
+        return {'FINISHED'}
+
+
 class CheckIfElectrodeOutsidePial(bpy.types.Operator):
     bl_idname = 'mmvt.check_if_outside_pial'
     bl_label = 'check_if_outside_pial'
@@ -1424,6 +1470,7 @@ bpy.types.Scene.dell_brain_mask_use_aseg = bpy.props.BoolProperty(default=True)
 # bpy.types.Scene.use_only_brain_mask = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.dell_binary_erosion = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.dell_find_nei_maxima = bpy.props.BoolProperty(default=True)
+bpy.types.Scene.dell_mask_voxels_outside_brain = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.dell_refresh_pos_and_names_overwrite = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.dell_debug = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.dell_move_x = bpy.props.IntProperty(default=0, step=1, name='x', update=dell_move_elec_update)
@@ -1433,6 +1480,7 @@ bpy.types.Scene.dell_selected_electrode_group_name = bpy.props.StringProperty()
 bpy.types.Scene.dell_how_many_electrodes_above_threshold = bpy.props.StringProperty()
 bpy.types.Scene.dell_files = bpy.props.EnumProperty(items=[], description="Dell files")
 bpy.types.Scene.dell_all_groups_were_found = bpy.props.BoolProperty(default=True)
+bpy.types.Scene.dell_more_settings = bpy.props.BoolProperty(default=False)
 
 
 class DellPanel(bpy.types.Panel):
@@ -1599,6 +1647,7 @@ def register():
         bpy.utils.register_class(RefreshElectrodesObjects)
         bpy.utils.register_class(ModalDellTimerOperator)
         bpy.utils.register_class(DellGroupItem)
+        bpy.utils.register_class(DellRunElectrodesPreproc)
     except:
         print("Can't register Dell Panel!")
 
@@ -1640,6 +1689,7 @@ def unregister():
         bpy.utils.unregister_class(ModalDellTimerOperator)
         bpy.utils.unregister_class(DellGroupItem)
         bpy.utils.unregister_class(ProjectElectrodesOnLeads)
+        bpy.utils.unregister_class(DellRunElectrodesPreproc)
     except:
         pass
 

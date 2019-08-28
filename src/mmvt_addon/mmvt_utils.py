@@ -266,6 +266,9 @@ def add_keyframe(parent_obj, conn_name, value, T):
 def insert_keyframe_to_custom_prop(obj, prop_name, value, keyframe):
     bpy.context.scene.objects.active = obj
     obj.select = True
+    # prop_name =  '{}{}'.format(prop_name[-58:], rand_letters(3)) # the length of IDProperty names is limited to 63 characters
+    if len(prop_name) > 63:
+        raise Exception('keyframe\'s key can be up to 63 characters! {} has {}!'.format(prop_name, len(prop_name)))
     obj[prop_name] = value
     obj.keyframe_insert(data_path='[' + '"' + prop_name + '"' + ']', frame=keyframe)
 
@@ -1230,8 +1233,8 @@ def tryit(except_retval=False, throw_exception=False, print_only_last_error_line
 
 
 def print_last_error_line():
+    last_err_line = [l for l in traceback.format_exc().split('\n') if len(l) > 0][-1]
     try:
-        last_err_line = [l for l in traceback.format_exc().split('\n') if len(l) > 0][-1]
         print(last_err_line)
         return last_err_line
     except:
@@ -2733,6 +2736,20 @@ def create_labels_contours():
     run_command_in_new_thread(cmd, False)
 
 
+def copy_file(src, dst):
+    if src != dst:
+        if op.islink(dst):
+            dst = os.readlink(dst)
+        elif op.islink(get_parent_fol(dst)):
+            fol = os.readlink(get_parent_fol(dst))
+            dst = op.join(fol, namebase_with_ext(dst))
+        try:
+            if src != dst:
+                shutil.copyfile(src, dst)
+        except:
+            print_last_error_line()
+
+
 def make_link(source, target, overwrite=False, copy_if_fails=True):
     if is_windows():
         try:
@@ -2742,15 +2759,19 @@ def make_link(source, target, overwrite=False, copy_if_fails=True):
             ret = kdll.CreateSymbolicLinkA(source, target, 0)
             if (not ret or op.getsize(target) == 0) and copy_if_fails:
                 remove_file(target)
-                shutil.copy(source, target)
+                copy_file(source, target)
+                # shutil.copy(source, target)
             return op.exists(target)
         except:
             print(traceback.format_exc())
     try:
+        if op.islink(target):
+            os.remove(target)
         if op.exists(source):
             ret = os.symlink(source, target)
             if not ret and copy_if_fails and source != target:
-                shutil.copy(source, target)
+                copy_file(source, target)
+                # shutil.copy(source, target)
             return True
         else:
             print('make_link: source {} doesn\'t exist!'.format(source))
@@ -2873,6 +2894,13 @@ def calc_colors_from_indices_cm(colors_indices, cm):
     colors_indices[colors_indices > 255] = 255
     verts_colors = cm[colors_indices]
     return verts_colors
+
+
+def get_cm_obj(cm_name, new_cm_name='', invert_cm1=False, invert_cm2=False,  cm1_minmax=(0, 1), cm2_minmax=(0, 1)):
+    add_mmvt_code_root_to_path()
+    from src.utils import color_maps_utils
+    importlib.reload(color_maps_utils)
+    return color_maps_utils.get_cm_obj(cm_name, new_cm_name, invert_cm1, invert_cm2,  cm1_minmax, cm2_minmax)
 
 
 def in_shape(xyz, shape):
@@ -3205,6 +3233,18 @@ def add_marker(index, name):
     bpy.ops.marker.add()
     bpy.ops.marker.rename(name=name)
 
+
+def is_empty_func(func):
+    # https://stackoverflow.com/questions/13620542/detecting-empty-function-definitions-in-python
+    def empty_func():
+        pass
+
+    def empty_func_with_doc():
+        """Empty function with docstring."""
+        pass
+
+    return func.__code__.co_code == empty_func.__code__.co_code or \
+        func.__code__.co_code == empty_func_with_doc.__code__.co_code
 
 # def mouse_coo_to_3d_loc(event, context):
 #     from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_location_3d

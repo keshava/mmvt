@@ -6,6 +6,7 @@ import traceback
 
 from src.utils import utils
 from src.utils import labels_utils as lu
+from src.utils import geometry_utils as gu
 
 links_dir = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(links_dir, 'subjects', 'SUBJECTS_DIR')
@@ -23,7 +24,8 @@ def parcelate(subject, atlas, hemi, surface_type, vertices_labels_ids_lookup=Non
               overwrite_vertices_labels_lookup=False):
     output_fol = op.join(MMVT_DIR, subject, 'labels', '{}.{}.{}'.format(atlas, surface_type, hemi))
     utils.make_dir(output_fol)
-    vtx, fac = utils.read_ply_file(op.join(MMVT_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surface_type)))
+    # vtx, fac = utils.read_ply_file(op.join(MMVT_DIR, subject, 'surf', '{}.{}.ply'.format(hemi, surface_type)))
+    vtx, fac = gu.read_surface(op.join(SUBJECTS_DIR, subject, 'surf', '{}.{}'.format(hemi, surface_type)))
     if vertices_labels_ids_lookup is None or overwrite_vertices_labels_lookup:
         vertices_labels_ids_lookup = lu.create_vertices_labels_lookup(
             subject, atlas, True, overwrite_vertices_labels_lookup)[hemi]

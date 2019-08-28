@@ -295,7 +295,8 @@ def rename_and_convert_electrodes_file(subject, ras_xls_sheet_name=''):
         subject_elec_fname_pattern = op.join(root_fol, subject, 'electrodes', '{subject}_RAS.{postfix}')
         subject_elec_fname_csv = subject_elec_fname_pattern.format(subject=subject, postfix='csv')
         subject_elec_fname_xlsx = subject_elec_fname_pattern.format(subject=subject, postfix='xlsx')
-
+        if op.isfile(subject_elec_fname_csv):
+            continue
         utils.rename_files([subject_elec_fname_no_ras_pattern.format(subject=subject, postfix='xlsx'),
                             subject_elec_fname_no_ras_pattern.format(subject=subject.upper(), postfix='xlsx'),
                             subject_elec_fname_no_ras_pattern.format(subject=subject, postfix='xls'),
@@ -1381,7 +1382,7 @@ def snap_electrodes_to_surface(subject, elecs_pos, grid_name, subjects_dir,
     There is no return value. The 'snap_coords' attribute will be used to
     store the snapped locations of the electrodes
     '''
-
+    from src.utils import geometry_utils as gu
     fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     output_fname = op.join(fol, '{}_snap_electrodes.npz'.format(grid_name))
     if op.isfile(output_fname) and not overwrite:
@@ -1472,8 +1473,10 @@ def snap_electrodes_to_surface(subject, elecs_pos, grid_name, subjects_dir,
         lh_dura, _ = utils.read_ply_file(ply_template.format(hemi='lh'))
         rh_dura, _ = utils.read_ply_file(ply_template.format(hemi='rh'))
     elif utils.both_hemi_files_exist(fs_template):
-        lh_dura, _ = nib.freesurfer.read_geometry(fs_template.format(hemi='lh'))
-        rh_dura, _ = nib.freesurfer.read_geometry(fs_template.format(hemi='rh'))
+        lh_dura, _ = gu.read_surface(fs_template.format(hemi='lh'))
+        rh_dura, _ = gu.read_surface(fs_template.format(hemi='rh'))
+        # lh_dura, _ = nib.freesurfer.read_geometry(fs_template.format(hemi='lh'))
+        # rh_dura, _ = nib.freesurfer.read_geometry(fs_template.format(hemi='rh'))
     else:
         print('No dura can be found!')
         return False
@@ -1548,8 +1551,10 @@ def snap_electrodes_to_surface(subject, elecs_pos, grid_name, subjects_dir,
     for ind, loc in enumerate(emin):
         snapped_electrodes[ind] = loc
 
-    lh_pia, _ = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
-    rh_pia, _ = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
+    lh_pia, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
+    rh_pia, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
+    # lh_pia, _ = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
+    # rh_pia, _ = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
     pia = np.vstack((lh_pia, rh_pia))
     e_pia = np.argmin(cdist(pia, emin), axis=0)
 
@@ -1606,15 +1611,22 @@ def set_args(args):
 
 
 def get_ras_file(subject, args):
-    local_elecs_fol = utils.make_dir(op.join(SUBJECTS_DIR, subject, 'electrodes'))
+    local_elecs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     local_fname = op.join(local_elecs_fol, '{}_RAS.xlsx'.format(subject))
     if args.remote_ras_fol != '' and not op.isfile(local_fname):
         remote_ras_fol = utils.build_remote_subject_dir(args.remote_ras_fol, subject)
         remote_fnames = glob.glob(op.join(remote_ras_fol, '{}*RAS*.xlsx'.format(subject.upper())))
+        if len(remote_fnames) == 0:
+            remote_fnames = glob.glob(op.join(remote_ras_fol, '{}*RAS*.csv'.format(subject.upper())))
+        if len(remote_fnames) == 0:
+            print('Coulnd\'t find the {} RAS coordaintes file!')
+            return False
         # print('glob.glob({}):'.format(op.join(remote_ras_fol, '{}*RAS*.xlsx'.format(subject.upper()))))
         # print(remote_fnames)
         remote_fname = utils.select_one_file(remote_fnames)
         # remote_fname = op.join(remote_ras_fol, '{}_RAS.xlsx'.format(subject))
+        if utils.file_type(remote_fname) != 'xlsx':
+            local_fname = local_fname.replace('xlsx', utils.file_type(remote_fname))
         if op.isfile(remote_fname):
             utils.copy_file(remote_fname, local_fname)
     return op.isfile(local_fname)
