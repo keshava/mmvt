@@ -1581,6 +1581,11 @@ def morph_labels_from_fsaverage(subject, atlas, fsaverage, overwrite_morphing, f
         fs_labels_fol=fs_labels_fol, n_jobs=n_jobs)
 
 
+def recon_all(subject, nifti_fname):
+    cmd = 'recon-all -i {} -subjid  {} -all'.format(nifti_fname, subject)
+    utils.run_command_in_new_thread(cmd)
+
+
 def call_main(args):
     pu.run_on_subjects(args, main)
 
@@ -1710,6 +1715,9 @@ def main(subject, remote_subject_dir, org_args, flags):
         flags['convert_dicoms_to_nifti'] = convert_dicoms_to_nifti(
             subject, args.dicoms_fol, args.nifti_fname, args.seq, args.overwrite_nifti, args.print_only,
                 args.ask_before)
+
+    if 'recon-all' in args.function:
+        flags['recon-all'] = recon_all(subject, args.nifti_fname)
 
     return flags
 
