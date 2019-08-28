@@ -1585,6 +1585,8 @@ def morph_labels_from_fsaverage(subject, atlas, fsaverage, overwrite_morphing, f
         fs_labels_fol=fs_labels_fol, n_jobs=n_jobs)
 
 
+@utils.tryit()
+@utils.check_for_freesurfer
 def recon_all(subject, nifti_fname):
     if '{subject}' in nifti_fname:
         nifti_fname = nifti_fname.format(subject=subject)
