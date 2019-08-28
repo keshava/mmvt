@@ -1589,7 +1589,7 @@ def recon_all(subject, nifti_fname):
     if '{subject}' in nifti_fname:
         nifti_fname = nifti_fname.format(subject=subject)
     cmd = 'recon-all -i {} -subjid  {} -all -parallel'.format(nifti_fname, subject)
-    utils.run_command_in_new_thread(cmd)
+    utils.run_script(cmd)
 
 
 def call_main(args):
