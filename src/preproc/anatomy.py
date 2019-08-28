@@ -1585,13 +1585,16 @@ def morph_labels_from_fsaverage(subject, atlas, fsaverage, overwrite_morphing, f
         fs_labels_fol=fs_labels_fol, n_jobs=n_jobs)
 
 
-@utils.tryit()
-@utils.check_for_freesurfer
 def recon_all(subject, nifti_fname):
     if '{subject}' in nifti_fname:
         nifti_fname = nifti_fname.format(subject=subject)
     cmd = 'recon-all -i {} -subjid  {} -all -parallel'.format(nifti_fname, subject)
-    utils.run_script(cmd)
+    try:
+        utils.run_script(cmd)
+        return True
+    except:
+        print('recon-all failed!')
+        return False
 
 
 def call_main(args):
