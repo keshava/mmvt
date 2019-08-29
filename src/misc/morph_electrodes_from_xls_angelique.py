@@ -148,6 +148,5 @@ if __name__ == '__main__':
 
     # read_xls(xls_fname, to_subject, atlas, overwrite=overwrite)
     subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
-    #morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
-    # csv_fname = elecs_preproc.electrodes_csv_to_npy(to_subject, csv_fname)
+    # morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)

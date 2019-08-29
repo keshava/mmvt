@@ -458,6 +458,34 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
     return subject_vertices_labels_lookup
 
 
+def calc_subject_to_subject_vertices_lookup(subject_from, subject_to, overwrite=False):
+    output_fname = op.join(MMVT_DIR, subject_to, 'vertices_lookup_from_{}.pkl'.format(subject_from))
+    if op.isfile(output_fname) and not overwrite:
+        return utils.load(output_fname)
+    for morph_maps_root in [MMVT_DIR, SUBJECTS_DIR]:
+        morph_maps_fol = op.join(morph_maps_root, 'morph_maps')
+        if op.isfile(op.join(morph_maps_fol, '{}-{}-morph.fif'.format(subject_from, subject_to))) and \
+                op.isfile(op.join(morph_maps_fol, '{}-{}-morph.fif'.format(subject_to, subject_from))):
+            break
+    # left_map, right_map : sparse matrix, subject verts x template verts
+    morph_maps = mne.read_morph_map(subject_from, subject_to, subjects_dir=morph_maps_root)
+
+    subject_vertices_lookup = defaultdict(dict)
+    for hemi_ind, hemi in enumerate(['lh', 'rh']):
+        subject_from_vertices, _ = read_pial(subject_from, hemi)
+        subject_to_vertices, _ = read_pial(subject_to, hemi)
+
+        if len(subject_from_vertices) != morph_maps[hemi_ind].shape[1]:
+            raise Exception('Wrong number of vertices!')
+        if len(subject_to_vertices) != morph_maps[hemi_ind].shape[0]:
+            raise Exception('Wrong number of vertices in the morphing map!')
+
+        for subject_vert in tqdm(range(len(subject_from_vertices))):
+            subject_vertices_lookup[hemi][subject_vert] = morph_maps[hemi_ind][subject_vert].nonzero()[1]
+    utils.save(subject_vertices_lookup, output_fname)
+    return subject_vertices_lookup
+
+
 def read_pial(subject, hemi):
     from src.utils import geometry_utils as gu
     if utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.pial')):

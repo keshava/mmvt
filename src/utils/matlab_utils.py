@@ -5,6 +5,10 @@ from pprint import pprint
 from src.utils import utils
 
 
+def load_mat_to_numpy(mat_fname, key):
+    return sio.loadmat(mat_fname)[key]
+
+
 def load_mat_to_bag(mat_fname):
     return utils.Bag(dict(**sio.loadmat(mat_fname)))
 
@@ -14,6 +18,8 @@ def matlab_cell_arrays_to_dict(mat_fname):
     d = dict(**sio.loadmat(mat_fname))
     keys = [key for key in d.keys() if key not in ['__header__', '__version__', '__globals__']]
     for key in keys:
+        if len(d[key]) == 0:
+            continue
         data_type = d[key][0][0].dtype
         #todo: check more types than only numbers and strings
         # check if the data type is numeric ('u' for unsigned numeric)
