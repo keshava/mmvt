@@ -1585,10 +1585,10 @@ def morph_labels_from_fsaverage(subject, atlas, fsaverage, overwrite_morphing, f
         fs_labels_fol=fs_labels_fol, n_jobs=n_jobs)
 
 
-def recon_all(subject, nifti_fname):
+def recon_all(subject, nifti_fname, n_jobs=1):
     if '{subject}' in nifti_fname:
         nifti_fname = nifti_fname.format(subject=subject)
-    cmd = 'recon-all -i {} -subjid {} -all -parallel'.format(nifti_fname, subject)
+    cmd = 'recon-all -i {} -subjid {} -all {}'.format(nifti_fname, subject, '-parallel' if n_jobs > 1 else '')
     try:
         utils.run_command_in_new_thread(cmd, False)
         return True
@@ -1728,7 +1728,7 @@ def main(subject, remote_subject_dir, org_args, flags):
                 args.ask_before)
 
     if 'recon-all' in args.function:
-        flags['recon-all'] = recon_all(subject, args.nifti_fname)
+        flags['recon-all'] = recon_all(subject, args.nifti_fname, args.n_jobs)
 
     return flags
 
