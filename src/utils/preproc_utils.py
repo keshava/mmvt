@@ -61,7 +61,7 @@ def run_on_subjects(args, main_func, subjects_itr=None, subject_func=None):
     subject = ''
     for tup in subjects_itr:
         subject = get_subject(tup, subject_func)
-        utils.make_dir(op.join(MMVT_DIR, subject, 'mmvt'))
+        # utils.make_dir(op.join(MMVT_DIR, subject, 'mmvt'))
         remote_subject_dir = utils.build_remote_subject_dir(args.remote_subject_dir, subject)
         if remote_subject_dir == '':
             remote_subject_dir = op.join(SUBJECTS_DIR, subject)
@@ -100,8 +100,8 @@ def run_on_subjects(args, main_func, subjects_itr=None, subject_func=None):
     errors = defaultdict(list)
     ret = True
     good_subjects, bad_subjects = [], []
-    logs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'logs'))
-    logging.basicConfig(filename=op.join(logs_fol, 'preproc.log'), level=logging.DEBUG)
+    # logs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'logs'))
+    # logging.basicConfig(filename=op.join(logs_fol, 'preproc.log'), level=logging.DEBUG)
     for subject, flags in subjects_flags.items():
         print('subject {}:'.format(subject))
         logging.info('subject {}:'.format(subject))
