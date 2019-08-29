@@ -1590,7 +1590,7 @@ def recon_all(subject, nifti_fname):
         nifti_fname = nifti_fname.format(subject=subject)
     cmd = 'recon-all -i {} -subjid  {} -all -parallel'.format(nifti_fname, subject)
     try:
-        utils.run_command_in_new_thread(cmd)
+        utils.run_command_in_new_thread(cmd, False)
         return True
     except:
         print('recon-all failed!')
