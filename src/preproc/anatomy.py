@@ -1590,6 +1590,7 @@ def recon_all(subject, nifti_fname, n_jobs=1):
         nifti_fname = nifti_fname.format(subject=subject)
     cmd = 'recon-all -i {} -subjid {} -all {}'.format(nifti_fname, subject, '-parallel' if n_jobs > 1 else '')
     try:
+        utils.delete_folder_files(op.join(SUBJECTS_DIR, subject), True)
         utils.run_command_in_new_thread(cmd, False)
         return True
     except:
