@@ -133,10 +133,11 @@ def get_exisiting_file(dirs):
         return ex_files[0]
 
 
-def delete_folder_files(fol):
+def delete_folder_files(fol, delete_folder=False):
     if op.isdir(fol):
         shutil.rmtree(fol)
-    os.makedirs(fol)
+    if not delete_folder:
+        os.makedirs(fol)
 
 
 def get_scalar_map(x_min, x_max, color_map='jet'):

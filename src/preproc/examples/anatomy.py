@@ -182,6 +182,19 @@ def get_subject_files_from_server(args):
     pu.run_on_subjects(args, anat.main)
 
 
+def recon_all(args):
+    # python -m src.preoroc.anatomy -f recon-all --ignore_missing 1 --n_jobs 1
+    # --nifti_fname "/autofs/space/thibault_001/users/npeled/T1/{subject}/mprage.nii" -s "wake5,wake6,wake7,wake8"
+    args = anat.read_cmd_args(dict(
+        subject=args.subject,
+        function='recon-all',
+        nifti_fname='/autofs/space/thibault_001/users/npeled/T1/{subject}/mprage.nii',
+        ignore_missing=True,
+        n_jobs=1,
+    ))
+    pu.run_on_subjects(args, anat.main)
+
+
 # https://github.com/chriskiehl/Gooey
 # @Gooey
 def main():
