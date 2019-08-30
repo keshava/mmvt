@@ -1,6 +1,7 @@
 import os.path as op
 import nibabel as nib
 import numpy as np
+import traceback
 from collections import defaultdict
 from src.utils import utils
 from src.utils import preproc_utils as pu
@@ -45,6 +46,7 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation
                 subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
                 n_jobs=n_jobs)
         except:
+            print(traceback.format_exc())
             err = utils.print_last_error_line()
             bad_subjects.append((subject, err))
 
