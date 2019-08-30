@@ -43,6 +43,14 @@ def transform_coordinates_ela(from_subject, to_subject, coordinates):
         from_subject, to_subject, coordinates, bipolar=False, atlas='laus125', overwrite=False)
 
 
+def create_cvs_transformation(subject_from, subjects_to, subjects_dir, openmp=1):
+    for subject_to in subjects_to:
+        mri_cvs_register = 'mri_cvs_register --mov {subject_from} --template {subject_to} ' + \
+            '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_{subject_to} --nocleanup --openmp {openmp} --step1'
+        rs = utils.partial_run_script(locals())
+        rs(mri_cvs_register)
+
+
 def transform_coordinates(from_subject, to_subject, coordinates):
     electrodes_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
 
@@ -110,8 +118,11 @@ if __name__ == '__main__':
     bad_channels_fname = op.join(MEG_DIR, subject, 'bad_channels.mat')
     run_num = str(1).zfill(2)
 
-    coordinates = read_coordinates(mat_fname, 'newPosBalls', 'PRI')
-    transform_coordinates(template, subject, coordinates)
+    subjects_to = [utils.namebase(f) for f in  glob.glob(op.join(SUBJECTS_DIR, 'wake*'))]
+    print(subjects_to)
+    # create_cvs_transformation(template, subjects_to, SUBJECTS_DIR, openmp=1)
+    # coordinates = read_coordinates(mat_fname, 'newPosBalls', 'PRI')
+    # transform_coordinates(template, subject, coordinates)
 
     raw_files = glob.glob(op.join(MEG_DIR, subject, 'run_*_sss.fif'))
     # for raw_fname in raw_files:
