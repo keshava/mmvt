@@ -290,17 +290,14 @@ def ply2fs(ply_fname, fs_fname=''):
 def load_surf(subject, mmvt_dir, subjects_dir, surf_type='pial'):
     verts = {}
     for hemi in HEMIS:
-        if op.isfile(op.join(mmvt_dir, subject, 'surf', '{}.{}.npz'.format(hemi, surf_type))):
+        if op.isfile(op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type))):
+            from src.utils import geometry_utils as gu
+            hemi_verts, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type)))
+        elif op.isfile(op.join(mmvt_dir, subject, 'surf', '{}.{}.npz'.format(hemi, surf_type))):
             hemi_verts, _ = read_pial(subject, mmvt_dir, hemi)
         elif op.isfile(op.join(subjects_dir, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type))):
             hemi_verts, _ = read_ply_file(
                 op.join(subjects_dir, subject, 'surf', '{}.{}.ply'.format(hemi, surf_type)))
-        elif op.isfile(op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type))):
-            from src.utils import geometry_utils as gu
-            hemi_verts, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type)))
-            # import nibabel as nib
-            # hemi_verts, _ = nib.freesurfer.read_geometry(
-            #     op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type)))
         else:
             print("Can't find {} {} ply/npz files!".format(hemi, surf_type))
             return None
