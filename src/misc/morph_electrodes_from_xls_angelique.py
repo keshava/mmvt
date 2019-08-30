@@ -10,7 +10,8 @@ from src.preproc import anatomy as anat, ela_morph_electrodes
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 
-def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', overwrite=False, check_morph_file=False):
+def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation_template='fsaverage',
+             overwrite=False, check_morph_file=False):
     # bipolar = True
     # template_header = nib.load(op.join(SUBJECTS_DIR, subject_to, 'mri', 'T1.mgz')).header
     subjects_electrodes = defaultdict(list)
@@ -36,7 +37,7 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', overwrite=
     for subject in subjects:
         atlas = utils.fix_atlas_name(subject, atlas, SUBJECTS_DIR)
         if not utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
-            anat.create_annotation(subject, atlas)
+            anat.create_annotation(subject, atlas, annotation_template)
             if not utils.both_hemi_files_exist(
                     op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
                 print('No atlas for {}!'.format(atlas))
@@ -143,9 +144,10 @@ if __name__ == '__main__':
     bipolar = True
     to_subject = 'colin27'
     atlas = 'laus125'
+    annotation_template = 'fsaverage5c'
     overwrite = True
 
-    read_xls(xls_fname, to_subject, atlas, overwrite=overwrite)
+    read_xls(xls_fname, to_subject, atlas, annotation_template, overwrite=overwrite)
     # subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
     # morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)
