@@ -38,13 +38,18 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation
     indices = np.array_split(np.arange(len(subjects)), n_jobs)
     chunks = [([subjects[ind] for ind in chunk_indices], atlas, subject_to, subjects_electrodes, annotation_template,
                overwrite) for chunk_indices in indices]
-    results = utils.run_parallel(_morph_electrodes_parallel, chunks, n_jobs)
-    for bad_subjects in results:
-        if len(bad_subjects) > 0:
-            print(bad_subjects)
+    results = utils.run_parallel(_create_annotation, chunks, n_jobs)
+    bad_subjects = utils.flat_list_of_lists(results)
+    for subject in subjects:
+        try:
+            ela_morph_electrodes.calc_elas(
+                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite)
+        except:
+            err = utils.print_last_error_line()
+            bad_subjects.append((subject, err))
 
 
-def _morph_electrodes_parallel(p):
+def _create_annotation(p):
     subjects, atlas, subject_to, subject_electrodes, annotation_template, overwrite = p
     bad_subjects = []
     for subject in subjects:
@@ -56,12 +61,6 @@ def _morph_electrodes_parallel(p):
                     op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
                 bad_subjects.append((subject, 'No atlas'))
                 continue
-        try:
-            ela_morph_electrodes.calc_elas(
-                subject, subject_to, subject_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite)
-        except:
-            err = utils.print_last_error_line()
-            bad_subjects.append((subject, err))
     return bad_subjects
 
 
@@ -154,7 +153,8 @@ def get_subject_files_from_mad(subjects, atlas):
             subject=subject,
             atlas=atlas,
             remote_subject_dir=op.join(root_fol, '{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'),
-            function='prepare_subject_folder'
+            function='prepare_subject_folder',
+            ignore_missing=1,
         ))
         pu.run_on_subjects(args, anat.main)
 
