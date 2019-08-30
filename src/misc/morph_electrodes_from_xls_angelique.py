@@ -34,7 +34,6 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation
         subjects_electrodes[subject].append(elec1_name)
         subjects_electrodes[subject].append(elec2_name)
     subjects = list(subjects_electrodes.keys())
-    get_subject_files_from_mad(subjects, atlas)
     indices = np.array_split(np.arange(len(subjects)), n_jobs)
     chunks = [([subjects[ind] for ind in chunk_indices], atlas, subject_to, subjects_electrodes, annotation_template,
                overwrite) for chunk_indices in indices]
@@ -43,7 +42,8 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation
     for subject in subjects:
         try:
             ela_morph_electrodes.calc_elas(
-                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite)
+                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
+                n_jobs=n_jobs)
         except:
             err = utils.print_last_error_line()
             bad_subjects.append((subject, err))
@@ -53,10 +53,11 @@ def _create_annotation(p):
     subjects, atlas, subject_to, subject_electrodes, annotation_template, overwrite = p
     bad_subjects = []
     for subject in subjects:
+        get_subject_files_from_mad(subject, atlas)
         atlas = utils.fix_atlas_name(subject, atlas, SUBJECTS_DIR)
         if not utils.both_hemi_files_exist(
                 op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
-            anat.create_annotation(subject, atlas, annotation_template)
+            anat.create_annotation(subject, atlas, annotation_template, n_jobs=1)
             if not utils.both_hemi_files_exist(
                     op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
                 bad_subjects.append((subject, 'No atlas'))
