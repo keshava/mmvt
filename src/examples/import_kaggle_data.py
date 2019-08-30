@@ -47,7 +47,7 @@ def create_cvs_transformation(subject_from, subjects_to, subjects_dir, openmp=1,
     for subject_to in subjects_to:
         cmd = 'mri_cvs_register --mov {subject_from} --template {subject_to} ' + \
             '--outdir {subjects_dir}/{subject_to}/mri_cvs_register_from_{subject_from} --nocleanup ' + \
-            '--openmp {openmp} --step{}'
+            '--openmp {openmp} --step{step}'
         cmd = cmd.format(**locals())
         utils.run_command_in_new_thread(cmd, False)
 
