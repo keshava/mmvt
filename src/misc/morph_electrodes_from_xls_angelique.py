@@ -53,11 +53,14 @@ def _create_annotation(p):
     subjects, atlas, subject_to, subject_electrodes, annotation_template, overwrite = p
     bad_subjects = []
     for subject in subjects:
-        get_subject_files_from_mad(subject, atlas)
+        get_subject_files_from_mad([subject], atlas)
         atlas = utils.fix_atlas_name(subject, atlas, SUBJECTS_DIR)
         if not utils.both_hemi_files_exist(
                 op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
-            anat.create_annotation(subject, atlas, annotation_template, n_jobs=1)
+            try:
+                anat.create_annotation(subject, atlas, annotation_template, n_jobs=1)
+            except:
+                utils.print_last_error_line()
             if not utils.both_hemi_files_exist(
                     op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
                 bad_subjects.append((subject, 'No atlas'))
