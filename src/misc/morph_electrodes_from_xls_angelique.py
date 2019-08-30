@@ -34,6 +34,7 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation
         subjects_electrodes[subject].append(elec1_name)
         subjects_electrodes[subject].append(elec2_name)
     subjects = list(subjects_electrodes.keys())
+    get_subject_files_from_mad(subjects, atlas)
     indices = np.array_split(np.arange(len(subjects)), n_jobs)
     chunks = [([subjects[ind] for ind in chunk_indices], atlas, subject_to, subjects_electrodes, annotation_template,
                overwrite) for chunk_indices in indices]
@@ -144,6 +145,18 @@ def write_electrode_colors(template, electrodes_colors):
             for elc_name, color_id in electrodes_colors[subject]:
                 color = colors[color_id - 1]
                 wr.writerow([elc_name, *color])
+
+
+def get_subject_files_from_mad(subjects, atlas):
+    for subject in subjects:
+        root_fol = '/mnt/cashlab/Original Data/{}'.format(subject[:2].upper())
+        args = anat.read_cmd_args(dict(
+            subject=subject,
+            atlas=atlas,
+            remote_subject_dir=op.join(root_fol, '{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'),
+            function='prepare_subject_folder'
+        ))
+        pu.run_on_subjects(args, anat.main)
 
 
 if __name__ == '__main__':

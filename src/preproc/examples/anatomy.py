@@ -25,13 +25,13 @@ def get_subject_files_using_sftp(args):
         pu.run_on_subjects(args, anat.main)
 
 
-def get_subject_files_from_mad(args=None, subjects=None, necessary_files=None):
-    subjects = args.subject if args is not None else subjects
+def get_subject_files_from_mad(org_args=None, subjects=None, necessary_files=None):
+    subjects = org_args.subject if org_args is not None else subjects
     for subject in subjects:
         root_fol = '/mnt/cashlab/Original Data/{}'.format(subject[:2].upper())
         args = anat.read_cmd_args(dict(
             subject=subject,
-            atlas=args.atlas,
+            atlas=org_args.atlas,
             remote_subject_dir=op.join(root_fol, '{subject}/{subject}_Notes_and_Images/{subject}_SurferOutput'),
             function='prepare_subject_folder'
         ))
