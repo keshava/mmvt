@@ -18,6 +18,7 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation
     # electrodes_colors = defaultdict(list)
     for line in utils.xlsx_reader(xls_fname, skip_rows=1):
         subject, elec1_name, elec2_name, cond, patient_id  = line[:5]
+        subject = subject.lower()
         elec1_coo, elec2_coo = line[5:8], line[8:11]
         # elec_group = utils.elec_group(elec1_name, bipolar=False)
         # if check_morph_file:
