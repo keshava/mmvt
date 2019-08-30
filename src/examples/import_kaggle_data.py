@@ -119,8 +119,7 @@ if __name__ == '__main__':
     run_num = str(1).zfill(2)
 
     subjects_to = [utils.namebase(f) for f in  glob.glob(op.join(SUBJECTS_DIR, 'wake*'))]
-    print(subjects_to)
-    # create_cvs_transformation(template, subjects_to, SUBJECTS_DIR, openmp=1)
+    create_cvs_transformation(template, subjects_to, SUBJECTS_DIR, openmp=1)
     # coordinates = read_coordinates(mat_fname, 'newPosBalls', 'PRI')
     # transform_coordinates(template, subject, coordinates)
 
