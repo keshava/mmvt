@@ -11,7 +11,7 @@ SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 
 def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation_template='fsaverage',
-             overwrite=False, check_morph_file=False):
+             overwrite=False, n_jobs=1):
     # bipolar = True
     # template_header = nib.load(op.join(SUBJECTS_DIR, subject_to, 'mri', 'T1.mgz')).header
     subjects_electrodes = defaultdict(list)
@@ -34,25 +34,34 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation
         subjects_electrodes[subject].append(elec1_name)
         subjects_electrodes[subject].append(elec2_name)
     subjects = list(subjects_electrodes.keys())
+    indices = np.array_split(np.arange(len(subjects)), n_jobs)
+    chunks = [([subjects[ind] for ind in chunk_indices], atlas, subject_to, subjects_electrodes, annotation_template,
+               overwrite) for chunk_indices in indices]
+    results = utils.run_parallel(_morph_electrodes_parallel, chunks, n_jobs)
+    for bad_subjects in results:
+        if len(bad_subjects) > 0:
+            print(bad_subjects)
+
+
+def _morph_electrodes_parallel(p):
+    subjects, atlas, subject_to, subject_electrodes, annotation_template, overwrite = p
     bad_subjects = []
     for subject in subjects:
         atlas = utils.fix_atlas_name(subject, atlas, SUBJECTS_DIR)
-        if not utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
+        if not utils.both_hemi_files_exist(
+                op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
             anat.create_annotation(subject, atlas, annotation_template)
             if not utils.both_hemi_files_exist(
                     op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
-                print('No atlas for {}!'.format(atlas))
                 bad_subjects.append((subject, 'No atlas'))
                 continue
         try:
             ela_morph_electrodes.calc_elas(
-                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas,overwrite=overwrite)
+                subject, subject_to, subject_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite)
         except:
             err = utils.print_last_error_line()
             bad_subjects.append((subject, err))
-            continue
-
-    print(bad_subjects)
+    return bad_subjects
 
 
 def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefix='', postfix=''):
@@ -146,9 +155,12 @@ if __name__ == '__main__':
     to_subject = 'colin27'
     atlas = 'laus125'
     annotation_template = 'fsaverage5c'
-    overwrite = True
+    overwrite = False
+    n_jobs = 10
 
-    read_xls(xls_fname, to_subject, atlas, annotation_template, overwrite=overwrite)
+    read_xls(xls_fname, to_subject, atlas, annotation_template, overwrite=overwrite, n_jobs=n_jobs)
+    #
+
     # subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
     # morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)
