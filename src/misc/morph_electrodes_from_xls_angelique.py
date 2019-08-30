@@ -137,7 +137,7 @@ def write_electrode_colors(template, electrodes_colors):
 
 if __name__ == '__main__':
     fols = ['/home/npeled/Documents/Angelique/mapping_to_common_brains',
-            '/autofs/space/thibault_001/users/npeled/Documents/Angelique']
+            '/autofs/space/thibault_001/users/npeled/Documents/Angelique/mapping_to_common_brains']
     fol = [f for f in fols if op.isdir(f)][0]
     xls_fname = op.join(fol, 'ChannelListFull.xls')
     bipolar = True
