@@ -39,20 +39,13 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation
     chunks = [([subjects[ind] for ind in chunk_indices], atlas, subject_to, subjects_electrodes, annotation_template,
                overwrite) for chunk_indices in indices]
     results = utils.run_parallel(_create_annotation, chunks, n_jobs)
-    bad_subjects = utils.flat_list_of_lists(results)
-    for subject in subjects:
-        try:
-            ela_morph_electrodes.calc_elas(
-                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
-                n_jobs=n_jobs)
-        except:
-            print(traceback.format_exc())
-            err = utils.print_last_error_line()
-            bad_subjects.append((subject, err))
+    for bad_subjects in results:
+        for bad_subject in bad_subjects:
+            print(bad_subject)
 
 
 def _create_annotation(p):
-    subjects, atlas, subject_to, subject_electrodes, annotation_template, overwrite = p
+    subjects, atlas, subject_to, subjects_electrodes, annotation_template, overwrite = p
     bad_subjects = []
     for subject in subjects:
         get_subject_files_from_mad([subject], atlas)
@@ -67,6 +60,14 @@ def _create_annotation(p):
                     op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
                 bad_subjects.append((subject, 'No atlas'))
                 continue
+        try:
+            ela_morph_electrodes.calc_elas(
+                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
+                n_jobs=1)
+        except:
+            print(traceback.format_exc())
+            err = utils.print_last_error_line()
+            bad_subjects.append((subject, err))
     return bad_subjects
 
 
