@@ -352,7 +352,7 @@ def find_label_vertices(subject, atlas, hemi, vertices, label_template='*'):
 def save_labels_from_vertices_lookup(
         subject, atlas, subjects_dir, mmvt_dir, surf_type='pial', read_labels_from_fol='',
         overwrite_vertices_labels_lookup=False, overwrite_labels=False, lookup=None, n_jobs=6):
-    if lookup is None:
+    if lookup is None or len(lookup.get('rh', {})) == 0 or len(lookup.get('lh', {})) == 0:
         lookup = create_vertices_labels_lookup(
             subject, atlas, read_labels_from_fol=read_labels_from_fol, overwrite=overwrite_vertices_labels_lookup)
     labels_fol = utils.make_dir(op.join(subjects_dir, subject, 'label', atlas))
@@ -413,7 +413,9 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
     output_fname = op.join(MMVT_DIR, subject, '{}_vertices_labels_lookup.pkl'.format(atlas))
     if op.isfile(output_fname) and not overwrite:
         subject_vertices_labels_lookup = utils.load(output_fname)
-        return subject_vertices_labels_lookup
+        if len(subject_vertices_labels_lookup.get('rh', {})) > 0 and \
+                len(subject_vertices_labels_lookup.get('lh', {})) > 0:
+            return subject_vertices_labels_lookup
     template_vertices_labels_lookup = create_vertices_labels_lookup(template_brain, atlas)
     for morph_maps_root in [MMVT_DIR, SUBJECTS_DIR]:
         morph_maps_fol = op.join(morph_maps_root, 'morph_maps')

@@ -40,7 +40,7 @@ def _create_annotation(p):
                 op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
             err = ''
             try:
-                anat.create_annotation(subject, atlas, annotation_template, n_jobs=1)
+                anat.create_annotation(subject, atlas, annotation_template, n_jobs=1, overwrite_vertices_labels_lookup=True)
             except:
                 print(traceback.format_exc())
                 err = utils.print_last_error_line()
@@ -48,14 +48,14 @@ def _create_annotation(p):
                     op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
                 bad_subjects.append((subject, 'No atlas' if err == '' else err))
                 continue
-        # try:
-        #     ela_morph_electrodes.calc_elas(
-        #         subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
-        #         n_jobs=1)
-        # except:
-        #     print(traceback.format_exc())
-        #     err = utils.print_last_error_line()
-        #     bad_subjects.append((subject, err))
+        try:
+            ela_morph_electrodes.calc_elas(
+                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
+                n_jobs=1)
+        except:
+            print(traceback.format_exc())
+            err = utils.print_last_error_line()
+            bad_subjects.append((subject, err))
     return bad_subjects
 
 
@@ -160,13 +160,14 @@ if __name__ == '__main__':
     fol = [f for f in fols if op.isdir(f)][0]
     xls_fname = op.join(fol, 'ChannelListFull.xls')
     bipolar = True
-    to_subject = 'colin27'
+    subject_to = 'colin27'
     atlas = 'laus125'
     annotation_template = 'fsaverage5c'
     overwrite = False
     n_jobs = 10
 
-    read_xls(xls_fname, to_subject, atlas, annotation_template, overwrite=overwrite, n_jobs=n_jobs)
+    _create_annotation((['mg78'], atlas, subject_to, {}, annotation_template, overwrite))
+    # read_xls(xls_fname, subject_to, atlas, annotation_template, overwrite=overwrite, n_jobs=n_jobs)
     #
 
     # subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
