@@ -12,11 +12,13 @@ SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 
 def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation_template='fsaverage',
-             overwrite=False, n_jobs=1):
+             specific_subjects=None, overwrite=False, n_jobs=1):
     subjects_electrodes = defaultdict(list)
     for line in utils.xlsx_reader(xls_fname, skip_rows=1):
         subject, elec1_name, elec2_name, cond, patient_id  = line[:5]
         subject = subject.lower()
+        if specific_subjects is not None and subject not in specific_subjects:
+            continue
         elec1_coo, elec2_coo = line[5:8], line[8:11]
         subjects_electrodes[subject].append(elec1_name)
         subjects_electrodes[subject].append(elec2_name)
@@ -166,8 +168,9 @@ if __name__ == '__main__':
     overwrite = False
     n_jobs = 10
 
-    _create_annotation((['mg78'], atlas, subject_to, {}, annotation_template, overwrite))
-    # read_xls(xls_fname, subject_to, atlas, annotation_template, overwrite=overwrite, n_jobs=n_jobs)
+    # _create_annotation((['mg78'], atlas, subject_to, {}, annotation_template, overwrite))
+    read_xls(xls_fname, subject_to, atlas, annotation_template, overwrite=overwrite, n_jobs=n_jobs,
+             specific_subjects=['mg78'])
     #
 
     # subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
