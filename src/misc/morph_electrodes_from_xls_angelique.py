@@ -13,25 +13,11 @@ SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation_template='fsaverage',
              overwrite=False, n_jobs=1):
-    # bipolar = True
-    # template_header = nib.load(op.join(SUBJECTS_DIR, subject_to, 'mri', 'T1.mgz')).header
     subjects_electrodes = defaultdict(list)
-    # electrodes_colors = defaultdict(list)
     for line in utils.xlsx_reader(xls_fname, skip_rows=1):
         subject, elec1_name, elec2_name, cond, patient_id  = line[:5]
         subject = subject.lower()
         elec1_coo, elec2_coo = line[5:8], line[8:11]
-        # elec_group = utils.elec_group(elec1_name, bipolar=False)
-        # if check_morph_file:
-        #     electrodes_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_morph_to_{}.txt'.format(subject_to))
-        #     if not op.isfile(electrodes_fname):
-        #         continue
-        # elec_group, num1, num2 = utils.elec_group_number(elec_name, bipolar)
-        # if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
-        #     num1, num2 = str(num1).zfill(2), str(num2).zfill(2)
-        # if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
-        #     raise Exception('Wrong group or numbers!')
-        # for num in [num1, num2]:
         subjects_electrodes[subject].append(elec1_name)
         subjects_electrodes[subject].append(elec2_name)
     subjects = list(subjects_electrodes.keys())
@@ -52,22 +38,24 @@ def _create_annotation(p):
         atlas = utils.fix_atlas_name(subject, atlas, SUBJECTS_DIR)
         if not utils.both_hemi_files_exist(
                 op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
+            err = ''
             try:
                 anat.create_annotation(subject, atlas, annotation_template, n_jobs=1)
             except:
-                utils.print_last_error_line()
+                print(traceback.format_exc())
+                err = utils.print_last_error_line()
             if not utils.both_hemi_files_exist(
                     op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.annot'.format('{hemi}', atlas))):
-                bad_subjects.append((subject, 'No atlas'))
+                bad_subjects.append((subject, 'No atlas' if err == '' else err))
                 continue
-        try:
-            ela_morph_electrodes.calc_elas(
-                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
-                n_jobs=1)
-        except:
-            print(traceback.format_exc())
-            err = utils.print_last_error_line()
-            bad_subjects.append((subject, err))
+        # try:
+        #     ela_morph_electrodes.calc_elas(
+        #         subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
+        #         n_jobs=1)
+        # except:
+        #     print(traceback.format_exc())
+        #     err = utils.print_last_error_line()
+        #     bad_subjects.append((subject, err))
     return bad_subjects
 
 
