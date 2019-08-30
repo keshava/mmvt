@@ -81,7 +81,7 @@ def calc_subcorticals_pos(subject, aseg_data, lut):
     return subs_pos, names
 
 
-def get_electrodes_info(subject, bipolar, n_jobs=1):
+def get_electrodes_info(subject, atlas, bipolar, n_jobs=1):
     cmd_args = ['-s', subject, '-a', atlas, '-b', str(bipolar), '--n_jobs', str(n_jobs)]
     args = find_rois.get_args(cmd_args)
     elecs_names, elecs_pos, elecs_dists, elecs_types, _ = find_rois.get_electrodes(subject, bipolar, args)
@@ -94,7 +94,7 @@ def calc_elas(subject, template, specific_elecs_names=[], bipolar=False, atlas='
               error_radius=3, elc_length=4, print_warnings=False, overwrite=False, n_jobs=1):
     fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes', 'ela_morphed'))
     elecs_names, elecs_pos, elecs_dists, elecs_types, elecs_oris, excludes = get_electrodes_info(
-        subject, bipolar, n_jobs)
+        subject, atlas, bipolar, n_jobs)
     specific_elecs_names = specific_elecs_names if len(specific_elecs_names) > 0 else elecs_names
     elecs_info = [(elec_name, elec_pos, elec_dist, elec_type, elec_ori) for
                   elec_name, elec_pos, elec_dist, elec_type, elec_ori in \
@@ -288,15 +288,15 @@ def write_electrodes_pos(subject, subject_to, specific_elecs=[]):
     np.savez(output_fname, pos=pos, names=names, pos_org=[])
     return op.isfile(output_fname)
 
-
-if __name__ == '__main__':
-    subject = 'mg114'
-    elec_name = ['RPT10']
-    template = 'colin27'
-    # atlas = 'aparc.DKTatlas40'
-    atlas = 'laus125'
-    overwrite = True
-
-    calc_elas(subject, template, elec_name, bipolar=False, atlas=atlas, print_warnings=False, overwrite=overwrite,
-              n_jobs=1)
-    write_electrodes_pos(subject, template, elec_name)
+#
+# if __name__ == '__main__':
+#     subject = 'mg114'
+#     elec_name = ['RPT10']
+#     template = 'colin27'
+#     # atlas = 'aparc.DKTatlas40'
+#     atlas = 'laus125'
+#     overwrite = True
+#
+#     calc_elas(subject, template, elec_name, bipolar=False, atlas=atlas, print_warnings=False, overwrite=overwrite,
+#               n_jobs=1)
+#     write_electrodes_pos(subject, template, elec_name)
