@@ -11,27 +11,26 @@ SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 
 def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', overwrite=False, check_morph_file=False):
-    bipolar = True
-    template_header = nib.load(op.join(SUBJECTS_DIR, subject_to, 'mri', 'T1.mgz')).header
+    # bipolar = True
+    # template_header = nib.load(op.join(SUBJECTS_DIR, subject_to, 'mri', 'T1.mgz')).header
     subjects_electrodes = defaultdict(list)
-    electrodes_colors = defaultdict(list)
+    # electrodes_colors = defaultdict(list)
     for line in utils.xlsx_reader(xls_fname, skip_rows=1):
-        subject, _, elec_name, _, anat_group = line
-        subject = subject.replace('\'', '')
-        if subject == '':
-            break
-        if check_morph_file:
-            electrodes_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_morph_to_{}.txt'.format(subject_to))
-            if not op.isfile(electrodes_fname):
-                continue
-        elec_group, num1, num2 = utils.elec_group_number(elec_name, bipolar)
-        if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
-            num1, num2 = str(num1).zfill(2), str(num2).zfill(2)
-        if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
-            raise Exception('Wrong group or numbers!')
-        for num in [num1, num2]:
-            subjects_electrodes[subject].append('{}{}'.format(elec_group, num))
-        electrodes_colors[subject].append((elec_name, int(anat_group)))
+        subject, elec1_name, elec2_name, cond, patient_id  = line[:5]
+        elec1_coo, elec2_coo = line[5:8], line[8:11]
+        # elec_group = utils.elec_group(elec1_name, bipolar=False)
+        # if check_morph_file:
+        #     electrodes_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_morph_to_{}.txt'.format(subject_to))
+        #     if not op.isfile(electrodes_fname):
+        #         continue
+        # elec_group, num1, num2 = utils.elec_group_number(elec_name, bipolar)
+        # if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
+        #     num1, num2 = str(num1).zfill(2), str(num2).zfill(2)
+        # if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
+        #     raise Exception('Wrong group or numbers!')
+        # for num in [num1, num2]:
+        subjects_electrodes[subject].append(elec1_name)
+        subjects_electrodes[subject].append(elec2_name)
     subjects = list(subjects_electrodes.keys())
     bad_subjects = []
     for subject in subjects:
@@ -137,16 +136,16 @@ def write_electrode_colors(template, electrodes_colors):
 
 
 if __name__ == '__main__':
-    fols = ['C:\\Users\\peled\\Documents\\Pariya', '/home/cashlab/Documents/noam/', '/home/npeled/Documents/pyraya']
+    fols = ['/home/npeled/Documents/Angelique/mapping_to_common_brains',
+            '/autofs/space/thibault_001/users/npeled/Documents/Angelique']
     fol = [f for f in fols if op.isdir(f)][0]
-    xls_fname = op.join(fol, 'Onset_regions_for_illustration.xlsx')
-    template_system = 'mni'
+    xls_fname = op.join(fol, 'ChannelListFull.xls')
     bipolar = True
     to_subject = 'colin27'
     atlas = 'laus125'
     overwrite = True
 
-    # read_xls(xls_fname, to_subject, atlas, overwrite=overwrite)
-    subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
+    read_xls(xls_fname, to_subject, atlas, overwrite=overwrite)
+    # subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
     # morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)

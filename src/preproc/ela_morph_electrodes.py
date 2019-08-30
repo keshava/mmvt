@@ -202,6 +202,7 @@ def calc_elas(subject, template, specific_elecs_names=[], bipolar=False, atlas='
         np.savez(elec_output_fname, pos=new_template_pos, name=elec_name, err=err)
 
 
+
 def print_ela(ela):
     print(','.join(sorted(['{}:{:.2f}'.format(region, prob) for region, prob in zip(
         ela['regions'], ela['regions_probs'])])))
