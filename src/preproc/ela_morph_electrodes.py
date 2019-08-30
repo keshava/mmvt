@@ -156,7 +156,7 @@ def calc_elas(subject, template, specific_elecs_names=[], bipolar=False, atlas='
                            template_regions_center_of_mass, template_regions_names, subject_prob_pos_in_template_space,
                            excludes, error_radius, elc_length, overwrite)
                           for new_template_elec_pos in new_template_elec_pos_arr]
-                results = utils.run_parallel(_parallel_calc_ela_err, params, len(dxyzs))
+                results = utils.run_parallel(_parallel_calc_ela_err, params, len(dxyzs) if n_jobs > 1 else 1)
                 errs = [res[1] for res in results]
                 ind = np.argmin(errs)
                 new_template_pos = new_template_elec_pos_arr[ind]
