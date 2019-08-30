@@ -46,11 +46,10 @@ def transform_coordinates_ela(from_subject, to_subject, coordinates):
 def create_cvs_transformation(subject_from, subjects_to, subjects_dir, openmp=1):
     for subject_to in subjects_to:
         cmd = 'mri_cvs_register --mov {subject_from} --template {subject_to} ' + \
-            '--outdir {subjects_dir}/{subject_from}/mri_cvs_register_to_{subject_to} --nocleanup --openmp {openmp} ' + \
-            '--step1'
+            '--outdir {subjects_dir}/{subject_to}/mri_cvs_register_from_{subject_from} --nocleanup ' + \
+            '--openmp {openmp} --step1'
         cmd = cmd.format(**locals())
-        print(cmd)
-        # utils.run_command_in_new_thread(cmd, False)
+        utils.run_command_in_new_thread(cmd, False)
 
 
 def transform_coordinates(from_subject, to_subject, coordinates):
