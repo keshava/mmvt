@@ -43,11 +43,11 @@ def transform_coordinates_ela(from_subject, to_subject, coordinates):
         from_subject, to_subject, coordinates, bipolar=False, atlas='laus125', overwrite=False)
 
 
-def create_cvs_transformation(subject_from, subjects_to, subjects_dir, openmp=1):
+def create_cvs_transformation(subject_from, subjects_to, subjects_dir, openmp=1, step=1):
     for subject_to in subjects_to:
         cmd = 'mri_cvs_register --mov {subject_from} --template {subject_to} ' + \
             '--outdir {subjects_dir}/{subject_to}/mri_cvs_register_from_{subject_from} --nocleanup ' + \
-            '--openmp {openmp} --step1'
+            '--openmp {openmp} --step{}'
         cmd = cmd.format(**locals())
         utils.run_command_in_new_thread(cmd, False)
 
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     run_num = str(1).zfill(2)
 
     subjects_to = [utils.namebase(f) for f in  glob.glob(op.join(SUBJECTS_DIR, 'wake*'))]
-    create_cvs_transformation(template, subjects_to, SUBJECTS_DIR, openmp=1)
+    create_cvs_transformation(template, subjects_to, SUBJECTS_DIR, openmp=1, step=2)
     # coordinates = read_coordinates(mat_fname, 'newPosBalls', 'PRI')
     # transform_coordinates(template, subject, coordinates)
 
