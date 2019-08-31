@@ -11,8 +11,7 @@ from src.preproc import anatomy as anat, ela_morph_electrodes
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
 
-def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation_template='fsaverage',
-             specific_subjects=None, overwrite=False, n_jobs=1):
+def read_xls(xls_fname,  specific_subjects=None):
     subjects_electrodes = defaultdict(list)
     for line in utils.xlsx_reader(xls_fname, skip_rows=1):
         subject, elec1_name, elec2_name, cond, patient_id  = line[:5]
@@ -22,17 +21,22 @@ def read_xls(xls_fname, subject_to='colin27', atlas='aparc.DKTatlas', annotation
         elec1_coo, elec2_coo = line[5:8], line[8:11]
         subjects_electrodes[subject].append(elec1_name)
         subjects_electrodes[subject].append(elec2_name)
+    return subjects_electrodes
+
+
+def morph_electrodes(subjects_electrodes, subject_to='colin27', atlas='aparc.DKTatlas', annotation_template='fsaverage',
+                     overwrite=False, n_jobs=1):
     subjects = list(subjects_electrodes.keys())
     indices = np.array_split(np.arange(len(subjects)), n_jobs)
     chunks = [([subjects[ind] for ind in chunk_indices], atlas, subject_to, subjects_electrodes, annotation_template,
                overwrite) for chunk_indices in indices]
-    results = utils.run_parallel(_create_annotation, chunks, n_jobs)
+    results = utils.run_parallel(_morph_electrodes_parallel, chunks, n_jobs)
     for bad_subjects in results:
         for bad_subject in bad_subjects:
             print(bad_subject)
 
 
-def _create_annotation(p):
+def _morph_electrodes_parallel(p):
     subjects, atlas, subject_to, subjects_electrodes, annotation_template, overwrite = p
     bad_subjects = []
     for subject in subjects:
@@ -51,6 +55,10 @@ def _create_annotation(p):
                 bad_subjects.append((subject, 'No atlas' if err == '' else err))
                 continue
         try:
+            subjects_electrodes[subject] = list(set(subjects_electrodes[subject]))
+            if not overwrite:
+                subjects_electrodes[subject] = [elc_name for elc_name in subjects_electrodes[subject] if not op.isfile(
+                    op.join(MMVT_DIR, subject, 'electrodes', '{}_ela_morphed.npz'.format(elc_name)))]
             ela_morph_electrodes.calc_elas(
                 subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
                 n_jobs=1)
@@ -61,68 +69,43 @@ def _create_annotation(p):
     return bad_subjects
 
 
-def read_morphed_electrodes(xls_fname, subject_to='colin27', bipolar=True, prefix='', postfix=''):
-    output_fname = '{}electrodes{}_positions.npz'.format(prefix, '_bipolar' if bipolar else '', postfix)
-    electrodes_colors = defaultdict(list)
+def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=True, prefix='morphed_', postfix=''):
+    output_fname = '{}electrodes{}_positions.npz{}'.format(prefix, '_bipolar' if bipolar else '', postfix)
     bad_electrodes = []
     template_electrodes = defaultdict(list)
     morphed_electrodes_fname = op.join(MMVT_DIR, subject_to, 'electrodes', 'morphed_electrodes.pkl')
     if op.isfile(morphed_electrodes_fname):
-        template_electrodes, electrodes_colors = utils.load(morphed_electrodes_fname)
+        template_electrodes = utils.load(morphed_electrodes_fname)
     else:
-        for line in utils.xlsx_reader(xls_fname, skip_rows=1):
-            subject, _, elec_name, _, anat_group = line
-            subject = subject.replace('\'', '')
-            if subject == '':
-                break
-            elec_group, num1, num2 = utils.elec_group_number(elec_name, bipolar)
-            if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
-                num1, num2 = str(num1).zfill(2), str(num2).zfill(2)
-            if '{}{}-{}'.format(elec_group, num2, num1) != elec_name:
-                raise Exception('Wrong group or numbers!')
-
-            elecs_pos = []
-            for num in num1, num2:
-                elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', '{}{}_ela_morphed.npz'.format(elec_group, num))
+        elecs_pos = []
+        for subject, electodes_names in subjects_electrodes.items():
+            for elec_name in electodes_names:
+                elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', 'ela_morphed',
+                                           '{}_ela_morphed.npz'.format(elec_name))
                 if not op.isfile(elec_input_fname):
-                    print('{} not found!'.format(elec_input_fname))
-                    bad_electrodes.append('{}_{}{}'.format(subject, elec_group, num))
+                    print('{} {} not found!'.format(subject, elec_name))
+                    bad_electrodes.append('{}_{}'.format(subject, elec_name))
                 else:
                     d = np.load(elec_input_fname)
+                    template_electrodes[subject].append((elec_name, d['pos']))
                     elecs_pos.append(d['pos'])
-            num1, num2 = (num1, num2 )if num2 > num1 else (num2, num1)
-            if len(elecs_pos) == 2:
-                bipolar_ele_pos = np.mean(elecs_pos, axis=0)
-                elec_name = '{}_{}{}-{}'.format(subject, elec_group, num1, num2)
-                template_electrodes[subject].append((elec_name, bipolar_ele_pos))
-                electrodes_colors[subject].append((elec_name, int(anat_group)))
-        utils.save((template_electrodes, electrodes_colors), morphed_electrodes_fname)
+        utils.save(template_electrodes, morphed_electrodes_fname)
 
-    write_electrode_colors(subject_to, electrodes_colors)
     fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
     output_fname = op.join(fol, output_fname)
     elecs_coordinates = np.array(utils.flat_list_of_lists(
         [[e[1] for e in template_electrodes[subject]] for subject in template_electrodes.keys()]))
     elecs_names = utils.flat_list_of_lists(
-        [[e[0] for e in template_electrodes[subject]] for subject in template_electrodes.keys()])
+        [['{}_{}'.format(subject.upper(), e[0]) for e in template_electrodes[subject]] for subject in
+         template_electrodes.keys()])
     print('Saving {} electrodes in {}:'.format(subject_to, output_fname))
-    print(elecs_names)
+    # print(elecs_names)
     np.savez(output_fname, pos=elecs_coordinates, names=elecs_names, pos_org=[])
 
     print('Bad electrodes:')
     print(bad_electrodes)
 
-    return template_electrodes, electrodes_colors
-
-
-# def morph_csv():
-#     electrodes = morph_electrodes_to_template.read_all_electrodes(subjects, False)
-#     template_electrodes = morph_electrodes_to_template.read_morphed_electrodes(
-#         electrodes, template_system, SUBJECTS_DIR, MMVT_DIR, True, subjects_electrodes, convert_to_bipolar=bipolar)
-#     morph_electrodes_to_template.save_template_electrodes_to_temelectrodes_csv_to_npy(subject, ras_fileplate(
-#         template_electrodes, bipolar, MMVT_DIR, template_system))
-#     morph_electrodes_to_template.export_into_csv(template_system, MMVT_DIR, bipolar)
-#     morph_electrodes_to_template.create_mmvt_coloring_file(template_system, template_electrodes, electrodes_colors)
+    return template_electrodes
 
 
 def write_electrode_colors(template, electrodes_colors):
@@ -167,12 +150,10 @@ if __name__ == '__main__':
     annotation_template = 'fsaverage5c'
     overwrite = False
     n_jobs = 10
+    specific_subjects = None #['mg78']
 
-    # _create_annotation((['mg78'], atlas, subject_to, {}, annotation_template, overwrite))
-    read_xls(xls_fname, subject_to, atlas, annotation_template, overwrite=overwrite, n_jobs=n_jobs,
-             specific_subjects=['mg78'])
-    #
-
-    # subjects_electrodes, electrodes_colors = read_morphed_electrodes(xls_fname, subject_to='colin27')
+    subjects_electrodes = read_xls(xls_fname, specific_subjects)
+    # morph_electrodes(subjects_electrodes, subject_to, atlas, annotation_template, overwrite, n_jobs)
+    subjects_electrodes, electrodes_colors = read_morphed_electrodes(subjects_electrodes, subject_to)
     # morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)
