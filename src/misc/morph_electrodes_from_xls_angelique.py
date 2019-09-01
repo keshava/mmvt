@@ -19,8 +19,8 @@ def read_xls(xls_fname,  specific_subjects=None):
         if specific_subjects is not None and subject not in specific_subjects:
             continue
         elec1_coo, elec2_coo = line[5:8], line[8:11]
-        subjects_electrodes[subject].append(elec1_name)
-        subjects_electrodes[subject].append(elec2_name)
+        subjects_electrodes[subject].append((elec1_name, elec2_name))
+
     return subjects_electrodes
 
 
@@ -55,12 +55,12 @@ def _morph_electrodes_parallel(p):
                 bad_subjects.append((subject, 'No atlas' if err == '' else err))
                 continue
         try:
-            subjects_electrodes[subject] = list(set(subjects_electrodes[subject]))
+            electrodes = list(set(utils.flat_list_of_lists(subjects_electrodes[subject])))
             if not overwrite:
-                subjects_electrodes[subject] = [elc_name for elc_name in subjects_electrodes[subject] if not op.isfile(
+                electrodes = [elc_name for elc_name in electrodes if not op.isfile(
                     op.join(MMVT_DIR, subject, 'electrodes', '{}_ela_morphed.npz'.format(elc_name)))]
             ela_morph_electrodes.calc_elas(
-                subject, subject_to, subjects_electrodes[subject], bipolar=False, atlas=atlas, overwrite=overwrite,
+                subject, subject_to, electrodes, bipolar=False, atlas=atlas, overwrite=overwrite,
                 n_jobs=1)
         except:
             print(traceback.format_exc())
@@ -74,21 +74,35 @@ def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=T
     bad_electrodes = []
     template_electrodes = defaultdict(list)
     morphed_electrodes_fname = op.join(MMVT_DIR, subject_to, 'electrodes', 'morphed_electrodes.pkl')
-    if op.isfile(morphed_electrodes_fname):
+    if False: #op.isfile(morphed_electrodes_fname):
         template_electrodes = utils.load(morphed_electrodes_fname)
     else:
-        elecs_pos = []
         for subject, electodes_names in subjects_electrodes.items():
-            for elec_name in electodes_names:
-                elec_input_fname = op.join(MMVT_DIR, subject, 'electrodes', 'ela_morphed',
-                                           '{}_ela_morphed.npz'.format(elec_name))
-                if not op.isfile(elec_input_fname):
-                    print('{} {} not found!'.format(subject, elec_name))
-                    bad_electrodes.append('{}_{}'.format(subject, elec_name))
-                else:
-                    d = np.load(elec_input_fname)
-                    template_electrodes[subject].append((elec_name, d['pos']))
-                    elecs_pos.append(d['pos'])
+            electrodes_pos = {}
+            for elecs_bipolar_names in electodes_names:
+                electrodes_found = True
+                for elec_name in elecs_bipolar_names:
+                    elec_input_fname = op.join(
+                        MMVT_DIR, subject, 'electrodes', 'ela_morphed', '{}_ela_morphed.npz'.format(elec_name))
+                    if not op.isfile(elec_input_fname):
+                        print('{} {} not found!'.format(subject, elec_name))
+                        bad_electrodes.append('{}_{}'.format(subject, elec_name))
+                        electrodes_found = False
+                        break
+                    else:
+                        d = np.load(elec_input_fname)
+                    electrodes_pos[elec_name] = d['pos']
+                if not electrodes_found:
+                    continue
+                elc1, elc2 = elecs_bipolar_names
+                (group, num1), (_, num2) = utils.elec_group_number(elc1), utils.elec_group_number(elc2)
+                if num1 > num2:
+                    elc1, elc2 = elc2, elc1
+                    num1, num2 = num2, num1
+                bipolar_elec_name = '{}{}-{}'.format(group, num2, num1)
+                pos1, pos2 = electrodes_pos[elc1], electrodes_pos[elc2]
+                bipolar_pos = pos1 + (pos2 - pos1) / 2
+                template_electrodes[subject].append((bipolar_elec_name, bipolar_pos))
         utils.save(template_electrodes, morphed_electrodes_fname)
 
     fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
@@ -154,6 +168,6 @@ if __name__ == '__main__':
 
     subjects_electrodes = read_xls(xls_fname, specific_subjects)
     # morph_electrodes(subjects_electrodes, subject_to, atlas, annotation_template, overwrite, n_jobs)
-    subjects_electrodes, electrodes_colors = read_morphed_electrodes(subjects_electrodes, subject_to)
+    template_electrodes = read_morphed_electrodes(subjects_electrodes, subject_to)
     # morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)
