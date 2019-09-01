@@ -71,7 +71,7 @@ def _morph_electrodes_parallel(p):
 
 def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=True, prefix='morphed_', postfix=''):
     output_fname = '{}electrodes{}_positions.npz{}'.format(prefix, '_bipolar' if bipolar else '', postfix)
-    bad_electrodes = []
+    bad_electrodes, bad_subjects = [], set()
     template_electrodes = defaultdict(list)
     morphed_electrodes_fname = op.join(MMVT_DIR, subject_to, 'electrodes', 'morphed_electrodes.pkl')
     if False: #op.isfile(morphed_electrodes_fname):
@@ -87,6 +87,7 @@ def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=T
                     if not op.isfile(elec_input_fname):
                         print('{} {} not found!'.format(subject, elec_name))
                         bad_electrodes.append('{}_{}'.format(subject, elec_name))
+                        bad_subjects.add(subject)
                         electrodes_found = False
                         break
                     else:
@@ -116,9 +117,8 @@ def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=T
     # print(elecs_names)
     np.savez(output_fname, pos=elecs_coordinates, names=elecs_names, pos_org=[])
 
-    print('Bad electrodes:')
-    print(bad_electrodes)
-
+    print('Bad subjects:')
+    print(bad_subjects)
     return template_electrodes
 
 
