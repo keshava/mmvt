@@ -387,10 +387,12 @@ def save_template_electrodes_to_template(template_electrodes, bipolar, mmvt_dir,
     print('Electrodes were saved to {}'.format(output_fname))
 
 
-def export_into_csv(template_system, mmvt_dir, bipolar=False, prefix=''):
+def export_into_csv(template_system, mmvt_dir, bipolar=False, prefix='', input_fname=''):
     template = 'fsaverage' if template_system == 'ras' else 'colin27' if template_system == 'mni' else template_system
-    output_name = '{}electrodes{}_positions.npz'.format(prefix, '_bipolar' if bipolar else '')
-    electrodes_dict = utils.Bag(np.load(op.join(mmvt_dir, template, 'electrodes', output_name)))
+    if input_fname == '':
+        input_name = '{}electrodes{}_positions.npz'.format(prefix, '_bipolar' if bipolar else '')
+        input_fname = op.join(mmvt_dir, template, 'electrodes', input_name)
+    electrodes_dict = utils.Bag(np.load(input_fname))
     fol = utils.make_dir(op.join(MMVT_DIR, template, 'electrodes'))
     csv_fname = op.join(fol, '{}{}_RAS.csv'.format(prefix, template))
     print('Writing csv file to {}'.format(csv_fname))

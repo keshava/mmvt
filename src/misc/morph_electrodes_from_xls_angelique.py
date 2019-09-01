@@ -5,7 +5,7 @@ import traceback
 from collections import defaultdict
 from src.utils import utils
 from src.utils import preproc_utils as pu
-# from src.examples import morph_electrodes_to_template
+from src.examples import morph_electrodes_to_template
 from src.preproc import anatomy as anat, ela_morph_electrodes
 
 SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
@@ -119,7 +119,7 @@ def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=T
 
     print('Bad subjects:')
     print(bad_subjects)
-    return template_electrodes
+    return output_fname
 
 
 def write_electrode_colors(template, electrodes_colors):
@@ -168,6 +168,7 @@ if __name__ == '__main__':
 
     subjects_electrodes = read_xls(xls_fname, specific_subjects)
     # morph_electrodes(subjects_electrodes, subject_to, atlas, annotation_template, overwrite, n_jobs)
-    template_electrodes = read_morphed_electrodes(subjects_electrodes, subject_to)
-    # morph_electrodes_to_template.export_into_csv(subjects_electrodes, template_system, MMVT_DIR, bipolar)
+    morphed_electrodes_fname = read_morphed_electrodes(subjects_electrodes, subject_to)
+    # save_electrodes_to_csv()
+    morph_electrodes_to_template.export_into_csv(subject_to, MMVT_DIR, bipolar=True, input_fname=morphed_electrodes_fname)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)
