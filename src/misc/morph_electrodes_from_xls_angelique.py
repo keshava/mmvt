@@ -70,8 +70,9 @@ def _morph_electrodes_parallel(p):
 
 
 def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=True, prefix='morphed_'):
-    bipolar_output_fname = '{}electrodes_bipolar_positions.npz'.format(prefix)
-    monopolar_output_fname = '{}electrodes_positions.npz'.format(prefix)
+    fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
+    bipolar_output_fname = op.join(fol, '{}electrodes_bipolar_positions.npz'.format(prefix))
+    monopolar_output_fname = op.join(fol, '{}electrodes_positions.npz'.format(prefix))
     bad_electrodes, bad_subjects = [], set()
     template_bipolar_electrodes, template_electrodes = defaultdict(list), defaultdict(list)
     morphed_electrodes_fname = op.join(MMVT_DIR, subject_to, 'electrodes', 'morphed_electrodes.pkl')
@@ -116,8 +117,7 @@ def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=T
 
 
 def save_electrodes(template_electrodes, output_fname):
-    fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
-    output_fname = op.join(fol, output_fname)
+    # output_fname = op.join(fol, output_fname)
     elecs_coordinates = np.array(utils.flat_list_of_lists(
         [[e[1] for e in template_electrodes[subject]] for subject in template_electrodes.keys()]))
     elecs_names = utils.flat_list_of_lists(
