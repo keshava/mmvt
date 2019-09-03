@@ -394,7 +394,7 @@ def export_into_csv(template_system, mmvt_dir, bipolar=False, prefix='', input_f
         input_fname = op.join(mmvt_dir, template, 'electrodes', input_name)
     electrodes_dict = utils.Bag(np.load(input_fname))
     fol = utils.make_dir(op.join(MMVT_DIR, template, 'electrodes'))
-    csv_fname = op.join(fol, '{}{}_RAS.csv'.format(prefix, template))
+    csv_fname = op.join(fol, '{}{}_{}RAS.csv'.format(prefix, template, 'bipolar_' if bipolar else ''))
     print('Writing csv file to {}'.format(csv_fname))
     with open(csv_fname, 'w') as csv_file:
         wr = csv.writer(csv_file, quoting=csv.QUOTE_NONE)
