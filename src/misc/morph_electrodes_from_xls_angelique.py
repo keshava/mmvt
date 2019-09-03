@@ -69,13 +69,14 @@ def _morph_electrodes_parallel(p):
     return bad_subjects
 
 
-def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=True, prefix='morphed_', postfix=''):
-    output_fname = '{}electrodes{}_positions.npz{}'.format(prefix, '_bipolar' if bipolar else '', postfix)
+def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=True, prefix='morphed_'):
+    bipolar_output_fname = '{}electrodes_bipolar_positions.npz'.format(prefix)
+    monopolar_output_fname = '{}electrodes_positions.npz'.format(prefix)
     bad_electrodes, bad_subjects = [], set()
-    template_electrodes = defaultdict(list)
+    template_bipolar_electrodes, template_electrodes = defaultdict(list), defaultdict(list)
     morphed_electrodes_fname = op.join(MMVT_DIR, subject_to, 'electrodes', 'morphed_electrodes.pkl')
     if False: #op.isfile(morphed_electrodes_fname):
-        template_electrodes = utils.load(morphed_electrodes_fname)
+        template_bipolar_electrodes, template_electrodes = utils.load(morphed_electrodes_fname)
     else:
         for subject, electodes_names in subjects_electrodes.items():
             electrodes_pos = {}
@@ -93,6 +94,7 @@ def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=T
                     else:
                         d = np.load(elec_input_fname)
                     electrodes_pos[elec_name] = d['pos']
+                    template_electrodes[subject].append((elec_name, d['pos']))
                 if not electrodes_found:
                     continue
                 elc1, elc2 = elecs_bipolar_names
@@ -103,9 +105,17 @@ def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=T
                 bipolar_elec_name = '{}{}-{}'.format(group, num2, num1)
                 pos1, pos2 = electrodes_pos[elc1], electrodes_pos[elc2]
                 bipolar_pos = pos1 + (pos2 - pos1) / 2
-                template_electrodes[subject].append((bipolar_elec_name, bipolar_pos))
-        utils.save(template_electrodes, morphed_electrodes_fname)
+                template_bipolar_electrodes[subject].append((bipolar_elec_name, bipolar_pos))
+        utils.save(template_bipolar_electrodes, morphed_electrodes_fname)
 
+    save_electrodes(template_electrodes, monopolar_output_fname)
+    save_electrodes(template_bipolar_electrodes, bipolar_output_fname)
+    print('Bad subjects:')
+    print(bad_subjects)
+    return monopolar_output_fname, bipolar_output_fname
+
+
+def save_electrodes(template_electrodes, output_fname):
     fol = utils.make_dir(op.join(MMVT_DIR, subject_to, 'electrodes'))
     output_fname = op.join(fol, output_fname)
     elecs_coordinates = np.array(utils.flat_list_of_lists(
@@ -114,12 +124,7 @@ def read_morphed_electrodes(subjects_electrodes, subject_to='colin27', bipolar=T
         [['{}_{}'.format(subject.upper(), e[0]) for e in template_electrodes[subject]] for subject in
          template_electrodes.keys()])
     print('Saving {} electrodes in {}:'.format(subject_to, output_fname))
-    # print(elecs_names)
     np.savez(output_fname, pos=elecs_coordinates, names=elecs_names, pos_org=[])
-
-    print('Bad subjects:')
-    print(bad_subjects)
-    return output_fname
 
 
 def write_electrode_colors(template, electrodes_colors):
@@ -168,7 +173,11 @@ if __name__ == '__main__':
 
     subjects_electrodes = read_xls(xls_fname, specific_subjects)
     # morph_electrodes(subjects_electrodes, subject_to, atlas, annotation_template, overwrite, n_jobs)
-    morphed_electrodes_fname = read_morphed_electrodes(subjects_electrodes, subject_to)
+    morphed_mopolar_electrodes_fname, morphed_bipolar_electrodes_fname = read_morphed_electrodes(
+        subjects_electrodes, subject_to)
     # save_electrodes_to_csv()
-    morph_electrodes_to_template.export_into_csv(subject_to, MMVT_DIR, bipolar=True, input_fname=morphed_electrodes_fname)
+    morph_electrodes_to_template.export_into_csv(
+        subject_to, MMVT_DIR, bipolar=True, input_fname=morphed_bipolar_electrodes_fname)
+    morph_electrodes_to_template.export_into_csv(
+        subject_to, MMVT_DIR, bipolar=False, input_fname=morphed_mopolar_electrodes_fname)
     # morph_electrodes_to_template.create_mmvt_coloring_file(template_system, subjects_electrodes, electrodes_colors)
