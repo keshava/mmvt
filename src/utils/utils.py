@@ -965,7 +965,7 @@ def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_s
                         if len(remote_files) > 0:
                             remote_fname = select_one_file(remote_files, files_desc=file_name)
                             remote_lower = namebase_with_ext(remote_fname).lower()
-                            if subject.lower() in remote_lower and subject not in namebase(remote_fname):
+                            if subject in remote_lower and subject not in namebase(remote_fname):
                                 ind = remote_lower.index(subject)
                                 new_file_name = remote_lower[:ind] + subject + remote_lower[len(subject):]
                                 local_fname = op.join(local_subject_dir, fol, new_file_name)

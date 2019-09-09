@@ -1598,6 +1598,11 @@ def recon_all(subject, nifti_fname, n_jobs=1):
         return False
 
 
+def mne_coregistration(subject):
+    import mne
+    mne.gui.coregistration(subject=subject, subjects_dir=SUBJECTS_DIR)
+
+
 def call_main(args):
     pu.run_on_subjects(args, main)
 
@@ -1730,6 +1735,10 @@ def main(subject, remote_subject_dir, org_args, flags):
 
     if 'recon-all' in args.function:
         flags['recon-all'] = recon_all(subject, args.nifti_fname, args.n_jobs)
+
+
+    if 'mne_coregistration' in args.function:
+        flags['mne_coregistration'] = mne_coregistration(subject)
 
     return flags
 
