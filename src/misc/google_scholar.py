@@ -6,7 +6,7 @@ import os
 import time
 import glob
 import pickle
-
+from tqdm import tqdm
 
 # from bs4 import BeautifulSoup
 
@@ -149,15 +149,49 @@ def parse_bibtex_files(fol, recursive=False):
                 if paper_name in papers:
                     continue
                 papers.add(paper_name)
-                bibtex_authors = entry['author']
-                authors = [name.strip() for name in bibtex_authors.split('and')]
+                authors = parse_authors(entry)
                 for author in authors:
                     authors_papers[author].append('"{}" ({}) -> "{}"'.format(
                         paper_name, entry['year'] if 'year' in entry else '', own_paper_name))
                 all_authors.extend(authors)
     all_authors = Counter(all_authors).most_common()
     print(all_authors)
-    print(authors_papers['Gratch, Jonathan'])
+    print('{} has cited you in {} publications!'.format(all_authors[0][0], all_authors[0][1]))
+    # print(authors_papers[all_authors[0][0]])
+    return all_authors
+
+
+def parse_authors(bib_entry):
+    return [name.strip() for name in bib_entry['author'].split('and')]
+
+
+def export_bibtex(author_name, fol, recursive=False):
+    from bibtexparser.bwriter import BibTexWriter
+    from bibtexparser.bibdatabase import BibDatabase
+    db = BibDatabase()
+
+    papers = set()
+    bib_fnames = glob.glob(op.join(op.join(fol, '**', '*.bib')), recursive=True) if recursive \
+        else glob.glob(op.join(op.join(fol, '*.bib')))
+    for bib_fname in tqdm(bib_fnames):
+        with open(bib_fname) as bibtex_file:
+            bib = bibtexparser.load(bibtex_file)
+            for entry in bib.entries:
+                paper_name = entry['title']
+                if paper_name in papers:
+                    continue
+                papers.add(paper_name)
+                authors = parse_authors(entry)
+                if author_name in authors:
+                    db.entries.append(entry)
+
+    author_name = author_name.replace(' ', '').replace(',', '_')
+    bibtex_fname = op.join(fol, '{}.bib'.format(author_name))
+    writer = BibTexWriter()
+    with open(bibtex_fname, 'w') as bibfile:
+        bibfile.write(writer.write(db))
+    print('The bibtex file with {} papers of {} where she cited you was exported to {}'.format(
+        len(db.entries), author_name, bibtex_fname))
 
 
 def save(fname, obj):
@@ -180,7 +214,7 @@ def namebase(fname):
 if __name__ == '__main__':
     thesis_fol = 'C:\\Users\\peled\\Documents\\citations\\thesis'
     master_fol = 'C:\\Users\\peled\\Documents\\citations\\master'
-    fol = master_fol
+    fol = thesis_fol
     thesis_publications = [
         'A study of computational and human strategies in revelation games',
         'An agent design for repeated negotiation and information revelation with people',
@@ -195,4 +229,6 @@ if __name__ == '__main__':
     # 2)
     # url_scholarbibs = load(url_scholarbibs_fname)
     # download_publications_bibtex(url_scholarbibs, fol)
-    parse_bibtex_files(fol)
+    authors = parse_bibtex_files(fol)
+    author = 'Gratch, Jonathan' # authors[0][0]
+    export_bibtex(author, fol)
