@@ -214,7 +214,9 @@ def namebase(fname):
 if __name__ == '__main__':
     thesis_fol = 'C:\\Users\\peled\\Documents\\citations\\thesis'
     master_fol = 'C:\\Users\\peled\\Documents\\citations\\master'
-    fol = thesis_fol
+    master_author = 'Buhry, Laure'
+    thesis_author = 'Gratch, Jonathan'
+    fol = master_fol
     thesis_publications = [
         'A study of computational and human strategies in revelation games',
         'An agent design for repeated negotiation and information revelation with people',
@@ -230,5 +232,5 @@ if __name__ == '__main__':
     # url_scholarbibs = load(url_scholarbibs_fname)
     # download_publications_bibtex(url_scholarbibs, fol)
     authors = parse_bibtex_files(fol)
-    author = 'Gratch, Jonathan' # authors[0][0]
+    author = master_author# authors[0][0]
     export_bibtex(author, fol)
