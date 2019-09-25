@@ -273,7 +273,7 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
                  windows_num=0, overwrite_epochs=False, eve_template='*eve.fif', raw_fname='',
                  using_auto_reject=True, ar_compute_thresholds_method='random_search', ar_consensus_percs=None,
                  ar_n_interpolates=None, bad_ar_threshold = 0.5, use_demi_events=False, notch_widths=None,
-                 read_from_raw=False, n_jobs=6):
+                 read_from_raw=False, read_events_as_annotation=False, n_jobs=6):
     if not read_from_raw:
         epo_fname = get_epo_fname(epo_fname, overwrite=overwrite_epochs)
         if op.isfile(epo_fname) and not overwrite_epochs:
@@ -282,7 +282,7 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
     try:
         events, _ = read_events(
             task, events, raw, tmax, read_events_from_file, stim_channels, windows_length, windows_shift, windows_num,
-            eve_template, use_demi_events)
+            eve_template, use_demi_events, read_events_as_annotation)
     except:
         # ret = input('No events, should create one epoch from raw (y/n)? ')
         # if not au.is_true(ret):
@@ -329,8 +329,11 @@ def calc_epoches(raw, conditions, tmin, tmax, baseline, read_events_from_file=Fa
 
 
 def read_events(task='', events=None, raw=None, tmax=0, read_events_from_file=False, stim_channels=None,
-                windows_length=1000, windows_shift=500, windows_num=0, eve_template='*eve.fif', use_demi_events=False):
-    if read_events_from_file:
+                windows_length=1000, windows_shift=500, windows_num=0, eve_template='*eve.fif', use_demi_events=False,
+                read_events_as_annotation=False):
+    if not raw is None and read_events_as_annotation:
+        events, events_dict = mne.events_from_annotations(raw)
+    elif read_events_from_file:
         events_fname, event_fname_exist = locating_meg_file(EVE, glob_pattern=eve_template)
         if events is None and event_fname_exist:
             # events_fname = events_fname if events_fname != '' else EVE
@@ -487,7 +490,8 @@ def calc_epochs_wrapper_args(conditions, args, raw=None):
         args.bad_channels, args.l_freq, args.h_freq, args.task, args.windows_length, args.windows_shift,
         args.windows_num, args.overwrite_epochs, args.epo_fname, args.raw_fname, args.eve_template,
         args.using_auto_reject, args.ar_compute_thresholds_method, args.ar_consensus_percs,
-        args.ar_n_interpolates, args.bad_ar_threshold, args.use_demi_events, args.power_line_notch_widths, args.n_jobs)
+        args.ar_n_interpolates, args.bad_ar_threshold, args.use_demi_events, args.power_line_notch_widths,
+        args.read_events_as_annotation, args.n_jobs)
 
 
 def calc_epochs_wrapper(
@@ -497,7 +501,8 @@ def calc_epochs_wrapper(
         power_line_freq=60, bad_channels=[], l_freq=None, h_freq=None, task='', windows_length=1000, windows_shift=500,
         windows_num=0, overwrite_epochs=False, epo_fname='', raw_fname='', eve_template='*eve.fif',
         using_auto_reject=True, ar_compute_thresholds_method='random_search', ar_consensus_percs=None,
-        ar_n_interpolates=None, bad_ar_threshold=0.5, use_demi_events=False, notch_widths=None, n_jobs=6):
+        ar_n_interpolates=None, bad_ar_threshold=0.5, use_demi_events=False, notch_widths=None,
+        read_events_as_annotation=False, n_jobs=6):
     # Calc evoked data for averaged data and for each condition
     try:
         if epo_fname == '':
@@ -531,7 +536,8 @@ def calc_epochs_wrapper(
                 pick_eeg, pick_eog, reject, reject_grad, reject_mag, reject_eog, remove_power_line_noise,
                 power_line_freq, epo_fname, task, windows_length, windows_shift, windows_num, overwrite_epochs,
                 eve_template, raw_fname, using_auto_reject, ar_compute_thresholds_method, ar_consensus_percs,
-                ar_n_interpolates, bad_ar_threshold, use_demi_events, notch_widths, read_from_raw, n_jobs)
+                ar_n_interpolates, bad_ar_threshold, use_demi_events, notch_widths, read_from_raw,
+                read_events_as_annotation, n_jobs)
         # if task != 'rest':
         #     all_evoked = calc_evoked_from_epochs(epochs, conditions)
         # else:
@@ -1587,6 +1593,8 @@ def calc_evokes(epochs, events, mri_subject, normalize_data=False, epo_fname='',
             evokes_all = epochs_all.average()
             evokes_all_fname = op.join(utils.get_parent_fol(evoked_fname), '{}-all-eve.fif'.format(mri_subject))
             mne.write_evokeds(evokes_all_fname, evokes_all)
+            # save_evokes_to_mmvt(epochs_all, [1], mri_subject, None, normalize_data, norm_by_percentile,
+            #                     norm_percs, modality, calc_max_min_diff, task, bad_channels)
         else:
             evokes_all = None
         save_evokes_to_mmvt(evokes, events_keys, mri_subject, evokes_all, normalize_data, norm_by_percentile,
@@ -2216,7 +2224,7 @@ def get_fwd_fname(fwd_fname='', fwd_usingMEG=True, fwd_usingEEG=True, create_new
         fwd_modal_fname = FWD_MEEG
     else:
         fwd_modal_fname = FWD_EEG if fwd_usingEEG else FWD_MEG
-    if op.isfile(fwd_modal_fname) and fwd_fname == '':
+    if op.isfile(fwd_modal_fname) and fwd_fname in ['', fwd_modal_fname]:
         print('get_fwd_fname: using {}'.format(fwd_modal_fname))
         return fwd_modal_fname
     if create_new:
@@ -2310,6 +2318,8 @@ def calc_inverse_operator(
                     # We might want to downfilter the raw for the noise cov calculatation, like in here:
                     # https://martinos.org/mne/stable/manual/sample_dataset.html#computing-the-noise-covariance-matrix
                     # mne_process_raw --raw sample_audvis_raw.fif --lowpass 40 --projon --savecovtag -cov --cov audvis.cov
+                    if not op.isfile(raw_fname):
+                        print('Can\'t find the raw file ({}) for calculating the noise cov!'.format(raw_fname))
                     raw = mne.io.read_raw_fif(raw_fname) # preload=True # add_eeg_ref=False
                     noise_cov = mne.compute_raw_covariance(raw, tmin=0, tmax=None)
                     noise_cov.save(noise_cov_fname)
@@ -2605,7 +2615,8 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                         evoked = evoked.crop(stc_t_min, stc_t_max)
                     try:
                         info = evoked.info
-                        if not info['custom_ref_applied'] and not mne.io.proj._has_eeg_average_ref_proj(info['projs']):
+                        if modal == 'eeg' or (not info['custom_ref_applied'] and
+                                              not mne.io.proj._has_eeg_average_ref_proj(info['projs'])):
                             # todo: should check if this was already done
                             mne.set_eeg_reference(evoked, projection=True) #ref_channels=None)
                         # evoked.apply_ref
@@ -4665,6 +4676,10 @@ def get_fname_format(task, fname_format='', fname_format_cond='', args_condition
             if fname_format == '' or fname_format == '{subject}-{ana_type}.{file_type}':
                 fname_format = fname_format_cond = '{subject}_{cleaning_method}-epilepsy-{ana_type}.{file_type}'
             conditions = dict(epilepsy=1)
+        elif task == 'tms':
+            if fname_format == '' or fname_format == '{subject}-{ana_type}.{file_type}':
+                fname_format = fname_format_cond = '{subject}_-EEG-TMS-{ana_type}.{file_type}'
+            conditions = dict(tms=255)
     if conditions is None:
         if fname_format == '' or fname_format_cond == '':
             raise Exception('Empty fname_format and/or fname_format_cond!')
@@ -6290,6 +6305,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--overwrite_baseline_sensors_bands_psd', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_source_baseline_psd', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--read_events_from_file', help='read_events_from_file', required=False, default=0, type=au.is_true)
+    parser.add_argument('--read_events_as_annotation', help='read_events_as_annotation', required=False, default=0, type=au.is_true)
     parser.add_argument('--events_fname', help='events_fname', required=False, default='')
     parser.add_argument('--use_demi_events', help='use_demi_events', required=False, default=0, type=au.is_true)
     parser.add_argument('--windows_length', help='', required=False, default=1000, type=int)
