@@ -1594,11 +1594,12 @@ def color_objects(objects_names, colors, data):
         for region, color in zip(objects_names[mu.OBJ_TYPE_SUBCORTEX], colors[mu.OBJ_TYPE_SUBCORTEX]):
             print('color {}: {}'.format(region, color))
             color_subcortical_region(region, color)
-    if mu.OBJ_TYPE_ELECTRODE in objects_names:
-        for electrode, color in zip(objects_names[mu.OBJ_TYPE_ELECTRODE], colors[mu.OBJ_TYPE_ELECTRODE]):
-            obj = bpy.data.objects.get(electrode)
-            if obj and not obj.hide:
-                object_coloring(obj, color)
+    for obj_type in [mu.OBJ_TYPE_ELECTRODE, mu.OBJ_TYPE_EEG, mu.OBJ_TYPE_MEG]:
+        if obj_type in objects_names:
+            for electrode, color in zip(objects_names[obj_type], colors[obj_type]):
+                obj = bpy.data.objects.get(electrode)
+                if obj and not obj.hide:
+                    object_coloring(obj, color)
     if mu.OBJ_TYPE_CEREBELLUM in objects_names:
         for cer, color in zip(objects_names[mu.OBJ_TYPE_CEREBELLUM], colors[mu.OBJ_TYPE_CEREBELLUM]):
             obj = bpy.data.objects.get(cer)
