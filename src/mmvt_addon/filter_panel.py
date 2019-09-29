@@ -423,6 +423,8 @@ class Filtering(bpy.types.Operator):
         else:
             d = data
         # print('%%%%%%%%%%%%%%%%%%%' + str(len(d[0, :, 0])))
+        if d.ndim == 2:
+            d = d[:, :, np.newaxis]
         t_range = range(max(self.filter_from, 1), min(self.filter_to, len(d[0, :, 0])) - 1)
         objects_to_filtter_in, dd = filter_func(d, t_range, self.topK, bpy.context.scene.coloring_lower_threshold)
         # print(dd[objects_to_filtter_in])

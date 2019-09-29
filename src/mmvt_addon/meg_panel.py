@@ -84,7 +84,7 @@ def get_eeg_sensors_data():
     #     MEGPanel.eeg_sensors_data[eeg_sensors_file_name] = np.load(eeg_sensors_data_fname)
     eeg_sensors_data = np.load(eeg_sensors_data_fname)
     # if eeg_sensors_meta_data is None:
-    meta = mu.Bag(np.load(eeg_sensors_meta_data_fname))
+    meta = mu.Bag(np.load(eeg_sensors_meta_data_fname, allow_pickle=True))
     meta['names'] = [n.replace(' ', '') for n in meta['names']] # ugly patch
     # MEGPanel.eeg_sensors_meta_data[eeg_sensors_file_name] = meta
     return eeg_sensors_data, meta

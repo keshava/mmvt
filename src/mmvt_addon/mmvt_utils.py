@@ -100,8 +100,8 @@ IS_WINDOWS = _platform == "win32"
 HEMIS = ['rh', 'lh']
 INF_HEMIS = ['inflated_{}'.format(hemi) for hemi in HEMIS]
 (OBJ_TYPE_CORTEX_RH, OBJ_TYPE_CORTEX_LH, OBJ_TYPE_CORTEX_INFLATED_RH, OBJ_TYPE_CORTEX_INFLATED_LH, OBJ_TYPE_SUBCORTEX,
-    OBJ_TYPE_ELECTRODE, OBJ_TYPE_EEG, OBJ_TYPE_CEREBELLUM, OBJ_TYPE_CON, OBJ_TYPE_CON_VERTICE, OBJ_TYPE_LABEL) = \
-    range(11)
+    OBJ_TYPE_ELECTRODE, OBJ_TYPE_EEG, OBJ_TYPE_MEG, OBJ_TYPE_CEREBELLUM, OBJ_TYPE_CON, OBJ_TYPE_CON_VERTICE, OBJ_TYPE_LABEL) = \
+    range(12)
 OBJ_TYPES_ROIS = [OBJ_TYPE_CORTEX_RH, OBJ_TYPE_CORTEX_LH, OBJ_TYPE_CORTEX_INFLATED_RH, OBJ_TYPE_CORTEX_INFLATED_LH]
 
 show_hide_icon = dict(show='RESTRICT_VIEW_OFF', hide='RESTRICT_VIEW_ON')
@@ -1247,7 +1247,8 @@ def get_all_children(parents):
 
 
 def get_non_functional_objects():
-    return get_all_children((['Cortex-lh', 'Cortex-rh', 'Subcortical_structures', 'Deep_electrodes', 'External']))
+    return get_all_children((['Cortex-lh', 'Cortex-rh', 'Subcortical_structures', 'Deep_electrodes', 'External',
+                              'EEG_sensors', 'MEG_sensors']))
 
 
 def get_selected_objects():
