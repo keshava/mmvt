@@ -132,6 +132,13 @@ def image_in_image():
             meg_ind += 1
 
 
+def image_in_image2():
+    from src.utils import figures_utils as fu
+    fig1 = 'C:\\Users\\peled\\Pictures\\mmvt\\f1917.png'
+    fig2 = 'C:\\Users\\peled\\Pictures\\mmvt\\f950.png'
+    output_fname = 'C:\\Users\\peled\\Pictures\\mmvt\\Or.jpg'
+    fu.merge_with_alpha(fig1, fig2, output_fname)
+
 
 def edit_mmvt_demo():
     movie_fol = op.join(MMVT_DIR, 'colin27', 'movies')
@@ -143,4 +150,5 @@ if __name__ == '__main__':
     # image_in_image()
     # ski_movie()
     # edit_movie_example3()
-    edit_mmvt_demo()
+    # edit_mmvt_demo()
+    image_in_image2()

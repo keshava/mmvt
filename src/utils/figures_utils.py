@@ -367,17 +367,19 @@ def resize_and_move_ax(ax, dx=0, dy=0, dw=0, dh=0, ddx=1, ddy=1, ddw=1, ddh=1, *
 
 
 def merge_with_alpha(background, foreground, output_fname, pos=(0,0), fg_ratio=(1/2, 1/2),
-                     margin=0, delta=(0,0)):
+                     margin=0, delta=(0,0), alpha=100):
     from PIL import Image
 
     if isinstance(background, str):
         background = Image.open(background)
     elif not isinstance(background, object):
         raise Exception('background: Can be file name or Image object')
-    if isinstance(background, str):
+    if isinstance(foreground, str):
         foreground = Image.open(foreground)
     elif not isinstance(foreground, object):
         raise Exception('background: Can be file name or Image object')
+    foreground.putalpha(alpha)
+
     # w, h = foreground.size
     # foreground = foreground.crop((100, 0, 670, h))
     fw, fh = foreground.size
