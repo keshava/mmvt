@@ -318,5 +318,7 @@ def plot_both_conditions(subject, conditions, modality, high_freq=120, con_metho
             plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.1, node_name, stc_data, stc_times,
                            windows_len, windows_shift, ax)
         axs[1].set_xlabel('Time (ms)', fontsize=12)
-        plt.show()
+        fig_fname = op.join(figures_fol, 'connectivity_both_conds_{}_{}.jpg'.format(con_method, band_name))
+        plt.savefig(fig_fname)
+        # plt.show()
     print('Done!')
