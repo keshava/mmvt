@@ -319,6 +319,7 @@ def plot_both_conditions(subject, conditions, modality, high_freq=120, con_metho
                            windows_len, windows_shift, ax)
         axs[1].set_xlabel('Time (ms)', fontsize=12)
         fig_fname = op.join(figures_fol, 'connectivity_both_conds_{}_{}.jpg'.format(con_method, band_name))
+        print('Saving connectivity figure to {}'.format(fig_fname))
         plt.savefig(fig_fname)
         # plt.show()
     print('Done!')
