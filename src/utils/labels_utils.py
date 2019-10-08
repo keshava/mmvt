@@ -31,7 +31,7 @@ except:
 HEMIS = ['rh', 'lh']
 
 
-def find_template_brain_with_annot_file(aparc_name, fsaverage, subjects_dir, find_in_all=False):
+def find_template_brain_with_annot_file(aparc_name, fsaverage, subjects_dir, find_in_all=True):
     optional_templates = []
     if find_in_all:
         fsaverage = [utils.namebase(d) for d in glob.glob(op.join(subjects_dir, 'fs*'))]
