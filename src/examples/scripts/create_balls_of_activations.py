@@ -4,6 +4,11 @@ import numpy as np
 import time
 import glob
 import os.path as op
+from scripts_panel import ScriptsPanel
+
+
+def _mmvt():
+    return ScriptsPanel.addon
 
 
 def run(mmvt):
@@ -29,7 +34,7 @@ def import_csv(mmvt, csv_fname, balls_c=None, balls_r=None, suffix='', flip_x=Fa
     if balls_c is None:
         balls_c = {1: 'blue', 2: 'red'}
     if balls_r is None:
-        balls_r = {1: 0.15, 2: 0.25}
+        balls_r = {1: 0.15, 2: 0.22}
     lines = list(mu.csv_file_reader(csv_fname, find_encoding=True))
     now = time.time()
     for ind, line in enumerate(lines):
@@ -60,6 +65,21 @@ def import_csv(mmvt, csv_fname, balls_c=None, balls_r=None, suffix='', flip_x=Fa
             subject_tkreg_ras, ball_name, balls_r[primary], color=balls_c[cond], subject_tkreg_ras=True)
 
 
+def delete_balls():
+    mu = _mmvt().utils
+    mu.delete_hierarchy('Deep_electrodes')
+
+
+class DeleteBalls(bpy.types.Operator):
+    bl_idname = "mmvt.cboa_delete_balls"
+    bl_label = "cboa_delete_balls"
+    bl_options = {"UNDO"}
+
+    def invoke(self, context, event=None):
+        delete_balls()
+        return {'PASS_THROUGH'}
+
+
 bpy.types.Scene.balls_of_activations_csv_fname = bpy.props.StringProperty(subtype='FILE_PATH')
 bpy.types.Scene.balls_of_activations_folder = bpy.props.StringProperty(subtype='DIR_PATH')
 bpy.types.Scene.balls_of_activations_pos_to_current_inflation = bpy.props.BoolProperty(default=True)
@@ -74,3 +94,22 @@ def draw(self, context):
         layout.prop(context.scene, 'balls_of_activations_csv_fname', text='csv')
     layout.prop(context.scene, 'balls_of_activations_all_folder', text='All folder')
     layout.prop(context.scene, 'balls_of_activations_pos_to_current_inflation', text='Project to surface')
+    layout.operator(DeleteBalls.bl_idname, text="Delete Balls", icon='CANCEL')
+
+
+def init(mmvt):
+    register()
+
+
+def register():
+    try:
+        bpy.utils.register_class(DeleteBalls)
+    except:
+        pass
+
+
+def unregister():
+    try:
+        bpy.utils.unregister_class(DeleteBalls)
+    except:
+        pass

@@ -300,6 +300,7 @@ class EpilepsySaveImage(bpy.types.Operator):
 bpy.types.Scene.epilepsy_only_zvals = bpy.props.BoolProperty(default=True, update=epilepsy_only_zvals_update)
 bpy.types.Scene.epilepsy_save_stc_over_time = bpy.props.BoolProperty(default=False)
 
+
 def init(mmvt):
     mu = mmvt.mmvt_utils
     register()
