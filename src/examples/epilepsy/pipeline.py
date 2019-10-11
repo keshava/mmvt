@@ -950,18 +950,18 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # check_inv_fwd(subject, modality, run_num)
 
         # 3) Amplitude
-        # calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
-        # calc_amplitude_zvals(
-        #     subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
-        #     use_abs=False, parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
-        # average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
-        #                         do_plot=True, overwrite=True)
-        # find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
-        # calc_labels_connectivity(
-        #     subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
-        #     low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
-        #     windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
-        #     overwrite_connectivity=False, n_jobs=n_jobs)
+        calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
+        calc_amplitude_zvals(
+            subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
+            use_abs=False, parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)
+        average_amplitude_zvals(subject, windows, modality, specific_window, avg_use_abs, inverse_method='dSPM',
+                                do_plot=True, overwrite=True)
+        find_functional_rois(subject, specific_window, modality, con_atlas, min_cluster_size, inverse_method)
+        calc_labels_connectivity(
+            subject, windows, baseline_window, specific_window, modality, con_atlas, True, inverse_method,
+            low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
+            windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
+            overwrite_connectivity=False, n_jobs=n_jobs)
         # normalize_connectivity(
         #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
         #     threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
@@ -1079,6 +1079,6 @@ if __name__ == '__main__':
         for specific_window in specific_windows:
             main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
                  inverse_method, specific_window, exclude_windows, no_runs, recursive, check_windows, atlas, n_jobs)
-        all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
-                 inverse_method, specific_windows, exclude_windows, no_runs, recursive, check_windows, atlas, n_jobs)
+        # all_conditions_main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, bad_channels, baseline_name,
+        #          inverse_method, specific_windows, exclude_windows, no_runs, recursive, check_windows, atlas, n_jobs)
     print('Finish!')

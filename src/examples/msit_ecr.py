@@ -953,9 +953,9 @@ def sensors_ttest(args):
 def post_analysis(args):
     inv_method, em, template_brain = 'dSPM', 'mean_flip', 'colin27'
     bands = dict(delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    # res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
     res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
     input_fname = op.join(res_fol, '{}_{}_{}_all_power_spectrum.npz'.format('{task}', inv_method, em))
-    res_fol = utils.make_dir(op.join(utils.get_parent_fol(MMVT_DIR), 'msit-ecr'))
     figs_fol = utils.make_dir(op.join(res_fol, 'figures', 'ttest'))
     subjects = {task: np.load(input_fname.format(task=task.lower()))['subjects'] for task in args.tasks}
     if not np.all(subjects[args.tasks[0]] == subjects[args.tasks[0]]):
@@ -1482,3 +1482,4 @@ if __name__ == '__main__':
         locals()[args.function](args)
 
 
+# -s ep002 -f meg_preproc_power --n_jobs 3 --tasks MSIT

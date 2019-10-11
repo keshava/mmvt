@@ -817,7 +817,7 @@ def calc_source_power_spectrum(
                 labels = lu.read_labels(mri_subject, SUBJECTS_MRI_DIR, atlas, surf_name=surf_name, n_jobs=n_jobs)
                 plot_psds(subject, d['power_spectrum'], d['frequencies'], labels, cond_ind, cond_name, plots_fol)
             if not (baseline_times[0] is None and baseline_times[1] is None) and \
-                    'power_spectrum_basline' not in d or d['power_spectrum_basline'] is None:
+                    'power_spectrum_baseline' not in d or d['power_spectrum_baseline'] is None:
                 print('Baseline needed to be computed')
             else:
                 continue
