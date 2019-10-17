@@ -1628,7 +1628,7 @@ def main(subject, remote_subject_dir, org_args, flags):
             subject, args.atlas, args.overwrite_labels_ply_files, args.overwrite_annotation,
             args.overwrite_vertices_labels_lookup, args.solve_labels_collision_surf_type, args.n_jobs)
 
-    if utils.should_run(args, 'subcortical_segmentation'):
+    if utils.should_run(args, 'subcortical'):
         # *) Create srf files for subcortical structures
         flags['subcortical'] = subcortical_segmentation(subject, args.overwrite_subcorticals, n_jobs=args.n_jobs)
 
