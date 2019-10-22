@@ -2511,6 +2511,8 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
     epo_fname = get_epo_fname(epo_fname)
     evo_fname = get_evo_fname(evo_fname)
     inv_fname = get_inv_fname(inv_fname, fwd_usingMEG, fwd_usingEEG)
+    if pick_ori == '':
+        pick_ori = None
     if fwd_usingMEG and fwd_usingEEG:
         modal = 'meeg'
     else:
