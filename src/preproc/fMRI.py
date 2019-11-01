@@ -1386,9 +1386,9 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
             par = '{}.par'.format(fsd)
         rs = utils.partial_run_script(locals(), cwd=fmri_dir, print_only=print_only)
         for hemi in utils.HEMIS:
-            if op.isfile(op.join(fmri_dir, '{}_sm05_{}'.format(fsd, hemi), 'analysis.info')):
+            if op.isfile(op.join(fmri_dir, '{}_sm{}_{}'.format(fsd, fwhm, hemi), 'analysis.info')):
                 continue
-            rs('mkanalysis-sess -analysis {fsd}_sm05_{hemi} -paradigm {par} -event-related -refeventdur {refeventdur} ' +
+            rs('mkanalysis-sess -analysis {fsd}_sm{fwhm}_{hemi} -paradigm {par} -event-related -refeventdur {refeventdur} ' +
                '-nconditions {nconditions} -TR {tr} -surface {trg_subject} {hemi} -fsd {fsd} ' +
                '-per-run -polyfit 5 -fwhm {fwhm} -nskip {nskip} -stc siemens -spmhrf {spmhrf} -force', hemi=hemi)
 
@@ -1416,7 +1416,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
             rs(cmd, **kargs)
             if not print_only and no_output(*output_args) and len(output_args) > 0:
                 raise Exception('{}\nNo output created in {}!!\n\n'.format(
-                    cmd, op.join(FMRI_DIR, subject, fsd, *output_args)))
+                    cmd, op.join(fmri_dir, subject, fsd, *output_args)))
 
     trg_subject = subject if trg_subject == '' else trg_subject
     if nconditions == 0:
@@ -1424,7 +1424,10 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         return False
 
     fmri_dir = remote_fmri_dir if remote_fmri_dir != '' else FMRI_DIR
-    fmri_files_template = op.join(fmri_dir, subject, fsd, '00?', 'f.nii.gz')
+    if utils.namebase(fmri_dir) != subject:
+        fmri_files_template = op.join(fmri_dir, subject, fsd, '00?', 'f.nii.gz')
+    else:
+        fmri_files_template = op.join(fmri_dir, fsd, '00?', 'f.nii.gz')
     fmri_files = glob.glob(fmri_files_template)
     if len(fmri_files) == 0:
         print('No fMRI files were found! ({})'.format(fmri_files_template))
@@ -1434,7 +1437,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     sm = 'sm{}'.format(int(fwhm))
     rs = utils.partial_run_script(locals(), cwd=fmri_dir, print_only=print_only)
     run('preproc-sess -surface {trg_subject} lhrh -s {subject} -fwhm {fwhm} -fsd {fsd} -mni305 -per-run -stc siemens',
-        '00?', 'fmcpr.siemens.sm6.mni305.2mm.nii.gz')
+        '00?', 'fmcpr.siemens.sm{}.mni305.2mm.nii.gz'.format(fwhm))
 
     if plot_registration:
         run('plot-twf-sess -s {subject} -dat f.nii.gz -mc -fsd {fsd}') #, 'fmcpr.mcdat.png') # && killall display
@@ -1449,10 +1452,10 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     for hemi in utils.HEMIS:
         # configure a contrast
         run('mkcontrast-sess -analysis {fsd}_{sm}_{hemi} -contrast {contrast_name} {contrast_flags}',
-            '..', '..', '{}_sm05_{}'.format(fsd, hemi), '{}.config'.format(contrast_name), hemi=hemi)
+            '..', '..', '{}_sm{}_{}'.format(fsd, fwhm, hemi), '{}.config'.format(contrast_name), hemi=hemi)
         # computes the average signal intensity maps
         run('selxavg3-sess -s {subject} -analysis {fsd}_{sm}_{hemi} ',
-            '{}_{}_{}'.format(fsd, sm, hemi), '*_v_*', 'sig.nii.gz', hemi=hemi)
+            '{}_{}_{}'.format(fsd, sm, hemi), contrast_name, 'sig.nii.gz', hemi=hemi) # *_v_*
 
     return copy_output_files() if not print_only else True
 
@@ -2130,7 +2133,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--nskip', help='', required=False, default=4, type=int)
     parser.add_argument('--nconditions', help='', required=False, default=0, type=int)
     parser.add_argument('--print_only', help='', required=False, default=0, type=au.is_true)
-    parser.add_argument('--plot_registration', help='', required=False, default=1, type=au.is_true)
+    parser.add_argument('--plot_registration', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--overwrite_4d_preproc', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--backup_existing_files', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--pick_the_first_one', help='', required=False, default=0, type=au.is_true)

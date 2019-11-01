@@ -273,6 +273,11 @@ def project_all_fmri_files(args):
             print(fmri.calc_surf_files_min_max(surf_files))
 
 
+def mem_w(args):
+    # -s nmr01353 -f clean_4d_data --fsd mem_w --contrast_name verbmem --nconditions 4 --remote_fmri_dir "/space/megraid/clinical/MEG-MRI/seder/freesurfer" --remote_subject_dir "/space/megraid/clinical/MEG-MRI/seder/freesurfer/nmr01353"
+    pass
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MMVT')
     parser.add_argument('-s', '--subject', help='subject name', required=False, type=au.str_arr_type, default='colin27')
