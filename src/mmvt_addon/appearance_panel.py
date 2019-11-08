@@ -77,6 +77,11 @@ def show_hide_eeg_sensors(do_show=True):
     bpy.context.scene.layers[_addon().EEG_LAYER] = do_show
 
 
+def show_hide_tms(do_show=True):
+    # bpy.context.scene.layers[_addon().TMS_LAYER] = do_show
+    _addon().mmvt_utils.show_hide_obj(bpy.data.objects.get('TMS'), do_show)
+
+
 def showing_eeg():
     return bpy.context.scene.layers[_addon().EEG_LAYER]
 
@@ -495,6 +500,8 @@ def appearance_draw(self, context):
         show_hide_icon(row, ShowHideEEGSensors.bl_idname, bpy.context.scene.show_hide_eeg_sensors, 'EEG sensors')
     if bpy.data.objects.get(_addon().get_connections_parent_name()):
         show_hide_icon(row, ShowHideConnections.bl_idname, bpy.context.scene.show_hide_connections, 'Connections')
+    if bpy.data.objects.get('TMS') and is_pial():
+        show_hide_icon(row, ShowHideTMS.bl_idname, bpy.context.scene.show_hide_tms_object, 'TMS')
     # if is_inflated():
     # if bpy.context.scene.cursor_is_snapped:
     #     layout.operator(
@@ -800,6 +807,7 @@ except:
 bpy.types.Scene.cursor_is_snapped = bpy.props.BoolProperty(default=False, description='The cross stays on the cortex when clicked')
 bpy.types.Scene.show_hide_electrodes = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.show_hide_eeg_sensors = bpy.props.BoolProperty(default=False)
+bpy.types.Scene.show_hide_tms_object = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.show_hide_meg_sensors = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.show_hide_connections = bpy.props.BoolProperty(default=False)
 # bpy.types.Scene.inflating = bpy.props.FloatProperty(min=0, max=1, default=0, update=inflating_update)
@@ -848,6 +856,19 @@ class ShowHideEEGSensors(bpy.types.Operator):
     def invoke(self, context, event=None):
         bpy.context.scene.show_hide_eeg_sensors = not bpy.context.scene.show_hide_eeg_sensors
         show_hide_eeg_sensors(bpy.context.scene.show_hide_eeg_sensors)
+        return {"FINISHED"}
+
+
+class ShowHideTMS(bpy.types.Operator):
+    bl_idname = "mmvt.show_hide_tms"
+    bl_label = "mmvt show_hide_tms"
+    bl_description = 'Show/Hide TMS. \n\nScript: mmvt.appearance.shoe_hide_tms()'
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        bpy.context.scene.show_hide_tms_object = not bpy.context.scene.show_hide_tms_object
+        show_hide_tms(bpy.context.scene.show_hide_tms_object)
         return {"FINISHED"}
 
 
@@ -969,6 +990,7 @@ def register():
         bpy.utils.register_class(ShowHideMEGSensors)
         bpy.utils.register_class(ShowHideElectrodes)
         bpy.utils.register_class(ShowHideEEGSensors)
+        bpy.utils.register_class(ShowHideTMS)
         bpy.utils.register_class(ShowHideConnections)
         bpy.utils.register_class(SelectionListener)
         bpy.utils.register_class(SnapCursor)
@@ -984,6 +1006,7 @@ def unregister():
         bpy.utils.unregister_class(ShowHideMEGSensors)
         bpy.utils.unregister_class(ShowHideElectrodes)
         bpy.utils.unregister_class(ShowHideEEGSensors)
+        bpy.utils.unregister_class(ShowHideTMS)
         bpy.utils.unregister_class(ShowHideConnections)
         bpy.utils.unregister_class(SelectionListener)
         bpy.utils.unregister_class(SnapCursor)
