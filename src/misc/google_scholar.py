@@ -158,12 +158,16 @@ def parse_bibtex_files(fol, recursive=False):
     print(all_authors)
     print('{} has cited you in {} publications!'.format(all_authors[0][0], all_authors[0][1]))
     # print(authors_papers[all_authors[0][0]])
-    return all_authors
+    return all_authors, authors_papers
 
 
 def parse_authors(bib_entry):
     return [name.strip() for name in bib_entry['author'].split('and')]
 
+
+def get_bib_files(fol, recursive):
+    return glob.glob(op.join(op.join(fol, '**', '*.bib')), recursive=True) if recursive \
+        else glob.glob(op.join(op.join(fol, '*.bib')))
 
 def export_bibtex(author_name, fol, recursive=False):
     from bibtexparser.bwriter import BibTexWriter
@@ -171,8 +175,7 @@ def export_bibtex(author_name, fol, recursive=False):
     db = BibDatabase()
 
     papers = set()
-    bib_fnames = glob.glob(op.join(op.join(fol, '**', '*.bib')), recursive=True) if recursive \
-        else glob.glob(op.join(op.join(fol, '*.bib')))
+    bib_fnames = get_bib_files(fol, recursive)
     for bib_fname in tqdm(bib_fnames):
         with open(bib_fname) as bibtex_file:
             bib = bibtexparser.load(bibtex_file)
@@ -194,6 +197,13 @@ def export_bibtex(author_name, fol, recursive=False):
         len(db.entries), author_name, bibtex_fname))
 
 
+def find_authors_papers(authors_papers, authors):
+    for author_name, author_papers in authors_papers.items():
+        if any([author in author_name for author in authors]):
+            print(author_name)
+            for paper_name in author_papers:
+                print(paper_name)
+
 def save(fname, obj):
     with open(fname, 'wb') as fp:
         pickle.dump(obj, fp)
@@ -214,9 +224,10 @@ def namebase(fname):
 if __name__ == '__main__':
     thesis_fol = 'C:\\Users\\peled\\Documents\\citations\\thesis'
     master_fol = 'C:\\Users\\peled\\Documents\\citations\\master'
-    master_author = 'Buhry, Laure'
+    post_fol = 'C:\\Users\\peled\\Documents\\citations\\post'
+    master_author = 'Buhry, Laure' # 'Achard, Pablo', 'De Schutter, Erik'
     thesis_author = 'Gratch, Jonathan'
-    fol = master_fol
+    fol = post_fol
     thesis_publications = [
         'A study of computational and human strategies in revelation games',
         'An agent design for repeated negotiation and information revelation with people',
@@ -231,6 +242,7 @@ if __name__ == '__main__':
     # 2)
     # url_scholarbibs = load(url_scholarbibs_fname)
     # download_publications_bibtex(url_scholarbibs, fol)
-    authors = parse_bibtex_files(fol)
-    author = master_author# authors[0][0]
-    export_bibtex(author, fol)
+    authors, authors_papers = parse_bibtex_files(fol)
+    find_authors_papers(authors_papers, ['Achard', 'Schutter', 'Mell', 'Weerd', 'Hamilton', 'Song', 'Andersen', 'Widge'])
+    # author = master_author# authors[0][0]
+    # export_bibtex(author, fol)
