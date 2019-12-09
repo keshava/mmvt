@@ -33,6 +33,13 @@ def poly_area(poly):
     return abs(result/2)
 
 
+def triangle_area(vertices, faces):
+    r12 = vertices[faces[:,0],:]
+    r13 = vertices[faces[:,2],:] - r12
+    r12 = vertices[faces[:,1],:] - r12
+    return np.sum(np.sqrt(np.sum(np.cross(r12, r13)**2,axis=1))/2.)
+
+
 def perimeter(points):
     peri = dist3d(points[0], points[-1])
     for ind in range(len(points) - 1):

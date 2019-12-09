@@ -10,6 +10,8 @@ import functools
 from collections import defaultdict, Counter
 from tqdm import tqdm
 import nibabel as nib
+from functools import partial
+import re
 
 from src.mmvt_addon import mmvt_utils as mu
 from src.utils import freesurfer_utils as fu
@@ -884,14 +886,16 @@ def label_name(l):
 
 
 def remove_exclude_labels(labels, excludes=()):
-    from functools import partial
-    import re
-
     _label_is_excluded = partial(label_is_excluded, compiled_excludes=re.compile('|'.join(excludes)))
     labels_tup = [(l, ind) for ind, l in enumerate(labels) if not _label_is_excluded(label_name(l))]
     labels = [t[0] for t in labels_tup]
     indices = [t[1] for t in labels_tup]
     return labels, indices
+
+
+def remove_exclude_labels_names(labels_names, excludes=()):
+    _label_is_excluded = partial(label_is_excluded, compiled_excludes=re.compile('|'.join(excludes)))
+    return [l for l in labels_names if not _label_is_excluded(label_name(l))]
 
 
 def remove_exclude_labels_and_data(labels_names, labels_data, excludes=()):
