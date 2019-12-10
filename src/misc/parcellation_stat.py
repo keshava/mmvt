@@ -11,9 +11,9 @@ LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
 
 
-def lables_stat(subject, atlas):
+def lables_stat(subject, atlas, excluded=('corpuscallosum', 'unknown')):
     all_labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
-    labels, _ = lu.remove_exclude_labels(all_labels, excludes=('corpuscallosum', 'unknown'))
+    labels, _ = lu.remove_exclude_labels(all_labels, excludes=excluded)
     print('Remove {} labels'.format(len(all_labels) - len(labels)))
     vertices_num = [len(l.vertices) for l in labels]
     print('vertivces num: {}-{}'.format(np.min(vertices_num), np.max(vertices_num)))
@@ -30,16 +30,11 @@ def lables_stat(subject, atlas):
     np.savez(output_fname, labels_area=labels_area, vertices_num=vertices_num)
 
 
-def remove_non_printable(s):
-    import string
-    return ''.join(c for c in s if c in string.printable)
-
-
 # @utils.check_for_freesurfer
 def fs_stat(subject, atlas, surface='pial', excluded=('corpuscallosum', 'unknown')):
     labels_area = []
     for hemi in utils.HEMIS:
-        output_fname = op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.csv'.format(hemi, atlas))
+        output_fname = op.join(SUBJECTS_DIR, subject, 'label', '{}.{}.stat'.format(hemi, atlas))
         if not op.isfile(output_fname):
             utils.run_script('mris_anatomical_stats -a {} {} {} {} > {}'.format(
                 atlas, subject, hemi, surface, output_fname))
@@ -70,7 +65,7 @@ def parse_fs_stat(output_fname, excluded):
         start_ind = next_index(0)
         while start_ind != -1:
             end_ind = stat.find('"', start_ind)
-            label_name = remove_non_printable(stat[start_ind:end_ind])
+            label_name = utils.remove_non_printable(stat[start_ind:end_ind])
             if _label_is_excluded(label_name):
                 start_ind = next_index(end_ind)
                 continue

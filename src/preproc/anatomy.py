@@ -467,7 +467,7 @@ def check_ply_files(subject):
 #     return lookup
 
 
-def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_subject_dir='',
+def create_annotation(subject, atlas='aparc250', template_subject='fsaverage', remote_subject_dir='',
         overwrite_annotation=False, overwrite_morphing=False, do_solve_labels_collisions=False,
         morph_labels_from_fsaverage=True, fs_labels_fol='', save_annot_file=True, surf_type='inflated',
         overwrite_vertices_labels_lookup=False, morph_annot=True, n_jobs=6):
@@ -494,7 +494,7 @@ def create_annotation(subject, atlas='aparc250', fsaverage='fsaverage', remote_s
             annot_exist = fu.create_annotation_file(
                 subject, atlas, subjects_dir=SUBJECTS_DIR, freesurfer_home=FREESURFER_HOME)
         else:
-            fsaverage = lu.find_template_brain_with_annot_file(atlas, fsaverage, SUBJECTS_DIR)
+            fsaverage = lu.find_template_brain_with_annot_file(atlas, template_subject, SUBJECTS_DIR)
             if fsaverage == '':
                 print('Can\'t find a tempalte brain which has the atlas {}!'.format(atlas))
                 return False

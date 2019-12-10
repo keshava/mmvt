@@ -36,7 +36,7 @@ HEMIS = ['rh', 'lh']
 def find_template_brain_with_annot_file(aparc_name, fsaverage, subjects_dir, find_in_all=True):
     optional_templates = []
     if find_in_all:
-        fsaverage = [utils.namebase(d) for d in glob.glob(op.join(subjects_dir, 'fs*'))]
+        fsaverage.extend([utils.namebase(d) for d in glob.glob(op.join(subjects_dir, 'fs*'))])
     elif isinstance(fsaverage, str):
         fsaverage = [fsaverage]
     for fsav in fsaverage:
@@ -428,6 +428,7 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
     morph_maps = mne.read_morph_map(template_brain, subject, subjects_dir=morph_maps_root)
 
     subject_vertices_labels_lookup = defaultdict(dict)
+    vertices_num = []
     for hemi_ind, hemi in enumerate(['lh', 'rh']):
         subject_vertices, _ = read_pial(subject, hemi)
         template_vertices, _ = read_pial(template_brain, hemi)
@@ -449,6 +450,7 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
             # filter unknown
             if filter_unknown:
                 verts_labels = [l for l in verts_labels if 'unknown' not in l]
+            vertices_num.append(len(verts_labels))
             if len(verts_labels) == 0:
                 verts_label = 'unknown-{}'.format(hemi)
             elif len(verts_labels) == 1:
