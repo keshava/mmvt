@@ -88,6 +88,56 @@ def analyze_4d_data(args):
     ))
     pu.run_on_subjects(args, fmri.main)
 
+def memory(args):
+    '-s nmr01353 -f clean_4d_data --fsd mem_w --remote_fmri_dir "/space/megraid/clinical/MEG-MRI/seder/freesurfer" --nconditions 5'
+    pass
+
+
+def language(args):
+    # '-s nmr01353 -f clean_4d_data --fsd sycabs --remote_fmri_dir "/space/megraid/clinical/MEG-MRI/seder/freesurfer" --nconditions 4'
+    # You need first to run src.preproc.anatomy
+    task = 'sycabs'
+    subject = args.subject[0]
+    remote_mri_dir = '/space/megraid/clinical/MEG-MRI/seder/freesurfer'
+    remote_fmri_dir = '/space/megraid/clinical/MEG-MRI/clin_6083223/20191210' # need to add it to the args
+    mri_subj_fol = utils.make_dir(op.join(remote_mri_dir, subject, task))
+    fmri_fols = glob.glob(op.join(remote_fmri_dir, '*_SyCAbs'))
+    sessions = []
+    for fmri_fol in fmri_fols:
+        ses_num = utils.find_num_in_str(utils.namebase(fmri_fol))[0]
+        sessions.append(ses_num)
+        ses_files = glob.glob(op.join(fmri_fol, '**', '*.*'), recursive=True)
+        output_fname = op.join(utils.make_dir(op.join(mri_subj_fol, ses_num)), 'f.nii.gz')
+        if not op.isfile(output_fname):
+            fu.mri_convert(ses_files[0], output_fname)
+
+    # Convert and arrange the par file
+    # Warning: You first need to put the original ones in the following folder:
+    # /space/megraid/clinical/MEG-MRI/seder/freesurfer/subject/par
+    par_files = glob.glob(op.join(remote_mri_dir, subject, 'par', '*.par'))
+    if len(par_files) == 0:
+        print('Please put the original par files in {} and rerun'.format(
+            op.join(remote_mri_dir, subject, 'par')))
+        return
+    par_files.sort(key=lambda x: int(utils.namebase(x).split('_')[-1]))
+    sessions.sort()
+    from src.misc.fmri_scripts import convert_par
+    for par_file, session in zip(par_files, sessions):
+        fs_par_fname = op.join(mri_subj_fol, session, '{}.par'.format(task))
+        if not op.isfile(fs_par_fname):
+            convert_par.sycabs(par_file, fs_par_fname)
+
+    args = fmri.read_cmd_args(dict(
+        subject=subject,
+        atlas=args.atlas,
+        function='clean_4d_data',
+        fsd=task,
+        remote_fmri_dir=remote_mri_dir,
+        nconditions=4,
+        ignore_missing=True
+    ))
+    pu.run_on_subjects(args, fmri.main)
+
 
 def project_volume_to_surface(args):
     args = fmri.read_cmd_args(dict(
