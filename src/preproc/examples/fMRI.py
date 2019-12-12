@@ -138,12 +138,13 @@ def language(args):
         return
 
     # You need first to run src.preproc.anatomy
-    args = anat.read_cmd_args(dict(
-        subject=subject,
-        remote_subject_dir=subject_mri_dir,
-        ignore_missing=True,
-    ))
-    pu.run_on_subjects(args, anat.main)
+    if not op.isfile(anat.get_blend_fname(subject, args.atlas)):
+        args = anat.read_cmd_args(dict(
+            subject=subject,
+            remote_subject_dir=subject_mri_dir,
+            ignore_missing=True,
+        ))
+        pu.run_on_subjects(args, anat.main)
 
     # convert the fMRI dicom files to nii
     for fmri_fol in fmri_fols:
@@ -157,8 +158,11 @@ def language(args):
     from src.misc.fmri_scripts import convert_par
     for par_file, session in zip(par_files, sessions):
         fs_par_fname = op.join(mri_subject_task_dir, session, '{}.par'.format(task))
-        if not op.isfile(fs_par_fname):
-            convert_par.sycabs(par_file, fs_par_fname)
+        # if not op.isfile(fs_par_fname):
+        warnings = convert_par.sycabs(par_file, fs_par_fname)
+        if warnings != '':
+            print('\n *** Please fix the problems with the par convertion ({}) and rerun ***\n'.format(par_file))
+            return
 
     # Run the FreeSurfer analysis
     args = fmri.read_cmd_args(dict(

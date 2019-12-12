@@ -284,7 +284,8 @@ def sycabs(f1, f2, expected_trials = 72,
                                   '999':'999'}}):
 
     '''
-    
+
+    warn = ''
     inpt = open(f1, 'r')
     outpt = open(f2, 'w')
     inpt_lst = inpt.readlines()
@@ -346,7 +347,8 @@ def sycabs(f1, f2, expected_trials = 72,
                 unexpected_resp += 1
     for ln in lns:
         if float(ln[2]) < 0:
-            print("!!! Warning!!! Negative event duration at time "+ln[0]+'!!!')
+            warn += "!!! Warning!!! Negative event duration at time "+ln[0]+'!!!'
+            print(warn)
     if not trials == expected_trials:  # check for correct number of trials
         warn=('#Warning, an incorrect number of trials were found. %s trials'+
               ' were expected but there were %s trials.') % (expected_trials, 
@@ -378,6 +380,7 @@ def sycabs(f1, f2, expected_trials = 72,
             outpt.write(i + '\t')
         outpt.write('\n')
     outpt.close()
+    return warn
     
     
 

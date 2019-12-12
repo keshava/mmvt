@@ -1243,14 +1243,19 @@ def create_labels_names_lookup(subject, atlas):
 def create_new_subject_blend_file(subject, atlas, overwrite_blend=False):
     from src.mmvt_addon.scripts import create_new_subject as mmvt_script
     # Create a file for the new subject
+    blend_fname = get_blend_fname(subject, atlas)
     atlas = utils.get_real_atlas_name(atlas, short_name=True)
-    blend_fname = op.join(MMVT_DIR, '{}_{}.blend'.format(subject, atlas))
     if op.isfile(blend_fname) and not overwrite_blend:
         return True
     args = mmvt_script.create_new_subject(subject, atlas, overwrite_blend)
     if args is not None:
         utils.waits_for_file(args.log_fname)
     return op.isfile(blend_fname)
+
+
+def get_blend_fname(subject, atlas):
+    atlas = utils.get_real_atlas_name(atlas, short_name=True)
+    return op.join(MMVT_DIR, '{}_{}.blend'.format(subject, atlas))
 
 
 def check_bem(subject, remote_subject_dir, recreate_src_spacing, recreate_bem_solution=False, bem_ico=4, args={}):
