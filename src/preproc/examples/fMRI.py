@@ -8,6 +8,7 @@ from src.utils import utils
 from src.utils import args_utils as au
 from src.utils import preproc_utils as pu
 from src.utils import freesurfer_utils as fu
+from src.preproc import anatomy as anat
 
 LINKS_DIR = utils.get_links_dir()
 FMRI_DIR = utils.get_link_dir(utils.get_links_dir(), 'fMRI')
@@ -93,40 +94,73 @@ def memory(args):
     pass
 
 
+@utils.check_for_freesurfer
 def language(args):
-    # '-s nmr01353 -f clean_4d_data --fsd sycabs --remote_fmri_dir "/space/megraid/clinical/MEG-MRI/seder/freesurfer" --nconditions 4'
-    # You need first to run src.preproc.anatomy
+    # -f language -s nmr01361 --clinical_dir clin_4090354
+    # -s nmr01353 -f clean_4d_data --fsd sycabs --remote_fmri_dir "/space/megraid/clinical/MEG-MRI/seder/freesurfer" --nconditions 4
+    if args.clinical_dir == '':
+        print('You should set the clinical_dir first. Example: clin_4090354')
+        return
+    clinical_root_dir = op.join(args.remote_fmri_dir, args.clinical_dir)
+    if not op.isdir(clinical_root_dir):
+        print('{} does not exist!'.format(clinical_root_dir))
+
     task = 'sycabs'
     subject = args.subject[0]
-    remote_mri_dir = '/space/megraid/clinical/MEG-MRI/seder/freesurfer'
-    remote_fmri_dir = '/space/megraid/clinical/MEG-MRI/clin_6083223/20191210' # need to add it to the args
-    mri_subj_fol = utils.make_dir(op.join(remote_mri_dir, subject, task))
-    fmri_fols = glob.glob(op.join(remote_fmri_dir, '*_SyCAbs'))
-    sessions = []
+    remote_mri_dir = args.remote_clinical_subjects_dir
+    subject_mri_dir = op.join(remote_mri_dir, subject)
+    mri_subject_task_dir = utils.make_dir(op.join(subject_mri_dir, task))
+    clinical_dirs = glob.glob(op.join(clinical_root_dir, '*'))
+    clinical_dirs = [d for d in clinical_dirs if utils.namebase(d) != 'mne_dcm']
+    remote_fmri_dir = utils.select_one_file(clinical_dirs)
+    fmri_fols = sorted(glob.glob(op.join(remote_fmri_dir, '*_SyCAbs')))
+    par_fol = utils.make_dir(op.join(remote_mri_dir, subject, 'par'))
+    par_files = glob.glob(op.join(par_fol, '*.par'))
+    sessions = sorted([utils.find_num_in_str(utils.namebase(d))[0] for d in fmri_fols])
+
+    # Warning: You first need to put the original ones in the following folder:
+    if len(par_files) == 0:
+        print('\n *** Please put the original par files in {} and rerun ***'.format(
+            op.join(remote_mri_dir, subject, 'par')))
+        return
+
+    par_files.sort(key=lambda x: int(utils.namebase(x).split('_')[-1]))
+    ret = input('''
+        Patient: {}
+        MRI folder: {}
+        fMRI root folder: {}
+        fMRI sessions: {}
+        Session and pars: {}
+        Do you want to continue (y/n)? '''.format(
+        subject, subject_mri_dir, remote_fmri_dir, [utils.namebase(d) for d in fmri_fols],
+        list(zip([utils.namebase(f) for f in par_files], sessions))))
+    if not au.is_true(ret):
+        return
+
+    # You need first to run src.preproc.anatomy
+    args = anat.read_cmd_args(dict(
+        subject=subject,
+        remote_subject_dir=subject_mri_dir,
+        ignore_missing=True,
+    ))
+    pu.run_on_subjects(args, anat.main)
+
+    # convert the fMRI dicom files to nii
     for fmri_fol in fmri_fols:
         ses_num = utils.find_num_in_str(utils.namebase(fmri_fol))[0]
-        sessions.append(ses_num)
         ses_files = glob.glob(op.join(fmri_fol, '**', '*.*'), recursive=True)
-        output_fname = op.join(utils.make_dir(op.join(mri_subj_fol, ses_num)), 'f.nii.gz')
+        output_fname = op.join(utils.make_dir(op.join(mri_subject_task_dir, ses_num)), 'f.nii.gz')
         if not op.isfile(output_fname):
             fu.mri_convert(ses_files[0], output_fname)
 
     # Convert and arrange the par file
-    # Warning: You first need to put the original ones in the following folder:
-    # /space/megraid/clinical/MEG-MRI/seder/freesurfer/subject/par
-    par_files = glob.glob(op.join(remote_mri_dir, subject, 'par', '*.par'))
-    if len(par_files) == 0:
-        print('Please put the original par files in {} and rerun'.format(
-            op.join(remote_mri_dir, subject, 'par')))
-        return
-    par_files.sort(key=lambda x: int(utils.namebase(x).split('_')[-1]))
-    sessions.sort()
     from src.misc.fmri_scripts import convert_par
     for par_file, session in zip(par_files, sessions):
-        fs_par_fname = op.join(mri_subj_fol, session, '{}.par'.format(task))
+        fs_par_fname = op.join(mri_subject_task_dir, session, '{}.par'.format(task))
         if not op.isfile(fs_par_fname):
             convert_par.sycabs(par_file, fs_par_fname)
 
+    # Run the FreeSurfer analysis
     args = fmri.read_cmd_args(dict(
         subject=subject,
         atlas=args.atlas,
@@ -334,10 +368,15 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--atlas', help='atlas name', required=False, default='aparc.DKTatlas')
     parser.add_argument('-u', '--sftp_username', help='sftp username', required=False, default='npeled')
     parser.add_argument('-d', '--sftp_domain', help='sftp domain', required=False, default='door.nmr.mgh.harvard.edu')
-    parser.add_argument('--remote_subject_dir', help='remote_subjects_dir', required=False,
-                        default='/space/thibault/1/users/npeled/subjects/{subject}')
     parser.add_argument('-f', '--function', help='function name', required=True)
     parser.add_argument('-r', '--root_fol', help='root folder', required=False, default='')
+    parser.add_argument('--remote_subject_dir', help='remote_subjects_dir', required=False,
+                        default='/space/thibault/1/users/npeled/subjects/{subject}')
+    parser.add_argument('--remote_fmri_dir', help='remote_fmri', required=False,
+                        default='/space/megraid/clinical/MEG-MRI')
+    parser.add_argument('--remote_clinical_subjects_dir', help='', required=False,
+                        default='/space/megraid/clinical/MEG-MRI/seder/freesurfer')
+    parser.add_argument('--clinical_dir', help='', required=False, default='')
     parser.add_argument('--cluster_threshold', required=False, default=2, type=float)
     args = utils.Bag(au.parse_parser(parser))
     locals()[args.function](args)
