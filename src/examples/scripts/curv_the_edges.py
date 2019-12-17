@@ -6,9 +6,20 @@ def run(mmvt):
 
 
 def set_curve(val):
-    for obj in bpy.data.objects['connections_{}'.format(bpy.context.scene.connectivity_files)].children:
-        vertices_name = '{}_connections_vertices'.format(bpy.context.scene.connectivity_files)
-        if obj == bpy.data.objects[vertices_name]:
+    parent_obj = bpy.data.objects.get('connections_{}'.format(bpy.context.scene.connectivity_files), None)
+    if not parent_obj:
+        parent_obj = bpy.data.objects.get(bpy.context.scene.connectivity_files, None)
+    if not parent_obj:
+        print('Can\'t find the object {}!'.format(bpy.context.scene.connectivity_files))
+        return
+    vertices_obj = [o for o in parent_obj.children if 'vertices' in o.name]
+    if not vertices_obj:
+        print('Can\'t find the vertices object!')
+        return
+    for obj in parent_obj.children:
+        if obj == vertices_obj:
+            continue
+        if not obj.data:
             continue
         c1 = obj.data.splines[0].bezier_points[0].co
         obj.data.splines[0].bezier_points[0].handle_right = c1
