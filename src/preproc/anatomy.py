@@ -1168,7 +1168,7 @@ def prepare_subject_folder(subject, remote_subject_dir, args, necessary_files=No
 def save_subject_orig_trans(subject):
     from src.utils import trans_utils as tu
     output_fname_template = op.join(MMVT_DIR, subject, '{}_trans.npz')
-    for image_name in ['T1.mgz', 'T2.mgz']:
+    for image_name in ['T1.mgz', 'T2.mgz', 'FLAIR.mgz']:
         header = tu.get_subject_mri_header(subject, SUBJECTS_DIR, image_name)
         if header is None:
             continue
@@ -1472,7 +1472,7 @@ def get_data_and_header(subject, image_name):
 
 
 def save_images_data_and_header(subject):
-    modalities = {'T1.mgz':'mri', 'T2.mgz':'t2'}
+    modalities = {'T1.mgz':'mri', 'T2.mgz':'t2', 'FLAIR.mgz':'FLAIR'}
     root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
     for image_name in modalities.keys():
         data, header = get_data_and_header(subject, image_name)

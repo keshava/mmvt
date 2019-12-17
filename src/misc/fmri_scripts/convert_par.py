@@ -243,7 +243,7 @@ def mem(f1, f2, expected_trials = 50, perf_check = True, settings =
     pass
 
 
-def sycabs(f1, f2, expected_trials = 72, 
+def sycabs(f1, f2,
            settings = {'bad_codes' : {'29':'5', '31':'5', '32':'5', '34':'5'}, 
                        'buttons' : {'30':'3', '33':'4'}, 
                        'correct_resp':{'1':('30', '1'), '2':('33', '1'),
@@ -286,6 +286,7 @@ def sycabs(f1, f2, expected_trials = 72,
     '''
 
     warn = ''
+    print('{} -> {}'.format(f1, f2))
     inpt = open(f1, 'r')
     outpt = open(f2, 'w')
     inpt_lst = inpt.readlines()
@@ -349,12 +350,12 @@ def sycabs(f1, f2, expected_trials = 72,
         if float(ln[2]) < 0:
             warn += "!!! Warning!!! Negative event duration at time "+ln[0]+'!!!'
             print(warn)
-    if not trials == expected_trials:  # check for correct number of trials
-        warn=('#Warning, an incorrect number of trials were found. %s trials'+
-              ' were expected but there were %s trials.') % (expected_trials, 
-                                                             trials)
-        outpt.write(warn + '\n')
-        print(warn)
+    # if not trials == expected_trials:  # check for correct number of trials
+    #     warn=('#Warning, an incorrect number of trials were found. %s trials'+
+    #           ' were expected but there were %s trials.') % (expected_trials,
+    #                                                          trials)
+    #     outpt.write(warn + '\n')
+    #     print(warn)
     # hack for when one button on button box was broken
     #lns3 = [] 
     #for i in range(len(lns2)): 
