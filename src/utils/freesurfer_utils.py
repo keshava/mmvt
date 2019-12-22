@@ -43,7 +43,7 @@ mri_aparc2aseg = 'mri_aparc2aseg --s {subject} --annot {atlas} --o {atlas}+aseg.
 mris_flatten = 'mris_flatten {hemi}.inflated.patch {hemi}.flat.patch'
 
 mri_robust_register = 'mri_robust_register --mov "{source_fname}" --dst "{target_fname}" --lta {lta_fname} ' + \
-                      '--satit --x --mapmov "{output_fname}" --cost {cost_function}'
+                      '--satit --mapmov "{output_fname}" --cost {cost_function}' # --x
 
 # Creating the seghead surface
 mkheadsurf = 'mkheadsurf -subjid {subject} -srcvol T1.mgz'

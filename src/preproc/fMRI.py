@@ -1393,13 +1393,16 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
                '-per-run -polyfit 5 -fwhm {fwhm} -nskip {nskip} -stc siemens -spmhrf {spmhrf} -force', hemi=hemi)
 
     def copy_output_files():
+        mmvt_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
+        exist = True
         for hemi in utils.HEMIS:
-            files = glob.glob(op.join(fmri_dir, subject, fsd, '{}_self_{hemi}', '*_v_*', 'sig.nii.gz'))
-        fu.nii_gz_to_mgz(res_fname)
-        for hemi in utils.HEMIS:
-            utils.make_link(new_fname_template.format(hemi=hemi), op.join(
-                MMVT_DIR, subject, 'fmri', utils.namebase_with_ext(new_fname_template.format(hemi=hemi))))
-        return utils.both_hemi_files_exist(new_fname_template)
+            nii_fname = op.join(fmri_dir, subject, fsd, '{}_{}_{}'.format(fsd, sm, hemi), contrast_name, 'sig.nii.gz')
+            mmvt_fname = op.join(mmvt_fol, '{}_{}.mgz'.format(contrast_name, hemi))
+            mgz_fname = fu.nii_gz_to_mgz(nii_fname)
+            if op.isfile(mgz_fname):
+                utils.make_link(mgz_fname, mmvt_fname)
+            exist = exist and op.isfile(mmvt_fname)
+        return exist
 
     def no_output(*args):
         if len(args) == 0:
@@ -1419,25 +1422,28 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
                     cmd, op.join(fmri_dir, subject, fsd, *output_args)))
 
     trg_subject = subject if trg_subject == '' else trg_subject
-    if nconditions == 0:
-        print('You should set the --nconditions to the number of conditions')
-        return False
-
     fmri_dir = remote_fmri_dir if remote_fmri_dir != '' else FMRI_DIR
+
+    os.environ['SUBJECTS_DIR'] = fmri_dir
+    os.environ['SUBJECT'] = subject
+    subject_name_fname = op.join(op.join(fmri_dir, subject, 'subjectname'))
+    if not op.isfile(subject_name_fname):
+        with open(subject_name_fname, 'w') as f:
+            f.write(subject)
+
     if utils.namebase(fmri_dir) != subject:
-        fmri_files_template = op.join(fmri_dir, subject, fsd, '00?', 'f.nii.gz')
+        fmri_files_template = op.join(fmri_dir, subject, fsd, '0??', 'f.nii.gz')
     else:
-        fmri_files_template = op.join(fmri_dir, fsd, '00?', 'f.nii.gz')
+        fmri_files_template = op.join(fmri_dir, fsd, '0??', 'f.nii.gz')
     fmri_files = glob.glob(fmri_files_template)
     if len(fmri_files) == 0:
         print('No fMRI files were found! ({})'.format(fmri_files_template))
         print('Maybe you should set the -remote_fmri_dir flag')
         return False
-    fmri_fname = fmri_files[0]
     sm = 'sm{}'.format(int(fwhm))
     rs = utils.partial_run_script(locals(), cwd=fmri_dir, print_only=print_only)
     run('preproc-sess -surface {trg_subject} lhrh -s {subject} -fwhm {fwhm} -fsd {fsd} -mni305 -per-run -stc siemens',
-        '00?', 'fmcpr.siemens.sm{}.mni305.2mm.nii.gz'.format(fwhm))
+        '0??', 'fmcpr.siemens.sm{}.mni305.2mm.nii.gz'.format(fwhm))
 
     if plot_registration:
         run('plot-twf-sess -s {subject} -dat f.nii.gz -mc -fsd {fsd}') #, 'fmcpr.mcdat.png') # && killall display
@@ -1446,7 +1452,10 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         run('tkregister-sess -s {subject} -per-run -fsd {fsd} -bbr-sum')# > {subject}/{fsd}/reg_quality.txt', 'reg_quality.txt')
         run('tkregister-sess -s {subject} -per-run -fsd {fsd} -reg register.dof6.lta')
 
-    tr = get_tr(fmri_fname)
+    tr = get_tr(fmri_files[0])
+    if nconditions == 0:
+        print('You should set the --nconditions to the number of conditions')
+        return False
     create_analysis_info_file(fsd, trg_subject, tr, fwhm, lfp, nskip, nconditions)
     # utils.run_parallel(_contrast_parallel, [(fsd, hemi, contrast_name, contrast_flags) for hemi in utils.HEMIS], args.n_jobs)
     for hemi in utils.HEMIS:

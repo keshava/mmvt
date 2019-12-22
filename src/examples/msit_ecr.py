@@ -673,12 +673,16 @@ def post_meg_preproc(args):
                     norm_powers.mean(0).T, vmin=2, freqs=freqs_bins, bands=bands, baseline_correction=False,
                     remove_non_sig=False, xlabel='#label', title='{} {}'.format(subject, task),
                     figure_fname=figure_fname)
-            for band_ind, (band_name, band_freqs) in enumerate(bands.items()):
-                idx = [k for k, f in enumerate(freqs_bins) if band_freqs[0] <= f <= band_freqs[1]]
-                all_bands_powers[subj_ind, band_ind] = np.max(norm_powers[:, :, idx], axis=2)
-            subj_ind += 1
+            try:
+                for band_ind, (band_name, band_freqs) in enumerate(bands.items()):
+                    idx = [k for k, f in enumerate(freqs_bins) if band_freqs[0] <= f <= band_freqs[1]]
+                    all_bands_powers[subj_ind, band_ind] = np.max(norm_powers[:, :, idx], axis=2)
+                subj_ind += 1
+            except:
+                print(traceback.format_exc())
             subjects.append(subject)
         print('Saving {} ({})'.format(output_fname, all_bands_powers.shape))
+        print('{} good subject: {}'.format(task, subjects))
         np.savez(output_fname, powers=all_bands_powers, subjects=subjects)
 
 
@@ -960,14 +964,14 @@ def post_analysis(args):
     subjects = {task: np.load(input_fname.format(task=task.lower()))['subjects'] for task in args.tasks}
     if not np.all(subjects[args.tasks[0]] == subjects[args.tasks[0]]):
         raise Exception('No the same subjects for both tasks!')
-    scores_task = 'MSIT'
+    scores_task = 'MSIT' # args.tasks[0]
     utils.make_dir(op.join(figs_fol, scores_task))
     scores = utils.load(op.join(res_fol, 'scores.pkl'))[scores_task]
-    subjects = subjects[args.tasks[0]]
+    subjects = list(set(subjects[scores_task]) & set(args.subject))
     subjects_scores = np.array([float('{:.3f}'.format(scores[subject])) for subject in subjects])
     subjects_idx = np.argsort(subjects_scores)
     subjects_scores = subjects_scores[subjects_idx]
-    subjects = subjects[subjects_idx]
+    # subjects = subjects[subjects_idx]
     labels = lu.read_labels(template_brain, SUBJECTS_DIR, args.atlas)
     labels_idx = np.argsort(['{}-{}'.format(l.name[-2:], l.name[:-3]) for l in labels])
     labels = [labels[ind] for ind in labels_idx]
@@ -980,7 +984,7 @@ def post_analysis(args):
     S, B, E, L = epochs_powers[args.tasks[0]].shape
     for band_ind, band_name in enumerate(bands.keys()):
         ttest_results_fname = op.join(res_fol, 'ttest_results_{}.npz'.format(band_name))
-        if True: #not op.isfile(ttest_results_fname):
+        if True: # not op.isfile(ttest_results_fname):
             msit, ecr = [], []
             now = time.time()
             for subj_ind in range(S): #, subject in enumerate(args.subject):
