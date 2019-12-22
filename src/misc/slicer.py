@@ -137,7 +137,7 @@ def save(obj, fname):
         # dill.dump(obj, fp, protocol=4)
 
 
-if __name__ == '__main__':
+def load():
     import sys
     # print(sys.argv)
     if len(sys.argv) == 6:
@@ -180,3 +180,8 @@ if __name__ == '__main__':
 
         # print('Error! Should send the mri fname, x, y and z')
         print('asdf')
+
+if __name__ == '__main__':
+    subject = 'bad_mri'
+    open_slicer(op.join(SUBJECTS_DIR, subject, 'mri', 'T1.mgz'), 0, 0, 0)
+

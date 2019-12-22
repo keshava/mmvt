@@ -3067,7 +3067,7 @@ def dipoles_fit(dipoles_times, dipoloes_title, evokes=None, noise_cov_fname='', 
         vol_atlas_lut_fname = op.join(op.join(MMVT_DIR, MRI_SUBJECT, 'freeview', 'aparc.DKTatlasColorLUT.txt'))
 
     if not op.isfile(noise_cov_fname):
-        print("The noise covariance cannot be found in {}!".format(NOISE_COV))
+        print("The noise covariance cannot be found in {}!".format(noise_cov_fname))
         return False
     if not op.isfile(BEM):
         print("The BEM solution cannot be found in {}!".format(BEM))
