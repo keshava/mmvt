@@ -88,8 +88,8 @@ def import_dura_surface():
 
 
 def find_how_many_electrodes_above_threshold(
-        ct_threshold=None, find_nei_maxima=None, mask_voxels_outside_brain=None, brain_mask_sigma=None,
-        binary_erosion=None):
+        ct_threshold=None, find_nei_maxima=True, mask_voxels_outside_brain=True, brain_mask_sigma=1,
+        binary_erosion=False):
     local_maxima_fname = op.join(DellPanel.output_fol, 'local_maxima_{}.npy'.format(ct_threshold))
     if binary_erosion:
         DellPanel.ct_data = fect.binary_erosion(DellPanel.ct_data, ct_threshold)
