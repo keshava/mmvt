@@ -147,6 +147,16 @@ def calc_vert_pvals(p):
     return pvals, vert_ind
 
 
+# def meg_pvals_to_contours(args):
+#     subjects = args.subject
+#     for subject in subjects:
+#         stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
+#         stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
+#         _, pick_t = stc.get_peak(time_as_index=True)
+#         print('peak freq: {:.2f}Hz'.format(stc.times[pick_t]))
+#         meg.stc_to_contours(subject, stc_name, pick_t, thresholds_min=1.3, thresholds_max=2, thresholds_dx=1,
+#                             min_cluster_size=5, clusters_label='superiorfrontal', find_clusters_overlapped_labeles=True,
+#                             atlas='MSIT_I-C', n_jobs=args.n_jobs)
 
 # def morph_stcs_pvals(args):
 #     utils.run_parallel(_morph_stcs_pvals, args.subject, args.n_jobs)
@@ -188,110 +198,6 @@ def calc_vert_pvals(p):
 #     stc_mean.save(op.join(fol, stc_name))
 
 
-def calc_fMRI_rois(args):
-    params = [(s, args.atlas, args.fmri_dir, 1) for s in args.subject]
-    utils.run_parallel(_calc_fMRI_rois, params, args.n_jobs)
-
-
-def _calc_fMRI_rois(p):
-    subject, atlas, fmri_dir, n_jobs = p
-    fMRI_cluster_fname = op.join(MMVT_DIR, subject, 'fmri', 'clusters_labels_MSIT_I-C_{}.pkl'.format(atlas))
-    if op.isfile(fMRI_cluster_fname) and \
-            utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{hemi}.MSIT_I-C.annot')):
-        print('{} already have fMRI clusters'.format(subject))
-        return True
-    fmri_fnames = glob.glob(op.join(fmri_dir, subject, '**', 'msit_I-C.analysis.lh', 'I-C', 'sig.nii.gz'))
-    if len(fmri_fnames) == 0:
-        print('Couldn\'t find MSIT fmri file for {}'.format(subject))
-        return False
-    try:
-        surf_template_fname = fmri.load_surf_file(subject, fmri_fnames[0])
-        fmri.find_clusters(subject, surf_template_fname, 2, atlas, task='MSIT', create_clusters_labels=True,
-                           new_atlas_name='MSIT_I-C', n_jobs=n_jobs)
-    except:
-        print(traceback.format_exc())
-
-
-def calc_pvals_fMRI_clusters(args):
-    utils.run_parallel(_calc_pvals_fMRI_clusters, [(s, args.overwrite) for s in args.subject], args.n_jobs)
-
-
-def _calc_pvals_fMRI_clusters(p, extract_time_series_for_clusters=False):
-    subject, overwrite = p
-    stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
-    if not utils.both_hemi_files_exist(
-            op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
-        print('{}: Can\'t find {}!'.format(subject, stc_name))
-        return False
-    args.subject = subject
-    clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
-    res_fname = op.join(clusters_root_fol, 'clusters_labels_dSPM_mean_flip_vertices_power_spectrum_stat.pkl')
-    if not op.isfile(res_fname) or args.overwrite:
-        utils.delete_folder_files(clusters_root_fol)
-        _args = meg.read_cmd_args(dict(
-            subject=subject, mri_subject=subject,
-            atlas='MSIT_I-C',
-            function='find_functional_rois_in_stc',
-            stc_name=stc_name,
-            threshold=-np.log10(0.01), threshold_is_precentile=False,
-            extract_time_series_for_clusters=False, save_func_labels=True,
-            calc_cluster_contours=True,
-            n_jobs=args.n_jobs
-        ))
-        try:
-            meg.call_main(_args)
-        except:
-            print(traceback.format_exc())
-        if not op.isfile(res_fname):
-            print('Cluster output can\'t be found!')
-            return False
-
-
-def filter_pvals_fMRI_clusters(args):
-    subjects = args.subject
-    max_intersect = []
-    stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
-    for subject in subjects:
-        clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
-        res_fname = op.join(clusters_root_fol, 'clusters_labels_dSPM_mean_flip_vertices_power_spectrum_stat.pkl')
-        min_vertices_num = 50
-        min_sig = 2
-        # labels = ['superiorfrontal', 'caudalmiddlefrontal']
-        if op.isfile(res_fname):
-            clusters_dict = utils.Bag(utils.load(res_fname))
-            stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
-            uniqueness = len(np.where(np.abs(stc.data[:, 0][1:] - stc.data[:, 0][:-1]) > 0.1)[0])/ stc.data.size
-            if uniqueness < 0.001:
-                print('{}: uniqueness < 0.001! ({})'.format(subject, uniqueness))
-                continue
-            cluster_freq = stc.times[clusters_dict['time']]
-            if 1 < cluster_freq < 120:
-                for cluster in clusters_dict.values:
-                    for c in cluster['intersects']:
-                        max_intersect.append((c['num'], subject, c['name'], clusters_dict['time'], '{:.2f}Hz'.format(cluster_freq)))
-                    intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size']))
-                                  for c in cluster['intersects'] if c['num'] > min_vertices_num]
-                    intersects = ['{} ({}, {:.2f}%)'.format(l, num, prob * 100) for l, num, prob in intersects]# if l in labels]
-                    if len(intersects) > 0 and cluster['max'] > min_sig:
-                        print('*** {} ({}={:.2f}Hz): {}: (sig: {})'.format(
-                            subject, clusters_dict['time'], cluster_freq, intersects, cluster['max']))
-    max_intersect = sorted(max_intersect)[::-1]
-    print(' $$$ {}'.format(max_intersect[:5]))
-
-
-def meg_pvals_to_contours(args):
-    # hc030
-    subjects = args.subject
-    for subject in subjects:
-        stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
-        stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
-        _, pick_t = stc.get_peak(time_as_index=True)
-        print('peak freq: {:.2f}Hz'.format(stc.times[pick_t]))
-        meg.stc_to_contours(subject, stc_name, pick_t, thresholds_min=1.3, thresholds_max=2, thresholds_dx=1,
-                            min_cluster_size=5, clusters_label='superiorfrontal', find_clusters_overlapped_labeles=True,
-                            atlas='MSIT_I-C', n_jobs=args.n_jobs)
-
-
 def fMRI_contours(args):
     subjects = args.subject
     contrast_name = 'msit_I-C.analysis-I-C-sig'
@@ -301,37 +207,131 @@ def fMRI_contours(args):
                     atlas='aparc.DKTatlas', n_jobs=args.n_jobs)
 
 
-def average_power_spectrum_per_label(args):
-    import re
-    subjects = args.subject
-    filter = 'superiorfrontal'
-    filter_re = re.compile(filter)
-    for suject in subjects:
-        labels_output_fname = op.join(
-            MMVT_DIR, suject, 'meg', 'labels_data_{}_power_spectrum_stat_{}.npz'.format(args.task, '{hemi}'))
-        labels_data, labels_names = defaultdict(list), defaultdict(list)
-        fol = op.join(MMVT_DIR, suject, 'meg')
-        labels_fnames = glob.glob(op.join(fol, 'clusters', 'dSPM_mean_flip_vertices_power_spectrum_stat', '*.label'))
-        stc = mne.read_source_estimate(op.join(fol, 'dSPM_mean_flip_vertices_power_spectrum_stat'))
-        for label_fname in labels_fnames:
-            label = mne.read_label(label_fname, suject)
-            if not filter_re.search(label.name):
-                continue
-            vertno = stc.lh_vertno if label.hemi == 'lh' else stc.rh_vertno
-            this_vertno = np.intersect1d(vertno, label.vertices)
-            vertidx = np.searchsorted(vertno, this_vertno)
-            if len(vertidx) == 0:
-                print('No stc vertices in {}!'.format(label.name))
-                continue
-            data = stc.lh_data if label.hemi == 'lh' else stc.rh_data
-            label_data = data[vertidx].mean(axis=0)
-            labels_data[label.hemi].append(label_data)
-            labels_names[label.hemi].append(label_data)
-        for hemi in utils.HEMIS:
-            if hemi in labels_data:
-                np.savez(labels_output_fname.format(hemi=hemi), data=np.array(labels_data[hemi]),
-                         names=labels_names[hemi], conditions=['power_ttest'])
+# def calc_fMRI_rois(args):
+#     params = [(s, args.atlas, args.fmri_dir, 1) for s in args.subject]
+#     utils.run_parallel(_calc_fMRI_rois, params, args.n_jobs)
 
+
+# def _calc_fMRI_rois(p):
+#     subject, atlas, fmri_dir, n_jobs = p
+#     fMRI_cluster_fname = op.join(MMVT_DIR, subject, 'fmri', 'clusters_labels_MSIT_I-C_{}.pkl'.format(atlas))
+#     if op.isfile(fMRI_cluster_fname) and \
+#             utils.both_hemi_files_exist(op.join(SUBJECTS_DIR, subject, 'label', '{hemi}.MSIT_I-C.annot')):
+#         print('{} already have fMRI clusters'.format(subject))
+#         return True
+#     fmri_fnames = glob.glob(op.join(fmri_dir, subject, '**', 'msit_I-C.analysis.lh', 'I-C', 'sig.nii.gz'))
+#     if len(fmri_fnames) == 0:
+#         print('Couldn\'t find MSIT fmri file for {}'.format(subject))
+#         return False
+#     try:
+#         surf_template_fname = fmri.load_surf_file(subject, fmri_fnames[0])
+#         fmri.find_clusters(subject, surf_template_fname, 2, atlas, task='MSIT', create_clusters_labels=True,
+#                            new_atlas_name='MSIT_I-C', n_jobs=n_jobs)
+#     except:
+#         print(traceback.format_exc())
+#
+#
+# def calc_pvals_fMRI_clusters(args):
+#     utils.run_parallel(_calc_pvals_fMRI_clusters, [(s, args.overwrite) for s in args.subject], args.n_jobs)
+#
+#
+# def _calc_pvals_fMRI_clusters(p, extract_time_series_for_clusters=False):
+#     subject, overwrite = p
+#     stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
+#     if not utils.both_hemi_files_exist(
+#             op.join(MMVT_DIR, subject, 'meg', '{}-{}.stc'.format(stc_name, '{hemi}'))):
+#         print('{}: Can\'t find {}!'.format(subject, stc_name))
+#         return False
+#     args.subject = subject
+#     clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
+#     res_fname = op.join(clusters_root_fol, 'clusters_labels_dSPM_mean_flip_vertices_power_spectrum_stat.pkl')
+#     if not op.isfile(res_fname) or args.overwrite:
+#         utils.delete_folder_files(clusters_root_fol)
+#         _args = meg.read_cmd_args(dict(
+#             subject=subject, mri_subject=subject,
+#             atlas='MSIT_I-C',
+#             function='find_functional_rois_in_stc',
+#             stc_name=stc_name,
+#             threshold=-np.log10(0.01), threshold_is_precentile=False,
+#             extract_time_series_for_clusters=False, save_func_labels=True,
+#             calc_cluster_contours=True,
+#             n_jobs=args.n_jobs
+#         ))
+#         try:
+#             meg.call_main(_args)
+#         except:
+#             print(traceback.format_exc())
+#         if not op.isfile(res_fname):
+#             print('Cluster output can\'t be found!')
+#             return False
+
+
+# Remove this function
+# def filter_pvals_fMRI_clusters(args):
+#     subjects = args.subject
+#     max_intersect = []
+#     stc_name = 'dSPM_mean_flip_vertices_power_spectrum_stat'
+#     for subject in subjects:
+#         clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'meg', 'clusters'))
+#         res_fname = op.join(clusters_root_fol, 'clusters_labels_dSPM_mean_flip_vertices_power_spectrum_stat.pkl')
+#         min_vertices_num = 50
+#         min_sig = 2
+#         # labels = ['superiorfrontal', 'caudalmiddlefrontal']
+#         if op.isfile(res_fname):
+#             clusters_dict = utils.Bag(utils.load(res_fname))
+#             stc = mne.read_source_estimate(op.join(MMVT_DIR, subject, 'meg', '{}-lh.stc'.format(stc_name)))
+#             uniqueness = len(np.where(np.abs(stc.data[:, 0][1:] - stc.data[:, 0][:-1]) > 0.1)[0])/ stc.data.size
+#             if uniqueness < 0.001:
+#                 print('{}: uniqueness < 0.001! ({})'.format(subject, uniqueness))
+#                 continue
+#             cluster_freq = stc.times[clusters_dict['time']]
+#             if 1 < cluster_freq < 120:
+#                 for cluster in clusters_dict.values:
+#                     for c in cluster['intersects']:
+#                         max_intersect.append((c['num'], subject, c['name'], clusters_dict['time'], '{:.2f}Hz'.format(cluster_freq)))
+#                     intersects = [(c['name'].split('_')[0], c['num'], (c['num'] / cluster['size']))
+#                                   for c in cluster['intersects'] if c['num'] > min_vertices_num]
+#                     intersects = ['{} ({}, {:.2f}%)'.format(l, num, prob * 100) for l, num, prob in intersects]# if l in labels]
+#                     if len(intersects) > 0 and cluster['max'] > min_sig:
+#                         print('*** {} ({}={:.2f}Hz): {}: (sig: {})'.format(
+#                             subject, clusters_dict['time'], cluster_freq, intersects, cluster['max']))
+#     max_intersect = sorted(max_intersect)[::-1]
+#     print(' $$$ {}'.format(max_intersect[:5]))
+
+
+
+# We don't need that
+# def average_power_spectrum_per_label(args):
+#     import re
+#     subjects = args.subject
+#     filter = 'superiorfrontal'
+#     filter_re = re.compile(filter)
+#     for suject in subjects:
+#         labels_output_fname = op.join(
+#             MMVT_DIR, suject, 'meg', 'labels_data_{}_power_spectrum_stat_{}.npz'.format(args.task, '{hemi}'))
+#         labels_data, labels_names = defaultdict(list), defaultdict(list)
+#         fol = op.join(MMVT_DIR, suject, 'meg')
+#         labels_fnames = glob.glob(op.join(fol, 'clusters', 'dSPM_mean_flip_vertices_power_spectrum_stat', '*.label'))
+#         stc = mne.read_source_estimate(op.join(fol, 'dSPM_mean_flip_vertices_power_spectrum_stat'))
+#         for label_fname in labels_fnames:
+#             label = mne.read_label(label_fname, suject)
+#             if not filter_re.search(label.name):
+#                 continue
+#             vertno = stc.lh_vertno if label.hemi == 'lh' else stc.rh_vertno
+#             this_vertno = np.intersect1d(vertno, label.vertices)
+#             vertidx = np.searchsorted(vertno, this_vertno)
+#             if len(vertidx) == 0:
+#                 print('No stc vertices in {}!'.format(label.name))
+#                 continue
+#             data = stc.lh_data if label.hemi == 'lh' else stc.rh_data
+#             label_data = data[vertidx].mean(axis=0)
+#             labels_data[label.hemi].append(label_data)
+#             labels_names[label.hemi].append(label_data)
+#         for hemi in utils.HEMIS:
+#             if hemi in labels_data:
+#                 np.savez(labels_output_fname.format(hemi=hemi), data=np.array(labels_data[hemi]),
+#                          names=labels_names[hemi], conditions=['power_ttest'])
+#
 
 # def find_meg_psd_clusters(args):
 #     subjects = args.subject
@@ -444,17 +444,29 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--mri_subject', help='subject name', required=False, default='')
     parser.add_argument('-a', '--atlas', required=False, default='laus125')
     parser.add_argument('-t', '--task', required=False, default='MSIT')
-    parser.add_argument('-f', '--function', help='function name', required=False, default='analyze_meg')
+    parser.add_argument('-f', '--function', help='function name', required=True)
 
     parser.add_argument('--remote_root_dir', required=False,
                         default='/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/')
     meg_dirs = ['/home/npeled/meg/{task}',
                 '/autofs/space/karima_001/users/alex/MSIT_ECR_Preprocesing_for_Noam/epochs']
-    meg_dir = [d for d in meg_dirs if op.isdir(d.format(task='MSIT'))][0]
+    meg_dirs = [d for d in meg_dirs if op.isdir(d.format(task='MSIT'))]
+    if len(meg_dirs) == 0:
+        print('No MEG folder!')
+        meg_dir = ''
+    else:
+        meg_dir = meg_dirs[0]
+
     parser.add_argument('--meg_dir', required=False, default=meg_dir)
     fmri_dirs = ['/autofs/space/lilli_004/users/DARPA-{task}/', '/home/npeled/fmri/{task}']
-    fmri_dir = [d for d in fmri_dirs if op.isdir(d.format(task='MSIT'))][0]
+    fmri_dirs = [d for d in fmri_dirs if op.isdir(d.format(task='MSIT'))]
+    if len(fmri_dirs) == 0:
+        print('No fMRI folder!')
+        fmri_dir = ''
+    else:
+        fmri_dir = fmri_dirs[0]
     parser.add_argument('--fmri_dir', required=False, default=fmri_dir.format(task='MSIT'))
+
     remote_subject_dirs = ['/autofs/space/lilli_001/users/DARPA-Recons/',
                            '/home/npeled/subjects']
     remote_subject_dir = [op.join(d, '{subject}') for d in remote_subject_dirs if op.isdir(d)][0]
