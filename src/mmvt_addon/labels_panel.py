@@ -193,8 +193,19 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
         mesh = mu.get_hemi_obj(hemi).data
         mesh.vertex_colors.active_index = mesh.vertex_colors.keys().index('contours')
         mesh.vertex_colors['contours'].active_render = True
-        _addon().color_hemi_data(hemi, selected_contours, 0.1, 256 / contour_max, override_current_mat=not cumulate,
-                        coloring_layer='contours', check_valid_verts=False)
+        # Saving the labels names and RGB values
+        unique_values = np.unique(contours)
+        contours_colors = _addon().coloring.calc_colors(unique_values, 0, 256 / contour_max)
+        contours_labels_info = np.column_stack((labels_contours[hemi]['labels'], contours_colors[1:, :]))
+        output_fname = op.join(mu.get_user_fol(), 'labels',  '{}_{}_{}_labels_names_and_colors.csv'.format(
+            bpy.context.scene.contours_coloring, hemi, _addon().colorbar.get_colormap_name()))
+        np.savetxt(output_fname, contours_labels_info, ('%s', '%s', '%s', '%s'), ',')
+        print('Saving labels names and RGB values to {}'.format(output_fname))
+        # Color the hemi surface
+        _addon().color_hemi_data(
+            hemi, selected_contours, 0.1, 256 / contour_max, override_current_mat=not cumulate,
+            coloring_layer='contours', check_valid_verts=False)
+
     _addon().what_is_colored().add(_addon().WIC_CONTOURS)
 
     # if bpy.context.scene.contours_coloring in _addon().get_annot_files():

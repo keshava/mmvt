@@ -100,7 +100,9 @@ def plot_meg():
     ret = True
     if ColoringMakerPanel.stc_file_chosen:
         plot_stc(ColoringMakerPanel.stc, bpy.context.scene.frame_current,
-                 threshold=bpy.context.scene.coloring_lower_threshold, save_image=False)
+                 threshold=bpy.context.scene.coloring_lower_threshold, save_image=False,
+                 apply_morphing=bpy.context.scene.apply_morphing,
+                 bigger_or_equal=bpy.context.scene.color_bigger_or_equal)
     elif ColoringMakerPanel.activity_map_chosen:
         activity_map_coloring('MEG')
     else:
@@ -145,7 +147,7 @@ def plot_max_stc_graph(stc_name='', modality='', stc_fname='', use_abs=False):
 @mu.timeit
 def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percentiles=None, save_image=False,
              view_selected=False, subject='', save_prev_colors=False, cm=None, save_with_color_bar=True,
-             read_chache=False, use_abs=None, bigger_or_equal=False, valid_verts=None, n_jobs=-1):
+             read_chache=False, use_abs=None, bigger_or_equal=False, valid_verts=None, apply_morphing=True, n_jobs=-1):
     import mne
     # cursor (enum in ['DEFAULT', 'NONE', 'WAIT', 'CROSSHAIR', 'MOVE_X', 'MOVE_Y', 'KNIFE', 'TEXT', 'PAINT_BRUSH', 'HAND', 'SCROLL_X', 'SCROLL_Y', 'SCROLL_XY', 'EYEDROPPER'])
     bpy.context.window.cursor_set("WAIT")
@@ -212,7 +214,7 @@ def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percent
         if len(bpy.data.objects.get('inflated_rh').data.vertices) == len(stc_t.rh_vertno) and \
                 len(bpy.data.objects.get('inflated_lh').data.vertices) == len(stc_t.lh_vertno):
             stc_t_smooth = stc_t
-        else:
+        elif apply_morphing:
             n_jobs = 1 # n_jobs if mu.IS_LINUX else 1 # Stupid OSX and Windows #$%#@$
             morph_name = '{0}-{0}-morph.fif'.format(subject)
             morph_maps_fol = mu.make_dir(op.join(mu.get_parent_fol(mu.get_user_fol()), 'morph_maps'))
@@ -228,6 +230,8 @@ def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percent
                 vertices_to = mne.grade_to_vertices(subject, None, subjects_dir=subjects_dir)
                 stc_t_smooth = mne.morph_data(
                     subject, subject, stc_t, n_jobs=n_jobs, grade=vertices_to, subjects_dir=subjects_dir)
+        else:
+            stc_t_smooth = stc_t
 
         # stc_t_smooth.save(stc_t_fname)
 
@@ -310,8 +314,9 @@ def color_meg_peak():
         time_as_index=True, vert_as_index=True, mode=bpy.context.scene.meg_peak_mode)
     print(max_vert, bpy.context.scene.frame_current)
     plot_stc(ColoringMakerPanel.stc, bpy.context.scene.frame_current,
-             threshold=bpy.context.scene.coloring_lower_threshold, save_image=False)
-
+             threshold=bpy.context.scene.coloring_lower_threshold, save_image=False,
+             apply_morphing=bpy.context.scene.apply_morphing,
+             bigger_or_equal=bpy.context.scene.color_bigger_or_equal)
 
 def set_lower_threshold(val):
     if not isinstance(val, float):
@@ -1172,7 +1177,7 @@ def set_activity_values(cur_obj, values):
 def activity_map_obj_coloring(
         cur_obj, vert_values, lookup=None, threshold=0, override_current_mat=True, data_min=None, colors_ratio=None,
         use_abs=None, bigger_or_equall=False, save_prev_colors=False, coloring_layer='Col', check_valid_verts=True,
-        uv_size=300, remove_unknown=False, hemi='', valid_verts=None):
+        uv_size=300, remove_unknown=None, hemi='', valid_verts=None):
     if isinstance(cur_obj, str):
         cur_obj = bpy.data.objects[cur_obj]
     if lookup is None:
@@ -1200,6 +1205,8 @@ def activity_map_obj_coloring(
         return
 
     # Remove coloring from unknown labels
+    if remove_unknown is None:
+        remove_unknown = bpy.context.scene.remove_unknown_from_plotting
     if remove_unknown and hemi != '':
         vertices_labels_lookup_fname = glob.glob(op.join(mu.get_user_fol(), '*_vertices_labels_lookup.pkl'))
         if len(vertices_labels_lookup_fname) > 0:
@@ -2420,8 +2427,12 @@ def draw(self, context):
     # if context.scene.coloring_add_upper_threhold:
     #     layout.prop(context.scene, 'coloring_upper_threshold', text="Upper threshold")
     layout.prop(context.scene, "frame_current", text="Set time")
-    layout.prop(context.scene, 'coloring_use_abs', text="Use abs")
-    layout.prop(context.scene, 'color_rois_homogeneously', text="Color ROIs homogeneously")
+    if bpy.context.scene.coloring_more_settings:
+        layout.prop(context.scene, 'coloring_use_abs', text="Use abs")
+        layout.prop(context.scene, 'color_bigger_or_equal', text="Bigger or equal")
+        layout.prop(context.scene, 'color_rois_homogeneously', text="Color ROIs homogeneously")
+        layout.prop(context.scene, 'apply_morphing', text='Apply morphing')
+        layout.prop(context.scene, 'remove_unknown_from_plotting', text='Remove unknown labels')
 
     if faces_verts_exist:
         meg_current_activity_data_exist = mu.hemi_files_exists(
@@ -2515,6 +2526,7 @@ def draw(self, context):
     # if bpy.context.scene.labels_folder != '':
     #     row.operator(PlotLabelsFolder.bl_idname, text='', icon='GAME')
     layout.operator(ClearColors.bl_idname, text="Clear", icon='PANEL_CLOSE')
+    layout.prop(context.scene, 'coloring_more_settings', text='More settings')
 
 
 bpy.types.Scene.hide_connection_under_threshold = bpy.props.BoolProperty(
@@ -2552,6 +2564,8 @@ bpy.types.Scene.coloring_lower_threshold = bpy.props.FloatProperty(default=0.5, 
 bpy.types.Scene.coloring_use_abs = bpy.props.BoolProperty(default=True,
     description='Plots only the activity with an absolute value above the threshold.'
                 '\n\nScript: mmvt.coloring.get_use_abs_threshold() and set_use_abs_threshold(val)')
+bpy.types.Scene.apply_morphing = bpy.props.BoolProperty(
+    default=True, description='Apply morphing to plot all vertices')
 bpy.types.Scene.fmri_files = bpy.props.EnumProperty(items=[('', '', '', 0)],
     description='Selects the contrast to plot the fMRI activity.\n\nScript:mmvt.coloring.get_select_fMRI_contrast()\n\nCurrent contrast')
 bpy.types.Scene.stc_files = bpy.props.EnumProperty(items=[('', '', '', 0)], description="STC files")
@@ -2578,6 +2592,11 @@ bpy.types.Scene.connectivity_degree_save_image = bpy.props.BoolProperty(default=
 bpy.types.Scene.show_labels_plotted = bpy.props.BoolProperty(default=True, description="Show labels list")
 bpy.types.Scene.labels_folder = bpy.props.StringProperty(subtype='DIR_PATH')
 bpy.types.Scene.fmri_vol_files = bpy.props.EnumProperty(items=[])
+bpy.types.Scene.remove_unknown_from_plotting = bpy.props.BoolProperty(
+    default=False, description="remove_unknown_from_plotting")
+bpy.types.Scene.color_bigger_or_equal = bpy.props.BoolProperty(
+    default=False, description="color everything bigger or equal to threshold")
+bpy.types.Scene.coloring_more_settings = bpy.props.BoolProperty(default=False, description="More Settings")
 # bpy.types.Scene.set_current_time = bpy.props.IntProperty(name="Current time:", min=0,
 #                                                          max=bpy.data.scenes['Scene'].frame_preview_end,
 #                                                          update=set_current_time_update)
@@ -2630,6 +2649,10 @@ class ColoringMakerPanel(bpy.types.Panel):
     run_fmri_minmax_prec_update = True
     run_electrodes_minmax_prec_update = True
     smooth_map = None
+    bpy.context.scene.coloring_more_settings = False
+    bpy.context.scene.remove_unknown_from_plotting = False
+    bpy.context.scene.apply_morphing = True
+    bpy.context.scene.color_bigger_or_equal = False
     # activity_map_coloring = activity_map_coloring
 
     def draw(self, context):

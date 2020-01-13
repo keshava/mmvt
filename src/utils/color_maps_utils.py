@@ -25,6 +25,13 @@ def create_PuBu_cm(n=256):
     return colors_map
 
 
+def create_hot_reverse(n=256):
+    colors = cm.Hot(np.linspace(1, 0, n))
+    colors[-1] = [1., 1., 1., 1.]
+    colors_map = mcolors.LinearSegmentedColormap.from_list('hot_reverse', colors)
+    return colors_map
+
+
 def create_BuPu_YlOrRd_cm(n=128):
     colors1 = cm.PuBu(np.linspace(1, 0, n))
     colors2 = cm.YlOrRd(np.linspace(0, 1, n))
@@ -57,17 +64,18 @@ def combine_two_colormaps(cm1_name, cm2_name, new_cm_name='', invert_cm1=False, 
     return colors_map
 
 
-def create_linear_segmented_colormap(cm_name, invert_cm=False, n=256):
+def create_linear_segmented_colormap(cm_name, invert_cm=False, n=256, inverse_cm_name=''):
     if cm_name in cm.__dict__:
         if not invert_cm:
             colors = cm.__dict__[cm_name](np.linspace(0, 1, n))
         else:
             colors = cm.__dict__[cm_name](np.linspace(1, 0, n))
     else: # try the inverse cm_name (pubu - bupu)
-        if len(cm_name) == 4:
-            inverse_cm_name = '{}{}'.format(cm_name[2:4], cm_name[0:2])
-        elif len(cm_name) == 6:
-            inverse_cm_name = '{}{}{}'.format(cm_name[4:6], cm_name[2:4], cm_name[0:2])
+        if inverse_cm_name == '':
+            if len(cm_name) == 4:
+                inverse_cm_name = '{}{}'.format(cm_name[2:4], cm_name[0:2])
+            elif len(cm_name) == 6:
+                inverse_cm_name = '{}{}{}'.format(cm_name[4:6], cm_name[2:4], cm_name[0:2])
         if inverse_cm_name in cm.__dict__:
             colors = cm.__dict__[inverse_cm_name](np.linspace(1, 0, n))
         else:
@@ -112,7 +120,7 @@ def get_cm_obj(cm_name, new_cm_name='', invert_cm1=False, invert_cm2=False,  cm1
             new_cm_name = '{}-{}'.format(cm1_name, cm2_name)
         return combine_two_colormaps(cm1_name, cm2_name, new_cm_name, invert_cm1, invert_cm2, cm1_minmax, cm2_minmax)
     else:
-        return create_linear_segmented_colormap(cm_name, invert_cm1)
+        return create_linear_segmented_colormap(new_cm_name, invert_cm1, )
 
         # if cm_name == 'BuPu_YlOrRd':
     #     return create_BuPu_YlOrRd_cm()
@@ -155,7 +163,9 @@ if __name__ == '__main__':
     # create_cm('YlOrRd')
     # create_cm('RdOrYl')
     # create_cm('PuBu')
-    create_cm('PuBu', 'BuPu', invert_cm1=True)
+    # create_hot_reverse()
+    create_cm('hot_r')
+    # create_cm('', 'BuPu', invert_cm1=True)
     # create_cm('gray')
     # create_cm('jet')
     # create_cm('hot')

@@ -1580,13 +1580,19 @@ def morph_labels_from_fsaverage(subject, atlas, fsaverage, overwrite_morphing, f
         fs_labels_fol=fs_labels_fol, n_jobs=n_jobs)
 
 
-def recon_all(subject, nifti_fname, n_jobs=1):
+def recon_all(subject, nifti_fname, print_only=False, n_jobs=1):
     if '{subject}' in nifti_fname:
         nifti_fname = nifti_fname.format(subject=subject)
+    if op.isdir(nifti_fname):
+        dicom_files = sorted(glob.glob(op.join(nifti_fname, '*')))
+        nifti_fname = dicom_files[0]
     cmd = 'recon-all -i {} -subjid {} -all {}'.format(nifti_fname, subject, '-parallel' if n_jobs > 1 else '')
     try:
-        utils.delete_folder_files(op.join(SUBJECTS_DIR, subject), True)
-        utils.run_command_in_new_thread(cmd, False)
+        if print_only:
+            print(cmd)
+        else:
+            utils.delete_folder_files(op.join(SUBJECTS_DIR, subject), True)
+            utils.run_command_in_new_thread(cmd, False)
         return True
     except:
         print('recon-all failed!')
@@ -1728,9 +1734,8 @@ def main(subject, remote_subject_dir, org_args, flags):
             subject, args.dicoms_fol, args.nifti_fname, args.seq, args.overwrite_nifti, args.print_only,
                 args.ask_before)
 
-    if 'recon-all' in args.function:
-        flags['recon-all'] = recon_all(subject, args.nifti_fname, args.n_jobs)
-
+    if 'recon_all' in args.function:
+        flags['recon-all'] = recon_all(subject, args.nifti_fname, args.print_only, args.n_jobs)
 
     if 'mne_coregistration' in args.function:
         flags['mne_coregistration'] = mne_coregistration(subject)
