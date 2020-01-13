@@ -64,7 +64,10 @@ def dell_move_elec_update(self, context):
 
 # @mu.profileit('cumtime', op.join(mu.get_user_fol()))
 def find_electrodes_pipeline():
-    find_how_many_electrodes_above_threshold()
+    bpy.context.scene.dell_how_many_electrodes_above_threshold = fect.find_how_many_electrodes_above_threshold(
+        bpy.context.scene.dell_ct_threshold, bpy.context.scene.dell_find_nei_maxima,
+        bpy.context.scene.dell_mask_voxels_outside_brain, bpy.context.scene.dell_brain_mask_sigma,
+        bpy.context.scene.dell_binary_erosion)
     print('import_electrodes...')
     _addon().import_electrodes(elecs_pos=DellPanel.pos, elecs_names=DellPanel.names, bipolar=False,
                                parnet_name='Deep_electrodes')
@@ -84,47 +87,47 @@ def import_dura_surface():
         mu.show_hide_obj(surf_obj, False)
 
 
-def find_how_many_electrodes_above_threshold():
-    local_maxima_fname = op.join(DellPanel.output_fol, 'local_maxima_{}.npy'.format(
-        bpy.context.scene.dell_ct_threshold))
-    if bpy.context.scene.dell_binary_erosion:
-        DellPanel.ct_data = fect.binary_erosion(DellPanel.ct_data, bpy.context.scene.dell_ct_threshold)
+def find_how_many_electrodes_above_threshold(
+        ct_threshold=None, find_nei_maxima=True, mask_voxels_outside_brain=True, brain_mask_sigma=1,
+        binary_erosion=False):
+    local_maxima_fname = op.join(DellPanel.output_fol, 'local_maxima_{}.npy'.format(ct_threshold))
+    if binary_erosion:
+        DellPanel.ct_data = fect.binary_erosion(DellPanel.ct_data, ct_threshold)
     if not op.isfile(local_maxima_fname):
-        print('find_voxels_above_threshold ({})'.format(bpy.context.scene.dell_ct_threshold))
-        ct_voxels = fect.find_voxels_above_threshold(DellPanel.ct_data, bpy.context.scene.dell_ct_threshold)
-        print('{} voxels were found above {}'.format(len(ct_voxels), bpy.context.scene.dell_ct_threshold))
+        print('find_voxels_above_threshold ({})'.format(ct_threshold))
+        ct_voxels = fect.find_voxels_above_threshold(DellPanel.ct_data, ct_threshold)
+        print('{} voxels were found above {}'.format(len(ct_voxels), ct_threshold))
         print('Finding local maxima')
         ct_voxels = fect.find_all_local_maxima(
-            DellPanel.ct_data, ct_voxels, bpy.context.scene.dell_ct_threshold,
-            find_nei_maxima=bpy.context.scene.dell_find_nei_maxima, max_iters=100)
+            DellPanel.ct_data, ct_voxels, ct_threshold,
+            find_nei_maxima=find_nei_maxima, max_iters=100)
         np.save(local_maxima_fname, ct_voxels)
     else:
         ct_voxels = np.load(local_maxima_fname)
     print('{} local maxima were found'.format(len(ct_voxels)))
     ct_voxels = fect.remove_neighbors_voxels(DellPanel.ct_data, ct_voxels)
     print('{} local maxima after removing neighbors'.format(len(ct_voxels)))
-    if bpy.context.scene.dell_mask_voxels_outside_brain:
+    if mask_voxels_outside_brain:
         print('mask_voxels_outside_brain...')
         import_dura_surface()
         ct_electrodes, _ = fect.mask_voxels_outside_brain(
             ct_voxels, DellPanel.ct.header, DellPanel.brain, mu.get_user_fol(), mu.get_subject_dir(),
-            bpy.context.scene.dell_brain_mask_sigma)
+            brain_mask_sigma)
         print('{} voxels in the brain were found'.format(len(ct_electrodes)))
     else:
         ct_electrodes = ct_voxels
         print('{} voxels  were found'.format(len(ct_electrodes)))
-    if len(ct_electrodes) == 0:
-        bpy.context.scene.dell_how_many_electrodes_above_threshold = '0'
-        return
-    DellPanel.pos = fect.ct_voxels_to_t1_ras_tkr(ct_electrodes, DellPanel.ct.header, DellPanel.brain.header)
-    DellPanel.hemis = fect.find_electrodes_hemis(
-        mu.get_user_fol(), DellPanel.pos, groups=None, sigma=bpy.context.scene.dell_brain_mask_sigma)
-    DellPanel.names = name_electrodes(DellPanel.hemis)
-    output_fname = op.join(DellPanel.output_fol, '{}_electrodes.pkl'.format(int(bpy.context.scene.dell_ct_threshold)))
-    bpy.context.scene.dell_how_many_electrodes_above_threshold = str(len(DellPanel.names))
-    mu.save((DellPanel.pos, DellPanel.names, DellPanel.hemis, DellPanel.groups, DellPanel.noise,
-             bpy.context.scene.dell_ct_threshold), output_fname)
-
+    if len(ct_electrodes) > 0:
+        DellPanel.pos = fect.ct_voxels_to_t1_ras_tkr(ct_electrodes, DellPanel.ct.header, DellPanel.brain.header)
+        DellPanel.hemis = fect.find_electrodes_hemis(
+            mu.get_user_fol(), DellPanel.pos, groups=None, sigma=brain_mask_sigma)
+        DellPanel.names = name_electrodes(DellPanel.hemis)
+        output_fname = op.join(DellPanel.output_fol, '{}_electrodes.pkl'.format(int(ct_threshold)))
+        mu.save((DellPanel.pos, DellPanel.names, DellPanel.hemis, DellPanel.groups, DellPanel.noise,
+                 ct_threshold), output_fname)
+        return len(DellPanel.names)
+    else:
+        return 0
 
 def save():
     output_fname = op.join(DellPanel.output_fol, '{}_electrodes.pkl'.format(int(bpy.context.scene.dell_ct_threshold)))
@@ -1262,7 +1265,10 @@ class FindHowManyElectrodesAboveThrshold(bpy.types.Operator):
     bl_options = {"UNDO"}
 
     def invoke(self, context, event=None):
-        find_how_many_electrodes_above_threshold()
+        bpy.context.scene.dell_how_many_electrodes_above_threshold = fect.find_how_many_electrodes_above_threshold(
+            bpy.context.scene.dell_ct_threshold, bpy.context.scene.dell_find_nei_maxima,
+            bpy.context.scene.dell_mask_voxels_outside_brain, bpy.context.scene.dell_brain_mask_sigma,
+            bpy.context.scene.dell_binary_erosion)
         return {'PASS_THROUGH'}
 
 

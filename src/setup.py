@@ -364,7 +364,7 @@ def install_blender_reqs(blender_fol='', gui=True):
             # https://github.com/pypa/pip/issues/5226
             # https://stackoverflow.com/questions/49743961/cannot-upgrade-pip-9-0-1-to-9-0-3-requirement-already-satisfied/49758204#49758204
             # utils.run_script('curl https://bootstrap.pypa.io/get-pip.py | python3')
-            install_cmd = '{} install {} --user'.format(op.join('bin', 'pip'), reqs)
+            install_cmd = '{} install --upgrade {} --user'.format(op.join('bin', 'pip'), reqs)
             utils.run_script(install_cmd)
         else:
             # https://stackoverflow.com/questions/130763/request-uac-elevation-from-within-a-python-script

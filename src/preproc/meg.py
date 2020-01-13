@@ -5888,6 +5888,24 @@ def get_digitization_points(subject, raw_fname):
 def stc_to_contours(subject, stc_name, pick_t=0, thresholds_min=None, thresholds_max=None, thresholds_dx=1,
                     min_cluster_size=10, atlas='', clusters_label='', find_clusters_overlapped_labeles=False,
                     mri_subject='', stc_t_smooth=None, modality='meg', n_jobs=4):
+    '''
+
+    :param subject:
+    :param stc_name:
+    :param pick_t:
+    :param thresholds_min:
+    :param thresholds_max:
+    :param thresholds_dx:
+    :param min_cluster_size:
+    :param atlas:
+    :param clusters_label:
+    :param find_clusters_overlapped_labeles:
+    :param mri_subject:
+    :param stc_t_smooth:
+    :param modality:
+    :param n_jobs:
+    :return:
+    '''
     if mri_subject == '':
         mri_subject = subject
     clusters_root_fol = utils.make_dir(op.join(MMVT_DIR, subject, modality, 'clusters'))

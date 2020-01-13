@@ -281,10 +281,29 @@ def find_clusters(subject, surf_template_fname, t_val, atlas, min_cluster_max=2,
 def contrast_to_contours(subject, contrast_name, thresholds_min=None, thresholds_max=None, thresholds_dx=1,
                     min_cluster_size=10, atlas='', clusters_label='', find_clusters_overlapped_labeles=False,
                     mri_subject='', n_jobs=4):
+    '''
+
+    :param subject:
+    :param contrast_name:
+    :param thresholds_min:
+    :param thresholds_max:
+    :param thresholds_dx:
+    :param min_cluster_size:
+    :param atlas:
+    :param clusters_label:
+    :param find_clusters_overlapped_labeles:
+    :param mri_subject:
+    :param n_jobs:
+    :return:
+    '''
     from src.preproc import meg
     if mri_subject == '':
         mri_subject = subject
-    constrast = glob.glob(op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}??h.npy'.format(contrast_name)))
+    constrast_teamplte = op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}??h.npy'.format(contrast_name))
+    constrast = glob.glob(constrast_teamplte)
+    if len(constrast) == 0:
+        print('No fMRI contrast! ({})'.format(constrast_teamplte))
+        return False
     constrast = {lu.get_hemi_from_name(utils.namebase(f)): f for f in constrast}
     verts = utils.get_pial_vertices(subject, MMVT_DIR)
     vertno = {hemi: range(len(verts[hemi])) for hemi in utils.HEMIS}
