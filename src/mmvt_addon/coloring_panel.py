@@ -99,6 +99,7 @@ def plot_fmri():
 def plot_meg():
     ret = True
     if ColoringMakerPanel.stc_file_chosen:
+        # if bpy.context.scene.plot_and_save_all_meg:
         plot_stc(ColoringMakerPanel.stc, bpy.context.scene.frame_current,
                  threshold=bpy.context.scene.coloring_lower_threshold, save_image=False,
                  apply_morphing=bpy.context.scene.apply_morphing,
@@ -1699,6 +1700,7 @@ def _meg_files_update(context):
             ColoringMakerPanel.stc = None
             # if not _addon().colorbar_values_are_locked():
             data_min, data_max, data_len = calc_stc_minmax() # Also set ColoringMakerPanel.stc if can be read
+            print('{}: {}-{} {} data points'.format(bpy.context.scene.meg_files, data_min, data_max, data_len))
             if ColoringMakerPanel.stc is not None:
                 ColoringMakerPanel.smooth_map = _addon().meg.calc_smooth_mat(ColoringMakerPanel.stc)
             if not _addon().colorbar_values_are_locked():
@@ -2454,6 +2456,9 @@ def draw(self, context):
             row.prop(context.scene, 'meg_max_prec', 'max percentile')
             if op.isfile(op.join(mu.get_user_fol(), 'subcortical_meg_activity.npz')):
                 col.prop(context.scene, 'coloring_meg_subcorticals', text="Plot also subcorticals")
+            if bpy.context.scene.coloring_more_settings:
+                col.prop(context.scene, 'plot_and_save_all_meg', 'Plot and save all')
+
         if ColoringMakerPanel.meg_labels_data_exist and ColoringMakerPanel.meg_labels_data_minmax_exist:
             col = layout.box().column()
             # col.label('MEG labels')
@@ -2596,6 +2601,8 @@ bpy.types.Scene.remove_unknown_from_plotting = bpy.props.BoolProperty(
     default=False, description="remove_unknown_from_plotting")
 bpy.types.Scene.color_bigger_or_equal = bpy.props.BoolProperty(
     default=False, description="color everything bigger or equal to threshold")
+bpy.types.Scene.plot_and_save_all_meg = bpy.props.BoolProperty(
+    default=False, description="plot_and_save_all_meg")
 bpy.types.Scene.coloring_more_settings = bpy.props.BoolProperty(default=False, description="More Settings")
 # bpy.types.Scene.set_current_time = bpy.props.IntProperty(name="Current time:", min=0,
 #                                                          max=bpy.data.scenes['Scene'].frame_preview_end,
@@ -2643,6 +2650,7 @@ class ColoringMakerPanel(bpy.types.Panel):
     stc_exist = False
     curvs = {hemi:None for hemi in mu.HEMIS}
     activity_types = []
+    stc_files = []
     fMRI_contrasts_names = []
     fMRI_constrasts_exist = False
     run_meg_minmax_prec_update = True
@@ -2747,12 +2755,13 @@ def init_meg_activity_map():
                 activity_type = 'conditions diff'
             list_items.append((activity_type, activity_type, '', len(list_items)))
     if MNE_EXIST:
-        list_items = create_stc_files_list(list_items)
+        ColoringMakerPanel.stc_files = list_items = create_stc_files_list(list_items)
     else:
         print('No MNE installed in Blender. Run python -m src.setup -f install_blender_reqs')
     if len(list_items) > 0:
         bpy.types.Scene.meg_files = bpy.props.EnumProperty(
-            items=list_items, update=meg_files_update, description='Selects the condition to plot the MEG activity.\n\nCurrent condition')
+            items=list_items, update=meg_files_update,
+            description='Selects the condition to plot the MEG activity.\n\nCurrent condition')
         bpy.context.scene.meg_files = list_items[0][0]
     if ColoringMakerPanel.meg_activity_data_exist or ColoringMakerPanel.stc_file_exist:
         ColoringMakerPanel.activity_types.append('meg')

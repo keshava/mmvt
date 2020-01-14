@@ -57,7 +57,7 @@ def get_cm():
 def save_colorbar(min_val=None, max_val=None, color_map=None, ticks_num=None, ticks_font_size=None, prec=None,
                   title=None, background_color_name=None, colorbar_name='', fol=''):
     org_colorbar_min, org_colorbar_max  = (get_colorbar_min(), get_colorbar_max())
-    org_background_color = _addon().get_panels_background_color()
+    org_background_color = background_color_rgb = bpy.context.scene.background_color # _addon().get_panels_background_color()
     if min_val is None:
         min_val = get_colorbar_min()
     if max_val is None:
@@ -72,10 +72,10 @@ def save_colorbar(min_val=None, max_val=None, color_map=None, ticks_num=None, ti
         prec = get_colorbar_prec()
     if title is None:
         title = get_colorbar_title()
-    if background_color_name is None:
-        background_color_rgb = _addon().get_background_rgb_string()
-    else:
-        background_color_rgb = ','.join([str(x) for x in cu.name_to_rgb(background_color_name)])
+    # if background_color_name is None:
+    #     background_color_rgb = _addon().get_background_rgb_string()
+    # else:
+    #     background_color_rgb = ','.join([str(x) for x in cu.name_to_rgb(background_color_name)])
     if colorbar_name == '':
         colorbar_name = '{}_colorbar.jpg'.format(color_map)
     else:
@@ -92,7 +92,7 @@ def save_colorbar(min_val=None, max_val=None, color_map=None, ticks_num=None, ti
     mu.run_mmvt_func('src.utils.figures_utils', 'plot_color_bar', flags=flags)
 
     set_colorbar_max_min(org_colorbar_max, org_colorbar_min, force_update=True)
-    _addon().set_panels_background_color(org_background_color)
+    # _addon().set_panels_background_color(org_background_color)
 
 
 def set_colorbar_background_color(color_name):
