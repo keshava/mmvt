@@ -106,6 +106,7 @@ def language(args):
         print('{} does not exist!'.format(clinical_root_dir))
 
     task = 'sycabs'
+    fwhm = 6
     subject = args.subject[0]
     remote_mri_dir = args.remote_clinical_subjects_dir
     subject_mri_dir = op.join(remote_mri_dir, subject)
@@ -164,15 +165,30 @@ def language(args):
             print('\n *** Please fix the problems with the par convertion ({}) and rerun ***\n'.format(par_file))
             return
 
+    for hemi in utils.HEMIS:
+        utils.delete_folder_files(op.join(remote_mri_dir, '{}_sm{}_{}'.format(task, fwhm, hemi)))
+
     # Run the FreeSurfer analysis
     args = fmri.read_cmd_args(dict(
         subject=subject,
         atlas=args.atlas,
         function='clean_4d_data',
         fsd=task,
+        fwhm=fwhm,
         remote_fmri_dir=remote_mri_dir,
         nconditions=4,
-        ignore_missing=True
+        ignore_missing=True,
+        print_only=False,
+        overwrite_4d_preproc=False
+    ))
+    pu.run_on_subjects(args, fmri.main)
+
+    # Load the fMRI results
+    args = fmri.read_cmd_args(dict(
+        subject=subject,
+        atlas=args.atlas,
+        function='load_surf_files',
+        fmri_file_template=op.join(MMVT_DIR, subject, 'fmri', 'words_v_symbols_{hemi}.mgz'),
     ))
     pu.run_on_subjects(args, fmri.main)
 
