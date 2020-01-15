@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Form</title>
+<style>
+body {
+  height:295mm;
+  width:208mm;
+  margin-left: auto;
+  margin-right: auto;
+  font-family: sans-serif;
+}
+h3{
+    padding: 0px;
+    margin: 0px;
+}
+img {
+  height:76.7mm;
+  width:220mm;
+}
+.box {
+  position: relative;
+}
+.right {
+  font-size: 22px;
+  color: white;
+  position: absolute;
+  padding-left: 20%;
+  line-height: 0;
+  width: 150px;
+}
+.left {
+  font-size: 22px;
+  color: white;
+  position: absolute;
+  padding-left: 65%;
+  line-height: 0;
+  width: 150px;
+}
+.page2{
+  page-break-before: always;
+}
+</style>
+</head>
+<body>
+  <div class="page1">
+      <h3>~Patient name~</h3>
+      <h3>~MRN number~</h3>
+      <h3>~Date~</h3>
+      <h1 align="center">~Task name~ Task - Pial View</h1>
+      <div class="box">
+        <p class="right">Left Lateral</p>
+        <p class="left">Right Lateral</p>
+        <img src=~Images prefix~pial_lateral.png alt=pial_lateral>
+      </div>
+      <div class="box">
+        <p class="right">Left Medial</p>
+        <p class="left">Right Medial</p>
+        <img src=~Images prefix~pial_medial.png alt=pial_medial>
+      </div>
+      <div class="box">
+        <p class="right">Left Inferior</p>
+        <p class="left">Right Inferior</p>
+        <img src=~Images prefix~pial_inferior.png alt=pial_inferior>
+      </div>
+  </div>
+  <div class="page2">
+      <h3>~Patient name~</h3>
+      <h3>~MRN number~</h3>
+      <h3>~Date~</h3>
+      <h1 align="center">~Task name~ Task - Inflated View</h1>
+      <div class="box">
+        <p class="right">Left Lateral</p>
+        <p class="left">Right Lateral</p>
+        <img src=~Images prefix~inflated_lateral.png alt=inflated_lateral>
+      </div>
+      <div class="box">
+        <p class="right">Left Medial</p>
+        <p class="left">Right Medial</p>
+        <img src=~Images prefix~inflated_medial.png alt=inflated_medial>
+      </div>
+      <div class="box">
+        <p class="right">Left Inferior</p>
+        <p class="left">Right Inferior</p>
+        <img src=~Images prefix~inflated_inferior.png alt=inflated_inferior>
+      </div>
+  </div>
+</body>
+</html>
