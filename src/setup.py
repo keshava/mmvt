@@ -144,7 +144,7 @@ def ask_and_create_link(links_fol, link_name, message, gui=True, create_default_
             root_fol = utils.get_parent_fol(links_fol)
             fol = utils.choose_folder_gui(root_fol, message) if gui else input()
             if link_name == 'blender' and utils.is_osx():
-                fol = op.join(fol,'blender.app','Contents','MacOS')
+                fol = op.join(fol, 'blender.app','Contents','MacOS')
             if fol != '':
                 create_real_folder(fol)
                 ret = utils.create_folder_link(fol, op.join(links_fol, link_name), overwrite=overwrite)

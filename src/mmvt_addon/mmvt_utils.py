@@ -3062,6 +3062,7 @@ def run_mmvt_func(module, func_name='', flags='', add_subject=False):
         flags += ' -s {}'.format(get_user())
     cmd = '{} -m {} {}{} '.format(
         bpy.context.scene.python_cmd, module, '-f {} '.format(func_name) if func_name != '' else '', flags)
+    print(cmd)
     run_command_in_new_thread(cmd, False, cwd=get_mmvt_code_root())
 
 

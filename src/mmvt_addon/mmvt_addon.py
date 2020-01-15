@@ -656,11 +656,15 @@ def init(addon_prefs):
 
 
 def run_faulthandler():
-    import faulthandler
-    logs = op.join(mmvt_utils.get_user_fol(), 'logs')
-    mmvt_utils.make_dir(logs)
-    fault_handler = open(op.join(logs, 'faulthandler_{}.txt'.format(mmvt_utils.rand_letters(5))), 'w')
-    faulthandler.enable(fault_handler)
+    try:
+        import faulthandler
+        logs = op.join(mmvt_utils.get_user_fol(), 'logs')
+        mmvt_utils.make_dir(logs)
+        fault_handler = open(op.join(logs, 'faulthandler_{}.txt'.format(mmvt_utils.rand_letters(5))), 'w')
+        faulthandler.enable(fault_handler)
+    except:
+        print('Cannot create faulthandler log!')
+        mmvt_utils.print_last_error_line()
 
 
 @mmvt_utils.tryit()

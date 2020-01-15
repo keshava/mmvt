@@ -120,7 +120,7 @@ def get_cm_obj(cm_name, new_cm_name='', invert_cm1=False, invert_cm2=False,  cm1
             new_cm_name = '{}-{}'.format(cm1_name, cm2_name)
         return combine_two_colormaps(cm1_name, cm2_name, new_cm_name, invert_cm1, invert_cm2, cm1_minmax, cm2_minmax)
     else:
-        return create_linear_segmented_colormap(new_cm_name, invert_cm1, )
+        return create_linear_segmented_colormap(cm_name, invert_cm1)
 
         # if cm_name == 'BuPu_YlOrRd':
     #     return create_BuPu_YlOrRd_cm()
