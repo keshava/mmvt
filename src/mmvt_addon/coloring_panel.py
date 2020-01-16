@@ -1548,10 +1548,16 @@ def color_manually(coloring_name=''):
         else:
             print('Couldn\'t plot {}!'.format(obj_name))
 
+    # print the obj names and colors
+    print('Objects and colors')
+    for (_, objs_names), colors_vals in zip(objects_names.items(), colors.values()):
+        for obj_name, color_vals in zip(objs_names, colors_vals):
+            print(obj_name, color_vals)
+
     if coloring_objects:
         color_objects(objects_names, colors, data)
     elif coloring_labels:
-        _addon.labels.plot_labels(objects_names[mu.OBJ_TYPE_LABEL], colors[mu.OBJ_TYPE_LABEL], atlas)
+        _addon().labels.plot_labels(objects_names[mu.OBJ_TYPE_LABEL], colors[mu.OBJ_TYPE_LABEL], atlas)
     _addon().labels.set_labels_plotted([])
     for atlas, labels_tup in other_atals_labels.items():
         _addon().labels.plot_labels([t[0] for t in labels_tup], [t[1] for t in labels_tup], atlas, do_plot=False)
@@ -1607,11 +1613,13 @@ def color_objects(objects_names, colors, data):
             for electrode, color in zip(objects_names[obj_type], colors[obj_type]):
                 obj = bpy.data.objects.get(electrode)
                 if obj and not obj.hide:
+                    print('color {}: {}'.format(electrode, color))
                     object_coloring(obj, color)
     if mu.OBJ_TYPE_CEREBELLUM in objects_names:
         for cer, color in zip(objects_names[mu.OBJ_TYPE_CEREBELLUM], colors[mu.OBJ_TYPE_CEREBELLUM]):
             obj = bpy.data.objects.get(cer)
             if obj and not obj.hide:
+                print('color {}: {}'.format(cer, color))
                 object_coloring(obj, color)
     bpy.context.scene.subcortical_layer = 'fmri'
     _addon().show_activity()
