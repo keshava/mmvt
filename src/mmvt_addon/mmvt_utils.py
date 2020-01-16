@@ -1096,7 +1096,7 @@ def make_dir(fol):
     except:
         pass
     if not op.isdir(fol):
-        print('!!! Error! {} was not created !!!')
+        print('!!! Error! {} was not created !!!'.format(fol))
     return fol
 
 

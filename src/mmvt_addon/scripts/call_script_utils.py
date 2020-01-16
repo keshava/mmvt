@@ -14,7 +14,7 @@ def make_dir(fol):
     if not os.path.isdir(fol):
         os.makedirs(fol)
     if not op.isdir(fol):
-        print('!!! Error! {} was not created !!!')
+        print('!!! Error! {} was not created !!!'.format(fol))
     return fol
 
 
