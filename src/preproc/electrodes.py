@@ -1613,6 +1613,9 @@ def set_args(args):
 def get_ras_file(subject, args):
     local_elecs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     local_fname = op.join(local_elecs_fol, '{}_RAS.xlsx'.format(subject))
+    subjects_elecs_fname = op.join(SUBJECTS_DIR, subject, 'electrodes', '{}_RAS.xlsx'.format(subject))
+    if not op.isfile(local_fname) and op.isfile(subjects_elecs_fname):
+        utils.copy_file(subjects_elecs_fname, local_fname)
     if args.remote_ras_fol != '' and not op.isfile(local_fname):
         remote_ras_fol = utils.build_remote_subject_dir(args.remote_ras_fol, subject)
         remote_fnames = glob.glob(op.join(remote_ras_fol, '{}*RAS*.xlsx'.format(subject.upper())))

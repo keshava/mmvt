@@ -1095,6 +1095,8 @@ def make_dir(fol):
             os.makedirs(fol)
     except:
         pass
+    if not op.isdir(fol):
+        print('!!! Error! {} was not created !!!')
     return fol
 
 

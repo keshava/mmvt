@@ -124,6 +124,8 @@ def download_publications_bibtex(citations_url_scholarbibs, fol):
 def make_dir(fol):
     if not op.isdir(fol):
         os.makedirs(fol)
+    if not op.isdir(fol):
+        print('!!! Error! {} was not created !!!')
 
 
 def parse_bibtex_files(fol, recursive=False):
