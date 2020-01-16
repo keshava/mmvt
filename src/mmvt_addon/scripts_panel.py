@@ -216,9 +216,6 @@ def init(addon, first=True):
         bpy.context.scene.report_use_script = bpy.context.scene.reports_files in ScriptsPanel.scripts_names
     except:
         pass
-    # bpy.context.scene.scripts_threshold = 2
-    # bpy.context.scene.scripts_cb_min = 2
-    # bpy.context.scene.scripts_cb_max = 6
     if first:
         register()
     ScriptsPanel.init = True

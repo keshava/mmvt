@@ -1,4 +1,4 @@
-import traceback
+import os.path as op
 
 def bool_arr_type(var): return var
 def str_arr_type(var): return var
@@ -16,10 +16,16 @@ def parse_parser(parser, argv=None):
     if not argv is None and not isinstance(argv, list):
         argv = create_arr_args(argv)
         print('argv: {}'.format(' '.join(argv)))
-    if argv is None:
-        in_args = vars(parser.parse_args())
-    else:
-        in_args = vars(parser.parse_args(argv))
+    try:
+        if argv is None:
+            in_args = vars(parser.parse_args())
+        else:
+            in_args = vars(parser.parse_args(argv))
+    except:
+        import sys
+        print('{} command line arguments: {}'.format(op.splitext(op.basename(sys.argv[0]))[0], sys.argv[1:]))
+        raise
+
     args = {}
     for val in parser._option_string_actions.values():
         # if val.type is None and val.dest in in_args:
