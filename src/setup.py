@@ -30,7 +30,11 @@ def copy_resources_files(mmvt_root_dir, overwrite=True, only_verbose=False):
             # print('Copy {} to {}'.format(color_map_file, new_file_name))
             print('Coping {} to {}'.format(color_map_file, new_file_name))
             if not only_verbose:
-                shutil.copy(color_map_file, new_file_name)
+                try:
+                    if not op.isfile(new_file_name):
+                        shutil.copy(color_map_file, new_file_name)
+                except:
+                    print('Can\'t copy {} to {}!'.format(color_map_file, new_file_name))
     if not all_files_exist or overwrite:
         for file_name in files:
             print('Copying {} to {}'.format(op.join(resource_dir, file_name), op.join(mmvt_root_dir, file_name)))
