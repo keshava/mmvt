@@ -286,7 +286,7 @@ def main(subject, remote_subject_dir, args, flags):
         flags['save_electrodes_group_ct_pics'] = save_electrodes_group_ct_pics(
             subject, args.voxels, args.group_name, args.electrodes_names, args.pixels_around_voxel)
 
-    if 'merge_t1_with_ct' in args.function:
+    if utils.should_run(args, 'merge_t1_with_ct'):
         flags['merge_t1_with_ct'] = merge_t1_with_ct(subject, args.ct_threshold)
 
     return flags
@@ -303,7 +303,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--negative_threshold', help='', required=False, default=-200, type=int)
     parser.add_argument('--no_negatives', help='', required=False, default=True, type=au.is_true)
     parser.add_argument('--register_cost_function', help='', required=False, default='nmi')
-    parser.add_argument('--ct_threshold', help='', required=False, type=float)
+    parser.add_argument('--ct_threshold', help='', required=False, type=float, default=2000)
     parser.add_argument('--overwrite', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--print_only', help='', required=False, default=False, type=au.is_true)
     parser.add_argument('--ask_before', help='', required=False, default=False, type=au.is_true)

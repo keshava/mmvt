@@ -64,7 +64,7 @@ def dell_move_elec_update(self, context):
 
 # @mu.profileit('cumtime', op.join(mu.get_user_fol()))
 def find_electrodes_pipeline():
-    bpy.context.scene.dell_how_many_electrodes_above_threshold = fect.find_how_many_electrodes_above_threshold(
+    bpy.context.scene.dell_how_many_electrodes_above_threshold = find_how_many_electrodes_above_threshold(
         bpy.context.scene.dell_ct_threshold, bpy.context.scene.dell_find_nei_maxima,
         bpy.context.scene.dell_mask_voxels_outside_brain, bpy.context.scene.dell_brain_mask_sigma,
         bpy.context.scene.dell_binary_erosion)
@@ -118,7 +118,12 @@ def find_how_many_electrodes_above_threshold(
         ct_electrodes = ct_voxels
         print('{} voxels  were found'.format(len(ct_electrodes)))
     if len(ct_electrodes) > 0:
-        DellPanel.pos = fect.ct_voxels_to_t1_ras_tkr(ct_electrodes, DellPanel.ct.header, DellPanel.brain.header)
+        potential_elcs_coords = fect.ct_voxels_to_t1_ras_tkr(ct_electrodes, DellPanel.ct.header, DellPanel.brain.header)
+        # a patch, not all the electrodes are actually inside the dura
+        elcs_coords = [elc_coords for elc_coords in potential_elcs_coords
+                       if check_if_selected_electrode_inside_the_dura(elc_coords)]
+        elcs_coords = np.array(elcs_coords)
+        DellPanel.pos = elcs_coords
         DellPanel.hemis = fect.find_electrodes_hemis(
             mu.get_user_fol(), DellPanel.pos, groups=None, sigma=brain_mask_sigma)
         DellPanel.names = name_electrodes(DellPanel.hemis)
@@ -128,6 +133,14 @@ def find_how_many_electrodes_above_threshold(
         return len(DellPanel.names)
     else:
         return 0
+
+
+def check_if_selected_electrode_inside_the_dura(elec_cords):
+    dural_surf = {hemi: bpy.data.objects['dural-{}'.format(hemi)] for hemi in ['lh', 'rh']}
+    return mu.is_point_inside_mesh(elec_cords, dural_surf['rh'], False) or \
+           mu.is_point_inside_mesh(elec_cords, dural_surf['lh'], False)
+
+
 
 def save():
     output_fname = op.join(DellPanel.output_fol, '{}_electrodes.pkl'.format(int(bpy.context.scene.dell_ct_threshold)))
@@ -461,6 +474,7 @@ def find_electrode_lead():
         else:
             group = _find_electrode_lead(*elc_inds)
     else:
+        print("You should first select an electrode")
         print("You should first select an electrode")
 
 
@@ -884,7 +898,7 @@ def dell_draw(self, context):
         # layout.prop(context.scene, 'dell_binary_erosion', text='USe Binary Erosion')
         layout.operator(FindHowManyElectrodesAboveThrshold.bl_idname, text="Find how many electrodes", icon='NODE_SEL')
         layout.operator(GetElectrodesAboveThrshold.bl_idname, text="Import electrodes", icon='ROTATE')
-        if bpy.context.scene.dell_how_many_electrodes_above_threshold != '':
+        if bpy.context.scene.dell_how_many_electrodes_above_threshold != 0:
             layout.label(text='Found {} potential electrodes'.format(
                 bpy.context.scene.dell_how_many_electrodes_above_threshold))
     else:
@@ -930,8 +944,10 @@ def dell_draw(self, context):
         #     layout.prop(context.scene, 'dell_files', text='Dell files')
         row = layout.row(align=True)
         row.operator(SaveElectrodesObjects.bl_idname, text="Save", icon='SAVE_PREFS')
-        row.operator(RefreshElectrodesObjects.bl_idname, text="Load", icon='OUTLINER_OB_FORCE_FIELD')
+        if bpy.context.scene.dell_more_settings and len(bpy.context.selected_objects) == 1:
+            row.operator(RefreshElectrodesObjects.bl_idname, text="Load", icon='OUTLINER_OB_FORCE_FIELD')
         # row.prop(context.scene, "dell_refresh_pos_and_names_overwrite", text='Overwrite')
+        layout.operator(CheckIfElectrodeOutsideBrain.bl_idname, text="Check if outside the brain", icon='GROUP_VCOL')
         layout.operator(CreateNewElectrode.bl_idname, text="Create new electrode", icon='OUTLINER_OB_META')
         if len(bpy.context.selected_objects) == 1 and bpy.context.selected_objects[0].name in DellPanel.names:
             if not electrode_with_group_selected:
@@ -1265,7 +1281,7 @@ class FindHowManyElectrodesAboveThrshold(bpy.types.Operator):
     bl_options = {"UNDO"}
 
     def invoke(self, context, event=None):
-        bpy.context.scene.dell_how_many_electrodes_above_threshold = fect.find_how_many_electrodes_above_threshold(
+        bpy.context.scene.dell_how_many_electrodes_above_threshold = find_how_many_electrodes_above_threshold(
             bpy.context.scene.dell_ct_threshold, bpy.context.scene.dell_find_nei_maxima,
             bpy.context.scene.dell_mask_voxels_outside_brain, bpy.context.scene.dell_brain_mask_sigma,
             bpy.context.scene.dell_binary_erosion)
@@ -1302,13 +1318,18 @@ class DellRunElectrodesPreproc(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class CheckIfElectrodeOutsidePial(bpy.types.Operator):
-    bl_idname = 'mmvt.check_if_outside_pial'
-    bl_label = 'check_if_outside_pial'
+class CheckIfElectrodeOutsideBrain(bpy.types.Operator):
+    bl_idname = 'mmvt.check_if_inside_dura'
+    bl_label = 'check_if_inside_dura'
     bl_options = {'UNDO'}
 
     def invoke(self, context, event=None):
-        check_if_outside_pial()
+        if len(bpy.context.selected_objects) != 1:
+            print('Only one electrodes hsould be selected')
+        else:
+            elc = bpy.context.selected_objects[0]
+            inside = check_if_selected_electrode_inside_the_dura(elc.location)
+            print('{} {} inside the dura'.format(elc.name, 'is' if inside else 'not'))
         return {'FINISHED'}
 
 
@@ -1483,7 +1504,7 @@ bpy.types.Scene.dell_move_x = bpy.props.IntProperty(default=0, step=1, name='x',
 bpy.types.Scene.dell_move_y = bpy.props.IntProperty(default=0, step=1, name='y', update=dell_move_elec_update)
 bpy.types.Scene.dell_move_z = bpy.props.IntProperty(default=0, step=1, name='z', update=dell_move_elec_update)
 bpy.types.Scene.dell_selected_electrode_group_name = bpy.props.StringProperty()
-bpy.types.Scene.dell_how_many_electrodes_above_threshold = bpy.props.StringProperty()
+bpy.types.Scene.dell_how_many_electrodes_above_threshold = bpy.props.IntProperty(default=0, min=0)
 bpy.types.Scene.dell_files = bpy.props.EnumProperty(items=[], description="Dell files")
 bpy.types.Scene.dell_all_groups_were_found = bpy.props.BoolProperty(default=True)
 bpy.types.Scene.dell_more_settings = bpy.props.BoolProperty(default=False)
@@ -1555,7 +1576,7 @@ def init(addon, ct_name='ct_reg_to_mr.mgz', brain_mask_name='brain.mgz', aseg_na
         # bpy.context.scene.use_only_brain_mask = False
         bpy.context.scene.dell_binary_erosion = False
         bpy.context.scene.dell_debug = False
-        bpy.context.scene.dell_how_many_electrodes_above_threshold = ''
+        bpy.context.scene.dell_how_many_electrodes_above_threshold = 0
         bpy.context.scene.dell_all_groups_were_found = False
         if bpy.context.scene.dell_debug:
             DellPanel.debug_fol = mu.make_dir(op.join(DellPanel.output_fol, mu.rand_letters(5)))
@@ -1634,7 +1655,7 @@ def register():
         bpy.utils.register_class(NextCTElectrode)
         bpy.utils.register_class(SaveCTElectrodesFigures)
         bpy.utils.register_class(ClearGroups)
-        bpy.utils.register_class(CheckIfElectrodeOutsidePial)
+        bpy.utils.register_class(CheckIfElectrodeOutsideBrain)
         bpy.utils.register_class(DeleteElectrodes)
         bpy.utils.register_class(CreateNewGroupFromSelectedElectrodes)
         bpy.utils.register_class(MarkSelectedElectrodesAsNoise)
@@ -1676,7 +1697,7 @@ def unregister():
         bpy.utils.unregister_class(CreateNewGroupFromSelectedElectrodes)
         bpy.utils.unregister_class(SaveCTElectrodesFigures)
         bpy.utils.unregister_class(ClearGroups)
-        bpy.utils.unregister_class(CheckIfElectrodeOutsidePial)
+        bpy.utils.unregister_class(CheckIfElectrodeOutsideBrain)
         bpy.utils.unregister_class(DeleteElectrodes)
         bpy.utils.unregister_class(MarkSelectedElectrodesAsNoise)
         bpy.utils.unregister_class(MarkNonGroupElectrodesAsNoise)

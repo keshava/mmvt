@@ -717,6 +717,7 @@ def init(addon):
     bpy.context.scene.slicer_cut_type = 'coronal'
     ct_trans_fname = op.join(mu.get_user_fol(), 'ct', 'ct_trans.npz')
     t2_trans_fname = op.join(mu.get_user_fol(), 't2_trans.npz')
+    meg_trans_fname = op.join(mu.get_user_fol(), 'meg_trans.npz')
     if op.isfile(ct_trans_fname) or op.isfile(t2_trans_fname):
         items_ind = 1
         items = [('mri', 'MRI', '', items_ind)]
@@ -732,6 +733,10 @@ def init(addon):
             items_ind += 1
             SlicerPanel.t1_ct_exist = True
             items.append(('t1_ct', 'T1&CT', '', items_ind))
+        if op.isfile(meg_trans_fname):
+            items_ind += 1
+            SlicerPanel.meg_exist = True
+            items.append(('meg', 'MEG', '', items_ind))
         bpy.types.Scene.slices_modality = bpy.props.EnumProperty(items=items, update=slices_modality_update)
     pial_vol_mask_fname = op.join(mu.get_user_fol(), 'freeview', 'pial_vol_mask.npy')
     dural_vol_mask_fname = op.join(mu.get_user_fol(), 'freeview', 'dural_vol_mask.npy')

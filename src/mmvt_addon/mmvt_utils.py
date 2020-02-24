@@ -3250,6 +3250,18 @@ def is_empty_func(func):
     return func.__code__.co_code == empty_func.__code__.co_code or \
         func.__code__.co_code == empty_func_with_doc.__code__.co_code
 
+
+def is_point_inside_mesh(p, obj, mult_by_mat_world=False):
+    from mathutils import Vector
+    p = Vector(p)
+    if mult_by_mat_world:
+        p = p * get_matrix_world()
+    res, point, normal, face = obj.closest_point_on_mesh(p)
+    p2 = point-p
+    v = p2.dot(normal)
+    return not(v < 0.0)
+
+
 # def mouse_coo_to_3d_loc(event, context):
 #     from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_location_3d
 #     try:

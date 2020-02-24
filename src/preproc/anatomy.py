@@ -1168,7 +1168,7 @@ def prepare_subject_folder(subject, remote_subject_dir, args, necessary_files=No
 def save_subject_orig_trans(subject):
     from src.utils import trans_utils as tu
     output_fname_template = op.join(MMVT_DIR, subject, '{}_trans.npz')
-    for image_name in ['T1.mgz', 'T2.mgz', 'FLAIR.mgz']:
+    for image_name in ['T1.mgz', 'T2.mgz', 'FLAIR.mgz', 'MEG.mgz']:
         header = tu.get_subject_mri_header(subject, SUBJECTS_DIR, image_name)
         if header is None:
             continue
@@ -1472,7 +1472,7 @@ def get_data_and_header(subject, image_name):
 
 
 def save_images_data_and_header(subject):
-    modalities = {'T1.mgz':'mri', 'T2.mgz':'t2', 'FLAIR.mgz':'FLAIR'}
+    modalities = {'T1.mgz':'mri', 'T2.mgz':'t2', 'FLAIR.mgz':'FLAIR', 'MEG.mgz':'MEG'}
     root_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'freeview'))
     for image_name in modalities.keys():
         data, header = get_data_and_header(subject, image_name)
@@ -1580,7 +1580,7 @@ def morph_labels_from_fsaverage(subject, atlas, fsaverage, overwrite_morphing, f
         fs_labels_fol=fs_labels_fol, n_jobs=n_jobs)
 
 
-def recon_all(subject, nifti_fname, print_only=False, n_jobs=1):
+def recon_all(subject, nifti_fname, overwrite=False, print_only=False, n_jobs=1):
     if '{subject}' in nifti_fname:
         nifti_fname = nifti_fname.format(subject=subject)
     if op.isdir(nifti_fname):
@@ -1591,7 +1591,11 @@ def recon_all(subject, nifti_fname, print_only=False, n_jobs=1):
         if print_only:
             print(cmd)
         else:
-            utils.delete_folder_files(op.join(SUBJECTS_DIR, subject), True)
+            subject_fol = op.join(SUBJECTS_DIR, subject)
+            if op.isdir(subject_fol) and not overwrite:
+                print('{} already exist! You can use the recon_all_overwrite to overwrite')
+                return True
+            utils.delete_folder_files(subject_fol, True)
             utils.run_command_in_new_thread(cmd, False)
         return True
     except:
@@ -1735,7 +1739,8 @@ def main(subject, remote_subject_dir, org_args, flags):
                 args.ask_before)
 
     if 'recon_all' in args.function:
-        flags['recon-all'] = recon_all(subject, args.nifti_fname, args.print_only, args.n_jobs)
+        flags['recon-all'] = recon_all(
+            subject, args.nifti_fname, args.recon_all_overwrite, args.print_only, args.n_jobs)
 
     if 'mne_coregistration' in args.function:
         flags['mne_coregistration'] = mne_coregistration(subject)
@@ -1777,6 +1782,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--solve_labels_collision_surf_type', help='', required=False, default='inflated')
     parser.add_argument('--cerebellum_subregions_num', help='', required=False, default=7, type=int)
     parser.add_argument('--print_only', help='', required=False, default=False)
+    parser.add_argument('--recon_all_overwrite', help='', required=False, default=False)
 
     parser.add_argument('--vertice_indice', help='', required=False, default=0, type=int)
     parser.add_argument('--label_name', help='', required=False, default='')
