@@ -192,14 +192,20 @@ def init(addon):
 def init_pizco(mmvt):
     log_fname = op.join(mu.make_dir(op.join(mu.get_user_fol(), 'logs')), 'pizco.log')
     if op.isfile(log_fname):
-        os.remove(log_fname)
+        try:
+            os.remove(log_fname)
+        except:
+            print('Can\'t remove {}'.format(log_fname))
     for k in range(10):
         try:
             bpy.context.scene.pizco_server_address = 'tcp://127.0.0.1:800{}'.format(str(k))
             MMVT_Server(mmvt, bpy.context.scene.pizco_server_address)
             pizco_exist = True
-            with open(log_fname, 'w') as log:
-                log.write(bpy.context.scene.pizco_server_address)
+            try:
+                with open(log_fname, 'w') as log:
+                    log.write(bpy.context.scene.pizco_server_address)
+            except:
+                print('Can\'t write to {}'.format(log_fname))
             break
         except:
             # print('No pizco')
