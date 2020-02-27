@@ -307,7 +307,8 @@ def _plot_labels(labels_plotted_tuple=None, faces_verts=None, choose_rand_colors
             color = rand_color
         data[label.hemi][label.vertices] = [1, *color]
     for hemi in mu.HEMIS:
-        _addon().coloring.color_hemi_data('inflated_{}'.format(hemi), data[hemi], threshold=0.5)
+        _addon().coloring.color_hemi_data(
+            'inflated_{}'.format(hemi), data[hemi], threshold=0.5, coloring_layer='contours', check_valid_verts=False)
     _addon().show_activity()
 
 
