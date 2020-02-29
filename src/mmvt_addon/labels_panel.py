@@ -137,12 +137,13 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
                    specific_colors=None, atlas='', move_cursor=True, filter=''):
     if _addon() is None:
         return
+    if isinstance(LabelsPanel.labels['rh'], np.ndarray):
+        all_labels = LabelsPanel.labels['rh'].tolist() + LabelsPanel.labels['lh'].tolist()
+    else:
+        all_labels = LabelsPanel.labels['rh'] + LabelsPanel.labels['lh']
     if filter != '':
         bpy.context.scene.labels_contours_filter = filter
-        if isinstance(LabelsPanel.labels['rh'], np.ndarray):
-            specific_labels = LabelsPanel.labels['rh'].tolist() + LabelsPanel.labels['lh'].tolist()
-        else:
-            specific_labels = LabelsPanel.labels['rh'] + LabelsPanel.labels['lh']
+        specific_labels = all_labels
     elif isinstance(specific_labels, str):
         specific_labels = [specific_labels]
     if atlas != '' and atlas != bpy.context.scene.contours_coloring and atlas in LabelsPanel.existing_contoures:
@@ -162,8 +163,11 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
         _addon().set_colorbar_prec(0)
     _addon().show_activity()
     specific_label_ind = 0
+    if specific_colors is None and bpy.context.scene.plot_contours_using_specific_color:
+        specific_colors = bpy.context.scene.contours_color
     if specific_colors is not None:
-        specific_colors = np.tile(specific_colors, (len(specific_labels), 1))
+        labels_num = len(all_labels) if len(specific_labels) == 0 else len(specific_labels)
+        specific_colors = np.tile(specific_colors, (labels_num, 1))
     for hemi in mu.HEMIS:
         contours = labels_contours[hemi]['contours']
         if specific_hemi != 'both' and hemi != specific_hemi:
@@ -190,6 +194,10 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
                     print("Can't find {} in the labels contours!".format(specific_label))
         else:
             selected_contours = labels_contours[hemi]['contours']
+            if bpy.context.scene.plot_contours_using_specific_color:
+                selected_contours = np.c_[selected_contours, np.zeros((contours.shape[0], 3))]
+                selected_contours[np.where(contours > 0)] = [1, *bpy.context.scene.contours_color]
+
         mesh = mu.get_hemi_obj(hemi).data
         mesh.vertex_colors.active_index = mesh.vertex_colors.keys().index('contours')
         mesh.vertex_colors['contours'].active_render = True
@@ -202,8 +210,9 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
         np.savetxt(output_fname, contours_labels_info, ('%s', '%s', '%s', '%s'), ',')
         print('Saving labels names and RGB values to {}'.format(output_fname))
         # Color the hemi surface
+        data_min = None if bpy.context.scene.plot_contours_using_specific_color else 0.1
         _addon().color_hemi_data(
-            hemi, selected_contours, 0.1, 256 / contour_max, override_current_mat=not cumulate,
+            hemi, selected_contours, data_min, 256 / contour_max, override_current_mat=not cumulate,
             coloring_layer='contours', check_valid_verts=False)
 
     _addon().what_is_colored().add(_addon().WIC_CONTOURS)
@@ -308,7 +317,8 @@ def _plot_labels(labels_plotted_tuple=None, faces_verts=None, choose_rand_colors
         data[label.hemi][label.vertices] = [1, *color]
     for hemi in mu.HEMIS:
         _addon().coloring.color_hemi_data(
-            'inflated_{}'.format(hemi), data[hemi], threshold=0.5, coloring_layer='contours', check_valid_verts=False)
+            'inflated_{}'.format(hemi), data[hemi], threshold=0.5,
+            coloring_layer=bpy.context.scene.labels_layer, check_valid_verts=False)
     _addon().show_activity()
 
 
@@ -434,6 +444,10 @@ def labels_draw(self, context):
         row = col.row(align=True)
         row.prop(context.scene, 'labels_contours_filter', 'Filter')
         row.operator(ResetContoursFilter.bl_idname, text="", icon='PANEL_CLOSE')
+        row = col.row(align=True)
+        row.prop(context.scene, 'plot_contours_using_specific_color', 'Use specific color')
+        if bpy.context.scene.plot_contours_using_specific_color:
+            row.prop(context.scene, 'contours_color', text='')
         # col.prop(context.scene, 'cumulate_contours', 'Cumulate')
 
     col = layout.box().column()
@@ -441,6 +455,7 @@ def labels_draw(self, context):
     row.operator(ChooseLabelFile.bl_idname, text="plot a label", icon='GAME').filepath = op.join(
         mu.get_user_fol(), '*.label')
     row.prop(context.scene, 'labels_color', text='')
+    col.prop(context.scene, 'labels_layer', text='Plot as')
     if not GrowLabel.running:
         col.label(text='Creating a new label:')
         col.prop(context.scene, 'new_label_name', text='')
@@ -617,6 +632,16 @@ class ChooseLabelFile(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
 bpy.types.Scene.labels_data_files = bpy.props.EnumProperty(
     items=[], update=labels_data_files_update, description='Selects labels file from the subject’s labels folder:'
     '\n../mmvt_root/mmvt_blend/colin27/labels/labels_data\n\nCurrent file')
+bpy.types.Scene.labels_layer = bpy.props.EnumProperty(
+    items=[('Col', 'Activity maps', '', 0), ('contours', 'Contours', "", 1)],
+    description='Layer to plot the labels')
+
+bpy.types.Scene.contours_color = bpy.props.FloatVectorProperty(
+    name="contours_color", subtype='COLOR', default=(0, 0.5, 0), min=0.0, max=1.0, description="color picker")
+bpy.types.Scene.plot_contours_using_specific_color = bpy.props.BoolProperty(
+    default=False, description='Plot contours using a specific color')
+bpy.types.Scene.labels_color = bpy.props.FloatVectorProperty(
+    name="labels_color", subtype='COLOR', default=(0, 0.5, 0), min=0.0, max=1.0, description="color picker")
 bpy.types.Scene.new_label_name = bpy.props.StringProperty(description='Creates the labels name')
 bpy.types.Scene.new_label_r = bpy.props.IntProperty(min=1, default=5, update=new_label_r_update,
     description='Selects the labels radius')

@@ -2595,8 +2595,6 @@ bpy.types.Scene.color_rois_homogeneously = bpy.props.BoolProperty(default=False,
 bpy.types.Scene.coloring_meg_subcorticals = bpy.props.BoolProperty(default=False,
     description='')
 bpy.types.Scene.conn_labels_avg_files = bpy.props.EnumProperty(items=[], description="Connectivity labels avg")
-bpy.types.Scene.labels_color = bpy.props.FloatVectorProperty(
-    name="labels_color", subtype='COLOR', default=(0, 0.5, 0), min=0.0, max=1.0, description="color picker")
 bpy.types.Scene.static_conn_files = bpy.props.EnumProperty(items=[], description='Connectivity degree files.\n\nCurrent file')
 bpy.types.Scene.connectivity_degree_threshold = bpy.props.FloatProperty(
     default=0.7, min=0, max=1, update=update_connectivity_degree_threshold, description='Sets the connectivity degree threshold')
