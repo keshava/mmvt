@@ -127,7 +127,7 @@ def where_i_am_draw(self, context):
             col.label(text=bpy.context.scene.closest_label_output)
         col.prop(context.scene, 'find_closest_label_on_click', text='Find each click on brain')
         if WhereAmIPanel.labels_contours is not None:
-            col.prop(context.scene, 'plot_closest_label_contour', text="Plot label's contour")
+            col.prop(context.scene, 'plot_closest_label_contour', text="Plot label")
     layout.operator(ClearWhereAmI.bl_idname, text="Clear", icon='PANEL_CLOSE')
 
 
@@ -395,7 +395,7 @@ def find_closest_label(atlas=None, plot_contour=True):
             label = vert_labels[0]
             bpy.context.scene.closest_label_output = label.name
             if plot_contour:
-                plot_closest_label_contour(label.name, hemi)
+                plot_closest_label_contour(label, hemi)
         return label.name
     else:
         print("Can't find the annotation file for atlas {}!".format(atlas))
@@ -407,7 +407,10 @@ def plot_closest_label_contour(label, hemi):
     # if bpy.context.scene.subject_annot_files in contours_names:
     if WhereAmIPanel.labels_contours is not None:
         # bpy.context.scene.contours_coloring = bpy.context.scene.subject_annot_files
-        _addon().color_contours([label], hemi, WhereAmIPanel.labels_contours, False, False, (0, 0, 1))
+        if bpy.context.scene.plot_label_contour:
+            _addon().labels.color_contours([label.name], hemi, WhereAmIPanel.labels_contours, False, False, (0, 0, 1))
+        else:
+            _addon().labels.plot_label(label)
     else:
         mu.create_labels_contours()
 

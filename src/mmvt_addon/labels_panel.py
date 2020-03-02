@@ -211,6 +211,9 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
         print('Saving labels names and RGB values to {}'.format(output_fname))
         # Color the hemi surface
         data_min = None if bpy.context.scene.plot_contours_using_specific_color else 0.1
+        output_fname = op.join(mu.get_user_fol(), 'labels', 'last_contours_{}.npz'.format(hemi))
+        np.savez(output_fname, selected_contours=selected_contours, data_min=data_min, contour_max=contour_max,
+                 cumulate=cumulate)
         _addon().color_hemi_data(
             hemi, selected_contours, data_min, 256 / contour_max, override_current_mat=not cumulate,
             coloring_layer='contours', check_valid_verts=False)
@@ -219,6 +222,18 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
 
     # if bpy.context.scene.contours_coloring in _addon().get_annot_files():
     #     bpy.context.scene.subject_annot_files = bpy.context.scene.contours_coloring
+
+
+def replot_contours():
+    for hemi in mu.HEMIS:
+        data_min = None if bpy.context.scene.plot_contours_using_specific_color else 0.1
+        input_fname = op.join(mu.get_user_fol(), 'labels', 'last_contours_{}.npz'.format(hemi))
+        if not op.isfile(input_fname):
+            continue
+        cont_data = mu.Bag(np.load(input_fname))
+        _addon().color_hemi_data(
+            hemi, cont_data.selected_contours, data_min, 256 / cont_data.contour_max, override_current_mat=not cont_data.cumulate,
+            coloring_layer='contours', check_valid_verts=False)
 
 
 def load_labels_data(labels_data_fname):
@@ -319,6 +334,8 @@ def _plot_labels(labels_plotted_tuple=None, faces_verts=None, choose_rand_colors
         _addon().coloring.color_hemi_data(
             'inflated_{}'.format(hemi), data[hemi], threshold=0.5,
             coloring_layer=bpy.context.scene.labels_layer, check_valid_verts=False)
+    if bpy.context.scene.replot_contours:
+        replot_contours()
     _addon().show_activity()
 
 
@@ -429,7 +446,6 @@ def labels_draw(self, context):
         elif vertex_data != '' and vertex_data is not None:
             col.label('Cursor value: {}'.format(vertex_data))
         col.operator(PlotLabelsData.bl_idname, text="Plot labels", icon='TPAINT_HLT')
-        layout.prop(context.scene, 'plot_label_contour', text='Plot labels as contour')
     col.operator(ChooseLabesDataFile.bl_idname, text="Load labels file", icon='LOAD_FACTORY')
 
     if LabelsPanel.contours_coloring_exist:
@@ -452,7 +468,7 @@ def labels_draw(self, context):
 
     col = layout.box().column()
     row = col.row(align=True)
-    row.operator(ChooseLabelFile.bl_idname, text="plot a label", icon='GAME').filepath = op.join(
+    row.operator(ChooseLabelFile.bl_idname, text="Load and plot", icon='GAME').filepath = op.join(
         mu.get_user_fol(), '*.label')
     row.prop(context.scene, 'labels_color', text='')
     col.prop(context.scene, 'labels_layer', text='Plot as')
@@ -465,6 +481,8 @@ def labels_draw(self, context):
     else:
         col.label(text='Growing the label...')
 
+    layout.prop(context.scene, 'plot_label_contour', text='Plot labels as contour')
+    layout.prop(context.scene, 'replot_contours', text='Replot contours')
     layout.operator(ClearContours.bl_idname, text="Clear contours", icon='PANEL_CLOSE')
     layout.operator(_addon().ClearColors.bl_idname, text="Clear", icon='PANEL_CLOSE')
 
@@ -650,6 +668,7 @@ bpy.types.Scene.contours_coloring = bpy.props.EnumProperty(items=[],
 bpy.types.Scene.labels_contours = bpy.props.EnumProperty(items=[],
     description='List of all labels names. Plots selected label contour.\n\nCurrent label')
 bpy.types.Scene.plot_label_contour = bpy.props.BoolProperty(default=False, description='Plots the labels as contours only')
+bpy.types.Scene.replot_contours = bpy.props.BoolProperty(default=False, description='Replot contours')
 bpy.types.Scene.labels_contours_filter = bpy.props.StringProperty(update=labels_contours_filter_update,
     description='Filters the labels list by a regular expression')
 bpy.types.Scene.cumulate_contours = bpy.props.BoolProperty(default=False, description='cumulate contours')
