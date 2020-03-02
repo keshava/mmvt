@@ -2732,11 +2732,16 @@ def _read_annot(fname):
 
 
 def create_labels_contours():
-    subject, atlas = get_user(), bpy.context.scene.subject_annot_files
-    cmd = '{} -m src.preproc.anatomy -s {} -a {} -f create_spatial_connectivity,calc_labeles_contours --ignore_missing 1'.format(
-        bpy.context.scene.python_cmd, subject, atlas)
+    run_mmvt_func(
+        'src.preproc.anatomy', 'create_spatial_connectivity,calc_labeles_contours',
+        flags='-a {}'.format(bpy.context.scene.subject_annot_files))
+
+    # subject, atlas = get_user(), bpy.context.scene.subject_annot_files
+    # cmd = '{} -m src.preproc.anatomy -s {} -a {} -f create_spatial_connectivity,calc_labeles_contours --ignore_missing 1'.format(
+    #     bpy.context.scene.python_cmd, subject, atlas)
     # get_code_root_dir
-    run_command_in_new_thread(cmd, False)
+    # get_code_root_dir
+    # run_command_in_new_thread(cmd, False)
 
 
 def copy_file(src, dst):

@@ -405,14 +405,13 @@ def plot_closest_label_contour(label, hemi):
     # contours_files = glob.glob(op.join(mu.get_user_fol(), 'labels', '*contours_lh.npz'))
     # contours_names = [mu.namebase(fname)[:-len('_contours_lh')] for fname in contours_files]
     # if bpy.context.scene.subject_annot_files in contours_names:
-    if WhereAmIPanel.labels_contours is not None:
-        # bpy.context.scene.contours_coloring = bpy.context.scene.subject_annot_files
-        if bpy.context.scene.plot_label_contour:
+    if bpy.context.scene.plot_label_contour:
+        if WhereAmIPanel.labels_contours is not None:
             _addon().labels.color_contours([label.name], hemi, WhereAmIPanel.labels_contours, False, False, (0, 0, 1))
         else:
-            _addon().labels.plot_label(label)
+            mu.create_labels_contours()
     else:
-        mu.create_labels_contours()
+        _addon().labels.plot_label(label)
 
 
 # @mu.timeit
