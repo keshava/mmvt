@@ -1580,44 +1580,65 @@ def morph_labels_from_fsaverage(subject, atlas, fsaverage, overwrite_morphing, f
         fs_labels_fol=fs_labels_fol, n_jobs=n_jobs)
 
 
-def recon_all(subject, nifti_fname, convert_dicoms_to_nii=True, overwrite=False, print_only=False, n_jobs=1):
+def recon_all(subject, nifti_fname, convert_dicoms_to_nii=True, overwrite=False, overwrite_seghead=False,
+              print_only=False, n_jobs=1):
     if '{subject}' in nifti_fname:
         nifti_fname = nifti_fname.format(subject=subject)
+    nifti_fnames = {}
+    file_types = ['MEMPRAGE', 'T2', 'FLAIR']
     if op.isdir(nifti_fname):
         memprage_dirs = glob.glob(op.join(nifti_fname, '*MEMPRAGE'))
         if len(memprage_dirs) > 0:
-            dicom_mgzs, files_num = [], []
-            for memprage_root_dir in memprage_dirs:
-                for memprage_dir in glob.glob(op.join(memprage_root_dir, '*')):
-                    dicom_files = sorted(glob.glob(op.join(memprage_dir, '*')))
-                    output_fname = op.join(nifti_fname, '{}_{}.mgz'.format(
-                        utils.namebase(memprage_root_dir), utils.namebase(memprage_dir)))
-                    if not op.isfile(output_fname) and convert_dicoms_to_nii:
-                        fu.mri_convert(dicom_files[0], output_fname)
-                    dicom_mgzs.append(output_fname if op.isfile(output_fname) else dicom_files[0])
-                    files_num.append('{} files'.format(len(dicom_files)))
-            freeview_cmd = 'freeview' \
-                           ' {}'.format(' '.join(dicom_mgzs))
-            utils.run_script (freeview_cmd)
-            nifti_fname = utils.select_one_file(dicom_mgzs, files_info=files_num)
+            for file_type in file_types:
+                dicom_mgzs, files_num, params = [], [], []
+                root_dir = glob.glob(op.join(nifti_fname, '*{}'.format(file_type)))
+                params = sorted([(nifti_fname, memprage_root_dir, memprage_dir, convert_dicoms_to_nii)
+                                 for memprage_root_dir in root_dir for memprage_dir in
+                                 glob.glob(op.join(memprage_root_dir, '*'))])
+                if len(params) == 0:
+                    continue
+                results = utils.run_parallel(_convert_to_mgz_parallel, params, njobs=n_jobs)
+                # freeview_cmd = 'freeview {}'.format(' '.join(dicom_mgzs))
+                # utils.run_script (freeview_cmd)
+                for dicom_mgz, fol_files_num in results:
+                    dicom_mgzs.append(dicom_mgz)
+                    files_num.append(fol_files_num)
+                nifti_fnames[file_type] = utils.select_one_file(dicom_mgzs, file_type, files_info=files_num)
+                if len(dicom_mgzs) == 1:
+                    print('{} files were found in {} ({})'.format(file_type, nifti_fnames[file_type], files_num[-1]))
+            nifti_fname = nifti_fnames['MEMPRAGE']
         else:
             dicom_files = sorted(glob.glob(op.join(nifti_fname, '*')))
             nifti_fname = dicom_files[0]
-    cmd = 'recon-all -i {} -subjid {} -all {}'.format(nifti_fname, subject, '-parallel' if n_jobs > 1 else '')
+    cmd = 'recon-all -i {} -subjid {}'.format(nifti_fname, subject)
+    for file_type in set(file_types) - set(['MEMPRAGE']):
+        if file_type in nifti_fnames:
+            cmd += ' -{0} {1} -{0}pial'.format(file_type, nifti_fnames[file_type])
+    cmd += ' -all {}'.format('-parallel' if n_jobs > 1 else '')
     try:
         if print_only:
             print(cmd)
         else:
             subject_fol = op.join(SUBJECTS_DIR, subject)
             if op.isdir(subject_fol) and not overwrite:
-                print('{} already exist! You can use the recon_all_overwrite to overwrite')
+                print('{} already exist! You can use the recon_all_overwrite to overwrite'.format(subject))
                 return True
             utils.delete_folder_files(subject_fol, True)
             utils.run_command_in_new_thread(cmd, False)
-        return True
+        return create_outer_skin_surface(subject, overwrite_seghead)
     except:
         print('recon-all failed!')
         return False
+
+
+def _convert_to_mgz_parallel(p):
+    nifti_fname, memprage_root_dir, memprage_dir, convert_dicoms_to_nii = p
+    dicom_files = sorted(glob.glob(op.join(memprage_dir, '*')))
+    output_fname = op.join(nifti_fname, '{}_{}.mgz'.format(
+        utils.namebase(memprage_root_dir), utils.namebase(memprage_dir)))
+    if not op.isfile(output_fname) and convert_dicoms_to_nii:
+        fu.mri_convert(dicom_files[0], output_fname)
+    return (output_fname if op.isfile(output_fname) else dicom_files[0], '{} files'.format(len(dicom_files)))
 
 
 def mne_coregistration(subject):
@@ -1757,8 +1778,8 @@ def main(subject, remote_subject_dir, org_args, flags):
 
     if 'recon_all' in args.function:
         flags['recon_all'] = recon_all(
-            subject, args.nifti_fname, args.convert_dicoms_to_nii, args.recon_all_overwrite, args.print_only,
-            args.n_jobs)
+            subject, args.nifti_fname, args.convert_dicoms_to_nii, args.recon_all_overwrite, args.overwrite_seghead,
+            args.print_only, args.n_jobs)
 
     if 'mne_coregistration' in args.function:
         flags['mne_coregistration'] = mne_coregistration(subject)
