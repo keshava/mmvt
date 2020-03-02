@@ -226,14 +226,13 @@ def color_contours(specific_labels=[], specific_hemi='both', labels_contours=Non
 
 def replot_contours():
     for hemi in mu.HEMIS:
-        data_min = None if bpy.context.scene.plot_contours_using_specific_color else 0.1
         input_fname = op.join(mu.get_user_fol(), 'labels', 'last_contours_{}.npz'.format(hemi))
         if not op.isfile(input_fname):
             continue
         cont_data = mu.Bag(np.load(input_fname))
         _addon().color_hemi_data(
-            hemi, cont_data.selected_contours, data_min, 256 / cont_data.contour_max, override_current_mat=not cont_data.cumulate,
-            coloring_layer='contours', check_valid_verts=False)
+            hemi, cont_data.selected_contours, cont_data.data_min, 256 / cont_data.contour_max,
+            override_current_mat=not cont_data.cumulate, coloring_layer='contours', check_valid_verts=False)
 
 
 def load_labels_data(labels_data_fname):
