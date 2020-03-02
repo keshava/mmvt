@@ -57,8 +57,12 @@ def load_labels_contours(atlas=''):
             print('No contour was found for {} {}'.format(atlas, hemi))
             continue
         labels_contours[hemi] = np.load(fnames[0])
-        if len(np.where(labels_contours[hemi]['contours'])[0]) == 0:
-            print('No contours in {} {}!'.format(atlas, hemi))
+        try:
+            if len(np.where(labels_contours[hemi]['contours'])[0]) == 0:
+                print('No contours in {} {}!'.format(atlas, hemi))
+        except:
+            print('Error in loading contours!')
+            mu.print_last_error_line()
     return labels_contours
 
 
