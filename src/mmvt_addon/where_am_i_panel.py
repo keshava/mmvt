@@ -126,7 +126,7 @@ def where_i_am_draw(self, context):
         if bpy.context.scene.closest_label_output != '':
             col.label(text=bpy.context.scene.closest_label_output)
         col.prop(context.scene, 'find_closest_label_on_click', text='Find each click on brain')
-        if WhereAmIPanel.labels_contours is not None:
+        if WhereAmIPanel.labels_contours is not None or not bpy.context.scene.plot_label_contour:
             col.prop(context.scene, 'plot_closest_label_contour', text="Plot label")
     layout.operator(ClearWhereAmI.bl_idname, text="Clear", icon='PANEL_CLOSE')
 
