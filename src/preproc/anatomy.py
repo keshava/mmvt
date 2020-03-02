@@ -1580,12 +1580,29 @@ def morph_labels_from_fsaverage(subject, atlas, fsaverage, overwrite_morphing, f
         fs_labels_fol=fs_labels_fol, n_jobs=n_jobs)
 
 
-def recon_all(subject, nifti_fname, overwrite=False, print_only=False, n_jobs=1):
+def recon_all(subject, nifti_fname, convert_dicoms_to_nii=True, overwrite=False, print_only=False, n_jobs=1):
     if '{subject}' in nifti_fname:
         nifti_fname = nifti_fname.format(subject=subject)
     if op.isdir(nifti_fname):
-        dicom_files = sorted(glob.glob(op.join(nifti_fname, '*')))
-        nifti_fname = dicom_files[0]
+        memprage_dirs = glob.glob(op.join(nifti_fname, '*MEMPRAGE'))
+        if len(memprage_dirs) > 0:
+            dicom_mgzs, files_num = [], []
+            for memprage_root_dir in memprage_dirs:
+                for memprage_dir in glob.glob(op.join(memprage_root_dir, '*')):
+                    dicom_files = sorted(glob.glob(op.join(memprage_dir, '*')))
+                    output_fname = op.join(nifti_fname, '{}_{}.mgz'.format(
+                        utils.namebase(memprage_root_dir), utils.namebase(memprage_dir)))
+                    if not op.isfile(output_fname) and convert_dicoms_to_nii:
+                        fu.mri_convert(dicom_files[0], output_fname)
+                    dicom_mgzs.append(output_fname if op.isfile(output_fname) else dicom_files[0])
+                    files_num.append('{} files'.format(len(dicom_files)))
+            freeview_cmd = 'freeview' \
+                           ' {}'.format(' '.join(dicom_mgzs))
+            utils.run_script (freeview_cmd)
+            nifti_fname = utils.select_one_file(dicom_mgzs, files_info=files_num)
+        else:
+            dicom_files = sorted(glob.glob(op.join(nifti_fname, '*')))
+            nifti_fname = dicom_files[0]
     cmd = 'recon-all -i {} -subjid {} -all {}'.format(nifti_fname, subject, '-parallel' if n_jobs > 1 else '')
     try:
         if print_only:
@@ -1739,8 +1756,9 @@ def main(subject, remote_subject_dir, org_args, flags):
                 args.ask_before)
 
     if 'recon_all' in args.function:
-        flags['recon-all'] = recon_all(
-            subject, args.nifti_fname, args.recon_all_overwrite, args.print_only, args.n_jobs)
+        flags['recon_all'] = recon_all(
+            subject, args.nifti_fname, args.convert_dicoms_to_nii, args.recon_all_overwrite, args.print_only,
+            args.n_jobs)
 
     if 'mne_coregistration' in args.function:
         flags['mne_coregistration'] = mne_coregistration(subject)
@@ -1799,6 +1817,7 @@ def read_cmd_args(argv=None):
 
     parser.add_argument('--dicoms_fol', help='', required=False, default='')
     parser.add_argument('--nifti_fname', help='', required=False, default='')
+    parser.add_argument('--convert_dicoms_to_nii', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--seq', help='', required=False, default='T1')
     parser.add_argument('--overwrite_nifti', help='', required=False, default=False, type=au.is_true)
     parser.add_argument('--ask_before', help='', required=False, default=False, type=au.is_true)

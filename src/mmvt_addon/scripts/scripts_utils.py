@@ -510,7 +510,7 @@ def read_list_from_file(fname):
     return arr
 
 
-def select_one_file(files, template='', files_desc='', print_title=True, is_dir=False, file_func=None):
+def select_one_file(files, template='', files_desc='', print_title=True, is_dir=False, file_func=None, files_info=None):
     if len(files) == 1:
         return files[0]
     elif len(files) == 0:
@@ -519,8 +519,10 @@ def select_one_file(files, template='', files_desc='', print_title=True, is_dir=
     if print_title:
         print('More than one {} {} were found {}, please pick one.'.format(
             files_desc, 'files' if not is_dir else 'dirs',  'in {}'.format(template) if template != '' else ''))
+    if files_info is None:
+        files_info = [''] * len(files)
     for ind, fname in enumerate(files):
-        print('{}) {}'.format(ind + 1, fname))
+        print('{}) {} {}'.format(ind + 1, fname, files_info[ind]))
         if file_func is not None:
             file_func(fname)
     input_str = 'Which one do you want to pick (1, 2, ...)? Press 0 to cancel: '
