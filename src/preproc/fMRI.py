@@ -1394,6 +1394,139 @@ def get_fmri_fname(subject, fmri_file_template, no_files_were_found_func=lambda:
 
 
 @utils.check_for_freesurfer
+def clean_rest(subject, atlas, fmri_file_template, trg_subject='fsaverage5', fsd='rest', only_preproc=False,
+               fwhm=6, lfp=0.08, nskip=4, remote_fmri_dir='', overwrite=False, print_only=False):
+    # fsd: functional subdirectory
+    def no_files_were_found():
+        print('Trying to find remote files in {}'.format(op.join(remote_fmri_dir, fsd, '001', fmri_file_template)))
+        files = find_volume_files_from_template(op.join(remote_fmri_dir, fsd, '001', fmri_file_template)) + \
+                find_volume_files_from_template(op.join(remote_fmri_dir, fmri_file_template))
+        print('files: {}'.format(files))
+        files_num = len(set([utils.namebase(f) for f in files]))
+        if files_num == 1:
+            fmri_fname = op.join(FMRI_DIR, subject, files[0].split(op.sep)[-1])
+            utils.make_dir(op.join(FMRI_DIR, subject))
+            utils.copy_file(files[0], fmri_fname)
+        else:
+            print("Can't find any file in {}!".format(fmri_file_template))
+            return ''
+            # raise Exception("Can't find any file in {}!".format(fmri_file_template))
+
+    def create_folders_tree(fmri_fname):
+        # Fisrt it's needed to create the freesurfer folders tree for the preproc-sess
+        fol = utils.make_dir(op.join(FMRI_DIR, subject, fsd, '001'))
+        if not op.isfile(op.join(fol, 'f.nii.gz')):
+            if utils.file_type(fmri_fname) == 'mgz':
+                fmri_fname = fu.mgz_to_nii_gz(fmri_fname)
+            utils.copy_file(fmri_fname, op.join(fol, 'f.nii.gz'))
+        if not op.isfile(op.join(FMRI_DIR, subject, 'subjectname')):
+            with open(op.join(FMRI_DIR, subject, 'subjectname'), 'w') as sub_file:
+                sub_file.write(subject)
+
+    def create_analysis_info_file(fsd, trg_subject, tr, fwhm=6, lfp=0.08, nskip=4):
+        rs = utils.partial_run_script(locals(), cwd=FMRI_DIR, print_only=print_only)
+        for hemi in utils.HEMIS:
+            rs('mkanalysis-sess -analysis {fsd}_{hemi} -notask -TR {tr} -surface {trg_subject} {hemi} -fsd {fsd}' +
+               ' -per-run -nuisreg global.waveform.dat 1 -nuisreg wm.dat 1 -nuisreg vcsf.dat 1 -lpf {lfp} -mcextreg' +
+               ' -fwhm {fwhm} -nskip {nskip} -stc up -force', hemi=hemi)
+
+    def find_trg_subject(trg_subject):
+        if not op.isdir(op.join(SUBJECTS_DIR, trg_subject)):
+            if op.isdir(op.join(FREESURFER_HOME, 'subjects', trg_subject)):
+                os.symlink(op.join(FREESURFER_HOME, 'subjects', trg_subject),
+                           op.join(SUBJECTS_DIR, trg_subject))
+            else:
+                raise Exception("The target subject {} doesn't exist!".format(trg_subject))
+
+    def copy_output_files():
+        new_fname_template = op.join(FMRI_DIR, subject, '{}.sm{}.{}.{}.mgz'.format(
+            fsd, int(fwhm), trg_subject, '{hemi}'))
+        for hemi in utils.HEMIS:
+            new_fname = new_fname_template.format(hemi=hemi)
+            if not op.isfile(new_fname):
+                res_fname = op.join(FMRI_DIR, subject, fsd, '{}_{}'.format(fsd, hemi), 'res', 'res-001.nii.gz')
+                if op.isfile(res_fname):
+                    fu.nii_gz_to_mgz(res_fname)
+                    res_fname = utils.change_fname_extension(res_fname, 'mgz')
+                    utils.copy_file(res_fname, new_fname)
+        for hemi in utils.HEMIS:
+            utils.make_link(new_fname_template.format(hemi=hemi), op.join(
+                MMVT_DIR, subject, 'fmri', utils.namebase_with_ext(new_fname_template.format(hemi=hemi))))
+        return utils.both_hemi_files_exist(new_fname_template)
+
+    def copy_preproc_sess_outputs():
+        hemi_file_name = 'fmcpr.sm6.{}.{}.{}'.format(subject, '{hemi}', '{format}')
+        for hemi in utils.HEMIS:
+            res_fname = op.join(FMRI_DIR, subject, fsd, '001', hemi_file_name.format(hemi=hemi, format='nii.gz'))
+            new_fname = op.join(FMRI_DIR, subject, hemi_file_name.format(hemi=hemi, format='mgz'))
+            if not op.isfile(new_fname) or overwrite:
+                res_fname = fu.nii_gz_to_mgz(res_fname)
+                os.link(res_fname, new_fname)
+        volume_fname = op.join(FMRI_DIR, subject, fsd, '001', 'fmcpr.sm6.mni305.2mm.nii.gz')
+        volume_new_fname = op.join(FMRI_DIR, subject, 'fmcpr.sm6.mni305.2mm.mgz')
+        volume_fname = fu.nii_gz_to_mgz(volume_fname)
+        os.link(volume_fname, volume_new_fname)
+        return utils.both_hemi_files_exist(op.join(FMRI_DIR, subject, hemi_file_name.format(
+            hemi='{hemi}', format='mgz'))) and op.isfile(volume_new_fname)
+
+    def no_output(*args):
+        return not op.isfile(op.join(FMRI_DIR, subject, fsd, *args))
+
+    def run(cmd, *output_args, **kargs):
+        if no_output(*output_args) or overwrite or print_only:
+            rs(cmd, **kargs)
+            if not print_only and no_output(*output_args):
+                raise Exception('{}\nNo output created in {}!!\n\n'.format(
+                    cmd, op.join(FMRI_DIR, subject, fsd, *output_args)))
+
+    trg_subject = subject if trg_subject == '' else trg_subject
+    new_fname_template = op.join(FMRI_DIR, subject, '{}.sm{}.{}.{}.mgz'.format(
+        fsd, int(fwhm), trg_subject, '{hemi}'))
+    if utils.both_hemi_files_exist(new_fname_template) and not overwrite:
+        return True
+
+    find_trg_subject(trg_subject)
+    if fmri_file_template == '':
+        fmri_file_template = '*'
+    fmri_fname = get_fmri_fname(
+        subject, fmri_file_template, no_files_were_found, only_volumes=True, raise_exception=False)
+    if fmri_fname == '':
+        return False
+    output_files_exist = copy_output_files()
+    if output_files_exist:
+        return True
+    create_folders_tree(fmri_fname)
+    rs = utils.partial_run_script(locals(), cwd=FMRI_DIR, print_only=print_only)
+    run('preproc-sess -surface {trg_subject} lhrh -s {subject} -fwhm {fwhm} -fsd {fsd} -mni305 -per-run',
+        '001', 'fmcpr.sm{}.mni305.2mm.nii.gz'.format(int(fwhm)))
+    if only_preproc:
+        return copy_preproc_sess_outputs()
+    run('plot-twf-sess -s {subject} -dat f.nii.gz -mc -fsd {fsd} && killall display', 'fmcpr.mcdat.png')
+    run('plot-twf-sess -s {subject} -dat f.nii.gz -fsd {fsd} -meantwf && killall display', 'global.waveform.dat.png')
+
+    # registration
+    run('tkregister-sess -s {subject} -per-run -fsd {fsd} -bbr-sum > {subject}/{fsd}/reg_quality.txt',
+        'reg_quality.txt')
+
+    # Computes seeds (regressors) that can be used for functional connectivity analysis or for use as nuisance regressors.
+    if no_output('001', 'wm.dat'):
+        rs('fcseed-config -wm -overwrite -fcname wm.dat -fsd {fsd} -cfg {subject}/wm_{fsd}.cfg')
+        run('fcseed-sess -s {subject} -cfg {subject}/wm_{fsd}.cfg', '001', 'wm.dat')
+    if no_output('001', 'vcsf.dat'):
+        rs('fcseed-config -vcsf -overwrite -fcname vcsf.dat -fsd {fsd} -mean -cfg {subject}/vcsf_{fsd}.cfg')
+        run('fcseed-sess -s {subject} -cfg {subject}/vcsf_{fsd}.cfg', '001', 'vcsf.dat')
+
+    tr = get_tr(fmri_fname)
+    create_analysis_info_file(fsd, trg_subject, tr, fwhm, lfp, nskip)
+    for hemi in utils.HEMIS:
+        # computes the average signal intensity maps
+        run('selxavg3-sess -s {subject} -a {fsd}_{hemi} -svres -no-con-ok',
+            '{}_{}'.format(fsd, hemi), 'res', 'res-001.nii.gz', hemi=hemi)
+
+    return copy_output_files() if not print_only else True
+
+
+@utils.check_for_freesurfer
 def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', fsd='sycabs', only_preproc=False,
         fwhm=6, lfp=0.08, nskip=4, nconditions=0, contrast_name='words_v_symbols', contrast_flags='-a 1 -c 2',
         remote_fmri_dir='', plot_registration=True, overwrite=False, print_only=False):
@@ -2017,6 +2150,11 @@ def main(subject, remote_subject_dir, args, flags):
             args.fwhm, args.lfp, args.nskip, args.nconditions, args.contrast_name, args.contrast_flags,
             remote_fmri_dir, args.plot_registration,
             args.overwrite_4d_preproc, args.print_only)
+
+    if 'clean_rest' in args.function:
+        flags['clean_rest'] = clean_rest(
+            subject, args.atlas, args.fmri_file_template, args.template_brain, args.fsd, args.only_preproc,
+            args.fwhm, args.lfp, args.nskip, remote_fmri_dir, args.overwrite_4d_preproc, args.print_only)
 
     if 'analyze_4d_data' in args.function:
         flags['analyze_4d_data'] = analyze_4d_data(

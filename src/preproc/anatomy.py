@@ -1851,9 +1851,9 @@ def read_cmd_args(argv=None):
         'surf': ['rh.pial', 'lh.pial', 'rh.inflated', 'lh.inflated', 'lh.curv', 'rh.curv', 'rh.sphere.reg',
                  'lh.sphere.reg', 'rh.sphere', 'lh.sphere', 'lh.white', 'rh.white', 'rh.smoothwm','lh.smoothwm',
                  'lh.sphere.reg', 'rh.sphere.reg'],
-        'mri:transforms' :['talairach.xfm', 'talairach.m3z'],
-        'label': ['rh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations] +
-                 ['lh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations]}
+        'mri:transforms' :['talairach.xfm', 'talairach.m3z']}
+        # 'label': ['rh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations] +
+        #          ['lh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations]}
     if args.overwrite:
         args.overwrite_annotation = True
         args.overwrite_morphing_labels = True
