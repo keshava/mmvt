@@ -1501,8 +1501,8 @@ def clean_rest(subject, atlas, fmri_file_template, trg_subject='fsaverage5', fsd
         '001', 'fmcpr.sm{}.mni305.2mm.nii.gz'.format(int(fwhm)))
     if only_preproc:
         return copy_preproc_sess_outputs()
-    run('plot-twf-sess -s {subject} -dat f.nii.gz -mc -fsd {fsd} && killall display', 'fmcpr.mcdat.png')
-    run('plot-twf-sess -s {subject} -dat f.nii.gz -fsd {fsd} -meantwf && killall display', 'global.waveform.dat.png')
+    # run('plot-twf-sess -s {subject} -dat f.nii.gz -mc -fsd {fsd} && killall display', 'fmcpr.mcdat.png')
+    # run('plot-twf-sess -s {subject} -dat f.nii.gz -fsd {fsd} -meantwf && killall display', 'global.waveform.dat.png')
 
     # registration
     run('tkregister-sess -s {subject} -per-run -fsd {fsd} -bbr-sum > {subject}/{fsd}/reg_quality.txt',
