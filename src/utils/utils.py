@@ -1135,10 +1135,13 @@ def get_files_fol():
 
 
 def save(obj, fname):
-    make_dir(get_parent_fol(fname))
-    with open(fname, 'wb') as fp:
-        # protocol=2 so we'll be able to load in python 2.7
-        pickle.dump(obj, fp)
+    try:
+        make_dir(get_parent_fol(fname))
+        with open(fname, 'wb') as fp:
+            # protocol=2 so we'll be able to load in python 2.7
+            pickle.dump(obj, fp)
+    except:
+        print_last_error_line
 
 
 def load(fname):
