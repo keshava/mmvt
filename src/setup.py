@@ -260,11 +260,11 @@ def find_blender_in_linux(fol, look_for_dirs=True):
 def find_blender():
     blender_fol = ''
     if utils.is_windows():
-        blender_win_fol = 'Program Files\Blender Foundation\Blender'
-        if op.isdir(op.join('C:\\', blender_win_fol)):
-            blender_fol = op.join('C:\\', blender_win_fol)
-        elif op.isdir(op.join('D:\\', blender_win_fol)):
-            blender_fol = op.join('D:\\', blender_win_fol)
+        blender_win_fol = 'Program Files\Blender Foundation\Blender*'
+        for drive in ['C', 'D']:
+            if len(glob.glob(op.join('{}:\\'.format(drive), blender_win_fol))) > 0:
+                blender_fol = select_file(glob.glob(op.join('{}:\\'.format(drive), blender_win_fol)))
+                break
     elif utils.is_linux():
         blender_fol = find_blender_in_linux('../', False)
         if blender_fol == '':
@@ -300,8 +300,8 @@ def create_fsaverage_link(links_fol_name='links'):
 
 
 def get_blender_python_exe(blender_fol, gui=True):
-    bin_template = op.join(blender_fol, '..', 'Resources', '2.7?', 'python') if utils.is_osx() else \
-        op.join(blender_fol, '2.7?', 'python')
+    bin_template = op.join(blender_fol, '..', 'Resources', '2.??', 'python') if utils.is_osx() else \
+        op.join(blender_fol, '2.??', 'python')
     blender_bin_folders = sorted(glob.glob(bin_template))
     if len(blender_bin_folders) == 0:
         print("Couldn't find Blender's bin folder! ({})".format(bin_template))
@@ -310,7 +310,7 @@ def get_blender_python_exe(blender_fol, gui=True):
         if choose_folder:
             fol = utils.choose_folder_gui(blender_parent_fol, 'Blender bin folder') if gui else input()
             if fol != '':
-                blender_bin_fol = glob.glob(op.join(fol, '2.7?', 'python'))[-1]
+                blender_bin_fol = glob.glob(op.join(fol, '2.??', 'python'))[-1]
         if blender_bin_fol == '':
             return '', ''
     elif len(blender_bin_folders) > 1:
@@ -322,6 +322,8 @@ def get_blender_python_exe(blender_fol, gui=True):
 
 
 def select_file(files):
+    if len(files) == 1:
+        return files[0]
     print('More than one blender exist, please choose a folder:')
     for ind, fname in enumerate(files):
         print('{}) {}'.format(ind + 1, fname))

@@ -8,6 +8,7 @@ import os.path as op
 
 import coloring_panel
 
+blender_2_7 = bpy.app.version[1] < 80
 
 def _addon():
     return AppearanceMakerPanel.addon
@@ -539,8 +540,7 @@ class SelectionListener(bpy.types.Operator):
     press_time = time.time()
     running = False
     right_clicked, left_clicked = False, False
-    cursor_pos = bpy.context.scene.cursor_location.copy()
-
+    cursor_pos = mu.get_cursor_location
     # Add info: https://blender.stackexchange.com/questions/76464/how-to-get-the-mouse-coordinates-in-3space-relative-to-the-local-coordinates-of
 
     def modal(self, context, event):

@@ -2,7 +2,7 @@ bl_info = {
     "name": "Multi-modal visualization tool",
     "author": "Ohad Felsenstein & Noam Peled",
     "version": (1, 2),
-    "blender": (2, 7, 2),
+    "blender": (2, 7, 9),
     "api": 33333,
     "location": "View3D > Add > Mesh > Say3D",
     "description": "Multi-modal visualization tool",
@@ -769,11 +769,15 @@ def init_freesurfer_env():
 def main(addon_prefs=None):
     # atexit.register(my_cleanup_code)
     # check if the use_scripts_auto_execute is checked (so the mmvt_addon could run automatically)
-    if not bpy.context.user_preferences.system.use_scripts_auto_execute:
-        bpy.context.user_preferences.system.use_scripts_auto_execute = True
-        bpy.ops.wm.save_userpref()
-        # bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath)
-        # bpy.ops.wm.revert_mainfile(use_scripts=True)
+    try:
+        preferences = bpy.context.user_preferences if mmvt_utils.blender_2_7 else bpy.context.preferences
+        if not preferences.system.use_scripts_auto_execute:
+            preferences.system.use_scripts_auto_execute = True
+            bpy.ops.wm.save_userpref()
+            # bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath)
+            # bpy.ops.wm.revert_mainfile(use_scripts=True)
+    except:
+        pass
 
     init(addon_prefs)
     try:

@@ -38,16 +38,23 @@ def read_args(argv=None):
 def install_mmvt_addon():
     import bpy
     import os.path as op
+    blender_2_7 = bpy.app.version[1] < 80
     args = read_args(su.get_python_argv())
     print(args)
     print('python cmd: {}'.format(args.python_cmd))
     module = 'mmvt_loader'
     mmvt_folder = su.get_mmvt_addon_dir()
     path = op.join(mmvt_folder, '{}.py'.format(module))
-    bpy.ops.wm.addon_install(filepath=path)
-    bpy.ops.wm.addon_expand(module=module)
-    bpy.ops.wm.addon_enable(module=module)
-    addon_prefs = bpy.context.user_preferences.addons[module].preferences
+    if blender_2_7:
+        bpy.ops.wm.addon_install(filepath=path)
+        bpy.ops.wm.addon_expand(module=module)
+        bpy.ops.wm.addon_enable(module=module)
+        addon_prefs = bpy.context.user_preferences.addons[module].preferences
+    else:
+        bpy.ops.preferences.addon_install(filepath=path)
+        bpy.ops.preferences.addon_expand(module=module)
+        bpy.ops.preferences.addon_enable(module=module)
+        addon_prefs = bpy.context.preferences.addons[module].preferences
     addon_prefs.mmvt_folder = mmvt_folder
     addon_prefs.python_cmd = args.python_cmd
     addon_prefs.freeview_cmd = 'freeview' if not su.is_windows() else ''

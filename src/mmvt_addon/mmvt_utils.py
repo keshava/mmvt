@@ -59,6 +59,11 @@ import functools
 import importlib
 
 _addon = None
+blender_2_7 = bpy.app.version[1] < 80
+
+
+def get_cursor_location():
+    return bpy.context.scene.cursor_location.copy() if blender_2_7 else bpy.context.scene.cursor.location.copy()
 
 
 class empty_bpy(object):
