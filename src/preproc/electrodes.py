@@ -256,7 +256,7 @@ def calc_dist_mat(subject, bipolar=False, snap=False):
 
 
 def convert_electrodes_pos(
-        subject, bipolar=False, ras_xls_sheet_name='', snaps=[True, False], electrodes_type=None):
+        subject, bipolar=False, ras_xls_sheet_name='', snaps=[False, True], electrodes_type=None, delimiter=','):
     rename_and_convert_electrodes_file(subject, ras_xls_sheet_name)
     electrodes_folder = op.join(MMVT_DIR, subject, 'electrodes')
     utils.make_dir(electrodes_folder)
@@ -277,7 +277,8 @@ def convert_electrodes_pos(
         file_found = True
         output_file_name = 'electrodes{}_{}positions.npz'.format('_bipolar' if bipolar else '', 'snap_' if snap else '')
         output_file = op.join(MMVT_DIR, subject, 'electrodes', output_file_name)
-        pos, names = electrodes_csv_to_npy(subject, csv_file, output_file, bipolar, electrodes_type=electrodes_type)
+        pos, names = electrodes_csv_to_npy(
+            subject, csv_file, output_file, bipolar, electrodes_type=electrodes_type, delimiter=delimiter)
         if pos is None or names is None:
             return False, None, None
         # if copy_to_blender:
@@ -1338,10 +1339,12 @@ def read_snapped_electrodes(subject, electrodes_type=None, overwrite=False):
     return op.isfile(output_fname)
 
 
-def snap_electrodes_to_surface(subject, elecs_pos, grid_name, subjects_dir,
-                               max_steps=40000, giveup_steps=10000,
-                               init_temp=1e-3, temperature_exponent=1,
-                               deformation_constant=1., overwrite=False):
+def snap_electrodes_to_surface(
+        subject, elecs_pos, grid_name='', subjects_dir='', surface='dural',
+        max_steps=40000, giveup_steps=10000, init_temp=1e-3, temperature_exponent=1,
+        deformation_constant=1., overwrite=False, snap_to_pial=True, points_type='electrodes',
+        surface_per_hemi=True):
+
     '''
     Transforms electrodes from surface space to positions on the surface
     using a simulated annealing "snapping" algorithm which minimizes an
@@ -1383,8 +1386,8 @@ def snap_electrodes_to_surface(subject, elecs_pos, grid_name, subjects_dir,
     store the snapped locations of the electrodes
     '''
     from src.utils import geometry_utils as gu
-    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
-    output_fname = op.join(fol, '{}_snap_electrodes.npz'.format(grid_name))
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, points_type))
+    output_fname = op.join(fol, '{}_snap_{}.npz'.format(grid_name, points_type))
     if op.isfile(output_fname) and not overwrite:
         print('The output file {} is already exist! To overwrite use --overwrite_snap 1'.format(output_fname))
         return True
@@ -1466,21 +1469,30 @@ def snap_electrodes_to_surface(subject, elecs_pos, grid_name, subjects_dir,
                 H += alpha[i, j] * (dist_new[i, j] - dist_old[i, j]) ** 2
         return H
 
-    # load the dural surface locations
-    ply_template = op.join(MMVT_DIR, subject, 'surf', '{hemi}.dural.ply')
-    fs_template = op.join(SUBJECTS_DIR, subject, 'surf', '{hemi}.dural')
-    if utils.both_hemi_files_exist(ply_template):
-        lh_dura, _ = utils.read_ply_file(ply_template.format(hemi='lh'))
-        rh_dura, _ = utils.read_ply_file(ply_template.format(hemi='rh'))
-    elif utils.both_hemi_files_exist(fs_template):
-        lh_dura, _ = gu.read_surface(fs_template.format(hemi='lh'))
-        rh_dura, _ = gu.read_surface(fs_template.format(hemi='rh'))
-        # lh_dura, _ = nib.freesurfer.read_geometry(fs_template.format(hemi='lh'))
-        # rh_dura, _ = nib.freesurfer.read_geometry(fs_template.format(hemi='rh'))
+    # load the surface locations
+    if surface_per_hemi:
+        ply_template = op.join(MMVT_DIR, subject, 'surf', '{}.{}.ply'.format('{hemi}', surface))
+        fs_template = op.join(SUBJECTS_DIR, subject, 'surf', '{}.{}'.format('{hemi}', surface))
+        if utils.both_hemi_files_exist(fs_template):
+            lh_dura, _ = gu.read_surface(fs_template.format(hemi='lh'))
+            rh_dura, _ = gu.read_surface(fs_template.format(hemi='rh'))
+        elif utils.both_hemi_files_exist(ply_template):
+            lh_dura, _ = utils.read_ply_file(ply_template.format(hemi='lh'))
+            rh_dura, _ = utils.read_ply_file(ply_template.format(hemi='rh'))
+        else:
+            print('No {} can be found!'.format(surface))
+            return False
+        dura = np.vstack((lh_dura, rh_dura))
     else:
-        print('No dura can be found!')
-        return False
-    dura = np.vstack((lh_dura, rh_dura))
+        ply_template = op.join(MMVT_DIR, subject, 'surf', '{}.ply'.format(surface))
+        fs_template = op.join(SUBJECTS_DIR, subject, 'surf', '{}'.format(surface))
+        if op.isfile(fs_template):
+            dura, _ = gu.read_surface(fs_template)
+        elif op.isfile(ply_template):
+            dura, _ = utils.read_ply_file(ply_template)
+        else:
+            print('No {} can be found!'.format(surface))
+            return False
 
     max_deformation = 3
     deformation_choice = 50
@@ -1551,19 +1563,22 @@ def snap_electrodes_to_surface(subject, elecs_pos, grid_name, subjects_dir,
     for ind, loc in enumerate(emin):
         snapped_electrodes[ind] = loc
 
-    lh_pia, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
-    rh_pia, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
-    # lh_pia, _ = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
-    # rh_pia, _ = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
-    pia = np.vstack((lh_pia, rh_pia))
-    e_pia = np.argmin(cdist(pia, emin), axis=0)
+    if snap_to_pial:
+        lh_pia, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
+        rh_pia, _ = gu.read_surface(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
+        # lh_pia, _ = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'lh.pial'))
+        # rh_pia, _ = nib.freesurfer.read_geometry(op.join(subjects_dir, subject, 'surf', 'rh.pial'))
+        pia = np.vstack((lh_pia, rh_pia))
+        e_pia = np.argmin(cdist(pia, emin), axis=0)
 
-    snapped_electrodes_pial = np.zeros(snapped_electrodes.shape)
-    for ind, soln in enumerate(e_pia):
-        snapped_electrodes_pial[ind] = pia[soln]
+        snapped_electrodes_pial = np.zeros(snapped_electrodes.shape)
+        for ind, soln in enumerate(e_pia):
+            snapped_electrodes_pial[ind] = pia[soln]
+    else:
+        snapped_electrodes_pial = []
 
     np.savez(output_fname, snapped_electrodes=snapped_electrodes, snapped_electrodes_pial=snapped_electrodes_pial)
-    print('The snap electrodes were saved to {}'.format(output_fname))
+    print('The snap {} were saved to {}'.format(points_type, output_fname))
     return op.isfile(output_fname)
 
 
@@ -1746,7 +1761,7 @@ def main(subject, remote_subject_dir, args, flags):
     if utils.should_run(args, 'convert_electrodes_pos'):
         flags['convert_electrodes_pos'], _, _ = convert_electrodes_pos(
             subject, bipolar=args.bipolar, ras_xls_sheet_name=args.ras_xls_sheet_name,
-            electrodes_type=args.electrodes_type)
+            electrodes_type=args.electrodes_type, delimiter=args.delimiter)
 
     if utils.should_run(args, 'calc_dist_mat'):
         flags['calc_dist_mat'] = calc_dist_mat(subject, bipolar=args.bipolar)
@@ -1896,6 +1911,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--epochs_num', help='epoches nun', required=False, default=-1, type=int)
     parser.add_argument('--overwrite_power_spectrum', help='', required=False, default=False, type=au.is_true)
     parser.add_argument('--electrodes_type', help='', required=False, default=None)
+    parser.add_argument('--delimiter', required=False, default=',')
 
     # ELA Morphing
     parser.add_argument('--overwrite_morphed_elecctrodes', required=False, default=0, type=au.is_true)

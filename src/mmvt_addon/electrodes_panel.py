@@ -238,6 +238,12 @@ def get_electrodes_pos():
     return electrodes_pos
 
 
+def set_electrodes_pos(new_coordinates):
+    electrode_names = get_electrodes_names()
+    for (elc_ind, electrode_name), new_pos in zip(enumerate(electrode_names), new_coordinates):
+        bpy.data.objects[electrode_name].location = new_pos
+
+
 def get_electrode_pos(electrode_name):
     return bpy.data.objects[electrode_name].matrix_world.to_translation()
 

@@ -100,6 +100,26 @@ def calc_eeg_mesh_verts_sensors(subject, sensors_verts, helmet_verts, modality='
     utils.save(eeg_helmet_indices, op.join(MMVT_DIR, subject, modality, '{}_vertices_sensors.pkl'.format(modality)))
 
 
+def snap_sensors_to_outer_skin(subject, overwrite=True):
+    from src.preproc.electrodes import snap_electrodes_to_surface
+
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'eeg'))
+    output_fname = op.join(fol, 'eeg_snap_sensors.npz')
+    if op.isfile(output_fname) and not overwrite:
+        print('{} already exist'.format(output_fname))
+        return True
+
+    eeg_pos_fname = op.join(fol, 'eeg_sensors_positions.npz')
+    if not op.isfile(eeg_pos_fname):
+        print('EEG sensors pos file does not exist! {}'.format(eeg_pos_fname))
+        return False
+    eeg_info = utils.Bag(np.load(eeg_pos_fname))
+    pos = eeg_info.pos * 10
+    return snap_electrodes_to_surface(
+        subject, pos, grid_name='sensors', subjects_dir=SUBJECTS_MRI_DIR, surface='seghead',
+        overwrite=False, snap_to_pial=True, points_type='eeg', surface_per_hemi=False)
+
+
 def init(subject, args, mri_subject='', remote_subject_dir=''):
     if mri_subject == '':
         mri_subject = subject
@@ -150,6 +170,10 @@ def main(tup, remote_subject_dir, args, flags):
         flags['plot_evoked'], _ = plot_evoked(
             args.evo_fname, args.evoked_key, args.pick_meg, args.pick_eeg, args.pick_eog, args.ssp_proj,
             args.spatial_colors, args.window_title, args.hline, args.channels_to_exclude)
+
+    if 'snap_sensors_to_outer_skin' in args.function:
+        flags['snap_sensors_to_outer_skin'] = snap_sensors_to_outer_skin(mri_subject)
+
 
     return flags
 

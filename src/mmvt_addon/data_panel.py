@@ -616,7 +616,8 @@ def update_code():
 
 
 def import_electrodes(input_file='', electrodes_layer=None, bipolar='', electrode_size=None,
-                      parnet_name='Deep_electrodes', elecs_pos=None, elecs_names=None, overwrite=False):
+                      parnet_name='Deep_electrodes', elecs_pos=None, elecs_names=None, overwrite=False,
+                      mult=1):
     if electrodes_layer is None:
         electrodes_layer = _addon().ELECTRODES_LAYER
     if not electrode_size is None:
@@ -650,7 +651,7 @@ def import_electrodes(input_file='', electrodes_layer=None, bipolar='', electrod
         if not isinstance(elc_name, str):
             elc_name = elc_name.astype(str)
         elc_name = elc_name.replace(' ', '')
-        create_electrode(elc_pos, elc_name, electrode_size, layers_array, parnet_name)
+        create_electrode(elc_pos * mult, elc_name, electrode_size, layers_array, parnet_name)
     return elecs_names
 
 
@@ -722,8 +723,6 @@ def create_inflating_flat_morphing():
         modifier.vertex_group = 'valid_vertices'
         # modifier.vertex_group = 'bad_vertices'
         # modifier.invert_vertex_group = True
-
-
 
 
 class ImportElectrodes(bpy.types.Operator):

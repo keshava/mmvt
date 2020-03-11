@@ -58,8 +58,14 @@ import glob
 import functools
 import importlib
 
+try:
+    import bpy
+    blender_2_7 = bpy.app.version[1] < 80
+except:
+    print('No bpy')
+
+
 _addon = None
-blender_2_7 = bpy.app.version[1] < 80
 
 
 def get_cursor_location():
