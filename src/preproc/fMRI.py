@@ -2315,7 +2315,6 @@ def read_cmd_args(argv=None):
     parser.add_argument('--subs_threshold', help='', required=False, default=2, type=float)
     parser.add_argument('--morph_from', help='', required=False)
     parser.add_argument('--nii_fname', help='', required=False)
-
     parser.add_argument('--matlab', help='', required=False, default='')
 
     pu.add_common_args(parser)

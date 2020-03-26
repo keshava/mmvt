@@ -38,13 +38,13 @@ def read_args(argv=None):
 def install_mmvt_addon():
     import bpy
     import os.path as op
-    blender_2_7 = bpy.app.version[1] < 80
     args = read_args(su.get_python_argv())
     print(args)
     print('python cmd: {}'.format(args.python_cmd))
     module = 'mmvt_loader'
     mmvt_folder = su.get_mmvt_addon_dir()
     path = op.join(mmvt_folder, '{}.py'.format(module))
+    blender_2_7 = bpy.app.version[1] < 80
     if blender_2_7:
         bpy.ops.wm.addon_install(filepath=path)
         bpy.ops.wm.addon_expand(module=module)
