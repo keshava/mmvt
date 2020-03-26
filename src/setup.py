@@ -506,7 +506,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--overwrite', help='Overwrite resources', required=False, default='1', type=au.is_true)
     parser.add_argument('--blender_fol', help='', required=False, default='')
     parser.add_argument('--links_file_name', help='', required=False, default='links.csv')
-    parser.add_argument('--overwrite_links', help='', required=False, default=0, type=au.is_true)
+    parser.add_argument('--overwrite_links', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--upgrade_reqs_libs', help='', required=False, default=0, type=au.is_true)
     args = utils.Bag(au.parse_parser(parser))
     main(args)

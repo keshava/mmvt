@@ -1489,37 +1489,67 @@ def save_images_data_and_header(subject):
 
 
 def create_pial_volume_mask(subject, overwrite=True):
-    pial_output_fname = op.join(MMVT_DIR, subject, 'freeview', 'pial_vol_mask.npy')
-    dural_output_fname = op.join(MMVT_DIR, subject, 'freeview', 'dural_vol_mask.npy')
-    if op.isfile(pial_output_fname) and op.isfile(dural_output_fname) and not overwrite:
-        print('The files are already exist! Use --overwrite 1 to overwrite')
+    create_surface_volume_mask(subject, 'dural', overwrite)
+    return create_surface_volume_mask(subject, 'pial', overwrite)
+    # pial_output_fname = op.join(MMVT_DIR, subject, 'freeview', 'pial_vol_mask.npy')
+    # dural_output_fname = op.join(MMVT_DIR, subject, 'freeview', 'dural_vol_mask.npy')
+    # if op.isfile(pial_output_fname) and op.isfile(dural_output_fname) and not overwrite:
+    #     print('The files are already exist! Use --overwrite 1 to overwrite')
+    #     return True
+    # pial_verts = utils.load_surf(subject, MMVT_DIR, SUBJECTS_DIR)
+    # try:
+    #     dural_verts, _ = fu.read_surface(subject, SUBJECTS_DIR, 'dural')
+    # except:
+    #     print('create_pial_volume_mask: There is a problem with the dural surface creation!')
+    #     dural_verts = None
+    # t1_data, t1_header = get_data_and_header(subject, 'T1.mgz')
+    # if t1_header is None:
+    #     return False
+    # ras_tkr2vox = np.linalg.inv(t1_header.get_header().get_vox2ras_tkr())
+    # pial_vol = np.zeros(t1_data.shape, dtype=np.uint8)
+    # dural_vol = np.zeros(t1_data.shape, dtype=np.uint8)
+    # for hemi in utils.HEMIS:
+    #     hemi_pial_voxels = np.rint(utils.apply_trans(ras_tkr2vox, pial_verts[hemi])).astype(int)
+    #     for vox in tqdm(hemi_pial_voxels):
+    #         pial_vol[tuple(vox)] = 1
+    #     if dural_verts is not None:
+    #         hemi_dural_voxels = np.rint(utils.apply_trans(ras_tkr2vox, dural_verts[hemi])).astype(int)
+    #         for vox in tqdm(hemi_dural_voxels):
+    #             dural_vol[tuple(vox)] = 1
+    # print('{:.2f}% voxels are pial'.format(len(np.where(pial_vol)[0])/(t1_data.shape[0] * t1_data.shape[1])))
+    # np.save(pial_output_fname, pial_vol)
+    # if dural_verts is not None:
+    #     print('{:.2f}% voxels are dural'.format(len(np.where(dural_vol)[0]) / (t1_data.shape[0] * t1_data.shape[1])))
+    #     np.save(dural_output_fname, dural_vol)
+    # return op.isfile(pial_output_fname) # and op.isfile(dural_output_fname)
+
+
+def create_surface_volume_mask(subject, surface_name, overwrite=True):
+    surface_output_fname = op.join(MMVT_DIR, subject, 'freeview', '{}_vol_mask.npy'.format(surface_name))
+    if op.isfile(surface_output_fname) and not overwrite:
+        print('The file already exists! Use --overwrite 1 to overwrite')
         return True
-    pial_verts = utils.load_surf(subject, MMVT_DIR, SUBJECTS_DIR)
     try:
-        dural_verts, _ = fu.read_surface(subject, SUBJECTS_DIR, 'dural')
+        if surface_name == 'pial':
+            surface_verts = utils.load_surf(subject, MMVT_DIR, SUBJECTS_DIR)
+        else:
+            surface_verts, _ = fu.read_surface(subject, SUBJECTS_DIR, surface_name)
     except:
-        print('create_pial_volume_mask: There is a problem with the dural surface creation!')
-        dural_verts = None
+        print('create_surface_volume_mask: There is a problem with the {} surface creation!'.format(surface_name))
+        return False
     t1_data, t1_header = get_data_and_header(subject, 'T1.mgz')
     if t1_header is None:
         return False
     ras_tkr2vox = np.linalg.inv(t1_header.get_header().get_vox2ras_tkr())
-    pial_vol = np.zeros(t1_data.shape, dtype=np.uint8)
-    dural_vol = np.zeros(t1_data.shape, dtype=np.uint8)
+    surface_vol = np.zeros(t1_data.shape, dtype=np.uint8)
     for hemi in utils.HEMIS:
-        hemi_pial_voxels = np.rint(utils.apply_trans(ras_tkr2vox, pial_verts[hemi])).astype(int)
-        for vox in tqdm(hemi_pial_voxels):
-            pial_vol[tuple(vox)] = 1
-        if dural_verts is not None:
-            hemi_dural_voxels = np.rint(utils.apply_trans(ras_tkr2vox, dural_verts[hemi])).astype(int)
-            for vox in tqdm(hemi_dural_voxels):
-                dural_vol[tuple(vox)] = 1
-    print('{:.2f}% voxels are pial'.format(len(np.where(pial_vol)[0])/(t1_data.shape[0] * t1_data.shape[1])))
-    np.save(pial_output_fname, pial_vol)
-    if dural_verts is not None:
-        print('{:.2f}% voxels are dural'.format(len(np.where(dural_vol)[0]) / (t1_data.shape[0] * t1_data.shape[1])))
-        np.save(dural_output_fname, dural_vol)
-    return op.isfile(pial_output_fname) # and op.isfile(dural_output_fname)
+        hemi_surface_voxels = np.rint(utils.apply_trans(ras_tkr2vox, surface_verts[hemi])).astype(int)
+        for vox in tqdm(hemi_surface_voxels):
+            surface_vol[tuple(vox)] = 1
+    print('{:.2f}% voxels are {}'.format(
+        len(np.where(surface_vol)[0])/(t1_data.shape[0] * t1_data.shape[1]), surface_name))
+    np.save(surface_output_fname, surface_vol)
+    return op.isfile(surface_output_fname)
 
 
 def create_skull_surfaces(subject, surfaces_fol_name='bem', verts_in_ras=True):
@@ -1730,6 +1760,9 @@ def main(subject, remote_subject_dir, org_args, flags):
     if 'grow_label' in args.function:
         flags['grow_label'] = lu.grow_label(
             subject, args.vertice_indice, args.hemi, args.label_name, args.label_r, args.n_jobs)
+
+    if 'create_volume_mask' in args.function:
+        flags['create_volume_mask'] = create_surface_volume_mask(subject, args.surf_name, args.overwrite)
 
     if 'calc_faces_contours' in args.function:
         flags['calc_faces_contours'] = calc_faces_contours(

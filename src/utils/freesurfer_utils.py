@@ -12,6 +12,9 @@ import time
 from nibabel.spatialimages import ImageFileError
 
 import logging
+
+from src.preproc.meg import MMVT_DIR
+
 logger = logging.getLogger('surfer')
 
 from src.utils import utils
@@ -763,13 +766,20 @@ def is_fs_atlas(atlas):
 def read_surface(subject, subjects_dir, surf_type='pial'):
     from src.utils import geometry_utils as gu
     verts, faces = {}, {}
+    surf_found = True
     for hemi in utils.HEMIS:
         surf_fname = op.join(subjects_dir, subject, 'surf', '{}.{}'.format(hemi, surf_type))
+        if op.isfile(surf_fname):
+            verts[hemi], faces[hemi] = gu.read_surface(surf_fname)
+        elif not op.isfile(surf_fname):
+            surf_fname = op.join(
+                MMVT_DIR, subject, 'subcortical', '{}-{}.npz'.format('Left' if hemi=='lh' else 'Right', surf_type))
+            if op.isfile(surf_fname):
+                d = np.load(surf_fname)
+                verts[hemi], faces[hemi] = d['verts'], d['faces']
         if not op.isfile(surf_fname):
             print('{} does not exist!'.format(surf_fname))
             return None, None
-        # verts[hemi], faces[hemi] = nib.freesurfer.read_geometry(surf_fname)
-        verts[hemi], faces[hemi] = gu.read_surface(surf_fname)
     return verts, faces
 
 

@@ -72,15 +72,21 @@ def init(mmvt, modality, modality_data=None, colormap=None, subject='', mmvt_dir
          scalers[order[2]] / scalers[order[0]],
          scalers[order[1]] / scalers[order[0]]]
     extras = [0] * 3
-    pial_vol_mask_fname = op.join(mmvt_dir, subject, 'freeview', 'pial_vol_mask.npy')
-    pial_vol_mask = np.load(pial_vol_mask_fname) if op.isfile(pial_vol_mask_fname) else None
-    dural_vol_mask_fname = op.join(mmvt_dir, subject, 'freeview', 'dural_vol_mask.npy')
-    dural_vol_mask = np.load(dural_vol_mask_fname) if op.isfile(dural_vol_mask_fname) else None
+    vol_masks_fnames = glob.glob(op.join(mmvt_dir, subject, 'freeview', '*_vol_mask.npy'))
+    vol_masks = {}
+    for vol_mask_fname in vol_masks_fnames:
+        mask_name = mu.namebase(vol_mask_fname).split('_')[0]
+        mask_data = np.load(vol_mask_fname)
+        vol_masks[mask_name] = mask_data
+    # pial_vol_mask_fname = op.join(mmvt_dir, subject, 'freeview', 'pial_vol_mask.npy')
+    # pial_vol_mask = np.load(pial_vol_mask_fname) if op.isfile(pial_vol_mask_fname) else None
+    # dural_vol_mask_fname = op.join(mmvt_dir, subject, 'freeview', 'dural_vol_mask.npy')
+    # dural_vol_mask = np.load(dural_vol_mask_fname) if op.isfile(dural_vol_mask_fname) else None
     fmri_vol = load_fmri_vol_data(mmvt)
     self = mu.Bag(dict(
         data=data, affine=affine, order=order, sizes=sizes, flips=flips, clim=clim, r=r, colors_ratio=colors_ratio,
-        colormap=colormap, coordinates=[], modality=modality, extras=extras, pial_vol_mask=pial_vol_mask,
-        dural_vol_mask=dural_vol_mask, fmri_vol=fmri_vol, t1_ct_mask=t1_ct_mask))
+        colormap=colormap, coordinates=[], modality=modality, extras=extras, vol_masks=vol_masks,
+        fmri_vol=fmri_vol, t1_ct_mask=t1_ct_mask)) # pial_vol_mask=pial_vol_mask, dural_vol_mask=dural_vol_mask
     return self
 
 
@@ -146,18 +152,25 @@ def create_slices(mmvt, xyz, state=None, modalities='mri', modality_data=None, c
             self[modality].cross[ii] = cross
             d = get_image_data(s.data, s.order, s.flips, ii, s.coordinates, cross, zoom_around_voxel, zoom_voxels_num,
                                smooth)
-            if s.pial_vol_mask is not None and bpy.context.scene.slices_show_pial:
-                pial_vol_mask_data = get_image_data(
-                    s.pial_vol_mask, s.order, s.flips, ii, s.coordinates, cross, zoom_around_voxel, zoom_voxels_num,
-                    smooth)
-            else:
-                pial_vol_mask_data = None
-            if s.dural_vol_mask is not None and bpy.context.scene.slices_show_dural:
-                dural_vol_mask_data = get_image_data(
-                    s.dural_vol_mask, s.order, s.flips, ii, s.coordinates, cross, zoom_around_voxel, zoom_voxels_num,
-                    smooth)
-            else:
-                dural_vol_mask_data = None
+            vol_mask_data_dict = {}
+            for mask_name, mask_data in s.vol_masks.items():
+                if bpy.context.scene.get('slices_show_{}'.format(mask_name), True):
+                    vol_mask_data_dict[mask_name] = get_image_data(
+                        mask_data, s.order, s.flips, ii, s.coordinates, cross, zoom_around_voxel, zoom_voxels_num,
+                        smooth)
+
+            # if s.pial_vol_mask is not None and bpy.context.scene.slices_show_pial:
+            #     pial_vol_mask_data = get_image_data(
+            #         s.pial_vol_mask, s.order, s.flips, ii, s.coordinates, cross, zoom_around_voxel, zoom_voxels_num,
+            #         smooth)
+            # else:
+            #     pial_vol_mask_data = None
+            # if s.dural_vol_mask is not None and bpy.context.scene.slices_show_dural:
+            #     dural_vol_mask_data = get_image_data(
+            #         s.dural_vol_mask, s.order, s.flips, ii, s.coordinates, cross, zoom_around_voxel, zoom_voxels_num,
+            #         smooth)
+            # else:
+            #     dural_vol_mask_data = None
 
             if s.fmri_vol is not None:
                 fmri_vol_data = get_image_data(
@@ -184,7 +197,7 @@ def create_slices(mmvt, xyz, state=None, modalities='mri', modality_data=None, c
                 clim, colors_ratio = s.clim, s.colors_ratio
             pixels[modality] = calc_slice_pixels(
                 mmvt, d, sizes, max_sizes, clim, colors_ratio, s.colormap, zoom_around_voxel, zoom_voxels_num, mark_voxel,
-                pial_vol_mask_data, dural_vol_mask_data, fmri_vol_data, t1_ct_mask)
+                vol_mask_data_dict, fmri_vol_data, t1_ct_mask) # pial_vol_mask_data, dural_vol_mask_data
         # image = create_image(d, sizes, max_sizes, s.clim, s.colors_ratio, prespective, s.colormap,
         #                      int(cross_horiz[ii][0, 1]), int(cross_vert[ii][0, 0]),
         #                      state[modality].extras[ii])
@@ -262,8 +275,8 @@ def get_image_data(image_data, order, flips, ii, pos, cross=None, zoom_around_vo
 
 
 def calc_slice_pixels(mmvt, data, sizes, max_sizes, clim, colors_ratio, colormap, zoom_around_voxel, pixels_zoom,
-                      mark_voxel=True, pial_vol_mask_data=None, dural_vol_mask_data=None, fmri_vol_data=None,
-                      t1_ct_mask=None):
+                      mark_voxel=True, vol_mask_data_dict={}, fmri_vol_data=None,
+                      t1_ct_mask=None): # pial_vol_mask_data=None, dural_vol_mask_data=None
     colors = calc_colors(data, clim[0], colors_ratio, colormap)
     max_sizes = [256, 256, 256]
 
@@ -286,10 +299,12 @@ def calc_slice_pixels(mmvt, data, sizes, max_sizes, clim, colors_ratio, colormap
         zoom_factor = np.rint(256 / (pixels_zoom * 2)).astype(int)
         colors[128:128 + zoom_factor, 128:128 + zoom_factor] = [1, 0, 0]
 
-    if pial_vol_mask_data is not None:
-        colors[np.where(pial_vol_mask_data)] = tuple(bpy.context.scene.slices_show_pial_color)
-    if dural_vol_mask_data is not None:
-        colors[np.where(dural_vol_mask_data)] = tuple(bpy.context.scene.slices_show_dural_color)
+    for surf_name, surf_data in vol_mask_data_dict.items():
+        colors[np.where(surf_data)] = tuple(bpy.context.scene.get('slices_show_{}_color'.format(surf_name), (1,0,0)))
+    # if pial_vol_mask_data is not None:
+    #     colors[np.where(pial_vol_mask_data)] = tuple(bpy.context.scene.slices_show_pial_color)
+    # if dural_vol_mask_data is not None:
+    #     colors[np.where(dural_vol_mask_data)] = tuple(bpy.context.scene.slices_show_dural_color)
     if fmri_vol_data is not None:
         if mmvt.coloring.get_use_abs_threshold():
             fmri_inds = np.where(np.abs(fmri_vol_data) > bpy.context.scene.coloring_lower_threshold)
