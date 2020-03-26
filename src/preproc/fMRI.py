@@ -2316,8 +2316,12 @@ def read_cmd_args(argv=None):
     parser.add_argument('--morph_from', help='', required=False)
     parser.add_argument('--nii_fname', help='', required=False)
 
+    parser.add_argument('--matlab', help='', required=False, default='')
+
     pu.add_common_args(parser)
     args = utils.Bag(au.parse_parser(parser, argv))
+    if args.matlab != '':
+        os.environ['matlab'] = args.matlab
     args.necessary_files = {'surf': ['lh.sphere.reg', 'rh.sphere.reg']}
     if 'clean_4d_data' in args.function or args.function == 'prepare_subject_folder':
         args.necessary_files = {'surf': ['rh.thickness', 'lh.thickness', 'rh.white', 'lh.white', 'lh.sphere.reg', 'rh.sphere.reg'],
