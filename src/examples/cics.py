@@ -87,6 +87,14 @@ def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
     fMRI.call_main(args)
 
 
+def calc_scan_rescan_diff(subject, scan_rescan, overwrite=False):
+    from src.preproc import fMRI
+    args = fMRI.read_cmd_args(dict(
+        subject=subject, function='calc_files_diff', fmri_file_template= 'CBF_{}'.format(scan_rescan),
+        overwrite_surf_data=overwrite))
+    fMRI.call_main(args)
+
+
 if __name__ == '__main__':
     subject = '277S0203'
     site = '277-NDC'
@@ -94,4 +102,5 @@ if __name__ == '__main__':
     # preproc_anat(subject)
     for scan_rescan in ['scan', 'rescan']:
         # register_cbf_to_t1(subject, site, scan_rescan)
-        project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
+        # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
+        calc_scan_rescan_diff(subject, scan_rescan, overwrite)
