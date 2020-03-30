@@ -90,7 +90,7 @@ def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
 def calc_scan_rescan_diff(subject, overwrite=False):
     from src.preproc import fMRI
     args = fMRI.read_cmd_args(dict(
-        subject=subject, function='calc_files_diff', fmri_file_template= 'CBF_scan,CBF_rescan',
+        subject=subject, function='calc_files_diff', fmri_file_template= 'fmri_CBF_scan_{hemi},fmri_CBF_rescan_{hemi}',
         overwrite_surf_data=overwrite))
     fMRI.call_main(args)
 
