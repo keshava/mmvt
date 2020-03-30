@@ -200,8 +200,6 @@ def plot_all_files_graph_max(subject, files_names, func_name):
         # all_values = np.array(all_values)
         # plt.figure()
 
-
-
 def save_sz_pick_values(subject, files_names, func_name, atlas):
     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'labels', 'labels_data'))

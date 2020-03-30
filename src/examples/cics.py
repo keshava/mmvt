@@ -15,7 +15,7 @@ def register_cbf_to_t1(subject, site, print_only=False):
         if not op.isfile(source_fname):
             print('The source ({}) does not exist!'.format(source_fname))
             continue
-        target_fname = op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject))
+        target_fname = op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject), 'mri', 'T1.mgz')
         if not op.isfile(target_fname):
             print('The target ({}) does not exist!'.format(target_fname))
             continue
