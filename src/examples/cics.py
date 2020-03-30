@@ -29,6 +29,7 @@ def register_cbf_to_t1(subject, site, cost_function='nmi', overwrite=False, prin
             register_cbf_using_lta(subject_fol, print_only)
         else:
             print('No registration file found! ({})'.format(lta_fname))
+        print_freeview_cmd(subject_fol)
 
 
 def register_cbf_using_lta(subject_fol, overwrite=False, print_only=False):
@@ -42,7 +43,26 @@ def register_cbf_using_lta(subject_fol, overwrite=False, print_only=False):
         print('{} already exist'.format(output_fname))
 
 
+def print_freeview_cmd(subject_fol):
+    cbf = op.join(subject_fol, 'CBF_to_T1.nii')
+    control = op.join(subject_fol, 'Control_to_T1.nii')
+    t1 = op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject), 'mri', 'T1.mgz')
+    print('freeview {} {} {}'.format(cbf, control, t1))
+
+
+def preproc_anat(subject):
+    from src.preproc import anatomy as anat
+    args = anat.read_cmd_args(dict(
+        subject=subject,
+        remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject)),
+        # exclude='create_new_subject_blend_file',
+        # ignore_missing=True
+    ))
+    anat.call_main(args)
+
+
 if __name__ == '__main__':
     subject = '277S0203'
     site = '277-NDC'
-    register_cbf_to_t1(subject, site)
+    # register_cbf_to_t1(subject, site)
+    preproc_anat(subject)
