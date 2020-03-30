@@ -82,7 +82,7 @@ def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
     args = fMRI.read_cmd_args(dict(
         subject=subject,
         function='project_volume_to_surface',
-        fmri_file_template=utils.namebase_with_ext(cics_cbf_fname),
+        fmri_file_template=utils.namebase_with_ext(mmvt_cbf_fname),
         overwrite_surf_data=overwrite))
     fMRI.call_main(args)
 
