@@ -1880,11 +1880,14 @@ def read_cmd_args(argv=None):
     args = utils.Bag(au.parse_parser(parser, argv))
     dkt_real_name = utils.fix_atlas_name(args.subject[0], 'dkt', SUBJECTS_DIR)
     existing_freesurfer_annotations = [dkt_real_name, 'aparc', 'aparc.a2009s']
-    args.necessary_files = {'mri': ['aseg.mgz', 'norm.mgz', 'ribbon.mgz', 'T1.mgz', 'orig.mgz', 'brain.mgz'],
+    args.necessary_files = {
+        'mri': ['aseg.mgz', 'norm.mgz', 'ribbon.mgz', 'T1.mgz', 'orig.mgz', 'brain.mgz', 'brainmask.mgz',
+                'aparc+aseg.mgz'],
         'surf': ['rh.pial', 'lh.pial', 'rh.inflated', 'lh.inflated', 'lh.curv', 'rh.curv', 'rh.sphere.reg',
                  'lh.sphere.reg', 'rh.sphere', 'lh.sphere', 'lh.white', 'rh.white', 'rh.smoothwm','lh.smoothwm',
-                 'lh.sphere.reg', 'rh.sphere.reg'],
-        'mri:transforms' :['talairach.xfm', 'talairach.m3z']}
+                 'lh.sphere.reg', 'rh.sphere.reg', 'lh.thickness', 'rh.thickness'],
+        'mri:transforms' :['talairach.xfm', 'talairach.m3z'],
+        'label': ['lh.cortex.label', 'rh.cortex.label']}
         # 'label': ['rh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations] +
         #          ['lh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations]}
     if args.overwrite:
