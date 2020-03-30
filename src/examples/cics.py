@@ -91,7 +91,7 @@ if __name__ == '__main__':
     subject = '277S0203'
     site = '277-NDC'
     overwrite = False
-    # preproc_anat(subject)
+    preproc_anat(subject)
     for scan_rescan in ['scan', 'rescan']:
         # register_cbf_to_t1(subject, site, scan_rescan)
         project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
