@@ -71,7 +71,7 @@ def preproc_anat(subject):
 
 def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
     from src.preproc import fMRI
-    fmri_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
+    fmri_fol = utils.make_dir(op.join(FMRI_DIR, subject))
     mmvt_cbf_fname = op.join(fmri_fol, 'CBF_{}.nii'.format(scan_rescan))
     cics_cbf_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF_to_T1.nii')
     if not op.islink(mmvt_cbf_fname) and op.isfile(cics_cbf_fname):
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     subject = '277S0203'
     site = '277-NDC'
     overwrite = False
-    preproc_anat(subject)
+    # preproc_anat(subject)
     for scan_rescan in ['scan', 'rescan']:
         # register_cbf_to_t1(subject, site, scan_rescan)
         project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
