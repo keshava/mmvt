@@ -5,12 +5,13 @@ FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6_12m
 HOME_FOL = '/autofs/space/nihilus_001/CICS/users/noam/CICS/'
 
 mri_robust_register = 'mri_robust_register --mov "{source_fname}" --dst "{target_fname}" --lta {lta_fname} ' + \
-                      '--satit --cost {cost_function}'
+                      '--satit --mapmov "{output_fname}" --cost {cost_function}'
 
 
 def register_cbf_to_t1(subject, site, cost_function='nmi', print_only=False):
     for subfol in ['scan', 'rescan']:
         subject_fol = op.join(HOME_FOL, site, subject, subfol)
+        output_fname = op.join(subject_fol, 'CBF_to_anat.nii')
         source_fname = op.join(subject_fol, 'Control.nii')
         if not op.isfile(source_fname):
             print('The source ({}) does not exist!'.format(source_fname))
