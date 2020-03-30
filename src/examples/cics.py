@@ -8,7 +8,7 @@ mri_robust_register = 'mri_robust_register --mov "{source_fname}" --dst "{target
                       '--satit --cost {cost_function}'
 
 
-def register_cbf_to_t1(subject, site, print_only=False):
+def register_cbf_to_t1(subject, site, cost_function='nmi', print_only=False):
     for subfol in ['scan', 'rescan']:
         subject_fol = op.join(HOME_FOL, site, subject, subfol)
         source_fname = op.join(subject_fol, 'Control.nii')
