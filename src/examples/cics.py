@@ -22,7 +22,7 @@ def register_cbf_to_t1(subject, site, cost_function='nmi', overwrite=False, prin
         if not op.isfile(target_fname):
             print('The target ({}) does not exist!'.format(target_fname))
             continue
-        if not op.isfile(lta_fname) or overwrite:
+        if not op.isfile(lta_fname) or not op.isfile(output_fname) or overwrite:
             rs = utils.partial_run_script(locals(), print_only=print_only)
             rs(mri_robust_register)
         if op.isfile(lta_fname):
