@@ -103,4 +103,4 @@ if __name__ == '__main__':
     for scan_rescan in ['scan', 'rescan']:
         # register_cbf_to_t1(subject, site, scan_rescan)
         # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
-        calc_scan_rescan_diff(subject, scan_rescan, overwrite)
+        calc_scan_rescan_diff(subject, overwrite)
