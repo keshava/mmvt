@@ -4,6 +4,8 @@ from src.utils import utils
 
 FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6_12month_longitudinal_recons'
 HOME_FOL = '/autofs/space/nihilus_001/CICS/users/noam/CICS/'
+SCAN, RESCAN = 'scan', 'rescan'
+
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
@@ -84,6 +86,7 @@ def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
     if not op.islink(mmvt_cbf_fname):
         print('Cannot file the link to CBF! ({}-{})'.format(cics_cbf_fname, mmvt_cbf_fname))
         return False
+    subject = subject if scan_rescan == SCAN else '{}_rescan'.format(subject)
     args = fMRI.read_cmd_args(dict(
         subject=subject,
         function='project_volume_to_surface',
@@ -104,9 +107,9 @@ if __name__ == '__main__':
     subject = '277S0203'
     site = '277-NDC'
     overwrite = False
-    preproc_anat(subject)
-    for scan_rescan in ['scan', 'rescan']:
+    # preproc_anat(subject)
+    for scan_rescan in [SCAN, RESCAN]:
         # register_cbf_to_t1(subject, site, scan_rescan)
-        # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
+        project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
         # calc_scan_rescan_diff(subject, overwrite)
         pass
