@@ -93,6 +93,14 @@ def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
         fmri_file_template=utils.namebase_with_ext(mmvt_cbf_fname),
         overwrite_surf_data=overwrite))
     fMRI.call_main(args)
+    # copy the rescan to the scan folder
+    # mmvt_blend/277S0203_rescan/fmri/fmri_CBF_rescan_rh.npy
+    if scan_rescan == RESCAN:
+        rescan_fname = op.join(MMVT_DIR, mmvt_subject, 'fmri', 'fmri_CBF_rescan_rh.npy')
+        target_fname = op.join(MMVT_DIR, subject, 'fmri', 'fmri_CBF_rescan_rh.npy')
+        utils.delete_file(target_fname)
+        print('Copy {} to {}'.format(rescan_fname, target_fname))
+        utils.copy_file(rescan_fname, target_fname)
 
 
 def calc_scan_rescan_diff(subject, overwrite=False):

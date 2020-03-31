@@ -140,6 +140,11 @@ def delete_folder_files(fol, delete_folder=False):
         os.makedirs(fol)
 
 
+def delete_file(fname):
+    if op.isfile(fname):
+        os.remove(fname)
+
+
 def get_scalar_map(x_min, x_max, color_map='jet'):
     import matplotlib.pyplot as plt
     import matplotlib.colors
