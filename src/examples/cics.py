@@ -78,6 +78,7 @@ def preproc_anat(subject):
 
 def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
     from src.preproc import fMRI
+    subject = subject if scan_rescan == SCAN else '{}_rescan'.format(subject)
     fmri_fol = utils.make_dir(op.join(FMRI_DIR, subject))
     mmvt_cbf_fname = op.join(fmri_fol, 'CBF_{}.nii'.format(scan_rescan))
     cics_cbf_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF_to_T1.nii')
@@ -86,7 +87,6 @@ def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
     if not op.islink(mmvt_cbf_fname):
         print('Cannot file the link to CBF! ({}-{})'.format(cics_cbf_fname, mmvt_cbf_fname))
         return False
-    subject = subject if scan_rescan == SCAN else '{}_rescan'.format(subject)
     args = fMRI.read_cmd_args(dict(
         subject=subject,
         function='project_volume_to_surface',
