@@ -2817,8 +2817,16 @@ def both_hemi_files_exist(file_template):
     if '*' not in file_template:
         return op.isfile(file_template.format(hemi='rh')) and op.isfile(file_template.format(hemi='lh'))
     else:
-        return len(glob.glob(file_template.format(hemi='rh'))) == 1 and \
-               len(glob.glob(file_template.format(hemi='lh'))) == 1
+        rh_files = glob.glob(file_template.format(hemi='rh'))
+        lh_files = glob.glob(file_template.format(hemi='lh'))
+        if len(rh_files) == 1 and len(lh_files) == 1:
+            print('both_hemi_files_exist return True for {}'.format(file_template))
+            return True
+        else:
+            print('both_hemi_files_exist return False for {}'.format(file_template))
+            print('rh_files: {}'.format(rh_files))
+            print('lh_files: {}'.format(lh_files))
+            return False
 
 
 def stc_exist(file_template, include_subdirs=False):
