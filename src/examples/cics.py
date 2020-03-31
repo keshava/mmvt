@@ -68,8 +68,8 @@ def preproc_anat(subject):
     anat.call_main(args)
 
     args = anat.read_cmd_args(dict(
-        subject=subject, remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject))),
-        function='labeling', atlas='laus125')
+        subject=subject, remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject)),
+        function='labeling', atlas='laus125'))
     anat.call_main(args)
 
     args = anat.read_cmd_args(dict(
