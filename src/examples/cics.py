@@ -113,19 +113,19 @@ def calc_scan_rescan_diff(subject, overwrite=False):
 
 
 def find_diff_clusters(subject, overwrite=False):
-    # fMRI.find_clusters(
-    #         subject, 'CBF_scan_rescan', 2, args.atlas, None, args.min_cluster_max,
-    #         args.min_cluster_size, args.clusters_label, args.task, args.create_clusters_labels,
-    #         args.new_atlas_name,
-    pass
+    fMRI.find_clusters(
+            subject, 'CBF_scan_rescan', 2, 'laus125', 2, create_clusters_labels=True,
+            new_atlas_name='CBF_scan_rescan_outliers')
+
 
 if __name__ == '__main__':
     subject = '277S0203'
     site = '277-NDC'
     overwrite = False
-    preproc_anat(subject)
+    # preproc_anat(subject)
     for scan_rescan in [SCAN, RESCAN]:
         # register_cbf_to_t1(subject, site, scan_rescan)
         # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
         pass
     # calc_scan_rescan_diff(subject, overwrite=True)
+    find_diff_clusters(subject)
