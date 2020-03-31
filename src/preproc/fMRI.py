@@ -689,14 +689,18 @@ def load_surf_files(subject, surf_template_fname, task='', overwrite_surf_data=F
     return utils.both_hemi_files_exist(npy_output_fname_template), npy_output_fname_template
 
 
-def calc_files_diff(subject, surf_template_fname, overwrite_surf_data=False):
+def calc_files_diff(subject, surf_template_fname, output_name='', operator='diff', overwrite_surf_data=False):
     surf_template_fnames = surf_template_fname.split(',')
     if len(surf_template_fnames) != 2:
         print('calc_files_diff: surf_template_fname should be 2 names seperated with a comma.')
         return False, ''
     both_files_exist = True
-    npy_output_fname_template = op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}minus_{}'.format(
-        *[tmp.replace('*', '').replace('{hemi}', '') for tmp in surf_template_fnames]) + '{hemi}.npy')
+    if output_name != '':
+        npy_output_fname_template = op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}_{}.npy'.format(output_name, '{hemi}'))
+    else:
+        npy_output_fname_template = op.join(MMVT_DIR, subject, 'fmri', 'fmri_{}minus_{}'.format(
+            *[tmp.replace('*', '').replace('{hemi}', '') for tmp in surf_template_fnames]) + '{hemi}.npy')
+    surfs_data_dict = {}
     for hemi in utils.HEMIS:
         surfs_data = []
         for ind, fname_template in enumerate(surf_template_fnames):
@@ -719,12 +723,19 @@ def calc_files_diff(subject, surf_template_fname, overwrite_surf_data=False):
                 surfs_data[argmax] = surfs_data[argmax][:, nskip:]
             else:
                 return False, ''
-        surfs_diff = surfs_data[0] - surfs_data[1]
+        surfs_data_dict[hemi] = surfs_data
+    for hemi in utils.HEMIS:
+        if operator == 'diff':
+            surfs_diff = surfs_data_dict[hemi][0] - surfs_data_dict[hemi][1]
+        elif operator == 'zvals':
+            surfs_diff = surfs_data_dict[hemi][0] - surfs_data_dict[hemi][1]
+            surfs_diff = (surfs_diff - np.mean(surfs_diff)) / np.std(surfs_diff)
         npy_output_fname = npy_output_fname_template.format(hemi=hemi)
         if not op.isfile(npy_output_fname) or overwrite_surf_data:
             print('Saving surf data in {}'.format(npy_output_fname))
             np.save(npy_output_fname, surfs_diff)
         both_files_exist = both_files_exist and op.isfile(npy_output_fname)
+    calc_fmri_min_max(subject, npy_output_fname_template, norm_percs=(0, 100))
     return both_files_exist, npy_output_fname_template
 
 
@@ -2127,7 +2138,7 @@ def main(subject, remote_subject_dir, args, flags):
     if 'calc_files_diff' in args.function:
         flags['calc_files_diff'], output_fname_template = calc_files_diff(
             subject, args.fmri_file_template, args.overwrite_surf_data)
-        fmri_contrast_file_template, args = calc_also_minmax(flags['calc_files_diff'], output_fname_template, args)
+        # fmri_contrast_file_template, args = calc_also_minmax(flags['calc_files_diff'], output_fname_template, args)
 
     if utils.should_run(args, 'calc_fmri_min_max'):
         flags['calc_fmri_min_max'] = calc_fmri_min_max(
