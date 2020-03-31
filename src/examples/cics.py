@@ -63,8 +63,13 @@ def preproc_anat(subject):
     args = anat.read_cmd_args(dict(
         subject=subject,
         remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject)),
-        # exclude='create_new_subject_blend_file',
-        # ignore_missing=True
+    ))
+    anat.call_main(args)
+
+    args = anat.read_cmd_args(dict(
+        subject='{}_rescan'.format(subject),
+        remote_subject_dir=op.join(FS_ROOT, '{0}_B_recon.long.{0}-base'.format(subject)),
+        exclude='create_new_subject_blend_file',
     ))
     anat.call_main(args)
 
@@ -99,8 +104,9 @@ if __name__ == '__main__':
     subject = '277S0203'
     site = '277-NDC'
     overwrite = False
-    # preproc_anat(subject)
+    preproc_anat(subject)
     for scan_rescan in ['scan', 'rescan']:
         # register_cbf_to_t1(subject, site, scan_rescan)
         # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
-        calc_scan_rescan_diff(subject, overwrite)
+        # calc_scan_rescan_diff(subject, overwrite)
+        pass
