@@ -64,8 +64,12 @@ def print_freeview_cmd(subject, subject_fol):
 
 def preproc_anat(subject):
     args = anat.read_cmd_args(dict(
-        subject=subject, atlas='laus125',
-        remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject))))
+        subject=subject, remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject))))
+    anat.call_main(args)
+
+    args = anat.read_cmd_args(dict(
+        subject=subject, remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject))),
+        function='labeling', atlas='laus125')
     anat.call_main(args)
 
     args = anat.read_cmd_args(dict(
