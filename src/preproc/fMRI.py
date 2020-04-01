@@ -1590,7 +1590,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     os.environ['SUBJECTS_DIR'] = fmri_dir
     os.environ['SUBJECT'] = subject
     print('SUBJECT: {}, SUBJECTS_DIR: {}'.format(subject, fmri_dir))
-    subject_name_fname = op.join(op.join(fmri_dir, subject, 'subjectname'))
+    subject_name_fname = op.join(op.join(fmri_dir, 'subjectname'))
     if not op.isfile(subject_name_fname):
         with open(subject_name_fname, 'w') as f:
             f.write(subject)
