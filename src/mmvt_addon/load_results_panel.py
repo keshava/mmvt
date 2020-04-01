@@ -111,8 +111,8 @@ if IN_BLENDER:
                 layout.label(text=bpy.context.scene.nii_label_prompt)
         else:
             layout.label(text=bpy.context.scene.nii_label_output)
-        layout.operator('mmvt.load_fmri_volume', text="Load volume nii file", icon='LOAD_FACTORY').filepath = \
-            op.join(mu.get_user_fol(), 'fmri', '*.*')
+        # layout.operator('mmvt.load_fmri_volume', text="Load volume nii file", icon='LOAD_FACTORY').filepath = \
+        #     op.join(mu.get_user_fol(), 'fmri', '*.*')
 
 
     def init(addon):
