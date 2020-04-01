@@ -138,6 +138,26 @@ def remove_outliers(subject, scan_rescan):
         org_values[outliers_indices]
 
 
+def detect_outliners(subject):
+    # https://stackoverflow.com/questions/22354094/pythonic-way-of-detecting-outliers-in-one-dimensional-observation-data
+    pass
+
+
+def doubleMADsfromMedian(y,thresh=3.5):
+    # http://eurekastatistics.com/using-the-median-absolute-deviation-to-find-outliers/
+    # warning: this function does not check for NAs
+    # nor does it address issues when
+    # more than 50% of your data have identical values
+    m = np.median(y)
+    abs_dev = np.abs(y - m)
+    left_mad = np.median(abs_dev[y <= m])
+    right_mad = np.median(abs_dev[y >= m])
+    y_mad = left_mad * np.ones(len(y))
+    y_mad[y > m] = right_mad
+    modified_z_score = 0.6745 * abs_dev / y_mad
+    modified_z_score[y == m] = 0
+    return modified_z_score > thresh
+
 if __name__ == '__main__':
     subject = '277S0203'
     site = '277-NDC'
