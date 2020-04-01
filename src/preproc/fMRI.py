@@ -1543,6 +1543,17 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         remote_fmri_dir='', plot_registration=True, overwrite=False, print_only=False):
     # fsd: functional subdirectory
 
+    def create_folders_tree(fmri_fname):
+        # Fisrt it's needed to create the freesurfer folders tree for the preproc-sess
+        fol = utils.make_dir(op.join(FMRI_DIR, subject, fsd, '001'))
+        if not op.isfile(op.join(fol, 'f.nii.gz')):
+            if utils.file_type(fmri_fname) == 'mgz':
+                fmri_fname = fu.mgz_to_nii_gz(fmri_fname)
+            utils.copy_file(fmri_fname, op.join(fol, 'f.nii.gz'))
+        if not op.isfile(op.join(FMRI_DIR, subject, 'subjectname')):
+            with open(op.join(FMRI_DIR, subject, 'subjectname'), 'w') as sub_file:
+                sub_file.write(subject)
+
     def create_analysis_info_file(fsd, trg_subject, tr, fwhm=6, lfp=0.08, nskip=4, nconditions=0, spmhrf=0,
                                   refeventdur=1, par=''):
         if par == '':
@@ -1600,6 +1611,8 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     else:
         fmri_files_template = op.join(fmri_dir, fsd, '0??', 'f.nii.gz')
     fmri_files = glob.glob(fmri_files_template)
+
+    create_folders_tree(fmri_files[0])
     # if len(fmri_files) == 0:
     #     print('No fMRI files were found! ({})'.format(fmri_files_template))
     #     print('Maybe you should set the -remote_fmri_dir flag')
