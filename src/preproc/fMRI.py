@@ -1590,7 +1590,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     os.environ['SUBJECTS_DIR'] = fmri_dir
     os.environ['SUBJECT'] = subject
     print('SUBJECT: {}, SUBJECTS_DIR: {}'.format(subject, fmri_dir))
-    subject_name_fname = op.join(op.join(fmri_dir, 'subjectname'))
+    subject_name_fname = op.join(op.join(fmri_dir, subject, 'subjectname'))
     if not op.isfile(subject_name_fname):
         with open(subject_name_fname, 'w') as f:
             f.write(subject)
@@ -1600,10 +1600,10 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     else:
         fmri_files_template = op.join(fmri_dir, fsd, '0??', 'f.nii.gz')
     fmri_files = glob.glob(fmri_files_template)
-    # if len(fmri_files) == 0:
-    #     print('No fMRI files were found! ({})'.format(fmri_files_template))
-    #     print('Maybe you should set the -remote_fmri_dir flag')
-    #     return False
+    if len(fmri_files) == 0:
+        print('No fMRI files were found! ({})'.format(fmri_files_template))
+        print('Maybe you should set the -remote_fmri_dir flag')
+        return False
     sm = 'sm{}'.format(int(fwhm))
     rs = utils.partial_run_script(locals(), cwd=fmri_dir, print_only=print_only)
     run('preproc-sess -surface {trg_subject} lhrh -s {subject} -fwhm {fwhm} -fsd {fsd} -mni305 -per-run -stc siemens',
