@@ -115,7 +115,7 @@ def calc_scan_rescan_diff(subject, overwrite=False):
 def find_diff_clusters(subject, overwrite=False):
     fMRI.find_clusters(
             subject, 'CBF_scan_rescan', 2, 'laus125', 2, create_clusters_labels=True,
-            new_atlas_name='CBF_scan_rescan_outliers')
+            new_atlas_name='CBF_scan_rescan')
 
 
 if __name__ == '__main__':
