@@ -141,4 +141,4 @@ if __name__ == '__main__':
         # register_cbf_to_t1(subject, site, scan_rescan)
         # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
         pass
-    # calc_scan_rescan_diff(subject, overwrite=True)
+    calc_scan_rescan_diff(subject, overwrite=True)
