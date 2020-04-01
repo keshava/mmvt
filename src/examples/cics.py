@@ -1,5 +1,6 @@
 import os.path as op
 import os
+import numpy as np
 from src.utils import utils
 from src.preproc import fMRI
 from src.preproc import anatomy as anat
@@ -114,8 +115,21 @@ def calc_scan_rescan_diff(subject, overwrite=False):
 
 def find_diff_clusters(subject, overwrite=False):
     fMRI.find_clusters(
-            subject, 'CBF_scan_rescan', 2, 'laus125', 2, create_clusters_labels=True,
-            new_atlas_name='CBF_scan_rescan')
+        subject, 'CBF_scan_rescan', 2, 'laus125', 2, 1, create_clusters_labels=True,
+        new_atlas_name='CBF_scan_rescan')
+
+
+def remove_outliers(subject, scan_rescan):
+    for hemi in utils.HEMIS:
+        org_values_fname = op.join(MMVT_DIR, subject, 'fmri', 'fmri_CBF_{}_{}.npy'.format(scan_rescan, hemi))
+        z_values_fname = op.join(MMVT_DIR, subject, 'fmri', 'fmri_CBF_scan_rescan_{}.npy'.format(hemi))
+        if not op.isfile(org_values_fname) or not op.isfile(z_values_fname):
+            print('remove_outliers: missing files!')
+            continue
+        org_values = np.load(org_values_fname)
+        zvalues = np.load(z_values_fname)
+        outliers_indices = np.where(zvalues > 2) if scan_rescan == SCAN else np.where(zvalues < -2)
+        org_values[outliers_indices]
 
 
 if __name__ == '__main__':
@@ -128,4 +142,3 @@ if __name__ == '__main__':
         # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
         pass
     # calc_scan_rescan_diff(subject, overwrite=True)
-    find_diff_clusters(subject)
