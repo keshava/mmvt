@@ -113,7 +113,13 @@ def calc_scan_rescan_diff(subject, overwrite=False):
         subject, 'fmri_CBF_scan_{hemi},fmri_CBF_rescan_{hemi}', 'CBF_scan_rescan', 'zvals', overwrite)
 
 
-def find_diff_clusters(subject, overwrite=False):
+def find_diff_clusters(subject, atlas='laus125', overwrite=True):
+    clusters_name = 'CBF_scan_rescan'
+    if overwrite:
+        utils.delete_folder_files(
+            op.join(MMVT_DIR, subject, 'fmri', 'clusters_labels_{}_{}'.format(clusters_name, atlas)),
+            delete_folder=True)
+        utils.delete_file(op.join(MMVT_DIR, subject, 'fmri', 'clusters_labels_{}_{}.pkl'.format(clusters_name, atlas)))
     fMRI.find_clusters(
         subject, 'CBF_scan_rescan', 2, 'laus125', 2, 1, create_clusters_labels=True,
         new_atlas_name='CBF_scan_rescan')
@@ -141,4 +147,5 @@ if __name__ == '__main__':
         # register_cbf_to_t1(subject, site, scan_rescan)
         # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
         pass
-    calc_scan_rescan_diff(subject, overwrite=True)
+    find_diff_clusters(subject, atlas='laus125', overwrite=True)
+    # calc_scan_rescan_diff(subject, overwrite=True)
