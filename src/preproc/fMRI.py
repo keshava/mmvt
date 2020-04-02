@@ -1612,6 +1612,9 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     trg_subject = subject if trg_subject == '' else trg_subject
     fmri_dir = remote_fmri_dir if remote_fmri_dir != '' else FMRI_DIR
 
+    if utils.namebase(fmri_dir) == subject:
+        fmri_dir = utils.get_parent_fol(fmri_dir)
+
     os.environ['SUBJECTS_DIR'] = fmri_dir
     os.environ['SUBJECT'] = subject
     print('SUBJECT: {}, SUBJECTS_DIR: {}'.format(subject, fmri_dir))
