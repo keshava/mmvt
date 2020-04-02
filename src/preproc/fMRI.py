@@ -1542,6 +1542,20 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         fwhm=6, lfp=0.08, nskip=4, nconditions=0, contrast_name='words_v_symbols', contrast_flags='-a 1 -c 2',
         remote_fmri_dir='', plot_registration=True, overwrite=False, print_only=False):
     # fsd: functional subdirectory
+    def no_files_were_found():
+        print('Trying to find remote files in {}'.format(op.join(remote_fmri_dir, fsd, '001', fmri_file_template)))
+        files = find_volume_files_from_template(op.join(remote_fmri_dir, fsd, '001', fmri_file_template)) + \
+                find_volume_files_from_template(op.join(remote_fmri_dir, fmri_file_template))
+        print('files: {}'.format(files))
+        files_num = len(set([utils.namebase(f) for f in files]))
+        if files_num == 1:
+            fmri_fname = op.join(FMRI_DIR, subject, files[0].split(op.sep)[-1])
+            utils.make_dir(op.join(FMRI_DIR, subject))
+            utils.copy_file(files[0], fmri_fname)
+        else:
+            print("Can't find any file in {}!".format(fmri_file_template))
+            return ''
+            # raise Exception("Can't find any file in {}!".format(fmri_file_template))
 
     def create_folders_tree(fmri_fname):
         # Fisrt it's needed to create the freesurfer folders tree for the preproc-sess
@@ -1612,11 +1626,21 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         fmri_files_template = op.join(fmri_dir, fsd, '0??', 'f.nii.gz')
     fmri_files = glob.glob(fmri_files_template)
 
+    if fmri_file_template == '':
+        fmri_file_template = '*'
+    fmri_fname = get_fmri_fname(
+        subject, fmri_file_template, no_files_were_found, only_volumes=True, raise_exception=False)
+    if fmri_fname == '':
+        return False
+    output_files_exist = copy_output_files()
+    if output_files_exist:
+        return True
+
     create_folders_tree(fmri_files[0])
-    # if len(fmri_files) == 0:
-    #     print('No fMRI files were found! ({})'.format(fmri_files_template))
-    #     print('Maybe you should set the -remote_fmri_dir flag')
-    #     return False
+    if len(fmri_files) == 0:
+        print('No fMRI files were found! ({})'.format(fmri_files_template))
+        print('Maybe you should set the -remote_fmri_dir flag')
+        return False
     sm = 'sm{}'.format(int(fwhm))
     rs = utils.partial_run_script(locals(), cwd=fmri_dir, print_only=print_only)
     run('preproc-sess -surface {trg_subject} lhrh -s {subject} -fwhm {fwhm} -fsd {fsd} -mni305 -per-run -stc siemens',
