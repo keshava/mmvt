@@ -9,7 +9,6 @@ FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6_12m
 HOME_FOL = '/autofs/space/nihilus_001/CICS/users/noam/CICS/'
 SCAN, RESCAN = 'scan', 'rescan'
 
-
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
@@ -23,11 +22,19 @@ mri_robust_register = 'mri_robust_register --mov "{source_fname}" --dst "{target
 register_using_lta = 'mri_convert -at "{lta_fname}" "{source_fname}" "{output_fname}"'
 
 
+def get_subject_fs_folder(subject, scan_rescan, base_6_12='0'):
+    base_6_12_str = '' if base_6_12 == '0' else base_6_12
+    scan_rescan_str = base_6_12_str if scan_rescan == SCAN else '{}B'.format(base_6_12_str)
+    if scan_rescan_str != '':
+        scan_rescan_str += '_'
+    return '{0}_{1}recon.long.{0}-base'.format(subject, scan_rescan_str)
+
+
 def register_cbf_to_t1(subject, site, scan_rescan, cost_function='nmi', overwrite=False, print_only=False):
     subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
     output_fname = op.join(subject_fol, 'Control_to_T1.nii')
     source_fname = op.join(subject_fol, 'Control.nii')
-    target_fname = op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject), 'mri', 'T1.mgz')
+    target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
     lta_fname = op.join(subject_fol, 'control_to_T1.lta')
     if not op.isfile(source_fname):
         print('The source ({}) does not exist!'.format(source_fname))
@@ -157,6 +164,42 @@ def doubleMADsfromMedian(y,thresh=3.5):
     modified_z_score = 0.6745 * abs_dev / y_mad
     modified_z_score[y == m] = 0
     return modified_z_score > thresh
+
+
+def read_subject_hippocampus_volumes(subject):
+    Left_Hippocampus_Code,  Right_Hippocampus_Code = 11, 26
+    volumes = {'rh': [], 'lh': []}
+    for base_6_12 in ['0', '6', '12']:
+        scan_rescan_vals = {}
+        for scan_rescan in [SCAN, RESCAN]:
+            scan_rescan_vals[scan_rescan_vals] = {}
+            aseg_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan, base_6_12), 'stats', 'aseg.stats')
+            if not op.isfile(aseg_fname):
+                return None
+            stat = np.loadtxt(aseg_fname, dtype="i1,i1,i4,f4,S32,f4,f4,f4,f4,f4")
+            assert(stat[Left_Hippocampus_Code][4].decode() == 'Left-Hippocampus')
+            assert (stat[Right_Hippocampus_Code][4].decode() == 'Right-Hippocampus')
+            scan_rescan_vals[scan_rescan]['lh'] = stat[Left_Hippocampus_Code][5]
+            scan_rescan_vals[scan_rescan]['rh'] = stat[Right_Hippocampus_Code][5]
+        for hemi in utils.HEMIS:
+            volumes[hemi].append((scan_rescan_vals[SCAN][hemi] + scan_rescan_vals[RESCAN][hemi]) / 2.0)
+    return volumes
+
+
+def get_subjects():
+    return np.unique([fol.split('_')[0] for fol in utils.get_subfolders(FS_ROOT)])
+
+
+def read_hippocampus_volumes():
+    subjects = get_subjects()
+    all_volumes = {}
+    for subject in subjects:
+        volumes = read_subject_hippocampus_volumes(subject)
+        if volumes is None:
+            continue
+        for hemi in utils.HEMIS:
+            all_volumes[hemi] = volumes[hemi]
+    print('sdf')
 
 if __name__ == '__main__':
     subject = '277S0203'
