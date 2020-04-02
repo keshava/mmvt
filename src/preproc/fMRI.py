@@ -1579,12 +1579,20 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
             rs('mkanalysis-sess -analysis {fsd}_sm{fwhm}_{hemi} -paradigm {par} -event-related -refeventdur {refeventdur} ' +
                '-nconditions {nconditions} -TR {tr} -surface {trg_subject} {hemi} -fsd {fsd} ' +
                '-per-run -polyfit 5 -fwhm {fwhm} -nskip {nskip} -stc siemens -spmhrf {spmhrf} -force', hemi=hemi)
+            # mkanalysis-sess \
+            #   -fsd bold -stc up  -surface fsaverage lh -fwhm 5  \
+            #   -event-related  -paradigm workmem.par -nconditions 5 \
+            #   -spmhrf 0 -TR 2 -refeventdur 16 -nskip 4 -polyfit 2 \
+            #   -analysis my-workmem.sm05.lh  -per-run -force
 
     def copy_output_files():
         mmvt_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
         exist = True
         for hemi in utils.HEMIS:
-            nii_fname = op.join(fmri_dir, subject, fsd, '{}_{}_{}'.format(fsd, sm, hemi), contrast_name, 'sig.nii.gz')
+            nii_fname = op.join(fmri_dir, subject, fsd, '{}_sm{}_{}'.format(
+                fsd, fwhm, hemi), contrast_name, 'sig.nii.gz')
+            if not op.isfile(nii_fname):
+                return False
             mmvt_fname = op.join(mmvt_fol, '{}_{}.mgz'.format(contrast_name, hemi))
             mgz_fname = fu.nii_gz_to_mgz(nii_fname)
             if op.isfile(mgz_fname):
@@ -1612,22 +1620,17 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     trg_subject = subject if trg_subject == '' else trg_subject
     fmri_dir = remote_fmri_dir if remote_fmri_dir != '' else FMRI_DIR
 
+    sm = 'sm{}'.format(int(fwhm))
     if utils.namebase(fmri_dir) == subject:
         fmri_dir = utils.get_parent_fol(fmri_dir)
 
-    os.environ['SUBJECTS_DIR'] = fmri_dir
+    os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
     os.environ['SUBJECT'] = subject
     print('SUBJECT: {}, SUBJECTS_DIR: {}'.format(subject, fmri_dir))
     subject_name_fname = op.join(op.join(fmri_dir, subject, 'subjectname'))
     if not op.isfile(subject_name_fname):
         with open(subject_name_fname, 'w') as f:
             f.write(subject)
-
-    if utils.namebase(fmri_dir) != subject:
-        fmri_files_template = op.join(fmri_dir, subject, fsd, '0??', 'f.nii.gz')
-    else:
-        fmri_files_template = op.join(fmri_dir, fsd, '0??', 'f.nii.gz')
-    fmri_files = glob.glob(fmri_files_template)
 
     if fmri_file_template == '':
         fmri_file_template = '*'
@@ -1639,15 +1642,17 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     if output_files_exist:
         return True
 
-    create_folders_tree(fmri_files[0])
+    create_folders_tree(fmri_fname)
+    fmri_files_template = op.join(fmri_dir, subject, fsd, '0??', 'f.nii.gz')
+    fmri_files = glob.glob(fmri_files_template)
     if len(fmri_files) == 0:
         print('No fMRI files were found! ({})'.format(fmri_files_template))
         print('Maybe you should set the -remote_fmri_dir flag')
         return False
-    sm = 'sm{}'.format(int(fwhm))
     rs = utils.partial_run_script(locals(), cwd=fmri_dir, print_only=print_only)
     run('preproc-sess -surface {trg_subject} lhrh -s {subject} -fwhm {fwhm} -fsd {fsd} -mni305 -per-run -stc siemens',
         '0??', 'fmcpr.siemens.sm{}.mni305.2mm.nii.gz'.format(fwhm))
+    # preproc-sess -s sess01 -fsd bold -stc up -surface fsaverage lhrh -mni305 -fwhm 5 -per-run
 
     if plot_registration:
         run('plot-twf-sess -s {subject} -dat f.nii.gz -mc -fsd {fsd}') #, 'fmcpr.mcdat.png') # && killall display
@@ -1666,6 +1671,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         # configure a contrast
         run('mkcontrast-sess -analysis {fsd}_{sm}_{hemi} -contrast {contrast_name} {contrast_flags}',
             '..', '..', '{}_sm{}_{}'.format(fsd, fwhm, hemi), '{}.config'.format(contrast_name), hemi=hemi)
+        # mkcontrast-sess -analysis my-workmem.sm05.lh -contrast encode-v-base -a 1
         # computes the average signal intensity maps
         run('selxavg3-sess -s {subject} -analysis {fsd}_{sm}_{hemi} ',
             '{}_{}_{}'.format(fsd, sm, hemi), contrast_name, 'sig.nii.gz', hemi=hemi) # *_v_*

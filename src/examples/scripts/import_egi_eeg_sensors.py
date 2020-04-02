@@ -43,7 +43,7 @@ def save_eeg_sensors():
 
 def snap_eeg_sensors():
     mmvt, mu = _mmvt(), _mmvt().mmvt_utils
-    snap_eeg_sensors_fname = op.join(mu.get_user_fol(), 'eeg', 'eeg_snap_sensors.npz')
+    snap_eeg_sensors_fname = op.join(mu.get_user_fol(), 'eeg', 'sensors_snap_eeg.npz')
     if not op.isfile(snap_eeg_sensors_fname):
         print('You should first run src.preproc.eeg -s subject-name -f snap_sensors_to_outer_skin')
         return
