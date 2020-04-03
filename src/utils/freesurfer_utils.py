@@ -103,7 +103,7 @@ def project_pet_volume_data(subject, volume_fname, hemi, output_fname=None, proj
 def project_volume_data(filepath, hemi, reg_file=None, subject_id=None,
                         projmeth="frac", projsum="avg", projarg=[0, 1, .1],
                         surf="white", smooth_fwhm=3, mask_label=None,
-                        target_subject=None, output_fname=None, verbose=None, **kargs):
+                        target_subject=None, verbose=None):
     """Sample MRI volume onto cortical manifold.
     Note: this requires Freesurfer to be installed with correct
     SUBJECTS_DIR definition (it uses mri_vol2surf internally).
@@ -136,21 +136,33 @@ def project_volume_data(filepath, hemi, reg_file=None, subject_id=None,
     verbose : bool, str, int, or None
         If not None, override default verbose level (see surfer.verbose).
     """
+    import sys
+    import copy
 
-    env = os.environ
-    if 'FREESURFER_HOME' not in env:
+    fs_home = os.getenv('FREESURFER_HOME')
+    if fs_home is None:
         raise RuntimeError('FreeSurfer environment not defined. Define the '
                            'FREESURFER_HOME environment variable.')
     # Run FreeSurferEnv.sh if not most recent script to set PATH
-    if not env['PATH'].startswith(os.path.join(env['FREESURFER_HOME'], 'bin')):
-        cmd = ['bash', '-c', 'source {} && env'.format(
-               os.path.join(env['FREESURFER_HOME'], 'FreeSurferEnv.sh'))]
-        envout = check_output(cmd)
-        env = dict(line.split(b'=', 1) for line in envout.split(b'\n') if b'=' in line)
+    bin_path = os.path.join(fs_home, 'bin')
+    if bin_path not in os.getenv('PATH', ''):
+        raise RuntimeError('Freesurfer bin path "%s" not found, be sure to '
+                           'source the Freesurfer setup script' % (bin_path))
+    if sys.platform == 'darwin':
+        # OSX does some ugly "protection" where it clears DYLD_LIBRARY_PATH
+        # for subprocesses
+        env = copy.deepcopy(os.environ)
+        ld_path = os.path.join(fs_home, 'lib', 'gcc', 'lib')
+        if 'DYLD_LIBRARY_PATH' not in env:
+            env['DYLD_LIBRARY_PATH'] = ld_path
+        else:
+            env['DYLD_LIBRARY_PATH'] = ld_path + ':' + env['DYLD_LIBRARY_PATH']
+    else:
+        env = os.environ
 
     # Set the basic commands
     cmd_list = ["mri_vol2surf",
-                "--mov", filepath,
+                "--mov", os.path.abspath(filepath),
                 "--hemi", hemi,
                 "--surf", surf]
 
@@ -182,16 +194,113 @@ def project_volume_data(filepath, hemi, reg_file=None, subject_id=None,
         cmd_list.extend(["--trgsubject", target_subject])
 
     # Execute the command
-    if output_fname is None:
-        output_fname = mktemp(prefix="pysurfer-v2s", suffix='.mgz')
-    cmd_list.extend(["--o", output_fname])
-    logger.info(' '.join(cmd_list))
-    print(' '.join(cmd_list))
+    out_file = mktemp(prefix="pysurfer-v2s", suffix='.mgz')
+    cmd_list.extend(["--o", out_file])
+    logger.info(" ".join(cmd_list))
     p = Popen(cmd_list, stdout=PIPE, stderr=PIPE, env=env)
     stdout, stderr = p.communicate()
     out = p.returncode
     if out:
-        raise RuntimeError('mri_vol2surf command failed: {}, {}, {}'.format(out, stdout, stderr))
+        raise RuntimeError(("mri_vol2surf command failed "
+                            "with output: \n\n{}".format(stderr)))
+
+    # Read in the data
+    surf_data = read_scalar_data(out_file)
+    os.remove(out_file)
+    return surf_data
+
+# def project_volume_data(filepath, hemi, reg_file=None, subject_id=None,
+#                         projmeth="frac", projsum="avg", projarg=[0, 1, .1],
+#                         surf="white", smooth_fwhm=3, mask_label=None,
+#                         target_subject=None, output_fname=None, verbose=None, **kargs):
+#     """Sample MRI volume onto cortical manifold.
+#     Note: this requires Freesurfer to be installed with correct
+#     SUBJECTS_DIR definition (it uses mri_vol2surf internally).
+#     Parameters
+#     ----------
+#     filepath : string
+#         Volume file to resample (equivalent to --mov)
+#     hemi : [lh, rh]
+#         Hemisphere target
+#     reg_file : string
+#         Path to TKreg style affine matrix file
+#     subject_id : string
+#         Use if file is in register with subject's orig.mgz
+#     projmeth : [frac, dist]
+#         Projection arg should be understood as fraction of cortical
+#         thickness or as an absolute distance (in mm)
+#     projsum : [avg, max, point]
+#         Average over projection samples, take max, or take point sample
+#     projarg : single float or sequence of three floats
+#         Single float for point sample, sequence for avg/max specifying
+#         start, stop, and step
+#     surf : string
+#         Target surface
+#     smooth_fwhm : float
+#         FWHM of surface-based smoothing to apply; 0 skips smoothing
+#     mask_label : string
+#         Path to label file to constrain projection; otherwise uses cortex
+#     target_subject : string
+#         Subject to warp data to in surface space after projection
+#     verbose : bool, str, int, or None
+#         If not None, override default verbose level (see surfer.verbose).
+#     """
+#
+#     env = os.environ
+#     if 'FREESURFER_HOME' not in env:
+#         raise RuntimeError('FreeSurfer environment not defined. Define the '
+#                            'FREESURFER_HOME environment variable.')
+#     # Run FreeSurferEnv.sh if not most recent script to set PATH
+#     if not env['PATH'].startswith(os.path.join(env['FREESURFER_HOME'], 'bin')):
+#         cmd = ['bash', '-c', 'source {} && env'.format(
+#                os.path.join(env['FREESURFER_HOME'], 'FreeSurferEnv.sh'))]
+#         envout = check_output(cmd)
+#         env = dict(line.split(b'=', 1) for line in envout.split(b'\n') if b'=' in line)
+#
+#     # Set the basic commands
+#     cmd_list = ["mri_vol2surf",
+#                 "--mov", filepath,
+#                 "--hemi", hemi,
+#                 "--surf", surf]
+#
+#     # Specify the affine registration
+#     if reg_file is not None:
+#         cmd_list.extend(["--reg", reg_file])
+#     elif subject_id is not None:
+#         cmd_list.extend(["--regheader", subject_id])
+#     else:
+#         raise ValueError("Must specify reg_file or subject_id")
+#
+#     # Specify the projection
+#     proj_flag = "--proj" + projmeth
+#     if projsum != "point":
+#         proj_flag += "-"
+#         proj_flag += projsum
+#     if hasattr(projarg, "__iter__"):
+#         proj_arg = list(map(str, projarg))
+#     else:
+#         proj_arg = [str(projarg)]
+#     cmd_list.extend([proj_flag] + proj_arg)
+#
+#     # Set misc args
+#     if smooth_fwhm:
+#         cmd_list.extend(["--surf-fwhm", str(smooth_fwhm)])
+#     if mask_label is not None:
+#         cmd_list.extend(["--mask", mask_label])
+#     if target_subject is not None:
+#         cmd_list.extend(["--trgsubject", target_subject])
+#
+#     # Execute the command
+#     if output_fname is None:
+#         output_fname = mktemp(prefix="pysurfer-v2s", suffix='.mgz')
+#     cmd_list.extend(["--o", output_fname])
+#     logger.info(' '.join(cmd_list))
+#     print(' '.join(cmd_list))
+#     p = Popen(cmd_list, stdout=PIPE, stderr=PIPE, env=env)
+#     stdout, stderr = p.communicate()
+#     out = p.returncode
+#     if out:
+#         raise RuntimeError('mri_vol2surf command failed: {}, {}, {}'.format(out, stdout, stderr))
 
 
     # Read in the data
