@@ -788,16 +788,6 @@ def copy_volume_to_blender(subject, volume_fname_template, contrast='', overwrit
     utils.copy_file(volume_fname, op.join(MMVT_DIR, subject, 'freeview', blender_volume_fname))
     return volume_fname
 
-
-# def project_volume_to_surface_get_files(subject, remote_subject_dir, args):
-#     necessary_files = {'mri': ['orig.mgz'],
-#                        'surf': ['lh.pial', 'rh.pial', 'lh.thickness', 'rh.thickness']}
-#     return utils.prepare_subject_folder(
-#         necessary_files, subject, remote_subject_dir, SUBJECTS_DIR,
-#         args.sftp, args.sftp_username, args.sftp_domain, args.sftp_password,
-#         args.overwrite_fs_files, args.print_traceback, args.sftp_port)
-
-
 @utils.check_for_freesurfer
 @utils.files_needed({'mri': ['orig.mgz'], 'surf': ['lh.pial', 'rh.pial', 'lh.thickness', 'rh.thickness']})
 def project_volume_to_surface(subject, volume_fname_template, overwrite_surf_data=True,
