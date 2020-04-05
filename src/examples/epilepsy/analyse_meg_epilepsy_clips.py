@@ -4,7 +4,7 @@ import numpy as np
 import time
 import networkx as nx
 import matplotlib.pyplot as plt
-import math
+import os
 
 from src.utils import utils
 from src.utils import labels_utils as lu
@@ -16,26 +16,80 @@ MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
 
 
-def main(subject, atlas, connectivity_method, graph_func, remote_subject_dir, files, n_jobs=4):
+def calc_anatomy(subject, atlas, remote_subject_dir, n_jobs):
+    from src.preproc import  anatomy as anat
+    args = anat.read_cmd_args(dict(
+        subject=subject,
+        atlas=atlas,
+        function='all,check_bem',
+        remote_subject_dir=remote_subject_dir,
+        exclude='create_new_subject_blend_file',
+        n_jobs=n_jobs
+    ))
+    anat.call_main(args)
+
+
+def calc_fwd_inv(subject, raw_fname, bad_channels, empty_room_fname, remote_subject_dir, fwd_usingMEG, fwd_usingEEG,
+                 n_jobs):
+    args = meg.read_cmd_args(dict(
+        subject=subject,
+        task='epilepsy',
+        function='make_forward_solution,calc_inverse_operator',
+        raw_fname=raw_fname,
+        bad_channels=bad_channels,
+        use_empty_room_for_noise_cov=True,
+        empty_fname=empty_room_fname,
+        fwd_usingMEG=fwd_usingMEG,
+        fwd_usingEEG=fwd_usingEEG,
+        remote_subject_dir=remote_subject_dir,
+        overwrite_labels_data=True,
+        n_jobs=n_jobs
+    ))
+    meg.call_main(args)
+
+
+def calc_stcs(subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite=False):
     meg_fol = op.join(MMVT_DIR, subject, 'meg')
-    for fname in files:
-        file_name = utils.namebase(fname)
+    for fif_fname in fif_files:
+        file_name = utils.namebase(fif_fname)
         files_fol = utils.make_dir(op.join(meg_fol, file_name))
-        files_exist = \
-            utils.both_hemi_files_exist(op.join(files_fol, '{}_all-dSPM-{}.stc'.format(subject, '{hemi}'))) and \
-            utils.both_hemi_files_exist(op.join(files_fol, 'labels_data_epilepsy_laus125_dSPM_mean_flip_{hemi}.npz'))
-        if not files_exist:
+        # files_exist = \
+        #     utils.both_hemi_files_exist(op.join(files_fol, '{}_all-dSPM-{}.stc'.format(subject, '{hemi}'))) and \
+        #     utils.both_hemi_files_exist(op.join(files_fol, 'labels_data_epilepsy_laus125_dSPM_mean_flip_{hemi}.npz'))
+        if True: #not files_exist or overwrite:
             args = meg.read_cmd_args(dict(
                 subject=subject,
                 task='epilepsy',
                 function='calc_stc,calc_labels_avg_per_condition',
                 atlas=atlas,
-                evo_fname = fname,
+                evo_fname=fif_fname,
+                bad_channels=bad_channels,
+                fwd_usingMEG=fwd_usingMEG,
+                fwd_usingEEG=fwd_usingEEG,
                 remote_subject_dir=remote_subject_dir,
                 overwrite_labels_data=True,
                 n_jobs=n_jobs
             ))
             meg.call_main(args)
+            # rename labels data file name
+            labels_data_name = 'labels_data_epilepsy_{}_dSPM_mean_flip'.format(atlas)
+            for hemi in utils.HEMIS:
+                labels_data_fname = op.join(
+                    MMVT_DIR, subject, 'meg', '{}_{}.npz'.format(labels_data_name, hemi))
+                if not op.isfile(labels_data_fname):
+                    raise Exception('No labels data! ({})'.format(labels_data_fname))
+                new_lables_data_fname_hemi = op.join(
+                    MMVT_DIR, subject, 'meg', '{}_{}_{}.npz'.format(labels_data_name, utils.namebase(fif_fname), hemi))
+                utils.delete_file(new_lables_data_fname_hemi)
+                print('Renaming to {}'.format(new_lables_data_fname_hemi))
+                os.rename(labels_data_fname, new_lables_data_fname_hemi)
+
+
+def calc_connectivity(subject, atlas, connectivity_method, graph_func, files, n_jobs=4):
+    meg_fol = op.join(MMVT_DIR, subject, 'meg')
+    for fif_fname in files:
+        file_name = utils.namebase(fif_fname)
+        files_fol = utils.make_dir(op.join(meg_fol, file_name))
         analyse_connectivity(subject, connectivity_method, graph_func, file_name, atlas, n_jobs)
         for hemi in utils.HEMIS:
             utils.move_file(op.join(meg_fol, '{}_all-dSPM-{}.stc'.format(subject, hemi)), files_fol)
@@ -248,15 +302,42 @@ def plot_con(subject, files, band_name):
 
 
 if __name__ == '__main__':
-    subject = 'nmr00857'
+    subject = 'nmr01391' # 'nmr00857'
     atlas = 'laus125'
     graph_func = 'eigenvector_centrality'
     connectivity_method = 'mi' # Mutual information
+    overwrite = False
     n_jobs = utils.get_n_jobs(-5)
+    n_jobs = n_jobs if n_jobs > 1 else 1
     print('n_jobs = {}'.format(n_jobs))
-    remote_subject_dir = '/space/megraid/clinical/MEG-MRI/seder/freesurfer/nmr00857'
+    remote_subjects_dir = '/space/megraid/clinical/MEG-MRI/seder/freesurfer'
+    remote_subject_dir = op.join(remote_subjects_dir, subject)
+    if not op.isdir(remote_subject_dir):
+        remote_subjects_dir = SUBJECTS_DIR
+        remote_subject_dir = op.join(remote_subjects_dir, subject)
+    if not op.isdir(remote_subject_dir):
+        raise Exception('No reocon-all files!')
     # fol = '/autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/run1_NoFilter'
-    fol = '/homes/5/npeled/space1/MEG/nmr00857/clips'
-    files = glob.glob(op.join(fol, '*.fif'))
-    main(subject, atlas, connectivity_method, graph_func, remote_subject_dir, files, n_jobs)
+
+    # calc_anatomy(subject, atlas, remote_subject_dir, n_jobs)
+
+    meg_fol = '/autofs/space/frieda_001/users/valia/mmvt_root/meg/1391' # '/homes/5/npeled/space1/MEG/nmr00857/clips'
+    bad_channels = ['MEG{}'.format(c) for c in [
+        '0113', '1532', '1623', '2042', '1912', '2032', '2522', '0642', '0121', '1421', '1221', '1023',
+        '0741', '1022', '1242']]
+    fwd_usingMEG, fwd_usingEEG = True, False
+    raw_fname = op.join(meg_fol, 'raw', '6859241_03_raw_ssst.fif')
+    empty_room_fname = op.join(meg_fol, 'raw', '6859241_emptyroom_raw.fif')
+    # calc_fwd_inv(
+    #     subject, raw_fname, bad_channels, empty_room_fname, remote_subject_dir, fwd_usingMEG, fwd_usingEEG, n_jobs)
+
+    fif_files = []
+    for subfol in ['Ictal', 'baseline']:
+        fif_files += glob.glob(op.join(meg_fol, subfol, '*.fif'))
+    calc_stcs(subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite)
+    # main(subject, atlas, connectivity_method, graph_func, remote_subject_dir, files, overwrite, n_jobs)
     # plot_con(subject, files, 'beta')
+
+    # patient - 1391 run 3 Bad MEG chls:
+    #
+    # 0113, 1532, 1623, 2042, 1912, 2032, 2522, 0642, 0121, 1421, 1221, 1023, 0741,  1022, 1242

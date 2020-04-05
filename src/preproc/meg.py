@@ -5036,6 +5036,7 @@ def calc_labels_avg_per_condition_wrapper(
         stc_fnames = [args.stc_hemi_template.format(cond='{cond}', method=inverse_method, hemi=hemi, modal=modality)
                       for hemi in utils.HEMIS]
         get_meg_files(subject, stc_fnames + [args.inv_fname], args, conditions)
+        stc_fname = ''
         if stcs_conds is None or len(stcs_conds) == 0:
             stcs_conds, stc_fname = get_stc_conds(conditions, inverse_method, args.stc_hemi_template, args.modality)
             if stcs_conds is None or len(stcs_conds) == 0:
