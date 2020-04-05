@@ -1,14 +1,16 @@
 import os.path as op
 import os
 import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 from src.utils import utils
 from src.preproc import fMRI
 from src.preproc import anatomy as anat
 
 FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6_12month_longitudinal_recons'
+FS_BASE_6_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6month_longitudinal_recons'
 HOME_FOL = '/autofs/space/nihilus_001/CICS/users/noam/CICS/'
 SCAN, RESCAN = 'scan', 'rescan'
-
 
 LINKS_DIR = utils.get_links_dir()
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
@@ -23,11 +25,19 @@ mri_robust_register = 'mri_robust_register --mov "{source_fname}" --dst "{target
 register_using_lta = 'mri_convert -at "{lta_fname}" "{source_fname}" "{output_fname}"'
 
 
+def get_subject_fs_folder(subject, scan_rescan, base_6_12='0'):
+    base_6_12_str = '' if base_6_12 == '0' else base_6_12
+    scan_rescan_str = base_6_12_str if scan_rescan == SCAN else '{}B'.format(base_6_12_str)
+    if scan_rescan_str != '':
+        scan_rescan_str += '_'
+    return '{0}_{1}recon.long.{0}-base'.format(subject, scan_rescan_str)
+
+
 def register_cbf_to_t1(subject, site, scan_rescan, cost_function='nmi', overwrite=False, print_only=False):
     subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
     output_fname = op.join(subject_fol, 'Control_to_T1.nii')
     source_fname = op.join(subject_fol, 'Control.nii')
-    target_fname = op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject), 'mri', 'T1.mgz')
+    target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
     lta_fname = op.join(subject_fol, 'control_to_T1.lta')
     if not op.isfile(source_fname):
         print('The source ({}) does not exist!'.format(source_fname))
@@ -158,14 +168,67 @@ def doubleMADsfromMedian(y,thresh=3.5):
     modified_z_score[y == m] = 0
     return modified_z_score > thresh
 
+
+def read_subject_hippocampus_volumes(subject):
+    Left_Hippocampus_Code,  Right_Hippocampus_Code = 11, 26
+    volumes = {'rh': [], 'lh': []}
+    for base_6_12 in ['0', '6']: #, '12']:
+        scan_rescan_vals = {}
+        for scan_rescan in [SCAN, RESCAN]:
+            scan_rescan_vals[scan_rescan] = {}
+            aseg_fname = op.join(
+                FS_BASE_6_ROOT, get_subject_fs_folder(subject, scan_rescan, base_6_12), 'stats', 'aseg.stats')
+            if not op.isfile(aseg_fname):
+                return None
+            stat = np.loadtxt(aseg_fname, dtype="i1,i1,i4,f4,S32,f4,f4,f4,f4,f4")
+            assert(stat[Left_Hippocampus_Code][4].decode() == 'Left-Hippocampus')
+            assert (stat[Right_Hippocampus_Code][4].decode() == 'Right-Hippocampus')
+            scan_rescan_vals[scan_rescan]['lh'] = stat[Left_Hippocampus_Code][5]
+            scan_rescan_vals[scan_rescan]['rh'] = stat[Right_Hippocampus_Code][5]
+        for hemi in utils.HEMIS:
+            # volumes[hemi].append((scan_rescan_vals[SCAN][hemi] + scan_rescan_vals[RESCAN][hemi]) / 2.0)
+            if base_6_12 == '0':
+                volumes[hemi].append(min(scan_rescan_vals[SCAN][hemi], scan_rescan_vals[RESCAN][hemi]))
+            elif base_6_12 == '6':
+                volumes[hemi].append(max(scan_rescan_vals[SCAN][hemi], scan_rescan_vals[RESCAN][hemi]))
+    return volumes
+
+
+def get_subjects():
+    return np.unique([fol.split('_')[0].replace('-base', '') for fol in utils.get_subfolders(FS_BASE_6_ROOT, 'name')])
+
+
+def read_hippocampus_volumes(overwrite=False):
+    output_fname = op.join(HOME_FOL, 'hippocampus_volumes.pkl')
+    if not op.isfile(output_fname) or overwrite:
+        subjects = get_subjects()
+        all_volumes = {'rh': [], 'lh': []}
+        for subject in tqdm(subjects):
+            volumes = read_subject_hippocampus_volumes(subject)
+            if volumes is None:
+                continue
+            for hemi in utils.HEMIS:
+                all_volumes[hemi].append(volumes[hemi])
+        utils.save(all_volumes, output_fname)
+    else:
+        all_volumes = utils.load(output_fname)
+    for hemi in utils.HEMIS:
+        x = np.array(all_volumes[hemi])
+        plt.hist(np.diff(x))
+        plt.title(hemi)
+        plt.show()
+
+
 if __name__ == '__main__':
     subject = '277S0203'
     site = '277-NDC'
     overwrite = False
+
+    read_hippocampus_volumes()
     # preproc_anat(subject)
     for scan_rescan in [SCAN, RESCAN]:
         # register_cbf_to_t1(subject, site, scan_rescan)
         # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
         pass
-    find_diff_clusters(subject, atlas='laus125', overwrite=True)
+    # find_diff_clusters(subject, atlas='laus125', overwrite=True)
     # calc_scan_rescan_diff(subject, overwrite=True)

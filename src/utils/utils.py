@@ -739,8 +739,14 @@ def rmtree(fol):
 #     return fol
 
 
-def get_subfolders(fol):
-    return [op.join(fol,subfol) for subfol in os.listdir(fol) if op.isdir(op.join(fol,subfol))]
+def get_subfolders(fol, name_or_path='path'):
+    # return [op.join(fol,subfol) for subfol in os.listdir(fol) if op.isdir(op.join(fol,subfol))]
+    if name_or_path == 'path':
+        return [f.path for f in os.scandir(fol) if f.is_dir()]
+    elif name_or_path == 'name':
+        return [f.name for f in os.scandir(fol) if f.is_dir()]
+    else:
+        raise Exception('name_or_path shoud be "name" or "path')
 
 
 def get_spaced_colors(n):
