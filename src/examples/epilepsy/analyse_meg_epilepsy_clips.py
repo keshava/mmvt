@@ -90,20 +90,19 @@ def calc_connectivity(subject, atlas, connectivity_method, graph_func, files, n_
     for fif_fname in files:
         file_name = utils.namebase(fif_fname)
         files_fol = utils.make_dir(op.join(meg_fol, file_name))
-        analyse_connectivity(subject, connectivity_method, graph_func, file_name, atlas, n_jobs)
+        calc_epoch_connectivity(subject, connectivity_method, graph_func, file_name, atlas, n_jobs)
         for hemi in utils.HEMIS:
             utils.move_file(op.join(meg_fol, '{}_all-dSPM-{}.stc'.format(subject, hemi)), files_fol)
             utils.move_file(
                 op.join(meg_fol, 'labels_data_epilepsy_laus125_dSPM_mean_flip_{}.npz'.format(hemi)), files_fol)
 
-    plot_all_files_graph_max(subject, files, graph_func)
-    # save_sz_pick_values(subject, files, graph_func, atlas)
 
 
-def analyse_connectivity(subject, connectivity_method, graph_func, file_name, atlas, n_jobs=4):
+def calc_epoch_connectivity(subject, connectivity_method, graph_func, file_name, atlas, n_jobs=4):
     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     conn_fol = op.join(MMVT_DIR, subject, 'connectivity')
     output_fol = utils.make_dir(op.join(conn_fol, file_name))
+    labels_data_name = 'labels_data_epilepsy_{}_dSPM_mean_flip_{}_{}.npz'.format(atlas, file_name, '{hemi}')
     for band_name, band_freqs in bands.items():
         output_files = [f.format(band_name) for f in
                         ['meg_{}_laus125_mi_mean_flip_mean.npy', 'meg_{}_mi.npy', 'meg_{}_mi.npz']]
@@ -116,31 +115,43 @@ def analyse_connectivity(subject, connectivity_method, graph_func, file_name, at
                 function='calc_lables_connectivity',
                 connectivity_modality='meg',
                 connectivity_method=connectivity_method,
+                labels_data_name=labels_data_name,
                 windows_length=500,
                 windows_shift=100,
-                identifier=band_name,
+                identifier='{}_{}'.format(file_name, band_name),
                 fmin=band_freqs[0],
                 fmax=band_freqs[1],
                 sfreq=2035, # clin MEG
                 recalc_connectivity=True,
+                save_mmvt_connectivity=False,
                 n_jobs=n_jobs
             ))
             connectivity.call_main(con_args)
             for output_file_name in output_files:
                 utils.move_file(op.join(conn_fol, output_file_name), output_fol)
 
-        con_name = 'meg_{}_mi'.format(band_name)
-        analyze_graph(subject, file_name, con_name, graph_func, n_jobs)
-        plot_graph_values(subject, file_name, con_name, graph_func)
+        # con_name = 'meg_{}_mi'.format(band_name)
+        # analyze_graph(subject, file_name, con_name, graph_func, n_jobs)
+        # plot_graph_values(subject, file_name, con_name, graph_func)
 
 
-def analyze_graph(subject, file_name, con_name, graph_func, n_jobs=4):
-    fol = op.join(MMVT_DIR, subject, 'connectivity', file_name)
-    output_fname = op.join(fol, '{}_{}.npy'.format(con_name, graph_func))
+def analyze_graphs(subject, fif_files, graph_func):
+    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    for fif_fname in fif_files:
+        for band_name in bands.keys():
+            analyze_graph(subject, fif_fname, band_name, graph_func, n_jobs)
+
+
+def analyze_graph(subject, fif_fname, band_name, graph_func, n_jobs=4):
+    fol = op.join(MMVT_DIR, subject, 'connectivity')
+    con_name = 'meg_{}_{}_{}'.format(utils.namebase(fif_fname), band_name, graph_func)
+    output_fname = op.join(fol, 'meg_{}_mi.npy'.format(con_name))
+    input_fname = op.join(
+        fol, 'meg_{}_{}_mi.npy'.format(utils.namebase(fif_fname), band_name))
     if op.isfile(output_fname):
         return
-    print('Loading {}'.format(op.join(fol, '{}.npy'.format(con_name))))
-    con = np.load(op.join(fol, '{}.npy'.format(con_name))).squeeze()
+    print('Loading {}'.format(input_fname))
+    con = np.load(input_fname).squeeze()
     T = con.shape[2]
     con[con < np.percentile(con, 99)] = 0
     indices = np.array_split(np.arange(T), n_jobs)
@@ -198,15 +209,17 @@ def plot_graph_values(subject, file_name, con_name, func_name):
     plt.close()
 
 
-def plot_all_files_graph_max(subject, files_names, func_name):
+def plot_all_files_graph_max(subject, files_names, func_name, sz_name):
     bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
-    output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity', func_name))
+    output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity', func_name, sz_name))
     sfreq = 2035
     windows_length = 500
     half_window = (1 /sfreq) * (windows_length / 2) # In seconds
     for band_name in bands.keys():
+        band_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity', func_name, band_name))
         con_name = 'meg_{}_mi'.format(band_name)
-        output_fname =  op.join(output_fol, '{}_{}.jpg'.format(con_name, func_name))
+        figure_name = '{}_{}_{}.jpg'.format(con_name, func_name, sz_name)
+        output_fname =  op.join(output_fol, figure_name)
         # if op.isfile(output_fname):
         #     continue
         baseline_values = []
@@ -216,13 +229,16 @@ def plot_all_files_graph_max(subject, files_names, func_name):
         axes = fig.add_subplot(111)
         for fname in files_names:
             file_name = utils.namebase(fname)
-            is_sz = 'SZ' in file_name
-            input_fname = op.join(MMVT_DIR, subject, 'connectivity', file_name, '{}_{}.npy'.format(con_name, func_name))
+            parent_fol = utils.get_parent_fol(fname, only_name=True)
+            is_sz = parent_fol == 'Ictal'
+            input_fname = op.join(
+                MMVT_DIR, subject, 'connectivity', 'meg_meg_{}_{}_{}_mi.npy'.format(
+                    file_name, band_name, func_name))
             vals = np.load(input_fname)
             # t_axis = np.linspace(-2, 5, vals.shape[1])
             t_axis = np.linspace(-2 + half_window, 5 - half_window, vals.shape[1])
             max_vals = np.max(vals, axis=0)
-            all_values.append(max_vals)
+            # all_values.append(max_vals)
             if is_sz:
                 # sz_ind += 1
                 # if 'start' in file_name:
@@ -250,6 +266,7 @@ def plot_all_files_graph_max(subject, files_names, func_name):
         print('Saving figure to {}'.format(output_fname))
         plt.savefig(output_fname)
         plt.close()
+        utils.copy_file(output_fname, op.join(band_fol, figure_name))
 
         # all_values = np.array(all_values)
         # plt.figure()
@@ -331,13 +348,18 @@ if __name__ == '__main__':
     # calc_fwd_inv(
     #     subject, raw_fname, bad_channels, empty_room_fname, remote_subject_dir, fwd_usingMEG, fwd_usingEEG, n_jobs)
 
-    fif_files = []
+    fif_files, files_dict = [], {}
     for subfol in ['Ictal', 'baseline']:
-        fif_files += glob.glob(op.join(meg_fol, subfol, '*.fif'))
-    calc_stcs(subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite)
-    # main(subject, atlas, connectivity_method, graph_func, remote_subject_dir, files, overwrite, n_jobs)
+        files = glob.glob(op.join(meg_fol, subfol, '*.fif'))
+        fif_files += files
+        files_dict[subfol] = files
+    # calc_stcs(subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite)
+    # calc_connectivity(subject, atlas, connectivity_method, graph_func, fif_files, n_jobs)
+    # analyze_graphs(subject, fif_files, graph_func)
+    # plot_graph_values(subject, file_name, con_name, graph_func)
     # plot_con(subject, files, 'beta')
 
-    # patient - 1391 run 3 Bad MEG chls:
-    #
-    # 0113, 1532, 1623, 2042, 1912, 2032, 2522, 0642, 0121, 1421, 1221, 1023, 0741,  1022, 1242
+    for sz_fname in files_dict['Ictal']:
+        plot_all_files_graph_max(subject, files_dict['baseline'] + [sz_fname], graph_func, utils.namebase(sz_fname))
+    # save_sz_pick_values(subject, files, graph_func, atlas)
+

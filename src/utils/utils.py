@@ -1122,7 +1122,7 @@ def get_current_fol():
     return op.dirname(op.realpath(__file__))
 
 
-def get_parent_fol(curr_dir='', levels=1):
+def get_parent_fol(curr_dir='', levels=1, only_name=False):
     if curr_dir == '':
         curr_dir = get_current_fol()
     if curr_dir.endswith(op.sep):
@@ -1130,6 +1130,8 @@ def get_parent_fol(curr_dir='', levels=1):
     parent_fol = op.split(curr_dir)[0]
     for _ in range(levels - 1):
         parent_fol = get_parent_fol(parent_fol)
+    if only_name:
+        parent_fol = namebase(parent_fol)
     return parent_fol
 
 

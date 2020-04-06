@@ -229,21 +229,22 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
             utils.copy_file(fname, backup_fname)
 
     data, names = {}, {}
-    identifier = '{}_'.format(args.identifier) if args.identifier != '' else ''
+    identifier_str = '{}_'.format(args.identifier) if args.identifier != '' else ''
     if 'cv' in args.connectivity_method:
         static_output_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}_{}_cv_{}.npz'.format(
-            args.connectivity_modality, identifier, args.atlas, args.connectivity_method[0], labels_extract_mode))
+            args.connectivity_modality, identifier_str, args.atlas, args.connectivity_method[0], labels_extract_mode))
         static_output_mat_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}_{}_cv_{}.npz'.format(
-            args.connectivity_modality, identifier, args.atlas, args.connectivity_method[0], labels_extract_mode))
+            args.connectivity_modality, identifier_str, args.atlas, args.connectivity_method[0], labels_extract_mode))
         static_mean_output_mat_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}_{}_cv_mean_{}.npz'.format(
-            args.connectivity_modality, identifier, args.atlas, args.connectivity_method[0], labels_extract_mode))
+            args.connectivity_modality, identifier_str, args.atlas, args.connectivity_method[0], labels_extract_mode))
     conn_mean_mat_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}_{}_{}_mean.npy'.format(
-            args.connectivity_modality, identifier, args.atlas, args.connectivity_method[0], labels_extract_mode))
+            args.connectivity_modality, identifier_str, args.atlas, args.connectivity_method[0], labels_extract_mode))
     labels_avg_output_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}{}_{}_{}_labels_avg.npz'.format(
-        args.connectivity_modality, identifier, args.connectivity_method[0], args.atlas, '{hemi}'))
+        args.connectivity_modality, identifier_str, args.connectivity_method[0], args.atlas, '{hemi}'))
     con_vertices_fname = op.join(
         MMVT_DIR, subject, 'connectivity', '{}_vertices.pkl'.format(args.connectivity_modality))
     utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity'))
+    identifier = args.identifier
 
     conn_fol = op.join(MMVT_DIR, subject, args.connectivity_modality)
     if args.labels_data_name != '':
@@ -337,6 +338,7 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
             (data.ndim == 3 and len(conditions) == data.shape[2]):
         # No windows yet
         windows = calc_windows(data.shape[1], args.windows_length, args.windows_shift)
+        windows_num = len(windows)
         # import math
         # T = data.shape[1] # If this is fMRI data, the real T is T*tr
         # if args.windows_length == 0:
@@ -1152,7 +1154,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--calc_subs_connectivity', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--recalc_connectivity', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--do_plot_static_conn', help='', required=False, default=0, type=au.is_true)
-    parser.add_argument('--backup_existing_files', help='', required=False, default=1, type=au.is_true)
+    parser.add_argument('--backup_existing_files', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--identifier', help='', required=False, default='')
     parser.add_argument('--connectivity_threshold', help='', required=False, default=0.7, type=float)
 
