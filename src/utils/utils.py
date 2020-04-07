@@ -2434,3 +2434,7 @@ def get_freqs(low_freq=1, high_freqs=120):
 def remove_non_printable(s):
     import string
     return ''.join(c for c in s if c in string.printable)
+
+
+def remote_items_from_list(lst, items):
+    return [x for x in lst if x not in items]

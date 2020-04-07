@@ -2538,6 +2538,7 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
     if calc_stc_for_all or len(events_keys) == 0:
         events_keys.append(all_conds)
     flag = False
+    mmvt_fol = utils.make_dir(op.join(MMVT_DIR, MRI_SUBJECT, modality))
     for cond_name in events_keys:
         stc_fname = stc_template.format(cond=cond_name, method=inverse_method, modal=modal)
         if utils.get_parent_fol(stc_fname) == '':
@@ -2607,6 +2608,12 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                     evoked = get_evoked_cond(
                         cond_name, evo_fname, epo_fname, baseline, apply_SSP_projection_vectors, add_eeg_ref)
                     stc_fname = '{}-{}'.format(stc_fname, utils.namebase(evo_fname))
+                    stc_mmvt_fname = op.join(mmvt_fol, utils.namebase_with_ext(stc_fname))
+                    if save_stc and utils.stc_exist(stc_mmvt_fname) and not overwrite_stc:
+                        flag = True # should check all condisiton...
+                        stcs_num[cond_name] = stcs_num.get(cond_name, 0) + 1
+                        stcs[cond_name] = mne.read_source_estimate(stc_mmvt_fname)
+                        continue
                     if evoked is None and cond_name == 'all':
                         all_evokes_fname = op.join(SUBJECT_MEG_FOLDER, '{}-all-eve.fif'.format(SUBJECT))
                         if op.isfile(all_evokes_fname):
