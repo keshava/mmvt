@@ -8,7 +8,7 @@ import os
 
 from src.utils import utils
 from src.utils import labels_utils as lu
-from src.preproc import meg
+from src.preproc import meg, eeg
 from src.preproc import connectivity
 
 LINKS_DIR = utils.get_links_dir()
@@ -52,48 +52,53 @@ def calc_fwd_inv(subject, raw_fname, bad_channels, empty_room_fname, remote_subj
 def calc_labels_data(subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG,
                      overwrite=False, n_jobs=4):
     labels_data_name = 'labels_data_epilepsy_{}_dSPM_mean_flip'.format(atlas)
+    preproc_module = meg if fwd_usingMEG else eeg
     for fif_fname in fif_files:
         output_fname = op.join(
             MMVT_DIR, subject, 'meg', '{}_{}_{}.npz'.format(labels_data_name, utils.namebase(fif_fname), '{hemi}'))
         if utils.both_hemi_files_exist(output_fname) and not overwrite:
             print('lables data for {} already exist'.format(utils.namebase(fif_fname)))
             continue
-        args = meg.read_cmd_args(dict(
+        args = preproc_module.read_cmd_args(dict(
             subject=subject,
             task='epilepsy',
-            function='calc_stc,calc_labels_avg_per_condition',
+            function='calc_labels_avg_per_condition', # calc_stc
             atlas=atlas,
             evo_fname=fif_fname,
             bad_channels=bad_channels,
             fwd_usingMEG=fwd_usingMEG,
             fwd_usingEEG=fwd_usingEEG,
+            modality=modality,
+            stc_template=op.join(MMVT_DIR, subject, modality, '{}-epilepsy-{}-{}-{}'.format(
+                subject, 'dSPM', modality, utils.namebase(fif_fname))),
             remote_subject_dir=remote_subject_dir,
             overwrite_stc=overwrite,
             overwrite_labels_data=overwrite,
             n_jobs=n_jobs
         ))
-        meg.call_main(args)
+        preproc_module.call_main(args)
         # rename labels data file name
-        for hemi in utils.HEMIS:
-            labels_data_fname = op.join(
-                MMVT_DIR, subject, 'meg', '{}_{}.npz'.format(labels_data_name, hemi))
-            if not op.isfile(labels_data_fname):
-                raise Exception('No labels data! ({})'.format(labels_data_fname))
-            new_lables_data_fname_hemi = output_fname.format(hemi=hemi)
-            utils.delete_file(new_lables_data_fname_hemi)
-            print('Renaming to {}'.format(new_lables_data_fname_hemi))
-            os.rename(labels_data_fname, new_lables_data_fname_hemi)
+        # for hemi in utils.HEMIS:
+        #     labels_data_fname = op.join(
+        #         MMVT_DIR, subject, modality, '{}_{}.npz'.format(labels_data_name, hemi))
+        #     if not op.isfile(labels_data_fname):
+        #         raise Exception('No labels data! ({})'.format(labels_data_fname))
+        #     new_lables_data_fname_hemi = output_fname.format(hemi=hemi)
+        #     utils.delete_file(new_lables_data_fname_hemi)
+        #     print('Renaming to {}'.format(new_lables_data_fname_hemi))
+        #     os.rename(labels_data_fname, new_lables_data_fname_hemi)
 
 
-def calc_connectivity(subject, atlas, connectivity_method, files, bands=None, overwrite=False, n_jobs=4):
-    if bands is None:
-        bands = dict(all=[4, 120], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+def calc_connectivity(subject, atlas, connectivity_method, files, bands, modality, overwrite=False, n_jobs=4):
     conn_fol = op.join(MMVT_DIR, subject, 'connectivity')
     for fif_fname in files:
         file_name = utils.namebase(fif_fname)
-        labels_data_name = 'labels_data_epilepsy_{}_dSPM_mean_flip_{}_{}.npz'.format(atlas, file_name, '{hemi}')
+        labels_data_name = 'labels_data_{}-epilepsy-{}-{}-{}_{}_mean_flip_{}.npz'.format(
+            subject, 'dSPM', modality, file_name, atlas, '{hemi}')
+        if not utils.both_hemi_files_exist(op.join(MMVT_DIR, subject, modality, labels_data_name)):
+            print('labels data does not exist for {}!'.format(file_name))
         for band_name, band_freqs in bands.items():
-            output_fname = op.join(conn_fol, 'meg_{}_{}_{}.npy'.format(file_name, band_name, connectivity_method))
+            output_fname = op.join(conn_fol, '{}_{}_{}_{}.npy'.format(modality, file_name, band_name, connectivity_method))
             if op.isfile(output_fname) and not overwrite:
                 print('{} {} connectivity for {} already exist'.format(connectivity_method, band_name, file_name))
                 continue
@@ -102,7 +107,7 @@ def calc_connectivity(subject, atlas, connectivity_method, files, bands=None, ov
                 subject=subject,
                 atlas=atlas,
                 function='calc_lables_connectivity',
-                connectivity_modality='meg',
+                connectivity_modality=modality,
                 connectivity_method=connectivity_method,
                 labels_data_name=labels_data_name,
                 windows_length=500,
@@ -118,23 +123,26 @@ def calc_connectivity(subject, atlas, connectivity_method, files, bands=None, ov
             connectivity.call_main(con_args)
 
 
-def analyze_graphs(subject, fif_files, graph_func, bands='', overwrite=False, n_jobs=4):
-    if bands == '':
-        bands = dict(all=[4, 120], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
-    for fif_fname in fif_files:
+def analyze_graphs(subject, fif_files, graph_func, bands, modality, overwrite=False, n_jobs=4):
+    now = time.time()
+    for run, fif_fname in enumerate(fif_files):
+        utils.time_to_go(now, run, len(fif_files), runs_num_to_print=1)
         for band_name in bands.keys():
-            analyze_graph(subject, fif_fname, band_name, graph_func, overwrite, n_jobs)
+            analyze_graph(subject, fif_fname, band_name, graph_func, modality, overwrite, n_jobs)
 
 
-def analyze_graph(subject, fif_fname, band_name, graph_func, overwrite=False, n_jobs=4):
+def analyze_graph(subject, fif_fname, band_name, graph_func, modality, overwrite=False, n_jobs=4):
     fol = op.join(MMVT_DIR, subject, 'connectivity')
-    con_name = 'meg_{}_{}_{}'.format(utils.namebase(fif_fname), band_name, graph_func)
-    output_fname = op.join(fol, 'meg_{}_mi.npy'.format(con_name))
+    con_name = '{}_{}_{}_{}'.format(modality, utils.namebase(fif_fname), band_name, graph_func)
+    output_fname = op.join(fol, '{}_mi.npy'.format(con_name))
     if op.isfile(output_fname) and not overwrite:
         print('{} already exists'.format(utils.namebase(output_fname)))
-        return
+        return False
     input_fname = op.join(
-        fol, 'meg_{}_{}_mi.npy'.format(utils.namebase(fif_fname), band_name))
+        fol, '{}_{}_{}_mi.npy'.format(modality, utils.namebase(fif_fname), band_name))
+    if not op.isfile(input_fname):
+        print('{} does not exist!'.format(input_fname))
+        return False
     print('Loading {}'.format(input_fname))
     con = np.load(input_fname).squeeze()
     T = con.shape[2]
@@ -194,9 +202,8 @@ def plot_graph_values(subject, file_name, con_name, func_name):
     plt.close()
 
 
-def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, do_plot=False, bands='', sz_name='', overwrite=False):
-    if bands == '':
-        bands = dict(all=[4, 120], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, bands, sz_name='',
+                             do_plot=False, overwrite=False):
     if sz_name == '':
         sz_name = utils.namebase(event_fname)
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity', func_name, sz_name))
@@ -285,7 +292,6 @@ def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, d
 
 
 def save_sz_pick_values(subject, files_names, func_name, atlas):
-    bands = dict(theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'labels', 'labels_data'))
     names = np.load(op.join(op.join(MMVT_DIR, subject, 'connectivity', 'labels_names.npy')))
     labels_indices = np.load(op.join(op.join(MMVT_DIR, subject, 'connectivity', 'labels_indices.npy')))
@@ -334,15 +340,15 @@ def plot_con(subject, files, band_name):
 
 def calc_scores(subject, files_dict, graph_func, bands, do_plot=False):
     scores = {}
-    for event_name in ['Ictal', 'IED', 'baseline']:
+    for event_name in ['ictal', 'IED', 'baseline']:
         scores[event_name] = {}
         for band_name in bands.keys():
             scores[event_name][band_name] = []
 
-    for event_name in ['Ictal', 'IED']:
+    for event_name in ['ictal', 'IED']:
         for sz_fname in files_dict[event_name]:
             score = plot_all_files_graph_max(
-                subject, files_dict['baseline'], sz_fname, graph_func, do_plot, bands=bands, overwrite=True)
+                subject, files_dict['baseline'], sz_fname, graph_func, bands, '', do_plot, overwrite=True)
             for band_name in bands.keys():
                 if band_name in score:
                     scores[event_name][band_name].append(score[band_name])
@@ -350,8 +356,8 @@ def calc_scores(subject, files_dict, graph_func, bands, do_plot=False):
     for sz_fname in files_dict['baseline']:
         new_baseline = utils.remote_items_from_list(files_dict['baseline'], [sz_fname])
         score = plot_all_files_graph_max(
-            subject, new_baseline, sz_fname, graph_func, do_plot, bands, 'baseline_{}'.format(utils.namebase(sz_fname)),
-            overwrite=True)
+            subject, new_baseline, sz_fname, graph_func, bands, 'baseline_{}'.format(utils.namebase(sz_fname)),
+            do_plot, overwrite=True)
         if score is None:
             continue
         for band_name in bands.keys():
@@ -360,12 +366,12 @@ def calc_scores(subject, files_dict, graph_func, bands, do_plot=False):
 
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity', graph_func, 'scores'))
     for band_name in bands.keys():
-        all_scores = scores['Ictal'][band_name] + scores['IED'][band_name] + scores['baseline'][band_name]
+        all_scores = scores['ictal'][band_name] + scores['IED'][band_name] + scores['baseline'][band_name]
         if len(band_name) == 0:
             print('No results for {}!'.format(band_name))
             continue
         x = range(len(all_scores))
-        names = ['ictal'] * len(files_dict['Ictal']) + ['IED'] * len(files_dict['IED']) + \
+        names = ['ictal'] * len(files_dict['ictal']) + ['IED'] * len(files_dict['IED']) + \
                 ['baseline'] * len(files_dict['baseline'])
         plt.bar(x, all_scores)
         plt.xticks(x, names, rotation='vertical')
@@ -422,22 +428,23 @@ if __name__ == '__main__':
 
     subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr00857()
     # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01391()
-    fwd_usingMEG, fwd_usingEEG = True, False
+    fwd_usingMEG, fwd_usingEEG = False, True
+    modality = meg.get_modality(fwd_usingMEG, fwd_usingEEG)
 
     fif_files, files_dict = [], {}
-    for subfol in ['Ictal', 'baseline', 'IED']:
+    for subfol in ['ictal', 'baseline', 'IED']:
         files = glob.glob(op.join(meg_fol, subfol, '*.fif'))
         fif_files += files
         files_dict[subfol] = files
 
     # calc_anatomy(subject, atlas, remote_subject_dir, n_jobs)
-    calc_fwd_inv(
-        subject, raw_fname, bad_channels, empty_room_fname, remote_subject_dir, fwd_usingMEG, fwd_usingEEG,
-        overwrite, n_jobs)
-    calc_labels_data(
-        subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite, n_jobs)
-    calc_connectivity(subject, atlas, connectivity_method, fif_files, bands, overwrite, n_jobs)
-    analyze_graphs(subject, fif_files, graph_func, bands, overwrite, n_jobs)
-    calc_scores(subject, files_dict, graph_func, bands)
+    # calc_fwd_inv(
+    #     subject, raw_fname, bad_channels, empty_room_fname, remote_subject_dir, fwd_usingMEG, fwd_usingEEG,
+    #     overwrite, n_jobs)
+    # calc_labels_data(
+    #     subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite, n_jobs)
+    # calc_connectivity(subject, atlas, connectivity_method, fif_files, bands, modality, overwrite, n_jobs)
+    analyze_graphs(subject, fif_files, graph_func, bands, modality, overwrite, n_jobs)
+    # calc_scores(subject, files_dict, graph_func, bands, do_plot=True)
 
 
