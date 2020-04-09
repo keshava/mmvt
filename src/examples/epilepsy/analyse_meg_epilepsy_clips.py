@@ -5,6 +5,7 @@ import time
 import networkx as nx
 import matplotlib.pyplot as plt
 import os
+import mne
 
 from src.utils import utils
 from src.utils import labels_utils as lu
@@ -82,7 +83,9 @@ def calc_labels_data(subject, fif_files, atlas, remote_subject_dir, bad_channels
 
 def calc_connectivity(subject, atlas, connectivity_method, files, bands, modality, overwrite=False, n_jobs=4):
     conn_fol = op.join(MMVT_DIR, subject, 'connectivity')
-    for fif_fname in files:
+    now = time.time()
+    for run, fif_fname in enumerate(files):
+        utils.time_to_go(now, run, len(files), runs_num_to_print=1)
         file_name = utils.namebase(fif_fname)
         labels_data_name = 'labels_data_{}-epilepsy-{}-{}-{}_{}_mean_flip_{}.npz'.format(
             subject, 'dSPM', modality, file_name, atlas, '{hemi}')
@@ -365,10 +368,28 @@ def calc_scores(subject, files_dict, graph_func, bands, modality, do_plot=False)
         x = range(len(all_scores))
         names = ['ictal'] * len(files_dict['ictal']) + ['IED'] * len(files_dict['IED']) + \
                 ['baseline'] * len(files_dict['baseline'])
+        # names = [utils.namebase(f) for f in files_dict['ictal'] + files_dict['IED'] + files_dict['baseline']]
         plt.bar(x, all_scores)
-        plt.xticks(x, names, rotation='vertical')
+        plt.xticks(x, names, rotation=45)#'vertical')
         plt.savefig(op.join(output_fol, '{}_scores.jpg'.format(band_name)))
         plt.close()
+
+
+def split_baseline(fif_fnames, clips_length=6, shift=6, overwrite=False):
+    output_fol = op.join(utils.get_parent_fol(fif_fnames[0]), 'new_baselines')
+    if not overwrite and op.isdir(output_fol) and len(glob.glob(op.join(output_fol, '*.fif'))) > 0:
+        return glob.glob(op.join(output_fol, '*.fif'))
+    utils.make_dir(output_fol)
+    for fif_fname in fif_fnames:
+        clip = mne.read_evokeds(fif_fname)[0]
+        start_t, end_t = clip.times[0], clip.times[-1]
+        while start_t + clips_length < end_t:
+            new_clip = mne.EvokedArray(
+                clip.data[:, 0:int(clip.info['sfreq'] * clips_length)], clip.info, comment='baseline')
+            mne.write_evokeds(op.join(output_fol, '{}_{}.fif'.format(
+                utils.namebase(fif_fname), int(start_t))), new_clip)
+            start_t += shift
+    return glob.glob(op.join(output_fol, '*.fif'))
 
 
 def init_nmr01391():
@@ -407,23 +428,18 @@ def init_nmr01321():
     return subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname
 
 
-def subject_nmr01325():
+def init_nmr01325():
     subject = 'nmr01325'
     remote_subject_dir = find_remote_subject_dir(subject)
-
-    evokes_fol = [d for d in [
-        # '/cluster/neuromind/valia/epilepsy/6645962_01325',
-        op.join(MEG_DIR, subject, 'evokes')] if op.isdir(d)][0]
-    meg_fol = [d for d in [
-        '/cluster/neuromind/valia/epilepsy/6645962_01325/190523',
-        op.join(MEG_DIR, subject)] if op.isdir(d)][0]
-    empty_fname = find_room_noise(meg_fol)
+    remote_meg_fol = '/cluster/neuromind/valia/epilepsy/6645962_01325/190523'
+    meg_fol = op.join(MEG_DIR, subject, 'clips')
     bad_channels = 'EEG020,EEG021,EEG050,EEG051'
-    baseline_name = 'baseline_607' # '33_35secAWAKE' #'108_35secSLEEP' # 'baseline_607' # 'bl_502s' # 'bl_474s' #  #  '108_35secSLEEP' '33_35secAWAKE' '550_20sec'
-    return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, True
+    raw_fname = op.join(remote_meg_fol, '6645962_01_raw_ssst.fif')
+    empty_room_fname = op.join(remote_meg_fol, '6645962_noiseroom_raw.fif')
+    return subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname
 
 
-def subject_nmr01327():
+def init_nmr01327():
     subject = 'nmr01327'
     evokes_fol = [d for d in [
         # '/autofs/space/frieda_001/users/valia/epilepsy/6600387_01327/epochs', #/right-left',
@@ -459,7 +475,8 @@ if __name__ == '__main__':
 
     # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr00857()
     # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01391()
-    subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01321()
+    # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01321()
+    subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01325()
 
     fwd_usingMEG, fwd_usingEEG = True, False
     modality = meg.get_modality(fwd_usingMEG, fwd_usingEEG)
@@ -470,6 +487,7 @@ if __name__ == '__main__':
         fif_files += files
         files_dict[subfol] = files
 
+    # files_dict['baseline'] = split_baseline(files_dict['baseline'], clips_length=6, shift=6)
     # calc_anatomy(subject, atlas, remote_subject_dir, n_jobs)
     # calc_fwd_inv(
     #     subject, raw_fname, bad_channels, empty_room_fname, remote_subject_dir, fwd_usingMEG, fwd_usingEEG,
