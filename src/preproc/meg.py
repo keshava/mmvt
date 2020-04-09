@@ -2612,7 +2612,8 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                 else:
                     evoked = get_evoked_cond(
                         cond_name, evo_fname, epo_fname, baseline, apply_SSP_projection_vectors, add_eeg_ref)
-                    stc_fname = '{}-{}'.format(stc_fname, utils.namebase(evo_fname))
+                    if stc_template == '':
+                        stc_fname = '{}-{}'.format(stc_fname, utils.namebase(evo_fname))
                     stc_mmvt_fname = op.join(mmvt_fol, utils.namebase_with_ext(stc_fname))
                     if save_stc and utils.stc_exist(stc_mmvt_fname) and not overwrite_stc:
                         flag = True # should check all condisiton...
@@ -5050,14 +5051,12 @@ def calc_labels_avg_per_condition_wrapper(
         stc_fnames = [args.stc_hemi_template.format(cond='{cond}', method=inverse_method, hemi=hemi, modal=modality)
                       for hemi in utils.HEMIS]
         get_meg_files(subject, stc_fnames + [args.inv_fname], args, conditions)
-        stc_fname = ''
+        stcs_conds, stc_fname = get_stc_conds(conditions, inverse_method, args.stc_hemi_template, args.modality)
         if stcs_conds is None or len(stcs_conds) == 0:
-            stcs_conds, stc_fname = get_stc_conds(conditions, inverse_method, args.stc_hemi_template, args.modality)
-            if stcs_conds is None or len(stcs_conds) == 0:
-                print('Can\'t find the STCs files! template: {}, conditions: {}'.format(
-                    args.stc_hemi_template, conditions))
-                flags['calc_labels_avg_per_condition'] = False
-                return flags
+            print('Can\'t find the STCs files! template: {}, conditions: {}'.format(
+                args.stc_hemi_template, conditions))
+            flags['calc_labels_avg_per_condition'] = False
+            return flags
         factor = 6 if modality == 'eeg' else 12  # micro V for EEG, fT (Magnetometers) and fT/cm (Gradiometers) for MEG
         for hemi_ind, hemi in enumerate(HEMIS):
             flags['calc_labels_avg_per_condition_{}'.format(hemi)] = calc_labels_avg_per_condition(
