@@ -202,7 +202,10 @@ def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, b
         sz_name = utils.namebase(event_fname)
     output_fol = utils.make_dir(op.join(
         MMVT_DIR, subject, 'connectivity', '{}_{}'.format(modality, func_name), 'runs', sz_name))
-    sfreq = 2035
+    clip = mne.read_evokeds(event_fname)[0]
+    sfreq = clip.info['sfreq']
+    t_start, t_end = clip.times[0], clip.times[-1]
+    # sfreq = 2035
     windows_length = 500
     half_window = (1 /sfreq) * (windows_length / 2) # In seconds
     scores = {}
@@ -232,12 +235,8 @@ def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, b
         if do_plot:
             fig = plt.figure(figsize=(10, 10))
             axes = fig.add_subplot(111)
-        first = True
         for fname in baseline_fnames:
             vals = np.load(input_template.format(file_name=utils.namebase(fname)))
-            if first:
-                t_axis = np.linspace(-2 + half_window, 5 - half_window, vals.shape[1])
-                first = False
             # max_ind = np.argmax(np.max(vals, axis=1))
             # max_vals = vals[max_ind]
             max_vals = np.max(vals, axis=0)
@@ -247,13 +246,17 @@ def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, b
         baseline_values = np.array(baseline_values)
 
         event_vals = np.load(input_template.format(file_name=utils.namebase(event_fname)))
+        t_axis = np.linspace(t_start + half_window, t_end - half_window, vals.shape[1])
         # max_ind = np.argmax(np.max(event_vals, axis=1))
         # max_event_vals = event_vals[max_ind]
         # plt.plot(t_axis, np.argmax(event_vals, axis=0), 'b-')
 
         max_event_vals = np.max(event_vals, axis=0)
-        max_event_vals = np.pad(max_event_vals, (0, baseline_values[0].shape[0] - max_event_vals.shape[0]), 'constant',
-                          constant_values=np.nan)
+        if max_event_vals.shape > baseline_values[0].shape:
+            max_event_vals = max_event_vals[:baseline_values[0].shape[0]]
+        else:
+            max_event_vals = np.pad(max_event_vals, (
+                0, baseline_values[0].shape[0] - max_event_vals.shape[0]), 'constant', constant_values=np.nan)
 
         threshold_max = baseline_values.max(axis=0)
         threshold_ci = baseline_values.mean(axis=0) + 2 * baseline_values.std(axis=0)
@@ -270,9 +273,9 @@ def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, b
             #                  color='#539caf', alpha=0.4, label='baseline min-max')
             plt.axvline(x=0, linestyle='--', color='k')
             plt.xlabel('Time(s)', fontsize=18)
-            xticklabels = np.arange(-3, 6).tolist()
-            xticklabels[3] = 'SZ'
-            axes.set_xticklabels(xticklabels)
+            # xticklabels = np.arange(t_start, t_end).tolist()
+            # xticklabels[3] = 'SZ'
+            # axes.set_xticklabels(xticklabels)
             plt.ylabel('max(Eigencentrality)', fontsize=16)
             # plt.ylim([0.3, 0.6])
             plt.title('Eigencentrality ({})'.format(band_name), fontsize=16)
@@ -360,15 +363,16 @@ def calc_scores(subject, files_dict, graph_func, bands, modality, do_plot=False)
                 scores['baseline'][band_name].append(score[band_name])
 
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity', '{}_{}'.format(modality, graph_func), 'scores'))
+    names = ['ictal'] * len(files_dict['ictal']) + ['IED'] * len(files_dict['IED']) + \
+            ['baseline'] * len(files_dict['baseline'])
+    for f in files_dict['ictal'] + files_dict['IED'] + files_dict['baseline']:
+        print(utils.namebase(f))
     for band_name in bands.keys():
         all_scores = scores['ictal'][band_name] + scores['IED'][band_name] + scores['baseline'][band_name]
         if len(band_name) == 0:
             print('No results for {}!'.format(band_name))
             continue
         x = range(len(all_scores))
-        names = ['ictal'] * len(files_dict['ictal']) + ['IED'] * len(files_dict['IED']) + \
-                ['baseline'] * len(files_dict['baseline'])
-        # names = [utils.namebase(f) for f in files_dict['ictal'] + files_dict['IED'] + files_dict['baseline']]
         plt.bar(x, all_scores)
         plt.xticks(x, names, rotation=45)#'vertical')
         plt.savefig(op.join(output_fol, '{}_scores.jpg'.format(band_name)))
@@ -380,15 +384,20 @@ def split_baseline(fif_fnames, clips_length=6, shift=6, overwrite=False):
     if not overwrite and op.isdir(output_fol) and len(glob.glob(op.join(output_fol, '*.fif'))) > 0:
         return glob.glob(op.join(output_fol, '*.fif'))
     utils.make_dir(output_fol)
+    data = []
     for fif_fname in fif_fnames:
         clip = mne.read_evokeds(fif_fname)[0]
-        start_t, end_t = clip.times[0], clip.times[-1]
-        while start_t + clips_length < end_t:
+        freq = clip.info['sfreq']
+        step = int(freq * clips_length)
+        start_t, end_t = 0, len(clip.times)
+        while start_t + clips_length * freq < end_t:
             new_clip = mne.EvokedArray(
-                clip.data[:, 0:int(clip.info['sfreq'] * clips_length)], clip.info, comment='baseline')
+                clip.data[:, start_t:start_t + step], clip.info, comment='baseline')
+            data.append(new_clip.data[0, :10])
             mne.write_evokeds(op.join(output_fol, '{}_{}.fif'.format(
-                utils.namebase(fif_fname), int(start_t))), new_clip)
-            start_t += shift
+                utils.namebase(fif_fname), int(start_t / freq))), new_clip)
+            start_t += int(freq * shift)
+    data = np.array(data)
     return glob.glob(op.join(output_fol, '*.fif'))
 
 
