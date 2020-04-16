@@ -1140,14 +1140,7 @@ def calc_labels_power_bands(mri_subject, atlas, events, inverse_method='dSPM', e
     return ret
 
 
-@utils.tryit(throw_exception=True)
-def calc_labels_connectivity(
-        subject, atlas, events, mri_subject='', subjects_dir='', mmvt_dir='', inverse_method='dSPM',
-        epo_fname='', inv_fname='', raw_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
-        add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'], surf_name='pial',
-        con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, min_order=1, max_order=100,
-        windows_length=0, windows_shift=0, overwrite_connectivity=False, raw=None, epochs=None, src=None, bands=None,
-        labels=None, cwt_frequencies=None, con_indentifer='', symetric_con=None, downsample=1, n_jobs=6):
+def get_modality(fwd_usingMEG, fwd_usingEEG):
     if fwd_usingMEG and fwd_usingEEG:
         modality = 'meeg'
     elif fwd_usingMEG and not fwd_usingEEG:
@@ -1156,6 +1149,18 @@ def calc_labels_connectivity(
         modality = 'eeg'
     else:
         raise Exception('fwd_usingMEG and fwd_usingEEG are False!')
+    return modality
+
+
+@utils.tryit(throw_exception=True)
+def calc_labels_connectivity(
+        subject, atlas, events, mri_subject='', subjects_dir='', mmvt_dir='', inverse_method='dSPM',
+        epo_fname='', inv_fname='', raw_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
+        add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'], surf_name='pial',
+        con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, min_order=1, max_order=100,
+        windows_length=0, windows_shift=0, overwrite_connectivity=False, raw=None, epochs=None, src=None, bands=None,
+        labels=None, cwt_frequencies=None, con_indentifer='', symetric_con=None, downsample=1, n_jobs=6):
+    modality = get_modality(fwd_usingMEG, fwd_usingEEG)
     if mri_subject == '':
         mri_subject = subject
     if subjects_dir == '':
@@ -2607,7 +2612,8 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                 else:
                     evoked = get_evoked_cond(
                         cond_name, evo_fname, epo_fname, baseline, apply_SSP_projection_vectors, add_eeg_ref)
-                    stc_fname = '{}-{}'.format(stc_fname, utils.namebase(evo_fname))
+                    if stc_template == '':
+                        stc_fname = '{}-{}'.format(stc_fname, utils.namebase(evo_fname))
                     stc_mmvt_fname = op.join(mmvt_fol, utils.namebase_with_ext(stc_fname))
                     if save_stc and utils.stc_exist(stc_mmvt_fname) and not overwrite_stc:
                         flag = True # should check all condisiton...
@@ -4044,6 +4050,7 @@ def get_stc_conds(events, inverse_method, stc_hemi_template, modality='meg'):
                     glob.glob(template_mmvt_h5), template='stc/h5', files_desc='STC', print_title=True)
         if not op.isfile(stc_fname):
             return None
+        print('Read {}'.format(stc_fname))
         stcs[cond] = mne.read_source_estimate(stc_fname)
     return stcs, stc_fname
 
@@ -4085,16 +4092,17 @@ def calc_labels_avg_per_condition(
         atlas, hemi, events=None, surf_name='pial', labels_fol='', stcs=None, stcs_num={}, inverse_method='dSPM',
         extract_modes=['mean_flip'], positive=False, moving_average_win_size=0, labels_data_template='', src=None,
         factor=1, inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, read_only_from_annot=True, task='',
-        modalitiy='meg', overwrite=False, stc_name='', do_plot=False, n_jobs=1):
+        overwrite=False, stc_name='', do_plot=False, n_jobs=1):
 
     if do_plot:
         import matplotlib.pyplot as plt
 
     def _check_all_files_exist():
-        return all([op.isfile(op.join(MMVT_DIR, MRI_SUBJECT, modalitiy, op.basename(
+        return all([op.isfile(op.join(MMVT_DIR, MRI_SUBJECT, modality, op.basename(
             get_labels_data_fname(labels_data_template, im, task, atlas, em, hemi))))
             for em, im in product(extract_modes, inverse_method)])
 
+    modality = get_modality(fwd_usingMEG, fwd_usingEEG)
     if stc_name != '':
         labels_data_template = op.join(utils.get_parent_fol(
             stc_name), 'labels_data_{}'.format(utils.namebase(stc_name)[:-3]))
@@ -5039,18 +5047,16 @@ def calc_labels_avg_per_condition_wrapper(
         if args.stc_template == '':
             args.stc_hemi_template = op.join(MMVT_DIR, subject, 'meg', utils.namebase(STC_HEMI))
         else:
-            args.stc_hemi_template =  get_stc_hemi_template(args.stc_template)
+            args.stc_hemi_template = get_stc_hemi_template(args.stc_template)
         stc_fnames = [args.stc_hemi_template.format(cond='{cond}', method=inverse_method, hemi=hemi, modal=modality)
                       for hemi in utils.HEMIS]
         get_meg_files(subject, stc_fnames + [args.inv_fname], args, conditions)
-        stc_fname = ''
+        stcs_conds, stc_fname = get_stc_conds(conditions, inverse_method, args.stc_hemi_template, args.modality)
         if stcs_conds is None or len(stcs_conds) == 0:
-            stcs_conds, stc_fname = get_stc_conds(conditions, inverse_method, args.stc_hemi_template, args.modality)
-            if stcs_conds is None or len(stcs_conds) == 0:
-                print('Can\'t find the STCs files! template: {}, conditions: {}'.format(
-                    args.stc_hemi_template, conditions))
-                flags['calc_labels_avg_per_condition'] = False
-                return flags
+            print('Can\'t find the STCs files! template: {}, conditions: {}'.format(
+                args.stc_hemi_template, conditions))
+            flags['calc_labels_avg_per_condition'] = False
+            return flags
         factor = 6 if modality == 'eeg' else 12  # micro V for EEG, fT (Magnetometers) and fT/cm (Gradiometers) for MEG
         for hemi_ind, hemi in enumerate(HEMIS):
             flags['calc_labels_avg_per_condition_{}'.format(hemi)] = calc_labels_avg_per_condition(
@@ -5059,7 +5065,7 @@ def calc_labels_avg_per_condition_wrapper(
                 moving_average_win_size=args.evoked_moving_average_win_size,
                 labels_data_template=args.labels_data_template, task=args.task,
                 stcs=stcs_conds, factor=factor, inv_fname=args.inv_fname,
-                fwd_usingMEG=args.fwd_usingMEG, fwd_usingEEG=args.fwd_usingMEG,
+                fwd_usingMEG=args.fwd_usingMEG, fwd_usingEEG=args.fwd_usingEEG,
                 stcs_num=stcs_num, read_only_from_annot=args.read_only_from_annot, stc_name=stc_fname,
                 overwrite=args.overwrite_labels_data, n_jobs=args.n_jobs)
             if stcs_conds and isinstance(stcs_conds[list(conditions_keys)[0]], types.GeneratorType) and hemi_ind == 0:

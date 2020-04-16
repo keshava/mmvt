@@ -679,7 +679,7 @@ def mi(conn_w):
 def _mi_parallel(windows_chunk):
     res = {}
     for window_ind, corr_w in windows_chunk:
-        print('_mi_parallel: window ind {}'.format(window_ind))
+        # print('_mi_parallel: window ind {}'.format(window_ind))
         res[window_ind] = mi(corr_w)
     return res
 
