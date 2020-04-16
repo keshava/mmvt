@@ -152,8 +152,9 @@ def labels_to_annot(subject, subjects_dir='', aparc_name='aparc250', labels_fol=
         if hemi == 'both' else op.isfile(op.join(subject_dir, 'label', '{}.{}.annot'.format(hemi, aparc_name)))
 
 
-def check_labels(subject, atlas, subjects_dir, mmvt_dir):
-    labels = read_labels(subject, subjects_dir, atlas)
+def check_labels(subject, atlas, subjects_dir, mmvt_dir, labels=None):
+    if labels is None:
+        labels = read_labels(subject, subjects_dir, atlas)
     verts = utils.load_surf(subject, mmvt_dir, subjects_dir)
     verts = {hemi:range(len(verts[hemi])) for hemi in utils.HEMIS}
     ok = True
