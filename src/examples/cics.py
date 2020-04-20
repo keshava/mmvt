@@ -1,14 +1,19 @@
 import os.path as op
 import os
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import nibabel as nib
+
 from src.utils import utils
+from src.utils import freesurfer_utils as fu
+from src.utils import labels_utils as lu
 from src.preproc import fMRI
 from src.preproc import anatomy as anat
 
-FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6_12month_longitudinal_recons'
-FS_BASE_6_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6month_longitudinal_recons'
+FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6_12month_recons'
+FS_BASE_6_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6month_recons'
 HOME_FOL = '/autofs/space/nihilus_001/CICS/users/noam/CICS/'
 SCAN, RESCAN = 'scan', 'rescan'
 
@@ -19,10 +24,13 @@ FMRI_DIR = utils.get_link_dir(utils.get_links_dir(), 'fMRI')
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 print('Setting SUBJECTS_DIR to {}'.format(SUBJECTS_DIR))
 os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
+# setenv SUBJECTS_DIR /autofs/space/nihilus_001/CICS/users/noam/mmvt_root/subjects
 
 mri_robust_register = 'mri_robust_register --mov "{source_fname}" --dst "{target_fname}" --lta "{lta_fname}" ' + \
                       '--satit --mapmov "{output_fname}" --cost {cost_function}'
+bbregister = 'bbregister --s {subject} --mov "{source_fname}" --lta "{lta_fname}" --t1 --o "{output_fname}"'
 register_using_lta = 'mri_convert -at "{lta_fname}" "{source_fname}" "{output_fname}"'
+register_using_inverse_lta = 'mri_convert -ait "{lta_fname}" "{source_fname}" "{output_fname}"'
 
 
 def get_subject_fs_folder(subject, scan_rescan, base_6_12='0'):
@@ -33,7 +41,7 @@ def get_subject_fs_folder(subject, scan_rescan, base_6_12='0'):
     return '{0}_{1}recon.long.{0}-base'.format(subject, scan_rescan_str)
 
 
-def register_cbf_to_t1(subject, site, scan_rescan, cost_function='nmi', overwrite=False, print_only=False):
+def register_cbf_to_t1(subject, site, scan_rescan, overwrite=False, print_only=False): # cost_function='nmi',
     subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
     output_fname = op.join(subject_fol, 'Control_to_T1.nii')
     source_fname = op.join(subject_fol, 'Control.nii')
@@ -47,30 +55,73 @@ def register_cbf_to_t1(subject, site, scan_rescan, cost_function='nmi', overwrit
         return False
     if not op.isfile(lta_fname) or not op.isfile(output_fname) or overwrite:
         rs = utils.partial_run_script(locals(), print_only=print_only)
-        rs(mri_robust_register)
-    if op.isfile(lta_fname):
-        register_cbf_using_lta(subject_fol, print_only)
+        rs(bbregister)
     else:
+        print('Nothing to do, overwrite=False')
+    if not op.isfile(lta_fname):
         print('No registration file found! ({})'.format(lta_fname))
-    print_freeview_cmd(subject, subject_fol)
+    '''
+    tkregisterfv --mov /autofs/space/nihilus_001/CICS/users/noam/CICS/277-NDC/277S0203/rescan/Control.nii --reg /autofs/space/nihilus_001/CICS/users/noam/CICS/277-NDC/277S0203/rescan/control_to_T1.lta --surfs
+    cd /autofs/space/nihilus_001/CICS/users/noam/mmvt_root/mmvt_code
+    freeview -transform-volume -viewport cor -v /autofs/space/nihilus_001/CICS/users/noam/mmvt_root/subjects/277S0203/mri/orig.mgz:visible=0:name=orig.mgz(targ) /autofs/space/nihilus_001/CICS/users/noam/CICS/277-NDC/277S0203/rescan/Control.nii:name=Control.nii(mov):reg=/autofs/space/nihilus_001/CICS/users/noam/CICS/277-NDC/277S0203/rescan/control_to_T1.lta --surface /autofs/space/nihilus_001/CICS/users/noam/mmvt_root/subjects/277S0203/surf/lh.white:edgecolor=yellow --surface /autofs/space/nihilus_001/CICS/users/noam/mmvt_root/subjects/277S0203/surf/rh.white:edgecolor=yellow
+    '''
 
 
-def register_cbf_using_lta(subject_fol, overwrite=False, print_only=False):
+def register_aseg_to_cbf(subject, site, scan_rescan, overwrite=False, print_only=True):
+    subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
     lta_fname = op.join(subject_fol, 'control_to_T1.lta')
-    source_fname = op.join(subject_fol, 'CBF.nii')
-    output_fname = op.join(subject_fol, 'CBF_to_T1.nii')
+    source_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'aparc+aseg.mgz')
+    output_fname = op.join(subject_fol, 'aparc+aseg_cbf.mgz')
     if not op.isfile(output_fname) or overwrite:
         rs = utils.partial_run_script(locals(), print_only=print_only)
-        rs(register_using_lta)
+        rs(register_using_inverse_lta)
     else:
         print('{} already exist'.format(output_fname))
 
 
-def print_freeview_cmd(subject, subject_fol):
-    cbf = op.join(subject_fol, 'CBF_to_T1.nii')
-    control = op.join(subject_fol, 'Control_to_T1.nii')
-    t1 = op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject), 'mri', 'T1.mgz')
-    print('freeview {} {} {}'.format(cbf, control, t1))
+def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, overwrite=False):
+    subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
+    cics_cbf_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF.nii')
+    cbf_data = nib.load(cics_cbf_fname).get_data()
+    lut = utils.read_freesurfer_lookup_table(return_dict=True)
+    aparc_aseg_fname = op.join(subject_fol, 'aparc+aseg_cbf.mgz')
+    aparc_aseg = nib.load(aparc_aseg_fname).get_data()
+    unique_codes = list(range(1001, 1036)) + list(range(2001, 2036))
+    output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg'))
+    if overwrite:
+        utils.delete_folder_files(output_fol)
+    for code in tqdm(unique_codes):
+        region_name = lut.get(code, None)
+        if region_name is None:
+            # print('{} not in lut!'.format(code))
+            continue
+        fig_fname = op.join(output_fol, '{}.jpg'.format(region_name))
+        if op.isfile(overwrite) and not overwrite:
+            continue
+        region_values = cbf_data[np.where(aparc_aseg == code)]
+        outliers = np.where(region_values < low_threshold)[0]
+        if len(outliers) > 0:
+            print('{} has {} out of {} values < {}'.format(region_name, len(outliers), len(region_values), low_threshold))
+        outliers = np.where(region_values > high_threshold)[0]
+        if len(outliers) > 0:
+            print('{} has {} out of {} values > {}'.format(region_name, len(outliers), len(region_values), high_threshold))
+        region_values[region_values < low_threshold] = low_threshold
+        region_values[region_values > high_threshold] = high_threshold
+        plt.hist(region_values, bins=40)
+        plt.savefig(fig_fname)
+        plt.close()
+
+
+# def print_freeview_cmd(subject, subject_fol):
+#     cbf = op.join(subject_fol, 'CBF_to_T1.nii')
+#     control = op.join(subject_fol, 'Control_to_T1.nii')
+#     t1 = op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject), 'mri', 'T1.mgz')
+#     print('freeview {} {} {}'.format(cbf, control, t1))
+
+def get_labels_data(subject, atlas):
+    necessary_files = {'label': ['{}.{}.annot'.format(hemi, atlas) for hemi in utils.HEMIS]}
+    remote_subject_dir = op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject))
+    utils.prepare_subject_folder(necessary_files, subject, remote_subject_dir, SUBJECTS_DIR)
 
 
 def preproc_anat(subject):
@@ -86,28 +137,49 @@ def preproc_anat(subject):
     args = anat.read_cmd_args(dict(
         subject='{}_rescan'.format(subject),
         remote_subject_dir=op.join(FS_ROOT, '{0}_B_recon.long.{0}-base'.format(subject)),
-        exclude='create_new_subject_blend_file',
+        # exclude='create_new_subject_blend_file',
     ))
     anat.call_main(args)
 
 
-def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
-    from src.preproc import fMRI
+@utils.tryit()
+def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False, print_only=False):
     mmvt_subject = subject if scan_rescan == SCAN else '{}_rescan'.format(subject)
     fmri_fol = utils.make_dir(op.join(FMRI_DIR, mmvt_subject))
     mmvt_cbf_fname = op.join(fmri_fol, 'CBF_{}.nii'.format(scan_rescan))
-    cics_cbf_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF_to_T1.nii')
+    cics_cbf_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF.nii')
+    reg_file = op.join(HOME_FOL, site, subject, scan_rescan, 'control_to_T1.lta')
     if not op.islink(mmvt_cbf_fname) and op.isfile(cics_cbf_fname):
         utils.make_link(cics_cbf_fname, mmvt_cbf_fname)
     if not op.islink(mmvt_cbf_fname):
         print('Cannot file the link to CBF! ({}-{})'.format(cics_cbf_fname, mmvt_cbf_fname))
         return False
-    args = fMRI.read_cmd_args(dict(
-        subject=mmvt_subject,
-        function='project_volume_to_surface',
-        fmri_file_template=utils.namebase_with_ext(mmvt_cbf_fname),
-        overwrite_surf_data=overwrite))
-    fMRI.call_main(args)
+    if not op.isfile(reg_file):
+        print('Cannot find the registration file! ({})'.format(reg_file))
+        return False
+    verts = utils.load_surf(subject, MMVT_DIR, SUBJECTS_DIR)
+    for hemi in utils.HEMIS:
+        surf_output_fname = op.join(FMRI_DIR, subject, 'CBF_{}_{}.mgz'.format(scan_rescan, hemi))
+        npy_output_fname = op.join(MMVT_DIR, subject, 'fmri', 'fmri_CBF_{}_{}.npy'.format(scan_rescan, hemi))
+        if op.isfile(npy_output_fname) and not overwrite:
+            continue
+        fu.project_volume_data(
+            cics_cbf_fname, hemi, reg_file=reg_file, smooth_fwhm=0, output_fname=surf_output_fname,
+            print_only=print_only)
+        if print_only:
+            continue
+        surf_data = np.squeeze(nib.load(surf_output_fname).get_data())
+        np.save(npy_output_fname, surf_data)
+        if len(verts[hemi]) != len(surf_data):
+            print('*** Wrong number of vertices in {} data! surf vertices ({}) != data vertices ({})'.format(
+                hemi, len(verts[hemi]), len(surf_data)))
+
+    # args = fMRI.read_cmd_args(dict(
+    #     subject=mmvt_subject,
+    #     function='project_volume_to_surface',
+    #     fmri_file_template=utils.namebase_with_ext(mmvt_cbf_fname),
+    #     overwrite_surf_data=overwrite))
+    # fMRI.call_main(args)
     # copy the rescan to the scan folder
     # mmvt_blend/277S0203_rescan/fmri/fmri_CBF_rescan_rh.npy
     if scan_rescan == RESCAN:
@@ -116,6 +188,58 @@ def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False):
         utils.delete_file(target_fname)
         print('Copy {} to {}'.format(rescan_fname, target_fname))
         utils.copy_file(rescan_fname, target_fname)
+
+
+@utils.tryit()
+def morph_to_fsaverage(subject, scan_rescan, overwrite=False, print_only=False):
+    for hemi in utils.HEMIS:
+        source_fname = op.join(FMRI_DIR, subject, 'CBF_{}_{}.mgz'.format(scan_rescan, hemi))
+        target_fname = op.join(FMRI_DIR, subject, 'CBF_{}_{}_fsaverage.mgz'.format(scan_rescan, hemi))
+        if not op.isfile(target_fname) or overwrite:
+            fu.surf2surf(subject, 'fsaverage', hemi, source_fname, target_fname, print_only=print_only)
+
+
+def calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold=40, high_threshold=100, overwrite=False,
+                             n_jobs=4):
+    if not lu.check_labels(subject, atlas, SUBJECTS_DIR, MMVT_DIR):
+        return False
+    output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'labels_hists_{}'.format(atlas)))
+    if overwrite:
+        utils.delete_folder_files(output_fol)
+    print('Saving figures into {}'.format(output_fol))
+    for hemi in utils.HEMIS:
+        npy_data_fname = op.join(MMVT_DIR, subject, 'fmri', 'fmri_CBF_{}_{}.npy'.format(scan_rescan, hemi))
+        if not op.isfile(npy_data_fname):
+            print('Cannot find hemi data file! ({})'.format(npy_data_fname))
+            return False
+        surf_fname = op.join(SUBJECTS_DIR, subject, 'surf', '{}.pial'.format(hemi))
+        if not op.isfile(surf_fname):
+            print('Cannot find surface file! ({})'.format(surf_fname))
+            return False
+        hemi_vals = np.load(npy_data_fname)
+        labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, hemi=hemi, n_jobs=n_jobs)
+        labels_vertives_num = max([max(l.vertices) for l in labels])
+        hemi_data_vertices_num = len(hemi_vals) - 1
+        if labels_vertives_num != hemi_data_vertices_num:
+            print('Wrong number of vertices or labels! labels_vertives_num ({}) != len({})'.format(
+                labels_vertives_num, len(hemi_vals)))
+            return False
+        for label in tqdm(labels):
+            fig_fname = op.join(output_fol, '{}.jpg'.format(label.name))
+            if op.isfile(fig_fname) and not overwrite:
+                continue
+            label_data = hemi_vals[label.vertices]
+            outliers = np.where(label_data < low_threshold)[0]
+            if len(outliers) > 0:
+                print('{} has {}/{} values < {}'.format(label.name, len(outliers), len(label_data), low_threshold))
+            outliers = np.where(label_data > high_threshold)[0]
+            if len(outliers) > 0:
+                print('{} has {}/{} values > {}'.format(label.name, len(outliers), len(label_data), high_threshold))
+            label_data[label_data < low_threshold] = low_threshold
+            label_data[label_data > high_threshold] = high_threshold
+            plt.hist(label_data, bins=40)
+            plt.savefig(fig_fname)
+            plt.close()
 
 
 def calc_scan_rescan_diff(subject, overwrite=False):
@@ -195,7 +319,7 @@ def read_subject_hippocampus_volumes(subject):
 
 
 def get_subjects():
-    return np.unique([fol.split('_')[0].replace('-base', '') for fol in utils.get_subfolders(FS_BASE_6_ROOT, 'name')])
+    return np.unique([fol.split('_')[0].replace('-base', '') for fol in utils.get_subfolders(FS_ROOT, 'name')])
 
 
 def read_hippocampus_volumes(overwrite=False):
@@ -220,15 +344,31 @@ def read_hippocampus_volumes(overwrite=False):
 
 
 if __name__ == '__main__':
-    subject = '277S0203'
+    subject = os.environ['SUBJECT'] = '277S0203'
+    os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
     site = '277-NDC'
-    overwrite = False
+    atlas = 'aparc' # 'aparc.DKTatlas'
+    low_threshold, high_threshold = 0, 100
+    overwrite = True
+    print_only = False
+    # subjects = get_subjects()
+    subjects = [subject]
 
-    read_hippocampus_volumes()
-    # preproc_anat(subject)
-    for scan_rescan in [SCAN, RESCAN]:
-        # register_cbf_to_t1(subject, site, scan_rescan)
-        # project_cbf_on_cortex(subject, site, scan_rescan, overwrite)
-        pass
-    # find_diff_clusters(subject, atlas='laus125', overwrite=True)
-    # calc_scan_rescan_diff(subject, overwrite=True)
+    # read_hippocampus_volumes()
+
+    now = time.time()
+    for sub_ind, subject in enumerate(subjects):
+        utils.time_to_go(now, sub_ind, len(subjects), 1)
+        preproc_anat(subject)
+        # get_labels_data(subject, atlas)
+        for scan_rescan in [SCAN, RESCAN]:
+            # register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+            # calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, True)
+            # register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+            # project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=True)
+            # calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold, high_threshold, True)
+            # morph_to_fsaverage(subject, scan_rescan, overwrite=overwrite, print_only=print_only)
+            pass
+        # calc_scan_rescan_diff(subject, overwrite=overwrite)
+        # find_diff_clusters(subject, atlas='laus125', overwrite=True)
+

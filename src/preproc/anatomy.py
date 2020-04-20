@@ -1883,8 +1883,8 @@ def read_cmd_args(argv=None):
     args.necessary_files = {
         'mri': ['aseg.mgz', 'norm.mgz', 'ribbon.mgz', 'T1.mgz', 'orig.mgz', 'brain.mgz', 'brainmask.mgz',
                 'aparc+aseg.mgz'],
-        'surf': ['rh.pial', 'lh.pial', 'rh.inflated', 'lh.inflated', 'lh.curv', 'rh.curv', 'rh.sphere.reg',
-                 'lh.sphere.reg', 'rh.sphere', 'lh.sphere', 'lh.white', 'rh.white', 'rh.smoothwm','lh.smoothwm',
+        'surf': ['rh.pial', 'lh.pial', 'rh.inflated', 'lh.inflated', 'rh.white', 'lh.white', 'lh.curv', 'rh.curv',
+                 'rh.sphere.reg', 'lh.sphere.reg', 'rh.sphere', 'lh.sphere', 'rh.smoothwm','lh.smoothwm',
                  'lh.sphere.reg', 'rh.sphere.reg', 'lh.thickness', 'rh.thickness'],
         'mri:transforms' :['talairach.xfm', 'talairach.m3z'],
         'label': ['lh.cortex.label', 'rh.cortex.label']}

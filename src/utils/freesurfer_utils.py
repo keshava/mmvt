@@ -68,7 +68,7 @@ def project_on_surface(subject, volume_file, surf_output_fname, target_subject=N
         if not op.isfile(surf_output_fname.format(hemi=hemi)) or overwrite_surf_data:
             print('project {} to {}'.format(volume_file, hemi))
             if modality != 'pet':
-                surf_data = project_volume_data(volume_file, hemi, subject_id=subject, surf="pial", smooth_fwhm=3,
+                surf_data = project_volume_data(volume_file, hemi, subject_id=subject, surf="white", smooth_fwhm=3,
                     target_subject=target_subject, output_fname=surf_output_fname.format(hemi=hemi))
             else:
                 surf_data = project_pet_volume_data(subject, volume_file, hemi, surf_output_fname.format(hemi=hemi))
@@ -103,7 +103,7 @@ def project_pet_volume_data(subject, volume_fname, hemi, output_fname=None, proj
 def project_volume_data(filepath, hemi, reg_file=None, subject_id=None,
                         projmeth="frac", projsum="avg", projarg=[0, 1, .1],
                         surf="white", smooth_fwhm=3, mask_label=None,
-                        target_subject=None, verbose=None):
+                        target_subject=None, output_fname='', verbose=None, print_only=False):
     """Sample MRI volume onto cortical manifold.
     Note: this requires Freesurfer to be installed with correct
     SUBJECTS_DIR definition (it uses mri_vol2surf internally).
@@ -194,9 +194,13 @@ def project_volume_data(filepath, hemi, reg_file=None, subject_id=None,
         cmd_list.extend(["--trgsubject", target_subject])
 
     # Execute the command
-    out_file = mktemp(prefix="pysurfer-v2s", suffix='.mgz')
-    cmd_list.extend(["--o", out_file])
+    if output_fname == '':
+        output_fname = mktemp(prefix="pysurfer-v2s", suffix='.mgz')
+    cmd_list.extend(["--o", output_fname])
     logger.info(" ".join(cmd_list))
+    print(" ".join(cmd_list))
+    if print_only:
+        return
     p = Popen(cmd_list, stdout=PIPE, stderr=PIPE, env=env)
     stdout, stderr = p.communicate()
     out = p.returncode
@@ -205,8 +209,9 @@ def project_volume_data(filepath, hemi, reg_file=None, subject_id=None,
                             "with output: \n\n{}".format(stderr)))
 
     # Read in the data
-    surf_data = read_scalar_data(out_file)
-    os.remove(out_file)
+    surf_data = read_scalar_data(output_fname)
+    if output_fname == '':
+        os.remove(output_fname)
     return surf_data
 
 # def project_volume_data(filepath, hemi, reg_file=None, subject_id=None,
@@ -659,7 +664,7 @@ def surf2surf(source_subject, target_subject, hemi, source_fname, target_fname, 
     if source_subject != target_subject:
         rs = utils.partial_run_script(locals(), cwd=cwd, print_only=print_only)
         rs(mri_surf2surf)
-        if not op.isfile(target_fname):
+        if not op.isfile(target_fname) and not print_only:
             raise Exception('surf2surf: Target file was not created!')
 
 
