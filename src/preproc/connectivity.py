@@ -73,6 +73,24 @@ def calc_electrodes_connectivity(subject, args, overwrite=True):
     return op.isfile(output_fname)
 
 
+def calc_mi(data, windows_length, windows_shift, sfreq, fmin=None, fmax=None, n_jobs=4):
+    data = mne.filter.filter_data(data, sfreq, fmin, fmax, verbose=False)
+    windows = calc_windows(data.shape[1], windows_length, windows_shift)
+    windows_num = len(windows)
+    corr = np.zeros((data.shape[0], data.shape[0], windows_num))
+    for w in range(windows_num):
+        corr[:, :, w] = np.corrcoef(data[:, windows[w, 0]:windows[w, 1]])
+        np.fill_diagonal(corr[:, :, w], 0)
+    conn = np.zeros(corr.shape)
+    params = [(corr[:, :, w]) for w in range(windows_num)]
+    chunks = utils.chunks(list(enumerate(params)), windows_num / n_jobs)
+    results = utils.run_parallel(_mi_parallel, chunks, n_jobs)
+    for chunk in results:
+        for w, con in chunk.items():
+            conn[:, :, w] = con
+    return conn
+
+
 def calc_avg_electrodes_data(subject, data_dict, windows_length, windows_shift, max_windows_num, overwrite=False):
     elecs_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'electrodes'))
     output_fname = op.join(elecs_fol, 'electrodes_data_for_connectivity.npz')

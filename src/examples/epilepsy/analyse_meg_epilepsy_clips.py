@@ -6,16 +6,19 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import os
 import mne
+from tqdm import tqdm
 
 from src.utils import utils
 from src.utils import labels_utils as lu
 from src.preproc import meg, eeg
 from src.preproc import connectivity
+from src.preproc import electrodes
 
 LINKS_DIR = utils.get_links_dir()
 MMVT_DIR = utils.get_link_dir(LINKS_DIR, 'mmvt')
 MEG_DIR = utils.get_link_dir(LINKS_DIR, 'meg')
 SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects', 'SUBJECTS_DIR')
+ELECTRODES_DIR = utils.get_link_dir(LINKS_DIR, 'electrodes')
 
 
 def calc_anatomy(subject, atlas, remote_subject_dir, n_jobs):
@@ -139,6 +142,13 @@ def analyze_graph(subject, fif_fname, band_name, graph_func, modality, overwrite
         return False
     print('Loading {}'.format(input_fname))
     con = np.load(input_fname).squeeze()
+    values = analyze_graph_data(con, n_jobs)
+    print('{}: min={}, max={}, mean={}'.format(con_name, np.min(values), np.max(values), np.mean(values)))
+    print('Saving {}'.format(output_fname))
+    np.save(output_fname, values)
+
+
+def analyze_graph_data(con, n_jobs):
     T = con.shape[2]
     con[con < np.percentile(con, 80)] = 0
     indices = np.array_split(np.arange(T), n_jobs)
@@ -150,9 +160,7 @@ def analyze_graph(subject, fif_fname, band_name, graph_func, modality, overwrite
             values = np.zeros((len(vals_chunk[0]), T))
             first = False
         values[:, times_chunk] = vals_chunk.T
-    print('{}: min={}, max={}, mean={}'.format(con_name, np.min(values), np.max(values), np.mean(values)))
-    print('Saving {}'.format(output_fname))
-    np.save(output_fname, values)
+    return values
 
 
 def _calc_graph_func(p):
@@ -401,6 +409,99 @@ def split_baseline(fif_fnames, clips_length=6, shift=6, overwrite=False):
     return glob.glob(op.join(output_fol, '*.fif'))
 
 
+def create_ictal_clips(subject, ictal_events_dict, ictal_template, overwrite=False, n_jobs=4):
+    mmvt_root = op.join(MMVT_DIR, subject, 'electrodes')
+    data_files, baseline_files = [], []
+    for ictal_id, times in ictal_events_dict.items():
+        output_fname = op.join(mmvt_root, 'electrodes_data_{}.npy'.format(ictal_id))
+        baseline_fname = op.join(mmvt_root, 'electrodes_baseline_{}.npy'.format(ictal_id))
+        if op.isfile(output_fname) and op.isfile(baseline_fname) and not overwrite:
+            data_files.append(output_fname)
+            baseline_files.append(baseline_fname)
+            continue
+        event_fname = ictal_template.format(ictal_id=ictal_id)
+        if not op.isfile(event_fname):
+            print('Cannot find {}!'.format(event_fname))
+            continue
+        args = electrodes.read_cmd_args(utils.Bag(
+            subject=subject,
+            function='create_raw_data_from_edf',
+            task='seizure',
+            bipolar=False,
+            raw_fname=event_fname,
+            start_time=0,
+            seizure_onset=times[0]-5, seizure_end=times[0]+5, # times[1],
+            baseline_onset=0, baseline_end=100,
+            time_format='seconds',
+            lower_freq_filter=1,
+            upper_freq_filter=150,
+            power_line_notch_widths=5,
+            remove_baseline=False,
+            normalize_data = False,
+            factor=1000,
+            overwrite_raw_data=True,
+            n_jobs=n_jobs
+        ))
+        electrodes.call_main(args)
+        temp_output_fname = op.join(mmvt_root, 'electrodes_data_diff.npy')
+        if op.isfile(temp_output_fname):
+            os.rename(temp_output_fname, output_fname)
+            data_files.append(output_fname)
+        else:
+            print('{}: no data!'.format(ictal_id))
+        temp_baseline_fname = op.join(mmvt_root, 'electrodes_baseline.npy')
+        if op.isfile(temp_baseline_fname):
+            os.rename(temp_baseline_fname, baseline_fname)
+            baseline_files.append(baseline_fname)
+        else:
+            print('{}: No baseline!'.format(ictal_id))
+    meta_fname = op.join(mmvt_root, 'electrodes_meta_data_diff.npz')
+    if op.isfile(meta_fname):
+        os.rename(meta_fname, op.join(mmvt_root, 'electrodes_meta_data.npz'))
+    return data_files, baseline_files
+
+
+def calc_ieeg_connectivity(subject, connectivity_method, graph_func, sfreq, big_window_length,
+                           windows_length, windows_shift, overwrite=False, n_jobs=4):
+    mmvt_root = op.join(MMVT_DIR, subject, 'electrodes')
+    output_fol = utils.make_dir(op.join(mmvt_root, '{}_{}'.format(connectivity_method, graph_func)))
+    files_dict = {}
+    data_files = glob.glob(op.join(mmvt_root, 'electrodes_data_*.npy'))
+    ictal_ids = sorted(list(set([utils.namebase(f).split('_')[2] for f in data_files])))
+    now = time.time()
+    for run, id in enumerate(ictal_ids):
+        utils.time_to_go(now, run, len(ictal_ids), 1)
+        data_fname = op.join(mmvt_root, 'electrodes_data_{}.npy'.format(id))
+        files_dict[utils.namebase(data_fname)] = {'baseline': [], 'ictal': [data_fname]}
+        data = np.load(data_fname).squeeze()
+        for band_name, (fmin, fmax) in bands.items():
+            output_fname = op.join(output_fol, '{}_{}_{}_{}.npy'.format(
+                utils.namebase(data_fname), connectivity_method, graph_func, band_name))
+            if op.isfile(output_fname) and not overwrite:
+                continue
+            print(utils.namebase(output_fname))
+            con = connectivity.calc_mi(data, windows_length, windows_shift, sfreq, fmin, fmax, n_jobs)
+            graph_data = analyze_graph_data(con, n_jobs)
+            np.save(output_fname, graph_data)
+
+        baseline_fname = op.join(mmvt_root, 'electrodes_baseline_{}.npy'.format(id))
+        data = np.load(baseline_fname).squeeze()
+        w = sfreq * big_window_length
+        windows = connectivity.calc_windows(data.shape[1], w, w)
+        for base_ind, w in enumerate(windows):
+            files_dict[utils.namebase(data_fname)]['baseline'].append(output_fname)
+            for band_name, (fmin, fmax) in bands.items():
+                output_fname = op.join(output_fol, '{}_{}_{}_{}_{}.npy'.format(
+                    utils.namebase(baseline_fname), connectivity_method, graph_func, base_ind, band_name))
+                if op.isfile(output_fname) and not overwrite:
+                    continue
+                print(utils.namebase(output_fname))
+                con = connectivity.calc_mi(data[:, w[0]:w[1]], windows_length, windows_shift, sfreq, fmin, fmax, n_jobs)
+                graph_data = analyze_graph_data(con, n_jobs)
+                np.save(output_fname, graph_data)
+    return files_dict
+
+
 def init_nmr01391():
     subject = 'nmr01391'
     remote_subject_dir = find_remote_subject_dir(subject)
@@ -448,6 +549,17 @@ def init_nmr01325():
     return subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname
 
 
+def init_mg112():
+    subject = 'mg112'
+    ictal_event = {
+        1: [3622.29, 3668.28], 13: [1995.88, 2059.32], 14: [3585.09, 3636.38], 15: [3613.14, 3664.62],
+        16: [3563.04,3613.03], 17: [10.05, 136.16], 18:	[2601.04, 2666.55], 19:	[6342.66, 6408.76],
+        2: [3648.4, 3698.31], 3: [3569.75,	3626.26], 4: [2062.64, 2127.62], 5:	[3714.91, 3755.33],
+        6: [3592.17, 3659.83], 7: [3624.54,	3672.23], 8: [139.75, 238.39]}
+    ictal_template = op.join(ELECTRODES_DIR, subject, 'MG112_Seizure{ictal_id}.edf')
+    return subject, ictal_event, ictal_template
+
+
 def init_nmr01327():
     subject = 'nmr01327'
     evokes_fol = [d for d in [
@@ -472,20 +584,13 @@ def find_remote_subject_dir(subject):
     return remote_subject_dir
 
 
-if __name__ == '__main__':
+def analyze_meeg(graph_func, connectivity_method, bands, overwrite, n_jobs):
     atlas = 'laus125'
-    graph_func = 'eigenvector_centrality'
-    connectivity_method = 'mi' # Mutual information
-    bands = dict(all=[1, 120], delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
-    overwrite = True
-    n_jobs = utils.get_n_jobs(-5)
-    n_jobs = n_jobs if n_jobs > 1 else 1
-    print('n_jobs = {}'.format(n_jobs))
-
     # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr00857()
     # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01391()
     # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01321()
     subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01325()
+
 
     fwd_usingMEG, fwd_usingEEG = True, False
     modality = meg.get_modality(fwd_usingMEG, fwd_usingEEG)
@@ -501,10 +606,34 @@ if __name__ == '__main__':
     # calc_fwd_inv(
     #     subject, raw_fname, bad_channels, empty_room_fname, remote_subject_dir, fwd_usingMEG, fwd_usingEEG,
     #     overwrite, n_jobs)
-    calc_labels_data(
-        subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite, n_jobs)
-    calc_connectivity(subject, atlas, connectivity_method, fif_files, bands, modality, overwrite, n_jobs)
-    analyze_graphs(subject, fif_files, graph_func, bands, modality, overwrite, n_jobs)
-    calc_scores(subject, files_dict, graph_func, bands, modality, do_plot=True)
+    # calc_labels_data(
+    #     subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite, n_jobs)
+    # calc_connectivity(subject, atlas, connectivity_method, fif_files, bands, modality, overwrite, n_jobs)
+    # analyze_graphs(subject, fif_files, graph_func, bands, modality, overwrite, n_jobs)
+    # calc_scores(subject, files_dict, graph_func, bands, modality, do_plot=True)
 
 
+def analyze_ieeg(graph_func, connectivity_method, windows_length, windows_shift, bands, overwrite, n_jobs):
+    data_files, baseline_files = None, None
+    subject, ictal_event, ictal_template = init_mg112()
+    sfreq, big_window_length = 512, 10
+    # data_files, baseline_files = create_ictal_clips(subject, ictal_event, ictal_template, overwrite, n_jobs)
+    all_files_dict = calc_ieeg_connectivity(
+        subject, connectivity_method, graph_func, sfreq, big_window_length,
+        windows_length, windows_shift, overwrite, n_jobs)
+    # for data_file, files_dict in all_files_dict.items():
+    #     calc_scores(subject, files_dict, graph_func, bands, 'ieeg', do_plot=True)
+
+
+if __name__ == '__main__':
+    graph_func = 'eigenvector_centrality'
+    connectivity_method = 'mi' # Mutual information
+    bands = dict(all=[1, 120], delta=[1, 4], theta=[4, 8], alpha=[8, 15], beta=[15, 30], gamma=[30, 55], high_gamma=[65, 120])
+    overwrite = False
+    ieeg_windows_length, ieeg_windows_shift = int((1000/512) * 500),  int((1000/512) * 100)
+    n_jobs = utils.get_n_jobs(-5)
+    n_jobs = n_jobs if n_jobs > 1 else 1
+    print('n_jobs = {}'.format(n_jobs))
+
+    # analyze_meeg(graph_func, connectivity_method, bands, overwrite, n_jobs)
+    analyze_ieeg(graph_func, connectivity_method, ieeg_windows_length, ieeg_windows_shift, bands, overwrite, n_jobs)
