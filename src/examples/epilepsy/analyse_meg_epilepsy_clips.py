@@ -204,98 +204,107 @@ def plot_graph_values(subject, file_name, con_name, func_name):
     plt.close()
 
 
-def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, bands, modality, sz_name='',
-                             do_plot=False, overwrite=False):
+def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, bands_names, modality, input_template,
+                             sz_name='', sfreq=None, do_plot=False, overwrite=False):
     if sz_name == '':
         sz_name = utils.namebase(event_fname)
     output_fol = utils.make_dir(op.join(
         MMVT_DIR, subject, 'connectivity', '{}_{}'.format(modality, func_name), 'runs', sz_name))
-    clip = mne.read_evokeds(event_fname)[0]
-    sfreq = clip.info['sfreq']
-    t_start, t_end = clip.times[0], clip.times[-1]
-    # sfreq = 2035
+    if modality == 'ieeg':
+        # clip = np.load(event_fname)
+        t_start, t_end = -5, 5
+    else:
+        clip = mne.read_evokeds(event_fname)[0]
+        sfreq = clip.info['sfreq']
+        t_start, t_end = clip.times[0], clip.times[-1]
+
     windows_length = 500
     half_window = (1 /sfreq) * (windows_length / 2) # In seconds
     scores = {}
-    for band_name in bands.keys():
+    for band_name in bands_names:
         band_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'connectivity', '{}_{}'.format(modality, func_name), band_name))
         con_name = '{}_{}_mi'.format(modality, band_name)
         figure_name = '{}_{}_{}.jpg'.format(con_name, func_name, sz_name)
         output_fname = op.join(output_fol, figure_name)
-        input_template = op.join(
-            MMVT_DIR, subject, 'connectivity', '{}_{}_{}_{}_mi.npy'.format(
-                modality,'{file_name}', band_name, func_name))
         # if op.isfile(output_fname) and not overwrite:
         #     print('{} already exist'.format(figure_name))
         #     continue
         all_files_found = True
         for fname in baseline_fnames + [event_fname]:
-            file_name = utils.namebase(fname)
-            if not op.isfile(input_template.format(file_name=file_name)):
-                print('{} does not exist!!!'.format(input_template.format(file_name=file_name)))
-                all_files_found = False
-                break
+            if input_template != '':
+                file_name = utils.namebase(fname)
+                if not op.isfile(input_template.format(file_name=file_name)):
+                    print('{} does not exist!!!'.format(input_template.format(file_name=file_name)))
+                    all_files_found = False
+                    break
         if not all_files_found:
             continue
-        baseline_values = []
-        all_values = []
-        # sz_ind = 0
-        if do_plot:
-            fig = plt.figure(figsize=(10, 10))
-            axes = fig.add_subplot(111)
-        for fname in baseline_fnames:
-            vals = np.load(input_template.format(file_name=utils.namebase(fname)))
-            # max_ind = np.argmax(np.max(vals, axis=1))
-            # max_vals = vals[max_ind]
-            max_vals = np.max(vals, axis=0)
-            # plt.plot(t_axis, np.argmax(vals, axis=0), 'g--')
-            # plt.plot(t_axis, max_vals, 'g-', label=utils.namebase(fname))  # {}'.format(sz_ind))
-            baseline_values.append(max_vals)
-        baseline_values = np.array(baseline_values)
-
-        event_vals = np.load(input_template.format(file_name=utils.namebase(event_fname)))
-        t_axis = np.linspace(t_start + half_window, t_end - half_window, vals.shape[1])
-        # max_ind = np.argmax(np.max(event_vals, axis=1))
-        # max_event_vals = event_vals[max_ind]
-        # plt.plot(t_axis, np.argmax(event_vals, axis=0), 'b-')
-
-        max_event_vals = np.max(event_vals, axis=0)
-        if max_event_vals.shape > baseline_values[0].shape:
-            max_event_vals = max_event_vals[:baseline_values[0].shape[0]]
-        else:
-            max_event_vals = np.pad(max_event_vals, (
-                0, baseline_values[0].shape[0] - max_event_vals.shape[0]), 'constant', constant_values=np.nan)
-
-        threshold_max = baseline_values.max(axis=0)
-        threshold_ci = baseline_values.mean(axis=0) + 2 * baseline_values.std(axis=0)
-
-        cross_indices = np.where((max_event_vals > threshold_ci) & (max_event_vals > threshold_max))
-        scores[band_name] = sum(max_event_vals[cross_indices] - threshold_ci[cross_indices]) \
-            if len(cross_indices) > 0 else 0
-
-        if do_plot:
-            plt.plot(t_axis, max_event_vals, 'b-', label='epi-event')  # {}'.format(sz_ind))
-            plt.plot(t_axis, threshold_max, 'g--', label='baseline max')
-            plt.plot(t_axis, threshold_ci, 'y--', label='baseline \mu+2\std')
-            # plt.fill_between(t_axis, 0, threshold_ci,
-            #                  color='#539caf', alpha=0.4, label='baseline min-max')
-            plt.axvline(x=0, linestyle='--', color='k')
-            plt.xlabel('Time(s)', fontsize=18)
-            # xticklabels = np.arange(t_start, t_end).tolist()
-            # xticklabels[3] = 'SZ'
-            # axes.set_xticklabels(xticklabels)
-            plt.ylabel('max(Eigencentrality)', fontsize=16)
-            # plt.ylim([0.3, 0.6])
-            plt.title('Eigencentrality ({})'.format(band_name), fontsize=16)
-            plt.legend(loc='upper right', fontsize=16)
-
-            plt.scatter(t_axis[cross_indices], max_event_vals[cross_indices], marker='x', c='r')
-            print('Saving figure to {}'.format(utils.namebase(output_fname)))
-            plt.savefig(output_fname)
-            utils.copy_file(output_fname, op.join(band_fol, figure_name))
-            plt.close()
-
+        scores[band_name] = calc_score(
+            event_fname, baseline_fnames, input_template, band_name, t_start, t_end, half_window,
+            output_fname, band_fol, figure_name, do_plot)
     return scores
+
+
+def calc_score(event_fname, baseline_fnames, input_template, band_name, t_start, t_end, half_window,
+               output_fname, band_fol, figure_name, do_plot):
+    baseline_values = []
+    if do_plot:
+        fig = plt.figure(figsize=(10, 10))
+        axes = fig.add_subplot(111)
+    for fname in baseline_fnames:
+        val_fname = fname if input_template == '' else input_template.format(file_name=utils.namebase(fname))
+        vals = np.load(val_fname)
+        # max_ind = np.argmax(np.max(vals, axis=1))
+        # max_vals = vals[max_ind]
+        max_vals = np.max(vals, axis=0)
+        # plt.plot(t_axis, np.argmax(vals, axis=0), 'g--')
+        # plt.plot(t_axis, max_vals, 'g-', label=utils.namebase(fname))  # {}'.format(sz_ind))
+        baseline_values.append(max_vals)
+    baseline_values = np.array(baseline_values)
+
+    event_fname = event_fname if input_template == '' else input_template.format(file_name=utils.namebase(event_fname))
+    event_vals = np.load(event_fname)
+    t_axis = np.linspace(t_start + half_window, t_end - half_window, vals.shape[1])
+    # max_ind = np.argmax(np.max(event_vals, axis=1))
+    # max_event_vals = event_vals[max_ind]
+    # plt.plot(t_axis, np.argmax(event_vals, axis=0), 'b-')
+
+    max_event_vals = np.max(event_vals, axis=0)
+    if max_event_vals.shape > baseline_values[0].shape:
+        max_event_vals = max_event_vals[:baseline_values[0].shape[0]]
+    else:
+        max_event_vals = np.pad(max_event_vals, (
+            0, baseline_values[0].shape[0] - max_event_vals.shape[0]), 'constant', constant_values=np.nan)
+
+    threshold_max = baseline_values.max(axis=0)
+    threshold_ci = baseline_values.mean(axis=0) + 2 * baseline_values.std(axis=0)
+
+    cross_indices = np.where((max_event_vals > threshold_ci) & (max_event_vals > threshold_max))
+    score = sum(max_event_vals[cross_indices] - threshold_ci[cross_indices]) \
+        if len(cross_indices) > 0 else 0
+
+    if do_plot:
+        plt.plot(t_axis, max_event_vals, 'b-', label='epi-event')  # {}'.format(sz_ind))
+        plt.plot(t_axis, threshold_max, 'g--', label='baseline max')
+        plt.plot(t_axis, threshold_ci, 'y--', label='baseline \mu+2\std')
+        # plt.fill_between(t_axis, 0, threshold_ci,
+        #                  color='#539caf', alpha=0.4, label='baseline min-max')
+        plt.axvline(x=0, linestyle='--', color='k')
+        plt.xlabel('Time(s)', fontsize=18)
+        # xticklabels = np.arange(t_start, t_end).tolist()
+        # xticklabels[3] = 'SZ'
+        # axes.set_xticklabels(xticklabels)
+        plt.ylabel('max(Eigencentrality)', fontsize=16)
+        # plt.ylim([0.3, 0.6])
+        plt.title('Eigencentrality ({})'.format(band_name), fontsize=16)
+        plt.legend(loc='upper right', fontsize=16)
+
+        plt.scatter(t_axis[cross_indices], max_event_vals[cross_indices], marker='x', c='r')
+        print('Saving figure to {}'.format(utils.namebase(output_fname)))
+        plt.savefig(op.join(band_fol, figure_name))
+        # utils.copy_file(output_fname, op.join(band_fol, figure_name))
+        plt.close()
+    return score
 
 
 def save_sz_pick_values(subject, files_names, func_name, atlas):
@@ -351,10 +360,15 @@ def calc_scores(subject, files_dict, graph_func, bands, modality, do_plot=False)
         for band_name in bands.keys():
             scores[event_name][band_name] = []
 
+    input_template = op.join(
+        MMVT_DIR, subject, 'connectivity', '{}_{}_{}_{}_mi.npy'.format(
+            modality, '{file_name}', '{band_name}', graph_func))
+
     for event_name in ['ictal', 'IED']:
         for sz_fname in files_dict[event_name]:
             score = plot_all_files_graph_max(
-                subject, files_dict['baseline'], sz_fname, graph_func, bands, modality, '', do_plot, overwrite=True)
+                subject, files_dict['baseline'], sz_fname, graph_func, bands.keys(), modality, input_template,
+                '', None, do_plot, overwrite=True)
             for band_name in bands.keys():
                 if band_name in score:
                     scores[event_name][band_name].append(score[band_name])
@@ -362,8 +376,8 @@ def calc_scores(subject, files_dict, graph_func, bands, modality, do_plot=False)
     for sz_fname in files_dict['baseline']:
         new_baseline = utils.remote_items_from_list(files_dict['baseline'], [sz_fname])
         score = plot_all_files_graph_max(
-            subject, new_baseline, sz_fname, graph_func, bands, modality,
-            'baseline_{}'.format(utils.namebase(sz_fname)), do_plot, overwrite=True)
+            subject, new_baseline, sz_fname, graph_func, bands.keys(), modality, input_template,
+            'baseline_{}'.format(utils.namebase(sz_fname)), None, do_plot, overwrite=True)
         if score is None:
             continue
         for band_name in bands.keys():
@@ -461,6 +475,22 @@ def create_ictal_clips(subject, ictal_events_dict, ictal_template, overwrite=Fal
     return data_files, baseline_files
 
 
+def get_ieeg_connectivity_files(subject, connectivity_method, graph_func, bands):
+    mmvt_root = op.join(MMVT_DIR, subject, 'electrodes')
+    input_fol = op.join(mmvt_root, '{}_{}'.format(connectivity_method, graph_func))
+    data_files = glob.glob(op.join(mmvt_root, 'electrodes_data_*.npy'))
+    ictal_ids = sorted(list(set([utils.namebase(f).split('_')[2] for f in data_files])))
+    for id in ictal_ids:
+        for band_name in bands.keys():
+            data_fname = op.join(input_fol, 'electrodes_data_{}_{}_{}_{}.npy'.format(
+                id, connectivity_method, graph_func, band_name))
+            if not op.isfile(data_fname):
+                continue
+            baseline_fnames = glob.glob(op.join(input_fol, 'electrodes_baseline_{}_{}_{}_*_{}.npy'.format(
+                id, connectivity_method, graph_func, band_name)))
+            yield data_fname, baseline_fnames, band_name, id
+
+
 def calc_ieeg_connectivity(subject, connectivity_method, graph_func, sfreq, big_window_length,
                            windows_length, windows_shift, overwrite=False, n_jobs=4):
     mmvt_root = op.join(MMVT_DIR, subject, 'electrodes')
@@ -489,10 +519,10 @@ def calc_ieeg_connectivity(subject, connectivity_method, graph_func, sfreq, big_
         w = sfreq * big_window_length
         windows = connectivity.calc_windows(data.shape[1], w, w)
         for base_ind, w in enumerate(windows):
-            files_dict[utils.namebase(data_fname)]['baseline'].append(output_fname)
             for band_name, (fmin, fmax) in bands.items():
                 output_fname = op.join(output_fol, '{}_{}_{}_{}_{}.npy'.format(
                     utils.namebase(baseline_fname), connectivity_method, graph_func, base_ind, band_name))
+                files_dict[utils.namebase(data_fname)]['baseline'].append(output_fname)
                 if op.isfile(output_fname) and not overwrite:
                     continue
                 print(utils.namebase(output_fname))
@@ -614,15 +644,28 @@ def analyze_meeg(graph_func, connectivity_method, bands, overwrite, n_jobs):
 
 
 def analyze_ieeg(graph_func, connectivity_method, windows_length, windows_shift, bands, overwrite, n_jobs):
-    data_files, baseline_files = None, None
     subject, ictal_event, ictal_template = init_mg112()
     sfreq, big_window_length = 512, 10
     # data_files, baseline_files = create_ictal_clips(subject, ictal_event, ictal_template, overwrite, n_jobs)
-    all_files_dict = calc_ieeg_connectivity(
-        subject, connectivity_method, graph_func, sfreq, big_window_length,
-        windows_length, windows_shift, overwrite, n_jobs)
-    # for data_file, files_dict in all_files_dict.items():
-    #     calc_scores(subject, files_dict, graph_func, bands, 'ieeg', do_plot=True)
+    # all_files_dict = calc_ieeg_connectivity(
+    #     subject, connectivity_method, graph_func, sfreq, big_window_length,
+    #     windows_length, windows_shift, overwrite, n_jobs)
+    do_plot = True
+    scores = {'ictal': {band: [] for band in bands.keys()}, 'baseline': {band: [] for band in bands.keys()}}
+    for data_fname, baseline_fnames, band_name, ictal_id in get_ieeg_connectivity_files(
+            subject, connectivity_method, graph_func, bands):
+        score = plot_all_files_graph_max(
+            subject, baseline_fnames, data_fname, graph_func, [band_name], 'ieeg', '', ictal_id, sfreq,
+            do_plot=do_plot, overwrite=True)
+        scores['ictal'][band_name].append(score[band_name])
+        for ind, sz_fname in enumerate(baseline_fnames):
+            new_baseline = utils.remote_items_from_list(baseline_fnames, [sz_fname])
+            score = plot_all_files_graph_max(
+                subject, new_baseline, sz_fname, graph_func, [band_name], 'ieeg', '',
+                'baseline_{}_{}'.format(ictal_id, ind), sfreq, do_plot, overwrite=True)
+            if score is not None:
+                scores['baseline'][band_name].append(score[band_name])
+
 
 
 if __name__ == '__main__':
