@@ -68,7 +68,7 @@ def project_on_surface(subject, volume_file, surf_output_fname, target_subject=N
         if not op.isfile(surf_output_fname.format(hemi=hemi)) or overwrite_surf_data:
             print('project {} to {}'.format(volume_file, hemi))
             if modality != 'pet':
-                surf_data = project_volume_data(volume_file, hemi, subject_id=subject, surf="pial", smooth_fwhm=3,
+                surf_data = project_volume_data(volume_file, hemi, subject_id=subject, surf="white", smooth_fwhm=3,
                     target_subject=target_subject, output_fname=surf_output_fname.format(hemi=hemi))
             else:
                 surf_data = project_pet_volume_data(subject, volume_file, hemi, surf_output_fname.format(hemi=hemi))

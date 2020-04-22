@@ -927,6 +927,8 @@ def data_electrodes_to_bipolar(subject, electrodes_type=None):
 
 def calc_seizure_times(start_time, seizure_onset, seizure_end, baseline_onset, baseline_end,
                        time_format='%H:%M:%S'):
+    if time_format == 'seconds':
+        return float(seizure_onset), float(seizure_end), float(baseline_onset), float(baseline_end)
     start_time = datetime.strptime(start_time, time_format)
     seizure_time = datetime.strptime(seizure_onset, time_format) - start_time
     seizure_start_t = seizure_time.seconds # - seizure_onset_time
