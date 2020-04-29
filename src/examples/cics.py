@@ -15,6 +15,7 @@ from src.preproc import anatomy as anat
 FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_recons'
 FS_BASE_6_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6month_recons'
 HOME_FOL = '/autofs/space/nihilus_001/CICS/users/noam/CICS/'
+RESULTS_FOL = '/autofs/space/nihilus_001/CICS/users/noam/figures/'
 SCAN, RESCAN = 'scan', 'rescan'
 
 LINKS_DIR = utils.get_links_dir()
@@ -29,9 +30,12 @@ os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
 mri_robust_register = 'mri_robust_register --mov "{source_fname}" --dst "{target_fname}" --lta "{lta_fname}" ' + \
                       '--satit --mapmov "{output_fname}" --cost {cost_function}'
 bbregister = 'bbregister --s {subject} --mov "{source_fname}" --lta "{lta_fname}" --t1 --o "{output_fname}"'
+             # '--tmp "{tmp_fol}"'
 register_using_lta = 'mri_convert -at "{lta_fname}" "{source_fname}" "{output_fname}"'
 register_using_inverse_lta = 'mri_convert -ait "{lta_fname}" "{source_fname}" "{output_fname}"'
-
+mri_compute_volume_fractions = 'mri_compute_volume_fractions --o "{output_fname}" --regheader {subject} "{target_fname}"'
+save_registration_figure = 'freeview -v "{target_fname}":visible=0:name=orig.mgz {source_fname}:name=Control.nii:reg={lta_fname} --surface {white_lh_fname}:edgecolor=yellow --surface {white_rh_fname}:edgecolor=yellow --ss {output_fig_fname}'
+'
 
 def get_subject_fs_folder(subject, scan_rescan, base_6_12='0'):
     base_6_12_str = '' if base_6_12 == '0' else base_6_12
@@ -47,6 +51,7 @@ def register_cbf_to_t1(subject, site, scan_rescan, overwrite=False, print_only=F
     source_fname = op.join(subject_fol, 'Control.nii')
     target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
     lta_fname = op.join(subject_fol, 'control_to_T1.lta')
+    tmp_fol = utils.make_dir(op.join(subject_fol, 'bbregister'))
     if not op.isfile(source_fname):
         print('The source ({}) does not exist!'.format(source_fname))
         return False
@@ -67,6 +72,20 @@ def register_cbf_to_t1(subject, site, scan_rescan, overwrite=False, print_only=F
     '''
 
 
+def save_registration_results():
+    '''
+    freeview -v {target_fname}:visible=0:name=orig.mgz {source_fname}:name=Control.nii:reg={lta_fname} --surface {white_lh_fname}:edgecolor=yellow --surface {white_rh_fname}:edgecolor=yellow --ss {output_fig_fname}
+    '''
+
+    subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
+    target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
+    source_fname = op.join(subject_fol, 'Control.nii')
+    lta_fname = op.join(subject_fol, 'control_to_T1.lta')
+    white_lh_fname =  op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'surf', 'lh.white')
+    white_rh_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'surf', 'rh.white')
+    output_fig_fname = op.join(subject_fol, 'control_to_T1.jpg')
+
+
 def register_aseg_to_cbf(subject, site, scan_rescan, overwrite=False, print_only=True):
     subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
     lta_fname = op.join(subject_fol, 'control_to_T1.lta')
@@ -82,6 +101,8 @@ def register_aseg_to_cbf(subject, site, scan_rescan, overwrite=False, print_only
 def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, overwrite=False, do_plot=True):
     subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
     output_fname = op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg_hist.pkl')
+    if op.isfile(output_fname) and not overwrite and not do_plot:
+        return True
     cics_cbf_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF.nii')
     if not op.isfile(cics_cbf_fname):
         print('calc_cbf_histograms: Cannot find {}!'.format(cics_cbf_fname))
@@ -95,7 +116,7 @@ def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, ove
     aparc_aseg = nib.load(aparc_aseg_fname).get_data()
     unique_codes = list(range(1001, 1036)) + list(range(2001, 2036))
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg'))
-    if overwrite:
+    if overwrite and do_plot:
         utils.delete_folder_files(output_fol)
     regions_values = {}
     for code in tqdm(unique_codes):
@@ -106,7 +127,8 @@ def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, ove
         fig_fname = op.join(output_fol, '{}.jpg'.format(region_name))
         if op.isfile(fig_fname) and not overwrite:
             continue
-        regions_values[region_name] = region_values = cbf_data[np.where(aparc_aseg == code)]
+        region_values = cbf_data[np.where(aparc_aseg == code)]
+        regions_values[region_name] = region_values.copy()
         outliers = np.where(region_values < low_threshold)[0]
         if len(outliers) > 0:
             print('{} has {} out of {} values < {}'.format(region_name, len(outliers), len(region_values), low_threshold))
@@ -337,6 +359,71 @@ def read_subject_hippocampus_volumes(subject):
     return volumes
 
 
+def plot_registration_cost_hist(subjects, site, overwrite=False):
+    fig_fname = op.join(RESULTS_FOL, site, 'reg_costs.jpg')
+    csv_fname = op.join(RESULTS_FOL, site, 'reg_costs.csv')
+    results, mincosts = [], []
+    for subject in subjects:
+        for scan_rescan in [SCAN, RESCAN]:
+            mincost_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'control_to_T1.dat.mincost')
+            if not op.isfile(mincost_fname):
+                print('{} does not exist!'.format(mincost_fname))
+                continue
+            score = np.genfromtxt(mincost_fname)[0]
+            results.append([score, subject, scan_rescan])
+            mincosts.append(score)
+    plt.hist(mincosts)
+    plt.savefig(fig_fname)
+    plt.close()
+
+    import csv
+    print('writing {}'.format(csv_fname))
+    results.sort(key=lambda res: res[0])
+    with open(csv_fname, 'w') as csv_file:
+        csv_writer = csv.writer(csv_file, delimiter=',')
+        for res in results[::-1]:
+            csv_writer.writerow(res)
+
+
+def calc_volume_fractions(subject, site, scan_rescan):
+    output_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'T1')
+    target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
+    rs = utils.partial_run_script(locals(), print_only=print_only)
+    rs(mri_compute_volume_fractions)
+
+
+def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
+    from collections import defaultdict
+
+    output_fol = utils.make_dir(op.join(RESULTS_FOL, site, 'hists', 'cbf_aparc_hists'))
+    output_fname = op.join(RESULTS_FOL, site, 'cbf_aparc_hists.pkl')
+    x_grid = np.linspace(-50, 150, 200)
+    if not op.isfile(output_fname) or overwrite:
+        kdes = defaultdict(list)
+        for subject in tqdm(subjects):
+            for scan_rescan in [SCAN, RESCAN]:
+                input_fname = op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg_hist.pkl')
+                if not op.isfile(input_fname):
+                    print('No hist file for {} {}'.format(subject, scan_rescan))
+                    continue
+                regions_values = utils.load(input_fname)
+                for region, values in regions_values.items():
+                    kdes[region].append(utils.kde(values, x_grid, bandwidth=0.1))
+        utils.save(kdes, output_fname)
+    else:
+        kdes = utils.load(output_fname)
+
+    for region_name, region_kdes in tqdm(kdes.items()):
+        figure_fname = op.join(output_fol, '{}.jpg'.format(region_name))
+        if op.isfile(figure_fname) and not overwrite:
+            continue
+        plt.figure()
+        for region_kde in region_kdes:
+            plt.plot(x_grid, region_kde)
+        plt.savefig(figure_fname)
+        plt.close()
+
+
 def get_subjects(site):
     # subjects = set([fol.split('_')[0].replace('-base', '') for fol in utils.get_subfolders(FS_ROOT, 'name')])
     # return sorted(list(subjects - set(['scripts', 'fsaverage'])))
@@ -373,7 +460,7 @@ if __name__ == '__main__':
     low_threshold, high_threshold = 0, 100
     overwrite = False
     print_only = False
-    do_plot = True
+    do_plot = False
     subjects = get_subjects(site)
     # subjects = [subject]
 
@@ -382,19 +469,18 @@ if __name__ == '__main__':
     now = time.time()
     for sub_ind, subject in enumerate(subjects):
         utils.time_to_go(now, sub_ind, len(subjects), 1)
-        # try:
-        preproc_anat(subject)
-        get_labels_data(subject, atlas)
+        # preproc_anat(subject)
+        # get_labels_data(subject, atlas)
         for scan_rescan in [SCAN, RESCAN]:
-            register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-            project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-            register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-            calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, overwrite, do_plot)
-            calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold, high_threshold, overwrite, do_plot)
+            # calc_volume_fractions(subject, site, scan_rescan)
+            # register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+            # project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+            # register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+            # calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, overwrite=True, do_plot=False)
+            # calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold, high_threshold, overwrite, do_plot)
             # morph_to_fsaverage(subject, scan_rescan, overwrite=overwrite, print_only=print_only)
             pass
-        # except:
-        #     print('Error with {}'.format(subject))
         # calc_scan_rescan_diff(subject, overwrite=overwrite)
         # find_diff_clusters(subject, atlas='laus125', overwrite=True)
-
+    # plot_subjects_cbf_histograms(subjects, site, True)
+    # plot_registration_cost_hist(subjects, site)

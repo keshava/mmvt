@@ -2438,3 +2438,10 @@ def remove_non_printable(s):
 
 def remote_items_from_list(lst, items):
     return [x for x in lst if x not in items]
+
+
+def kde(x, x_grid, bandwidth=0.2, **kwargs):
+    """Kernel Density Estimation with Scipy"""
+    from scipy.stats import gaussian_kde
+    kde = gaussian_kde(x, bw_method=bandwidth / x.std(ddof=1), **kwargs)
+    return kde.evaluate(x_grid)
