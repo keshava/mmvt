@@ -12,7 +12,7 @@ from src.utils import labels_utils as lu
 from src.preproc import fMRI
 from src.preproc import anatomy as anat
 
-FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6_12month_recons'
+FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_recons'
 FS_BASE_6_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6month_recons'
 HOME_FOL = '/autofs/space/nihilus_001/CICS/users/noam/CICS/'
 SCAN, RESCAN = 'scan', 'rescan'
@@ -79,26 +79,34 @@ def register_aseg_to_cbf(subject, site, scan_rescan, overwrite=False, print_only
         print('{} already exist'.format(output_fname))
 
 
-def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, overwrite=False):
+def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, overwrite=False, do_plot=True):
     subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
+    output_fname = op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg_hist.pkl')
     cics_cbf_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF.nii')
+    if not op.isfile(cics_cbf_fname):
+        print('calc_cbf_histograms: Cannot find {}!'.format(cics_cbf_fname))
+        return False
+    aparc_aseg_fname = op.join(subject_fol, 'aparc+aseg_cbf.mgz')
+    if not op.isfile(aparc_aseg_fname):
+        print('calc_cbf_histograms: Cannot find {}!'.format(aparc_aseg_fname))
+        return False
     cbf_data = nib.load(cics_cbf_fname).get_data()
     lut = utils.read_freesurfer_lookup_table(return_dict=True)
-    aparc_aseg_fname = op.join(subject_fol, 'aparc+aseg_cbf.mgz')
     aparc_aseg = nib.load(aparc_aseg_fname).get_data()
     unique_codes = list(range(1001, 1036)) + list(range(2001, 2036))
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg'))
     if overwrite:
         utils.delete_folder_files(output_fol)
+    regions_values = {}
     for code in tqdm(unique_codes):
         region_name = lut.get(code, None)
         if region_name is None:
             # print('{} not in lut!'.format(code))
             continue
         fig_fname = op.join(output_fol, '{}.jpg'.format(region_name))
-        if op.isfile(overwrite) and not overwrite:
+        if op.isfile(fig_fname) and not overwrite:
             continue
-        region_values = cbf_data[np.where(aparc_aseg == code)]
+        regions_values[region_name] = region_values = cbf_data[np.where(aparc_aseg == code)]
         outliers = np.where(region_values < low_threshold)[0]
         if len(outliers) > 0:
             print('{} has {} out of {} values < {}'.format(region_name, len(outliers), len(region_values), low_threshold))
@@ -107,9 +115,11 @@ def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, ove
             print('{} has {} out of {} values > {}'.format(region_name, len(outliers), len(region_values), high_threshold))
         region_values[region_values < low_threshold] = low_threshold
         region_values[region_values > high_threshold] = high_threshold
-        plt.hist(region_values, bins=40)
-        plt.savefig(fig_fname)
-        plt.close()
+        if do_plot:
+            plt.hist(region_values, bins=40)
+            plt.savefig(fig_fname)
+            plt.close()
+    utils.save(regions_values, output_fname)
 
 
 # def print_freeview_cmd(subject, subject_fol):
@@ -125,20 +135,25 @@ def get_labels_data(subject, atlas):
 
 
 def preproc_anat(subject):
-    args = anat.read_cmd_args(dict(
-        subject=subject, remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject))))
-    anat.call_main(args)
+    utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
+    utils.make_dir(op.join(MMVT_DIR, '{}_rescan'.format(subject), 'fmri'))
 
     args = anat.read_cmd_args(dict(
         subject=subject, remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject)),
-        function='labeling', atlas='laus125'))
+        function='prepare_subject_folder',
+        exclude='create_new_subject_blend_file', ignore_missing=True))
     anat.call_main(args)
+
+    # args = anat.read_cmd_args(dict(
+    #     subject=subject, remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject)),
+    #     function='labeling', atlas='laus125', ignore_missing=True))
+    # anat.call_main(args)
 
     args = anat.read_cmd_args(dict(
         subject='{}_rescan'.format(subject),
         remote_subject_dir=op.join(FS_ROOT, '{0}_B_recon.long.{0}-base'.format(subject)),
-        # exclude='create_new_subject_blend_file',
-    ))
+        function='prepare_subject_folder',
+        exclude='create_new_subject_blend_file', ignore_missing=True))
     anat.call_main(args)
 
 
@@ -182,12 +197,12 @@ def project_cbf_on_cortex(subject, site, scan_rescan, overwrite=False, print_onl
     # fMRI.call_main(args)
     # copy the rescan to the scan folder
     # mmvt_blend/277S0203_rescan/fmri/fmri_CBF_rescan_rh.npy
-    if scan_rescan == RESCAN:
-        rescan_fname = op.join(MMVT_DIR, mmvt_subject, 'fmri', 'fmri_CBF_rescan_rh.npy')
-        target_fname = op.join(MMVT_DIR, subject, 'fmri', 'fmri_CBF_rescan_rh.npy')
-        utils.delete_file(target_fname)
-        print('Copy {} to {}'.format(rescan_fname, target_fname))
-        utils.copy_file(rescan_fname, target_fname)
+    # if scan_rescan == RESCAN:
+    #     rescan_fname = op.join(MMVT_DIR, mmvt_subject, 'fmri', 'fmri_CBF_rescan_rh.npy')
+    #     target_fname = op.join(MMVT_DIR, subject, 'fmri', 'fmri_CBF_rescan_rh.npy')
+    #     utils.delete_file(target_fname)
+    #     print('Copy {} to {}'.format(rescan_fname, target_fname))
+    #     utils.copy_file(rescan_fname, target_fname)
 
 
 @utils.tryit()
@@ -200,13 +215,15 @@ def morph_to_fsaverage(subject, scan_rescan, overwrite=False, print_only=False):
 
 
 def calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold=40, high_threshold=100, overwrite=False,
-                             n_jobs=4):
+                             do_plot=True, n_jobs=4):
     if not lu.check_labels(subject, atlas, SUBJECTS_DIR, MMVT_DIR):
         return False
     output_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'labels_hists_{}'.format(atlas)))
+    output_fname = op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'labels_hists_{}.pkl'.format(atlas))
     if overwrite:
         utils.delete_folder_files(output_fol)
     print('Saving figures into {}'.format(output_fol))
+    labels_data = {}
     for hemi in utils.HEMIS:
         npy_data_fname = op.join(MMVT_DIR, subject, 'fmri', 'fmri_CBF_{}_{}.npy'.format(scan_rescan, hemi))
         if not op.isfile(npy_data_fname):
@@ -228,7 +245,7 @@ def calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold=40, high
             fig_fname = op.join(output_fol, '{}.jpg'.format(label.name))
             if op.isfile(fig_fname) and not overwrite:
                 continue
-            label_data = hemi_vals[label.vertices]
+            labels_data[label.name] = label_data = hemi_vals[label.vertices]
             outliers = np.where(label_data < low_threshold)[0]
             if len(outliers) > 0:
                 print('{} has {}/{} values < {}'.format(label.name, len(outliers), len(label_data), low_threshold))
@@ -237,9 +254,11 @@ def calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold=40, high
                 print('{} has {}/{} values > {}'.format(label.name, len(outliers), len(label_data), high_threshold))
             label_data[label_data < low_threshold] = low_threshold
             label_data[label_data > high_threshold] = high_threshold
-            plt.hist(label_data, bins=40)
-            plt.savefig(fig_fname)
-            plt.close()
+            if do_plot:
+                plt.hist(label_data, bins=40)
+                plt.savefig(fig_fname)
+                plt.close()
+    utils.save(labels_data, output_fname)
 
 
 def calc_scan_rescan_diff(subject, overwrite=False):
@@ -318,8 +337,11 @@ def read_subject_hippocampus_volumes(subject):
     return volumes
 
 
-def get_subjects():
-    return np.unique([fol.split('_')[0].replace('-base', '') for fol in utils.get_subfolders(FS_ROOT, 'name')])
+def get_subjects(site):
+    # subjects = set([fol.split('_')[0].replace('-base', '') for fol in utils.get_subfolders(FS_ROOT, 'name')])
+    # return sorted(list(subjects - set(['scripts', 'fsaverage'])))
+    subjects = set([fol.split('_')[0] for fol in utils.get_subfolders(op.join(HOME_FOL, site), 'name')])
+    return subjects
 
 
 def read_hippocampus_volumes(overwrite=False):
@@ -349,26 +371,30 @@ if __name__ == '__main__':
     site = '277-NDC'
     atlas = 'aparc' # 'aparc.DKTatlas'
     low_threshold, high_threshold = 0, 100
-    overwrite = True
+    overwrite = False
     print_only = False
-    # subjects = get_subjects()
-    subjects = [subject]
+    do_plot = True
+    subjects = get_subjects(site)
+    # subjects = [subject]
 
     # read_hippocampus_volumes()
 
     now = time.time()
     for sub_ind, subject in enumerate(subjects):
         utils.time_to_go(now, sub_ind, len(subjects), 1)
+        # try:
         preproc_anat(subject)
-        # get_labels_data(subject, atlas)
+        get_labels_data(subject, atlas)
         for scan_rescan in [SCAN, RESCAN]:
-            # register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-            # calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, True)
-            # register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-            # project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=True)
-            # calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold, high_threshold, True)
+            register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+            project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+            register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+            calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, overwrite, do_plot)
+            calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold, high_threshold, overwrite, do_plot)
             # morph_to_fsaverage(subject, scan_rescan, overwrite=overwrite, print_only=print_only)
             pass
+        # except:
+        #     print('Error with {}'.format(subject))
         # calc_scan_rescan_diff(subject, overwrite=overwrite)
         # find_diff_clusters(subject, atlas='laus125', overwrite=True)
 
