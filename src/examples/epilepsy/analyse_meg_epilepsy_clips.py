@@ -638,7 +638,7 @@ def analyze_meeg(graph_func, connectivity_method, bands, overwrite, n_jobs):
     #     overwrite, n_jobs)
     # calc_labels_data(
     #     subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite, n_jobs)
-    # calc_connectivity(subject, atlas, connectivity_method, fif_files, bands, modality, overwrite, n_jobs)
+    calc_connectivity(subject, atlas, connectivity_method, fif_files, bands, modality, overwrite, n_jobs)
     # analyze_graphs(subject, fif_files, graph_func, bands, modality, overwrite, n_jobs)
     # calc_scores(subject, files_dict, graph_func, bands, modality, do_plot=True)
 
@@ -679,4 +679,4 @@ if __name__ == '__main__':
     print('n_jobs = {}'.format(n_jobs))
 
     # analyze_meeg(graph_func, connectivity_method, bands, overwrite, n_jobs)
-    analyze_ieeg(graph_func, connectivity_method, ieeg_windows_length, ieeg_windows_shift, bands, overwrite, n_jobs)
+    # analyze_ieeg(graph_func, connectivity_method, ieeg_windows_length, ieeg_windows_shift, bands, overwrite, n_jobs)
