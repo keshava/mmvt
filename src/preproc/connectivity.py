@@ -588,14 +588,14 @@ def calc_lables_connectivity(subject, labels_extract_mode, args):
         raise Exception('Wrong number of dims!')
     d = save_connectivity(
         subject, conn, args.atlas, args.connectivity_method, ROIS_TYPE, labels_names, conditions, output_fname,
-        con_vertices_fname, args.windows, args.stat, args.norm_by_percentile, args.norm_percs, args.threshold,
-        args.threshold_percentile, args.symetric_colors)
+        args.windows, args.stat, args.norm_by_percentile, args.norm_percs, args.threshold,
+        args.threshold_percentile, args.symetric_colors) # con_vertices_fname
     ret = op.isfile(output_fname)
     if not static_conn is None:
         static_conn = static_conn[:, :, np.newaxis]
         save_connectivity(
             subject, static_conn, args.atlas, no_wins_connectivity_method, ROIS_TYPE, labels_names, conditions,
-            static_output_fname, '', args.windows, args.stat, args.norm_by_percentile, args.norm_percs, args.threshold,
+            static_output_fname, args.windows, args.stat, args.norm_by_percentile, args.norm_percs, args.threshold,
             args.threshold_percentile, args.symetric_colors, d['labels'], d['locations'], d['hemis'])
         ret = ret and op.isfile(static_output_fname)
 
