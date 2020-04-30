@@ -571,7 +571,7 @@ def plot_connections(d=None, plot_time=None, threshold=None, calc_t=True, data_m
             raise Exception('What should I do here?!?')
         if not isinstance(stat_vals[0], float) and len(stat_vals[0]) == 2:
             stat_vals = [np.diff(v) for v in stat_vals]
-        colors = _addon().calc_colors(np.array(stat_vals).squeeze(), data_min, colors_ratio)
+        colors = _addon().calc_colors(np.array(stat_vals[selected_indices]).squeeze(), data_min, colors_ratio)
         # colors = np.concatenate((colors, np.zeros((len(colors), 1))), 1)
         _addon().show_hide_connections()
         if threshold is None:

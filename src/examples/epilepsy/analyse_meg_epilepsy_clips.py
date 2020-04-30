@@ -113,8 +113,9 @@ def calc_connectivity(subject, atlas, connectivity_method, files, bands, modalit
                 fmin=band_freqs[0],
                 fmax=band_freqs[1],
                 sfreq=2035, # clin MEG
-                recalc_connectivity=True,
-                save_mmvt_connectivity=False,
+                recalc_connectivity=False,
+                save_mmvt_connectivity=True,
+                threshold_percentile=80,
                 n_jobs=n_jobs
             ))
             connectivity.call_main(con_args)
@@ -233,8 +234,9 @@ def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, b
         for fname in baseline_fnames + [event_fname]:
             if input_template != '':
                 file_name = utils.namebase(fname)
-                if not op.isfile(input_template.format(file_name=file_name)):
-                    print('{} does not exist!!!'.format(input_template.format(file_name=file_name)))
+                input_fname = input_template.format(file_name=file_name, band_name=band_name)
+                if not op.isfile(input_fname):
+                    print('{} does not exist!!!'.format(input_fname))
                     all_files_found = False
                     break
         if not all_files_found:
@@ -244,7 +246,7 @@ def plot_all_files_graph_max(subject, baseline_fnames, event_fname, func_name, b
             output_fname, band_fol, figure_name, do_plot)
     return scores
 
-
+@utils.tryit()
 def calc_score(event_fname, baseline_fnames, input_template, band_name, t_start, t_end, half_window,
                output_fname, band_fol, figure_name, do_plot):
     baseline_values = []
@@ -262,14 +264,17 @@ def calc_score(event_fname, baseline_fnames, input_template, band_name, t_start,
         baseline_values.append(max_vals)
     baseline_values = np.array(baseline_values)
 
-    event_fname = event_fname if input_template == '' else input_template.format(file_name=utils.namebase(event_fname))
+    event_fname = event_fname if input_template == '' else input_template.format(
+        file_name=utils.namebase(event_fname), band_name=band_name)
     event_vals = np.load(event_fname)
-    t_axis = np.linspace(t_start + half_window, t_end - half_window, vals.shape[1])
+    t_axis = np.linspace(t_start + half_window, t_end - half_window, event_vals.shape[1])
     # max_ind = np.argmax(np.max(event_vals, axis=1))
     # max_event_vals = event_vals[max_ind]
     # plt.plot(t_axis, np.argmax(event_vals, axis=0), 'b-')
 
     max_event_vals = np.max(event_vals, axis=0)
+    max_t = np.argmax(max_event_vals)
+    max_node = np.argmax(event_vals[:, max_t])
     if max_event_vals.shape > baseline_values[0].shape:
         max_event_vals = max_event_vals[:baseline_values[0].shape[0]]
     else:
@@ -426,6 +431,7 @@ def split_baseline(fif_fnames, clips_length=6, shift=6, overwrite=False):
 def create_ictal_clips(subject, ictal_events_dict, ictal_template, overwrite=False, n_jobs=4):
     mmvt_root = op.join(MMVT_DIR, subject, 'electrodes')
     data_files, baseline_files = [], []
+    meta = utils.Bag(np.load(op.join(mmvt_root, 'electrodes_meta_data.npz')))
     for ictal_id, times in ictal_events_dict.items():
         output_fname = op.join(mmvt_root, 'electrodes_data_{}.npy'.format(ictal_id))
         baseline_fname = op.join(mmvt_root, 'electrodes_baseline_{}.npy'.format(ictal_id))
@@ -532,10 +538,63 @@ def calc_ieeg_connectivity(subject, connectivity_method, graph_func, sfreq, big_
     return files_dict
 
 
+def save_influmax_labels_values(subject, modality, atlas, event_name, connectivity_method, band, inverse_method='dSPM',
+                                extract_mode='mean_flip'):
+    file_name = '{}_{}_{}_{}_{}'.format(modality, event_name, band, graph_func, connectivity_method)
+    con_fol = op.join(MMVT_DIR, subject, 'connectivity')
+    event_vals = np.load(op.join(con_fol, '{}.npy'.format(file_name)))
+    max_event_vals = np.max(event_vals, axis=0)
+    max_t = np.argmax(max_event_vals)
+    data = event_vals # [:, max_t]
+    fol = utils.make_dir(op.join(MMVT_DIR, subject, 'labels', 'labels_data'))
+    d = np.load(op.join(con_fol, '{}_{}_{}_{}.npz'.format(modality, event_name, band, connectivity_method)))
+    labels_names = d['labels']
+    np.savez(op.join(fol, '{}_mean.npz'.format(file_name)), names=labels_names,
+             atlas=atlas, data=data, title='influmax',
+             data_min=np.min(data), data_max=np.max(data), cmap='YlOrRd')
+    labels_data_template = op.join(MMVT_DIR, subject, 'meg', 'labels_data_{}'.format(event_name))
+    labels_data_template += '_{}_{}_{}_{}_{}.npz'  # task, atlas, inverse_method, em, hemi
+    for hemi in utils.HEMIS:
+        hemi_inds = [ind for (ind, label_name) in enumerate(labels_names) if label_name.endswith(hemi)]
+        hemi_data = {extract_mode:data[hemi_inds]}
+        meg.save_labels_data(
+            hemi_data, hemi, labels_names[hemi_inds], atlas, ['epilepsy'], [extract_mode], [inverse_method],
+            labels_data_template, task='epilepsy')
+        meg_labels_fname = op.join(MMVT_DIR, subject, 'meg', 'labels_data_{}-epilepsy-{}-{}-{}_{}_{}_{}.npz'.format(
+            subject, inverse_method, modality, event_name, atlas, extract_mode, hemi))
+        meg_data = np.load(meg_labels_fname)
+        label_name = 'middletemporal_4-rh'
+        if label_name not in meg_data['names']:
+            continue
+        ind = list(meg_data['names']).index(label_name)
+        label_data = meg_data['data'][ind]
+        t_axis = np.linspace(-2, 5, label_data.shape[0])
+        plt.plot(t_axis, label_data)
+        plt.axvline(x=0, linestyle='--', color='k')
+        plt.xlabel('Time(s)', fontsize=18)
+        plt.ylabel(inverse_method, fontsize=18)
+        plt.savefig(op.join(MMVT_DIR, subject, modality, '{}.jpg'.format(label_name)))
+        plt.close()
+
+
+def save_influmax_electrodes_values(subject, clip_ind, connectivity_method, graph_func, band):
+    data = np.load(op.join(MMVT_DIR, subject, 'electrodes', '{}_{}'.format(connectivity_method, graph_func),
+        'electrodes_data_{}_{}_{}_{}.npy'.format(clip_ind, connectivity_method, graph_func, band)))
+    meta_fname = op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_meta_data.npz')
+    meta = np.load(meta_fname)
+    times = np.linspace(-5, 5, data.shape[0])
+    conditions = ['seizure']
+    np.savez(meta_fname, names=meta['names'], conditions=conditions, times=times)
+    np.save(op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_data.npy'), data)
+
+
+
 def init_nmr01391():
     subject = 'nmr01391'
     remote_subject_dir = find_remote_subject_dir(subject)
     meg_fol = '/autofs/space/frieda_001/users/valia/mmvt_root/meg/1391' # '/homes/5/npeled/space1/MEG/nmr00857/clips'
+    if not op.isfile(meg_fol):
+        meg_fol = op.join(MEG_DIR, subject)
     bad_channels = ['MEG{}'.format(c) for c in [
         '0113', '1532', '1623', '2042', '1912', '2032', '2522', '0642', '0121', '1421', '1221', '1023',
         '0741', '1022', '1242']]
@@ -609,22 +668,26 @@ def find_remote_subject_dir(subject):
     if not op.isdir(op.join(remote_subjects_dir, subject)):
         remote_subjects_dir = SUBJECTS_DIR
     remote_subject_dir = op.join(remote_subjects_dir, subject)
-    if not op.isdir(remote_subject_dir):
-        raise Exception('No reocon-all files!')
+    # if not op.isdir(remote_subject_dir):
+    #     raise Exception('No reocon-all files!')
+    print(('No reocon-all files!'))
     return remote_subject_dir
 
 
 def analyze_meeg(graph_func, connectivity_method, bands, overwrite, n_jobs):
     atlas = 'laus125'
-    # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr00857()
+    subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr00857()
     # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01391()
     # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01321()
-    subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01325()
-
+    # subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01325()
 
     fwd_usingMEG, fwd_usingEEG = True, False
     modality = meg.get_modality(fwd_usingMEG, fwd_usingEEG)
-
+    if not op.isdir(meg_fol):
+        meg_fol = op.join(MEG_DIR, subject)
+    if not op.isdir(meg_fol):
+        print('No MEG fol!')
+        return
     fif_files, files_dict = [], {}
     for subfol in ['baseline', 'ictal', 'IED']:
         files = glob.glob(op.join(meg_fol, subfol, '*.fif'))
@@ -638,9 +701,11 @@ def analyze_meeg(graph_func, connectivity_method, bands, overwrite, n_jobs):
     #     overwrite, n_jobs)
     # calc_labels_data(
     #     subject, fif_files, atlas, remote_subject_dir, bad_channels, fwd_usingMEG, fwd_usingEEG, overwrite, n_jobs)
-    calc_connectivity(subject, atlas, connectivity_method, fif_files, bands, modality, overwrite, n_jobs)
+    bands = dict(gamma=[30, 55])
+    # calc_connectivity(subject, atlas, connectivity_method, fif_files, bands, modality, True, n_jobs)
     # analyze_graphs(subject, fif_files, graph_func, bands, modality, overwrite, n_jobs)
     # calc_scores(subject, files_dict, graph_func, bands, modality, do_plot=True)
+    save_influmax_labels_values(subject, modality, atlas, 'run1_45.6s_SZstart_MEG', connectivity_method, 'gamma')
 
 
 def analyze_ieeg(graph_func, connectivity_method, windows_length, windows_shift, bands, overwrite, n_jobs):
@@ -650,6 +715,8 @@ def analyze_ieeg(graph_func, connectivity_method, windows_length, windows_shift,
     # all_files_dict = calc_ieeg_connectivity(
     #     subject, connectivity_method, graph_func, sfreq, big_window_length,
     #     windows_length, windows_shift, overwrite, n_jobs)
+    save_influmax_electrodes_values(subject, 5, connectivity_method, graph_func, 'gamma')
+    return
     do_plot = True
     scores = {'ictal': {band: [] for band in bands.keys()}, 'baseline': {band: [] for band in bands.keys()}}
     for data_fname, baseline_fnames, band_name, ictal_id in get_ieeg_connectivity_files(
@@ -679,4 +746,4 @@ if __name__ == '__main__':
     print('n_jobs = {}'.format(n_jobs))
 
     # analyze_meeg(graph_func, connectivity_method, bands, overwrite, n_jobs)
-    # analyze_ieeg(graph_func, connectivity_method, ieeg_windows_length, ieeg_windows_shift, bands, overwrite, n_jobs)
+    analyze_ieeg(graph_func, connectivity_method, ieeg_windows_length, ieeg_windows_shift, bands, overwrite, n_jobs)

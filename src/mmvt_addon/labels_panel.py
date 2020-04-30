@@ -276,7 +276,7 @@ def _load_labels_data(labels_data_fname):
     labels, data = d.names, d.data
     if len(labels) == 0:
         return False
-    if isinstance(labels[0], mne.Label):
+    if not isinstance(labels[0], str) and isinstance(labels[0], mne.Label):
         labels = [l.name for l in labels]
     if data.ndim == 2:
         if data.shape[0] == len(labels):

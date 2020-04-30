@@ -1172,10 +1172,13 @@ def add_data_to_electrodes(all_data, meta_data, window_len=None, conditions=None
             add_data_to_electrode(data, cur_obj, obj_name, conditions, T)
         else:
             for fcurve_ind, fcurve in enumerate(cur_obj.animation_data.action.fcurves):
-                fcurve.keyframe_points[0].co[1] = 0
-                fcurve.keyframe_points[-1].co[1] = 0
-                for t in range(T):
-                    fcurve.keyframe_points[t + 1].co[1] = data[t, fcurve_ind]
+                try:
+                    fcurve.keyframe_points[0].co[1] = 0
+                    fcurve.keyframe_points[-1].co[1] = 0
+                    for t in range(T):
+                        fcurve.keyframe_points[t + 1].co[1] = data[t, fcurve_ind]
+                except:
+                    mu.print_last_error_line()
 
     conditions = meta_data['conditions'] if isinstance(meta_data, dict) and 'conditions' in meta_data else ['all']
     print('Finished keyframing!!')
@@ -1342,6 +1345,8 @@ def add_data_to_electrodes_and_parent():
         '_bipolar' if bpy.context.scene.bipolar else '')))[0]
     # 'avg' if bpy.context.scene.selection_type == 'conds' else 'diff'))
     data, meta = DataMakerPanel.electrodes_data, DataMakerPanel.electrodes_meta_data
+    if data.ndim == 2:
+        data = data[:, :, np.newaxis]
     if not data is None and not meta is None:
         print('Loading electordes data from {}'.format(source_file))
         add_data_to_electrodes_parent_obj(parent_obj, data, meta)
@@ -1655,6 +1660,7 @@ def init_electrodes_data():
         '_bipolar' if bpy.context.scene.bipolar else '')))
     if len(source_files) > 0:
         # todo: show all the options
+        print('Loading electrodes data from {}'.format(source_files[0]))
         DataMakerPanel.electrodes_meta_data = np.load(source_files[0])
         DataMakerPanel.electrodes_data = DataMakerPanel.electrodes_meta_data['data']
         DataMakerPanel.electrodes_data_exist = True
@@ -1664,6 +1670,7 @@ def init_electrodes_data():
         meta_file = op.join(base_path, 'electrodes', 'electrodes{}_meta_data.npz'.format(
             '_bipolar' if bpy.context.scene.bipolar else ''))
         if op.isfile(source_file) and op.isfile(meta_file):
+            print('Loading electrodes data from {}'.format(source_file))
             DataMakerPanel.electrodes_data = np.load(source_file)
             DataMakerPanel.electrodes_meta_data = np.load(meta_file)
             DataMakerPanel.electrodes_data_exist = True

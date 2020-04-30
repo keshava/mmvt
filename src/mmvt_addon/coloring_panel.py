@@ -848,7 +848,7 @@ def labels_coloring_hemi(labels_data, faces_verts, hemi, threshold=0, labels_col
             mu.run_mmvt_func('src.preproc.anatomy', 'save_labels_vertices', flags='-a {}'.format(atlas))
             return
     now = time.time()
-    colors_ratio = None
+    # colors_ratio = None
     labels_names = ColoringMakerPanel.labels_vertices[atlas]['labels_names']
     labels_vertices = ColoringMakerPanel.labels_vertices[atlas]['labels_vertices']
     vertices_num = max(itertools.chain.from_iterable(labels_vertices[hemi])) + 1
@@ -2020,9 +2020,11 @@ def electrodes_conditions_update(self, context):
 
 def _electrodes_conditions_update(data_minmax=None):
     data, names, conditions = _addon().load_electrodes_data()
+    if data.ndim == 2:
+        data = data[:, :, np.newaxis]
     if bpy.context.scene.electrodes_conditions != 'diff':
         cond_ind = np.where(conditions == bpy.context.scene.electrodes_conditions)[0][0]
-        data = data[:, :, cond_ind]
+        data = data[:, :, cond_ind] if data.shape[2] > 1 else data
         if not _addon().colorbar_values_are_locked():
             _addon().set_colorbar_title('Electrodes {} condition'.format(conditions[cond_ind]))
     else:
@@ -2830,6 +2832,8 @@ def init_electrodes():
             bpy.context.scene.electrodes_min_prec = 3
             bpy.context.scene.electrodes_max_prec = 97
         _, _, conditions = _addon().load_electrodes_data()
+        if conditions is None:
+            conditions = ['all']
         items = [(c, c, '', ind + 1) for ind, c in enumerate(conditions)]
         items.append(('diff', 'Conditions difference', '', len(conditions) +1))
         bpy.types.Scene.electrodes_conditions = bpy.props.EnumProperty(items=items,
