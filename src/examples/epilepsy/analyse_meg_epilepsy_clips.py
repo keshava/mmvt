@@ -733,8 +733,6 @@ def analyze_ieeg(graph_func, connectivity_method, windows_length, windows_shift,
             if score is not None:
                 scores['baseline'][band_name].append(score[band_name])
 
-
-
 if __name__ == '__main__':
     graph_func = 'eigenvector_centrality'
     connectivity_method = 'mi' # Mutual information
