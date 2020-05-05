@@ -386,7 +386,7 @@ def plot_registration_cost_hist(subjects, site, overwrite=False):
             csv_writer.writerow(res)
 
 
-def calc_volume_fractions(subject, site, scan_rescan, use_reg=True, overwrite=False):
+def calc_volume_fractions(subject, site, scan_rescan, use_reg=True, overwrite=False, print_only=False):
     # 'mri_compute_volume_fractions --o "{output_fname}" --regheader {subject} "{target_fname}"'
     # mri_compute_volume_fractions_reg = 'mri_compute_volume_fractions --o "{output_fname}" --reg  "{reg_fname}"'
     if use_reg:
@@ -401,6 +401,19 @@ def calc_volume_fractions(subject, site, scan_rescan, use_reg=True, overwrite=Fa
         output_full_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.cortex.mgz')
     if not op.isfile(output_full_fname) or overwrite:
         rs(mri_compute_volume_fractions_reg if use_reg else mri_compute_volume_fractions)
+
+
+def calc_volume_fractions_all_subjects(subjects, site, overwrite, print_only):
+    indices = np.array_split(np.arange(len(subjects)), n_jobs)
+    chunks = [([subjects[ind] for ind in chunk_indices], site, overwrite, print_only)
+              for chunk_indices in indices]
+    utils.run_parallel(_calc_volume_fractions_parallel, chunks, n_jobs)
+
+
+def _calc_volume_fractions_parallel(p):
+    subjects, site, overwrite, print_only = p
+    for subject in subjects:
+        calc_volume_fractions(subject, site, scan_rescan, use_reg=True, overwrite=overwrite, print_only=print_only)
 
 
 def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
@@ -473,9 +486,11 @@ if __name__ == '__main__':
     print_only = False
     do_plot = False
     subjects = get_subjects(site)
+    n_jobs = utils.get_n_jobs(-5)
     # subjects = [subject]
 
     # read_hippocampus_volumes()
+    calc_volume_fractions_all_subjects(subjects, site, overwrite, print_only)
 
     now = time.time()
     for sub_ind, subject in enumerate(subjects):
@@ -483,7 +498,7 @@ if __name__ == '__main__':
         # preproc_anat(subject)
         # get_labels_data(subject, atlas)
         for scan_rescan in [SCAN, RESCAN]:
-            calc_volume_fractions(subject, site, scan_rescan)
+            # calc_volume_fractions(subject, site, scan_rescan)
             # register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
             # project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
             # register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
@@ -495,3 +510,5 @@ if __name__ == '__main__':
         # find_diff_clusters(subject, atlas='laus125', overwrite=True)
     # plot_subjects_cbf_histograms(subjects, site, True)
     # plot_registration_cost_hist(subjects, site)
+
+
