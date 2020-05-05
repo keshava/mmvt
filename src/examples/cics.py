@@ -34,8 +34,9 @@ bbregister = 'bbregister --s {subject} --mov "{source_fname}" --lta "{lta_fname}
 register_using_lta = 'mri_convert -at "{lta_fname}" "{source_fname}" "{output_fname}"'
 register_using_inverse_lta = 'mri_convert -ait "{lta_fname}" "{source_fname}" "{output_fname}"'
 mri_compute_volume_fractions = 'mri_compute_volume_fractions --o "{output_fname}" --regheader {subject} "{target_fname}"'
+mri_compute_volume_fractions_reg = 'mri_compute_volume_fractions --o "{output_fname}" --reg  "{reg_fname}"'
 save_registration_figure = 'freeview -v "{target_fname}":visible=0:name=orig.mgz {source_fname}:name=Control.nii:reg={lta_fname} --surface {white_lh_fname}:edgecolor=yellow --surface {white_rh_fname}:edgecolor=yellow --ss {output_fig_fname}'
-'
+
 
 def get_subject_fs_folder(subject, scan_rescan, base_6_12='0'):
     base_6_12_str = '' if base_6_12 == '0' else base_6_12
@@ -385,11 +386,21 @@ def plot_registration_cost_hist(subjects, site, overwrite=False):
             csv_writer.writerow(res)
 
 
-def calc_volume_fractions(subject, site, scan_rescan):
-    output_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'T1')
-    target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
-    rs = utils.partial_run_script(locals(), print_only=print_only)
-    rs(mri_compute_volume_fractions)
+def calc_volume_fractions(subject, site, scan_rescan, use_reg=True, overwrite=False):
+    # 'mri_compute_volume_fractions --o "{output_fname}" --regheader {subject} "{target_fname}"'
+    # mri_compute_volume_fractions_reg = 'mri_compute_volume_fractions --o "{output_fname}" --reg  "{reg_fname}"'
+    if use_reg:
+        reg_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'control_to_T1.lta')
+        output_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF')
+        rs = utils.partial_run_script(locals(), print_only=print_only)
+        output_full_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF.cortex.mgz')
+    else:
+        output_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'T1')
+        target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
+        rs = utils.partial_run_script(locals(), print_only=print_only)
+        output_full_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.cortex.mgz')
+    if not op.isfile(output_full_fname) or overwrite:
+        rs(mri_compute_volume_fractions_reg if use_reg else mri_compute_volume_fractions)
 
 
 def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
@@ -472,7 +483,7 @@ if __name__ == '__main__':
         # preproc_anat(subject)
         # get_labels_data(subject, atlas)
         for scan_rescan in [SCAN, RESCAN]:
-            # calc_volume_fractions(subject, site, scan_rescan)
+            calc_volume_fractions(subject, site, scan_rescan)
             # register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
             # project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
             # register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
