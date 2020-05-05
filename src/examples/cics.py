@@ -99,7 +99,8 @@ def register_aseg_to_cbf(subject, site, scan_rescan, overwrite=False, print_only
         print('{} already exist'.format(output_fname))
 
 
-def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, overwrite=False, do_plot=True):
+def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, cortex_frac_threshold=0.9,
+                        overwrite=False, do_plot=True):
     subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
     output_fname = op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg_hist.pkl')
     if op.isfile(output_fname) and not overwrite and not do_plot:
@@ -112,7 +113,12 @@ def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, ove
     if not op.isfile(aparc_aseg_fname):
         print('calc_cbf_histograms: Cannot find {}!'.format(aparc_aseg_fname))
         return False
+    cortex_frac_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF.cortex.mgz')
+    if not op.isfile(cortex_frac_fname):
+        print('No cortex frac!')
+        return False
     cbf_data = nib.load(cics_cbf_fname).get_data()
+    cortex_frac = nib.load(cortex_frac_fname).get_data()
     lut = utils.read_freesurfer_lookup_table(return_dict=True)
     aparc_aseg = nib.load(aparc_aseg_fname).get_data()
     unique_codes = list(range(1001, 1036)) + list(range(2001, 2036))
@@ -120,6 +126,7 @@ def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, ove
     if overwrite and do_plot:
         utils.delete_folder_files(output_fol)
     regions_values = {}
+    output_str = ''
     for code in tqdm(unique_codes):
         region_name = lut.get(code, None)
         if region_name is None:
@@ -129,19 +136,28 @@ def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, ove
         if op.isfile(fig_fname) and not overwrite:
             continue
         region_values = cbf_data[np.where(aparc_aseg == code)]
+        cortex_frac_values = cortex_frac[np.where(aparc_aseg == code)]
+        cortex_indices = np.where(cortex_frac_values > cortex_frac_threshold)
+        if len(cortex_indices[0]) == 0:
+            output_str += '{} has no voxels with cortex_frac > {}!\n'.format(region_name, cortex_frac_threshold)
+            continue
+        region_values = region_values[cortex_indices]
         regions_values[region_name] = region_values.copy()
         outliers = np.where(region_values < low_threshold)[0]
         if len(outliers) > 0:
-            print('{} has {} out of {} values < {}'.format(region_name, len(outliers), len(region_values), low_threshold))
+            output_str += '{} has {} out of {} values < {}\n'.format(
+                region_name, len(outliers), len(region_values), low_threshold)
         outliers = np.where(region_values > high_threshold)[0]
         if len(outliers) > 0:
-            print('{} has {} out of {} values > {}'.format(region_name, len(outliers), len(region_values), high_threshold))
+            output_str += '{} has {} out of {} values > {}\n'.format(
+                region_name, len(outliers), len(region_values), high_threshold)
         region_values[region_values < low_threshold] = low_threshold
         region_values[region_values > high_threshold] = high_threshold
         if do_plot:
             plt.hist(region_values, bins=40)
             plt.savefig(fig_fname)
             plt.close()
+    print(output_str)
     utils.save(regions_values, output_fname)
 
 
@@ -422,21 +438,26 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
     output_fol = utils.make_dir(op.join(RESULTS_FOL, site, 'hists', 'cbf_aparc_hists'))
     output_fname = op.join(RESULTS_FOL, site, 'cbf_aparc_hists.pkl')
     x_grid = np.linspace(-50, 150, 200)
+    output_str = ''
     if not op.isfile(output_fname) or overwrite:
         kdes = defaultdict(list)
         for subject in tqdm(subjects):
             for scan_rescan in [SCAN, RESCAN]:
                 input_fname = op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg_hist.pkl')
                 if not op.isfile(input_fname):
-                    print('No hist file for {} {}'.format(subject, scan_rescan))
+                    output_str += 'No hist file for {} {}\n'.format(subject, scan_rescan)
                     continue
                 regions_values = utils.load(input_fname)
                 for region, values in regions_values.items():
-                    kdes[region].append(utils.kde(values, x_grid, bandwidth=0.1))
+                    if len(values) > 1:
+                        kdes[region].append(utils.kde(values, x_grid, bandwidth=0.1))
+                    else:
+                        output_str += '{} {} has no values!\n'.format(subject, region)
         utils.save(kdes, output_fname)
     else:
         kdes = utils.load(output_fname)
 
+    print(output_str)
     for region_name, region_kdes in tqdm(kdes.items()):
         figure_fname = op.join(output_fol, '{}.jpg'.format(region_name))
         if op.isfile(figure_fname) and not overwrite:
@@ -446,6 +467,14 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
             plt.plot(x_grid, region_kde)
         plt.savefig(figure_fname)
         plt.close()
+    print('Figures were saved in {}'.format(output_fol))
+
+    fol = utils.make_dir(op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data'))
+    labels_names = [name for name in kdes.keys()]
+    data = [np.var(x) for x in kdes.values()]
+    np.savez(op.join(fol, 'CBF_hist_var.npz'), names=labels_names, atlas='aparc', data=data, title='CBF hist',
+             data_min=np.min(data), data_max=np.max(data), cmap='YlOrRd')
+
 
 
 def get_subjects(site):
@@ -482,6 +511,7 @@ if __name__ == '__main__':
     site = '277-NDC'
     atlas = 'aparc' # 'aparc.DKTatlas'
     low_threshold, high_threshold = 0, 100
+    cortex_frac_threshold = 0.9
     overwrite = False
     print_only = False
     do_plot = False
@@ -490,7 +520,7 @@ if __name__ == '__main__':
     # subjects = [subject]
 
     # read_hippocampus_volumes()
-    calc_volume_fractions_all_subjects(subjects, site, overwrite, print_only)
+    # calc_volume_fractions_all_subjects(subjects, site, overwrite, print_only)
 
     now = time.time()
     for sub_ind, subject in enumerate(subjects):
@@ -502,13 +532,14 @@ if __name__ == '__main__':
             # register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
             # project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
             # register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-            # calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, overwrite=True, do_plot=False)
+            # calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, cortex_frac_threshold,
+            #                     overwrite=True, do_plot=False)
             # calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold, high_threshold, overwrite, do_plot)
             # morph_to_fsaverage(subject, scan_rescan, overwrite=overwrite, print_only=print_only)
             pass
         # calc_scan_rescan_diff(subject, overwrite=overwrite)
         # find_diff_clusters(subject, atlas='laus125', overwrite=True)
-    # plot_subjects_cbf_histograms(subjects, site, True)
+    plot_subjects_cbf_histograms(subjects, site, overwrite=False)
     # plot_registration_cost_hist(subjects, site)
 
 
