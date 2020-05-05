@@ -439,6 +439,7 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
     output_fol = utils.make_dir(op.join(RESULTS_FOL, site, 'hists', 'cbf_aparc_hists'))
     output_fname = op.join(RESULTS_FOL, site, 'cbf_aparc_hists.pkl')
     x_grid = np.linspace(-50, 150, 200)
+    stats = defaultdict(dict)
     output_str = ''
     if not op.isfile(output_fname) or overwrite:
         kdes = defaultdict(list)
@@ -455,15 +456,17 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
                         kdes[region].append(kde)
                     else:
                         output_str += '{} {} has no values!\n'.format(subject, region)
-            for region in regions_values.keys():
-                kdes[region] = np.array(kdes[region])
+        for region in regions_values.keys():
+            kdes[region] = x = np.array(kdes[region])
+            w = np.mean(x, axis=0)
+            stats[region]['mean'] = region_mean = np.average(x_grid, weights=w)
+            stats[region]['var'] = np.average((region_mean - x_grid) ** 2, weights=w)
         utils.save(kdes, output_fname)
     else:
         kdes = utils.load(output_fname)
 
     return
     print(output_str)
-    kds = []
     for region_name, region_kdes in tqdm(kdes.items()):
         figure_fname = op.join(output_fol, '{}.jpg'.format(region_name))
         if op.isfile(figure_fname) and not overwrite:
@@ -477,6 +480,9 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
 
     fol = utils.make_dir(op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data'))
     labels_names = [name for name in kdes.keys()]
+    mids = 0.5 * (x_grid[1:] + x_grid[:-1])
+    for x in kdes.values():
+        np.average(x_grid, weights=np.mean(x, axis=0))
     data = [np.var(x) for x in kdes.values()]
     np.savez(op.join(fol, 'CBF_hist_var.npz'), names=labels_names, atlas='aparc', data=data, title='CBF hist',
              data_min=np.min(data), data_max=np.max(data), cmap='YlOrRd')
