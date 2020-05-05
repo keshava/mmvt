@@ -15,7 +15,8 @@ from src.preproc import anatomy as anat
 FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_recons'
 FS_BASE_6_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6month_recons'
 HOME_FOL = '/autofs/space/nihilus_001/CICS/users/noam/CICS/'
-RESULTS_FOL = '/autofs/space/nihilus_001/CICS/users/noam/figures/'
+RESULTS_FOL = [d for d in ['/autofs/space/nihilus_001/CICS/users/noam/figures/', 'C:\\Users\\peled\\CICS']
+               if op.isdir(d)][0]
 SCAN, RESCAN = 'scan', 'rescan'
 
 LINKS_DIR = utils.get_links_dir()
@@ -450,14 +451,19 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
                 regions_values = utils.load(input_fname)
                 for region, values in regions_values.items():
                     if len(values) > 1:
-                        kdes[region].append(utils.kde(values, x_grid, bandwidth=0.1))
+                        kde = utils.kde(values, x_grid, bandwidth=0.1)
+                        kdes[region].append(kde)
                     else:
                         output_str += '{} {} has no values!\n'.format(subject, region)
+            for region in regions_values.keys():
+                kdes[region] = np.array(kdes[region])
         utils.save(kdes, output_fname)
     else:
         kdes = utils.load(output_fname)
 
+    return
     print(output_str)
+    kds = []
     for region_name, region_kdes in tqdm(kdes.items()):
         figure_fname = op.join(output_fol, '{}.jpg'.format(region_name))
         if op.isfile(figure_fname) and not overwrite:
@@ -476,7 +482,7 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
              data_min=np.min(data), data_max=np.max(data), cmap='YlOrRd')
 
 
-
+@utils.tryit(except_retval=[])
 def get_subjects(site):
     # subjects = set([fol.split('_')[0].replace('-base', '') for fol in utils.get_subfolders(FS_ROOT, 'name')])
     # return sorted(list(subjects - set(['scripts', 'fsaverage'])))
