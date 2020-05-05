@@ -438,8 +438,10 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
 
     output_fol = utils.make_dir(op.join(RESULTS_FOL, site, 'hists', 'cbf_aparc_hists'))
     output_fname = op.join(RESULTS_FOL, site, 'cbf_aparc_hists.pkl')
+    all_values_fname = op.join(RESULTS_FOL, site, 'cbf_aparc_vals.pkl')
     x_grid = np.linspace(-50, 150, 200)
     stats = defaultdict(dict)
+    all_regions_values = defaultdict(list)
     output_str = ''
     if not op.isfile(output_fname) or overwrite:
         kdes = defaultdict(list)
@@ -451,6 +453,7 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
                     continue
                 regions_values = utils.load(input_fname)
                 for region, values in regions_values.items():
+                    all_regions_values[region].extend(values)
                     if len(values) > 1:
                         kde = utils.kde(values, x_grid, bandwidth=0.1)
                         kdes[region].append(kde)
@@ -458,12 +461,15 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
                         output_str += '{} {} has no values!\n'.format(subject, region)
         for region in regions_values.keys():
             kdes[region] = x = np.array(kdes[region])
-            w = np.mean(x, axis=0)
-            stats[region]['mean'] = region_mean = np.average(x_grid, weights=w)
-            stats[region]['var'] = np.average((region_mean - x_grid) ** 2, weights=w)
+            all_regions_values[region] = np.array(all_regions_values[region])
+            # w = np.mean(x, axis=0)
+            # stats[region]['mean'] = region_mean = np.average(x_grid, weights=w)
+            # stats[region]['var'] = np.average((region_mean - x_grid) ** 2, weights=w)
         utils.save(kdes, output_fname)
+        utils.save(all_regions_values, all_values_fname)
     else:
         kdes = utils.load(output_fname)
+        all_values = utils.load(all_values_fname)
 
     return
     print(output_str)
@@ -551,7 +557,7 @@ if __name__ == '__main__':
             pass
         # calc_scan_rescan_diff(subject, overwrite=overwrite)
         # find_diff_clusters(subject, atlas='laus125', overwrite=True)
-    plot_subjects_cbf_histograms(subjects, site, overwrite=False)
+    plot_subjects_cbf_histograms(subjects, site, overwrite=True)
     # plot_registration_cost_hist(subjects, site)
 
 
