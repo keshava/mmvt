@@ -487,8 +487,7 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
     data_var, region_names = [], []
     for region, region_values in all_values.items():
         data_var.append(region_values.var())
-        region_names.append(region.var())
-    data_var = [x.var() for x in all_values.values]
+        region_names.append(region)
     np.savez(op.join(fol, 'CBF_hist_var.npz'), names=region_names, atlas='aparc', data=data_var,
              title='CBF hist var', data_min=np.min(data_var), data_max=np.max(data_var), cmap='YlOrRd')
 
