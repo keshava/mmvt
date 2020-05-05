@@ -471,7 +471,6 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
         kdes = utils.load(output_fname)
         all_values = utils.load(all_values_fname)
 
-    return
     print(output_str)
     for region_name, region_kdes in tqdm(kdes.items()):
         figure_fname = op.join(output_fol, '{}.jpg'.format(region_name))
@@ -485,13 +484,13 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
     print('Figures were saved in {}'.format(output_fol))
 
     fol = utils.make_dir(op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data'))
-    labels_names = [name for name in kdes.keys()]
-    mids = 0.5 * (x_grid[1:] + x_grid[:-1])
-    for x in kdes.values():
-        np.average(x_grid, weights=np.mean(x, axis=0))
-    data = [np.var(x) for x in kdes.values()]
-    np.savez(op.join(fol, 'CBF_hist_var.npz'), names=labels_names, atlas='aparc', data=data, title='CBF hist',
-             data_min=np.min(data), data_max=np.max(data), cmap='YlOrRd')
+    data_var, region_names = [], []
+    for region, region_values in all_values.items():
+        data_var.append(region_values.var())
+        region_names.append(region.var())
+    data_var = [x.var() for x in all_values.values]
+    np.savez(op.join(fol, 'CBF_hist_var.npz'), names=region_names, atlas='aparc', data=data_var,
+             title='CBF hist var', data_min=np.min(data_var), data_max=np.max(data_var), cmap='YlOrRd')
 
 
 @utils.tryit(except_retval=[])
@@ -557,7 +556,7 @@ if __name__ == '__main__':
             pass
         # calc_scan_rescan_diff(subject, overwrite=overwrite)
         # find_diff_clusters(subject, atlas='laus125', overwrite=True)
-    plot_subjects_cbf_histograms(subjects, site, overwrite=True)
+    plot_subjects_cbf_histograms(subjects, site, overwrite=False)
     # plot_registration_cost_hist(subjects, site)
 
 
