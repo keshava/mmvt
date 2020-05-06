@@ -483,13 +483,25 @@ def plot_subjects_cbf_histograms(subjects, site, overwrite=False):
         plt.close()
     print('Figures were saved in {}'.format(output_fol))
 
+    from scipy.stats import shapiro
     fol = utils.make_dir(op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data'))
-    data_var, region_names = [], []
+    data_var, outliers, region_names, shapiro_p_vals = [], [], [], []
     for region, region_values in all_values.items():
+        region_names.append('-'.join(region.split('-')[1:][::-1]))
         data_var.append(region_values.var())
-        region_names.append(region)
-    np.savez(op.join(fol, 'CBF_hist_var.npz'), names=region_names, atlas='aparc', data=data_var,
-             title='CBF hist var', data_min=np.min(data_var), data_max=np.max(data_var), cmap='YlOrRd')
+        outliers.append((len(np.where(region_values > high_threshold)[0]) * 100) / len(region_values))
+        shapiro_p_vals.append(shapiro(region_values)[1])
+    for data, file_name in zip(
+            [data_var, outliers, shapiro_p_vals],
+            ['CBF_hist_var', 'CBF_hist_outliers', 'CBF_hist_shapiro']):
+        np.savez(op.join(fol, '{}.npz'.format(file_name)), names=region_names, atlas='aparc',
+                 data=data, title=file_name.replace('_', ' '), data_min=np.min(data), data_max=np.max(data),
+                 cmap='YlOrRd')
+
+    # np.savez(op.join(fol, 'CBF_hist_var.npz'), names=region_names, atlas='aparc', data=data_var,
+    #          title='CBF hist var', data_min=np.min(data_var), data_max=np.max(data_var), cmap='YlOrRd')
+    # np.savez(op.join(fol, 'CBF_hist_outliers.npz'), names=region_names, atlas='aparc', data=outliers,
+    #          title='CBF hist outliers', data_min=np.min(outliers), data_max=np.max(outliers), cmap='YlOrRd')
 
 
 @utils.tryit(except_retval=[])
