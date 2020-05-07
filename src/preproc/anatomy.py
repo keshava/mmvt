@@ -4,7 +4,7 @@ import os.path as op
 import shutil
 import traceback
 from collections import defaultdict
-from tqdm import tqdm
+# from tqdm import tqdm
 import csv
 import copy
 
@@ -997,7 +997,7 @@ def create_verts_faces_lookup(subject, surface_type='pial'):
             continue
         verts, faces = utils.read_pial(subject, MMVT_DIR, hemi, surface_type)
         lookup = defaultdict(list)
-        for f_ind, f in tqdm(enumerate(faces)):
+        for f_ind, f in enumerate(faces):
             for v_ind in f:
                 lookup[v_ind].append(f_ind)
         utils.save(lookup, output_fname.format(hemi=hemi))
@@ -1018,7 +1018,7 @@ def calc_faces_contours(subject, atlas):
         vertices_neighbors = np.load(verts_neighbors_fname.format(hemi=hemi))
         verts_faces_lookup = utils.load(verts_faces_lookup_fname.format(hemi=hemi))
         contours_vertices = np.where(contours_dict['contours'])[0]
-        for vert in tqdm(contours_vertices):
+        for vert in contours_vertices:
             vert_label = vertices_labels_lookup[hemi].get(vert, '')
             vert_faces = verts_faces_lookup[vert]
             for vert_nei in vertices_neighbors[vert]:
@@ -1544,7 +1544,7 @@ def create_surface_volume_mask(subject, surface_name, overwrite=True):
     surface_vol = np.zeros(t1_data.shape, dtype=np.uint8)
     for hemi in utils.HEMIS:
         hemi_surface_voxels = np.rint(utils.apply_trans(ras_tkr2vox, surface_verts[hemi])).astype(int)
-        for vox in tqdm(hemi_surface_voxels):
+        for vox in hemi_surface_voxels:
             surface_vol[tuple(vox)] = 1
     print('{:.2f}% voxels are {}'.format(
         len(np.where(surface_vol)[0])/(t1_data.shape[0] * t1_data.shape[1]), surface_name))
