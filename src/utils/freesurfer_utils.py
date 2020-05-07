@@ -13,7 +13,9 @@ from nibabel.spatialimages import ImageFileError
 
 import logging
 
-from src.preproc.meg import MMVT_DIR
+from src.utils import preproc_utils as pu
+SUBJECTS_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
+# from src.preproc.meg import MMVT_DIR
 
 logger = logging.getLogger('surfer')
 
