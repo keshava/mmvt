@@ -8,7 +8,7 @@ import glob
 import traceback
 import functools
 from collections import defaultdict, Counter
-from tqdm import tqdm
+# from tqdm import tqdm
 import nibabel as nib
 from functools import partial
 import re
@@ -444,7 +444,7 @@ def calc_subject_vertices_labels_lookup_from_template(subject, template_brain, a
                 len(template_vertices_labels_lookup[hemi].keys())):
             raise Exception('Wrong number of vertices in the morphing map!')
 
-        for subject_vert in tqdm(range(len(subject_vertices))):
+        for subject_vert in range(len(subject_vertices)):
             template_verts_inds = morph_maps[hemi_ind][subject_vert].nonzero()[1]
             verts_labels = [
                 template_vertices_labels_lookup[hemi][template_vert] for template_vert in template_verts_inds]
@@ -491,7 +491,7 @@ def calc_subject_to_subject_vertices_lookup(subject_from, subject_to, overwrite=
         if len(subject_to_vertices) != morph_maps[hemi_ind].shape[0]:
             raise Exception('Wrong number of vertices in the morphing map!')
 
-        for subject_vert in tqdm(range(len(subject_from_vertices))):
+        for subject_vert in range(len(subject_from_vertices)):
             subject_vertices_lookup[hemi][subject_vert] = morph_maps[hemi_ind][subject_vert].nonzero()[1]
     utils.save(subject_vertices_lookup, output_fname)
     return subject_vertices_lookup
