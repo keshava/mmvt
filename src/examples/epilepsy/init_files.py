@@ -93,3 +93,4 @@ def subject_nmr01327():
     bad_channels = 'EEG059,EEG019,MEG1532'
     baseline_name = 'baseline_run1_195.7_12sec'
     return subject, evokes_fol, meg_fol, empty_fname, bad_channels, baseline_name, True
+

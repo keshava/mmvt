@@ -588,7 +588,6 @@ def save_influmax_electrodes_values(subject, clip_ind, connectivity_method, grap
     np.save(op.join(MMVT_DIR, subject, 'electrodes', 'electrodes_data.npy'), data)
 
 
-
 def init_nmr01391():
     subject = 'nmr01391'
     remote_subject_dir = find_remote_subject_dir(subject)
@@ -732,6 +731,7 @@ def analyze_ieeg(graph_func, connectivity_method, windows_length, windows_shift,
                 'baseline_{}_{}'.format(ictal_id, ind), sfreq, do_plot, overwrite=True)
             if score is not None:
                 scores['baseline'][band_name].append(score[band_name])
+
 
 if __name__ == '__main__':
     graph_func = 'eigenvector_centrality'

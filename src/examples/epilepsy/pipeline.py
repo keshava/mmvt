@@ -883,7 +883,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
             windows.remove(baseline_window)
     if specific_window != '':
         windows = [w for w in windows if specific_window in utils.namebase(w)]
-    if len(exclude_windows) > 0 :
+    if len(exclude_windows) > 0:
         windows = [w for w in windows if all([
             exclude_window not in utils.namebase(w) for exclude_window in exclude_windows])]
     if len(windows) == 0:
