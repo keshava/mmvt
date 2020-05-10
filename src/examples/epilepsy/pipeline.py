@@ -64,8 +64,9 @@ def check_inv_fwd(subject, modality, run_num):
         modality, len(inv_eeg_channels), len(fwd_eeg_channels), len(inv_meg_channels), len(fwd_meg_channels)))
 
 
-def calc_amplitude(subject, modality, run_num, windows_fnames, inverse_method='dSPM', overwrite=False, n_jobs=4):
-    params = [(subject, window_fname, modality, run_num, windows_fnames, inverse_method, overwrite)
+def calc_amplitude(subject, modality, run_num, windows_fnames, inverse_method='dSPM', overwrite=False,
+                   rename=True, n_jobs=4):
+    params = [(subject, window_fname, modality, run_num, windows_fnames, inverse_method, overwrite, rename)
               for window_fname in windows_fnames]
     utils.run_parallel(_calc_amplitude_parallel, params, n_jobs)
 
@@ -74,7 +75,7 @@ def _calc_amplitude_parallel(p):
     # python3 -m src.preproc.meg -s nmr00857 -f calc_stc -i dSPM -t epilepsy
     #   --evo_fname /autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif
     #   --overwrite_stc 1
-    subject, window_fname, modality, run_num, windows_fnames, inverse_method, overwrite = p
+    subject, window_fname, modality, run_num, windows_fnames, inverse_method, overwrite, rename = p
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
     args = module.read_cmd_args(dict(
@@ -87,11 +88,14 @@ def _calc_amplitude_parallel(p):
         fwd_fname=op.join(root_dir, '{}-epilepsy{}-{}-fwd.fif'.format(subject, run_num, modality)),
         fwd_usingEEG=modality in ['eeg', 'meeg'],
         evo_fname=window_fname,
+        stc_template=op.join(MMVT_DIR, subject, modality, '{}-epilepsy-{}-{}-{}'.format(
+            subject, inverse_method, modality, utils.namebase(window_fname))),
         overwrite_stc=overwrite,
         n_jobs=1,
     ))
     module.call_main(args)
-    move_and_rename_amplitude_files(subject, modality, inverse_method)
+    if rename:
+        move_and_rename_amplitude_files(subject, modality, inverse_method)
 
 
 def move_and_rename_amplitude_files(subject, modality, inverse_method='dSPM'):
@@ -106,7 +110,11 @@ def move_and_rename_amplitude_files(subject, modality, inverse_method='dSPM'):
         else:
             new_stc_fname = '{}-amplitude-{}'.format(stc_fname[:-len('-rh.stc')], stc_fname[-len('rh.stc'):])
             os.rename(stc_fname, new_stc_fname)
-            utils.move_file(new_stc_fname, no_zvals_fol, overwrite=True)
+            try:
+                utils.move_file(new_stc_fname, no_zvals_fol, overwrite=True)
+            except:
+                print('move_and_rename_amplitude_files: Error in renaming!')
+                print('{} -> {}'.format(new_stc_fname, no_zvals_fol))
 
 
 def calc_amplitude_zvals(subject, windows_fnames, baseline_name, modality, from_index=None, to_index=None,
@@ -689,16 +697,6 @@ def calc_avg_power_specturm_stc(
     combined_stc.save(output_stc_fname)
 
 
-def get_fwd_flags(modality):
-    if modality == 'meg':
-        fwd_usingMEG, fwd_usingEEG = True, False
-    elif modality == 'eeg':
-        fwd_usingMEG, fwd_usingEEG = False, True
-    else:
-        fwd_usingMEG, fwd_usingEEG = True, True
-    return fwd_usingMEG, fwd_usingEEG
-
-
 def calc_labels_connectivity(
         subject, windows, baseline_window, condition, modality, atlas='laus125', func_rois_atlas=True,
         inverse_method='dSPM', low_freq=1, high_freq=120, con_method='wpli2_debiased', con_mode='cwt_morlet',
@@ -709,7 +707,7 @@ def calc_labels_connectivity(
         return
 
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
-    fwd_usingMEG, fwd_usingEEG = get_fwd_flags(modality)
+    fwd_usingMEG, fwd_usingEEG = meg.get_fwd_flags(modality)
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
 
     # todo: calc this 10 automatically
@@ -852,7 +850,7 @@ def normalize_connectivity(subject, condition, modality, high_freq=120, con_meth
 def find_functional_rois(subject, condition, modality, atlas='laus125', min_cluster_size=10, inverse_method='dSPM'):
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     inv_fname = op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality))
-    fwd_usingMEG, fwd_usingEEG = get_fwd_flags(modality)
+    fwd_usingMEG, fwd_usingEEG = meg.get_fwd_flags(modality)
     stcs_fol = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg')
     stc_template = op.join(stcs_fol, '{}-epilepsy-{}-{}-{}-*zvals*-rh.stc'.format(subject, inverse_method, modality, condition))
     stc_name = utils.select_one_file(glob.glob(stc_template), stc_template)[:-len('-rh.stc')]
@@ -950,7 +948,7 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
         # check_inv_fwd(subject, modality, run_num)
 
         # 3) Amplitude
-        calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, n_jobs)
+        calc_amplitude(subject, modality, run_num, windows_with_baseline, inverse_method, overwrite_stc, True, n_jobs)
         calc_amplitude_zvals(
             subject, windows, baseline_name, modality, from_index, to_index, inverse_method,
             use_abs=False, parallel=n_jobs > 1, overwrite=overwrite_induced_power_zvals)

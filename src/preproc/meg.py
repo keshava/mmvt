@@ -54,6 +54,25 @@ locating_meg_file = lambda x, y: (x, True) if op.isfile(x) else ('', False)
 locating_subject_file = lambda x, y: (x, True) if op.isfile(x) else ('', False)
 
 
+def check_globals():
+    def real_tryit(func):
+        def wrapper(*args, **kwargs):
+            if INV_MEG == '':
+                subject = kwargs.get('subject', args[0])
+                mri_subject = kwargs.get('mri_subject', subject)
+                atlas = kwargs.get('atlas', '')
+                remote_subject_dir = kwargs.get('remote_subject_dir', '')
+                if not op.isdir(op.join(SUBJECTS_MRI_DIR, mri_subject)):
+                    raise Exception('Wrong subject! {}'.format(mri_subject))
+                _args = read_cmd_args(dict(subject=subject, mri_subject=subject, atlas=atlas))
+                fname_format, fname_format_cond, conditions = init_main(
+                    subject, mri_subject, remote_subject_dir, _args)
+                init_globals_args(subject, mri_subject, fname_format, fname_format_cond, args=_args)
+            return func(*args, **kwargs)
+        return wrapper
+    return real_tryit
+
+
 def init_globals_args(subject, mri_subject, fname_format, fname_format_cond, args):
     return init_globals(subject, mri_subject, fname_format, fname_format_cond, args.raw_fname_format,
                  args.fwd_fname_format, args.inv_fname_format, args.events_fname, args.files_includes_cond,
@@ -1153,6 +1172,7 @@ def get_modality(fwd_usingMEG, fwd_usingEEG):
 
 
 @utils.tryit(throw_exception=True)
+@check_globals()
 def calc_labels_connectivity(
         subject, atlas, events, mri_subject='', subjects_dir='', mmvt_dir='', inverse_method='dSPM',
         epo_fname='', inv_fname='', raw_fname='', snr=3.0, pick_ori=None, apply_SSP_projection_vectors=True,
@@ -1212,6 +1232,8 @@ def calc_labels_connectivity(
                 print('single_trial_stc and not epochs file was found! ({})'.format(epo_cond_fname))
                 return False
             epochs = mne.read_epochs(epo_cond_fname, apply_SSP_projection_vectors, add_eeg_ref)
+        if type(epochs) is mne.Evoked or type(epochs) is mne.EvokedArray:
+            epochs = evoked_to_epochs(epochs)
         sfreq = epochs.info['sfreq']
         try:
             mne.set_eeg_reference(epochs, ref_channels=None)
@@ -1241,6 +1263,14 @@ def calc_labels_connectivity(
             del con_data
             ret = ret and op.isfile(output_fname)
     return ret
+
+
+def evoked_to_epochs(evoked):
+    if type(evoked) is mne.EvokedArray:
+        evoked = evoked[0]
+    C, T = evoked.data.shape
+    return mne.EpochsArray(
+        evoked.data.reshape((1, C, T)), evoked.info, np.array([[0, 0, 1]]), 0, 1)[0]
 
 
 def save_connectivity(subject, atlas, events, modality='meg', extract_modes=['mean_flip'],
@@ -2617,6 +2647,7 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                     stc_mmvt_fname = op.join(mmvt_fol, utils.namebase_with_ext(stc_fname))
                     if save_stc and utils.stc_exist(stc_mmvt_fname) and not overwrite_stc:
                         flag = True # should check all condisiton...
+                        print('{} already exist')
                         stcs_num[cond_name] = stcs_num.get(cond_name, 0) + 1
                         stcs[cond_name] = mne.read_source_estimate(stc_mmvt_fname)
                         continue
@@ -2716,8 +2747,17 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
                 else:
                     print('Can\'t find {}!'.format(file_name))
                     return False
-    stc = mne.read_source_estimate(stc_template['stc'].format(hemi='rh'))
-    baseline_stc = mne.read_source_estimate(stc_template['baseline'].format(hemi='rh'))
+    return calc_stc_zvals(
+        subject, stc_template['stc'].format(hemi='rh'), stc_template['baseline'].format(hemi='rh'),
+        stc_zvals_fname, use_abs, from_index, to_index, overwrite)
+
+
+def calc_stc_zvals(subject, stc_rh_fname, baseline_rh_fname, stc_zvals_fname, use_abs=False, from_index=None, to_index=None,
+                   overwrite=False):
+    if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}')) and not overwrite:
+        return True
+    stc = mne.read_source_estimate(stc_rh_fname)
+    baseline_stc = mne.read_source_estimate(baseline_rh_fname)
     from_index = 0 if from_index is None else from_index
     to_index = baseline_stc.data.shape[1] if to_index is None else to_index
     baseline_data = baseline_stc.data[:, from_index:to_index]
@@ -2733,12 +2773,24 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
     if use_abs:
         zvals = np.abs(zvals)
     stc_zvals = mne.SourceEstimate(zvals, stc.vertices, stc.tmin, stc.tstep, subject=subject)
-    # print('stc: max: {}, min: {}, std: {}'.format(np.max(stc.data), np.min(stc.data), np.std(stc.data)))
-    # print('baseline: max: {}, min: {}, std: {}'.format(np.max(baseline_stc.data), np.min(baseline_stc.data), baseline_std))
     print('stc_zvals: max: {}, min: {}'.format(np.max(stc_zvals.data), np.min(stc_zvals.data)))
     print('Saving zvals stc to {}'.format(stc_zvals_fname))
     stc_zvals.save(stc_zvals_fname)
     return utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}'))
+
+
+def get_fwd_flags(modality):
+    if modality == 'meg':
+        fwd_usingMEG, fwd_usingEEG = True, False
+    elif modality == 'eeg':
+        fwd_usingMEG, fwd_usingEEG = False, True
+    else:
+        fwd_usingMEG, fwd_usingEEG = True, True
+    return fwd_usingMEG, fwd_usingEEG
+
+
+def modality_fol(modality):
+    return 'eeg' if modality == 'eeg' else 'meg'
 
 
 def plot_max_stc(subject, stc_name, modality='meg', use_abs=True, do_plot=True, return_stc=False):
@@ -3585,9 +3637,11 @@ def save_subcortical_activity_to_blender(sub_corticals_codes_file, events, stat,
 def calc_stc_for_all_vertices(stc, subject='', morph_to_subject='', n_jobs=6):
     subject = MRI_SUBJECT if subject == '' else subject
     morph_to_subject = subject if morph_to_subject == '' else morph_to_subject
-    grade = None if morph_to_subject != 'fsaverage' else 5
-    vertices_to = mne.grade_to_vertices(morph_to_subject, grade)
-    return mne.morph_data(subject, morph_to_subject, stc, n_jobs=n_jobs, grade=vertices_to)
+    # grade = None if morph_to_subject != 'fsaverage' else 5
+    # vertices_to = mne.grade_to_vertices(morph_to_subject, grade)
+    # return mne.morph_data(subject, morph_to_subject, stc, n_jobs=n_jobs, grade=vertices_to
+    morph_obj = mne.compute_source_morph(stc, subject, morph_to_subject, SUBJECTS_MRI_DIR, spacing=None)
+    return morph_obj.apply(stc)
 
 
 @utils.files_needed({'surf': ['lh.sphere.reg', 'lh.sphere.reg']})
@@ -5323,7 +5377,7 @@ def find_functional_rois_in_stc(
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
         labels=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
         save_func_labels=True, recreate_src_spacing='oct6', calc_cluster_contours=True, save_results=True,
-        clusters_output_name='', abs_max=True, modality='meg', n_jobs=6):
+        clusters_output_name='', abs_max=True, modality='meg', crop_times=None, avg_stc=False, n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, modality, 'clusters')
@@ -5351,6 +5405,10 @@ def find_functional_rois_in_stc(
             anatomy.create_annotation(mri_subject, atlas, n_jobs=n_jobs)
         if not utils.check_if_atlas_exist(labels_fol, atlas):
             raise Exception("find_functional_rois_in_stc: Can't find the atlas {}!".format(atlas))
+    if crop_times is not None and len(crop_times) == 2:
+        stc.crop(crop_times[0], crop_times[1])
+    if avg_stc:
+        stc = stc.mean()
     if time_index is None:
         if label_name_template == '':
             max_vert, time_index = stc.get_peak(

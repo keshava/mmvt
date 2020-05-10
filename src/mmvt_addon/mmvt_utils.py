@@ -1114,6 +1114,7 @@ def make_dir(fol):
 def move_file(fname, fol, overwrite=False):
     if op.isfile(fname):
         output_fname = op.join(fol, namebase_with_ext(fname))
+        print('{} -> {}'.format(fname, output_fname))
         if op.isfile(output_fname):
             if not overwrite:
                 print('{} already exist!'.format(output_fname))
@@ -1123,6 +1124,11 @@ def move_file(fname, fol, overwrite=False):
         shutil.move(fname, op.join(fol, namebase_with_ext(fname)))
     else:
         print('{} does not exist!'.format(fname))
+
+
+def move_files(fnames, fol, overwrite=False):
+    for fname in fnames:
+        move_file(fname, fol, overwrite)
 
 
 def copy_file(fname, fol):

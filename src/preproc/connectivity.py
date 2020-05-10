@@ -801,7 +801,7 @@ def create_vertices_lookup(con_indices, con_names, labels):
     return np.array(list(vertices)), vertices_lookup
 
 
-def calc_lables_info(subject, atlas, sorted_according_to_annot_file=True, sorted_labels_names=None, labels=None):
+def calc_lables_info(subject, atlas='', sorted_according_to_annot_file=True, sorted_labels_names=None, labels=None):
     if labels is None:
         labels = lu.read_labels(
             subject, SUBJECTS_DIR, atlas, # exclude=tuple(args.labels_exclude)

@@ -799,8 +799,14 @@ def read_labels(subject, subjects_dir, atlas, try_first_from_annotation=True, on
         return []
 
 
-def read_labels_parallel(subject, subjects_dir, atlas, hemi='', labels_fol='', n_jobs=1):
+def read_labels_files(subject, labels_fol, subjects_dir='', n_jobs=4):
+    return read_labels_parallel(subject, labels_fol=labels_fol, n_jobs=n_jobs)
+
+
+def read_labels_parallel(subject, subjects_dir='', atlas='', hemi='', labels_fol='', n_jobs=1):
     try:
+        if subjects_dir == '':
+            subjects_dir = SUBJECTS_DIR
         labels_fol = op.join(subjects_dir, subject, 'label', atlas) if labels_fol == '' else labels_fol
         if not op.isdir(labels_fol):
             labels_fol = op.join(MMVT_DIR, subject, 'labels', atlas)
