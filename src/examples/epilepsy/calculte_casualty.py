@@ -41,18 +41,18 @@ def init_nmr01391():
     return subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname
 
 
-def average_baseline(subject, inverse_method, modality, overwrite=True):
-    fol = op.join(MMVT_DIR, subject, modality, 'baseline-{}-stcs'.format(inverse_method))
-    baseline_stcs = glob.glob(op.join(fol, '{}-epilepsy-{}-{}-*-rh.stc'.format(subject, inverse_method, modality)))
-    output_fname = op.join(fol, '{}-baseline-{}-{}'.format(subject, inverse_method, modality))
-    if stc_exist(output_fname) and not overwrite:
-        print('baseline average already exist')
-        return output_fname
-    stcs = [mne.read_source_estimate(stc_fname) for stc_fname in baseline_stcs]
-    data = np.array([stc.data for stc in stcs]).mean(axis=0)
-    baseline_mean = mne.SourceEstimate(data, stcs[0].vertices, stcs[0].tmin, stcs[0].tstep, subject=subject)
-    baseline_mean.save(output_fname)
-    return output_fname
+# def average_baseline(subject, inverse_method, modality, overwrite=True):
+#     fol = op.join(MMVT_DIR, subject, modality, 'baseline-{}-stcs'.format(inverse_method))
+#     baseline_stcs = glob.glob(op.join(fol, '{}-epilepsy-{}-{}-*-rh.stc'.format(subject, inverse_method, modality)))
+#     output_fname = op.join(fol, '{}-baseline-{}-{}'.format(subject, inverse_method, modality))
+#     if stc_exist(output_fname) and not overwrite:
+#         print('baseline average already exist')
+#         return output_fname
+#     stcs = [mne.read_source_estimate(stc_fname) for stc_fname in baseline_stcs]
+#     data = np.array([stc.data for stc in stcs]).mean(axis=0)
+#     baseline_mean = mne.SourceEstimate(data, stcs[0].vertices, stcs[0].tmin, stcs[0].tstep, subject=subject)
+#     baseline_mean.save(output_fname)
+#     return output_fname
 
 
 def stc_exist(stc_name):
@@ -190,7 +190,6 @@ def main(subject, modality, clips_dict, inverse_method='MNE', downsample_r=2, se
          min_cluster_size=10, overwrite=False, min_order=1, max_order=20,
         windows_length=100, windows_shift=10, n_jobs=4):
     calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=True, n_jobs=n_jobs)
-    # average_baseline(subject, inverse_method, modality, overwrite)
     # calc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
     # find_functional_rois(
     #     subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,

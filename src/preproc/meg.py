@@ -2688,7 +2688,12 @@ def calc_stc_per_condition(
                         tmin=stcs[cond_name].tmin, tstep=stcs[cond_name].tstep, subject=stcs[cond_name].subject,
                         verbose=stcs[cond_name].verbose)
             if downsample_r > 1:
-                stcs[cond_name].resample(stcs[cond_name].sfreq / downsample_r)
+                # stcs[cond_name].resample(stcs[cond_name].sfreq / downsample_r)
+                # Much faster if downsample_r is integer:
+                data_ds = utils.downsample_2d(stcs[cond_name].data, downsample_r)
+                stcs[cond_name] = mne.SourceEstimate(
+                    data_ds, stcs[cond_name].vertices, stcs[cond_name].tmin, stcs[cond_name].tstep * downsample_r,
+                    subject=subject)
             if save_stc and (not op.isfile(stc_fname) or overwrite_stc) and \
                     not isinstance(stcs[cond_name], types.GeneratorType):
                 # MMVT reads stcs only from the 'meg' fol, need to change that
