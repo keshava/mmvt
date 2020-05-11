@@ -2533,14 +2533,14 @@ def get_cov_from_dict(cov_dict):
 #     stc.save(STC.format('all', inverse_method))
 
 
-def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_max=None, inverse_method='dSPM', baseline=(None, 0),
-                           apply_SSP_projection_vectors=True, add_eeg_ref=True, pick_ori=None,
-                           single_trial_stc=False, calc_source_band_induced_power=False, save_stc=True, snr=3.0,
-                           overwrite_stc=False, stc_template='', raw_fname='', epo_fname='', evo_fname='', inv_fname='',
-                           fwd_usingMEG=True, fwd_usingEEG=True, apply_on_raw=False, raw=None, epochs=None,
-                           modality='meg', calc_stc_for_all=False, calc_stcs_diff=True,
-                           atlas='aparc.DKTatlas', bands=None, calc_inducde_power_per_label=True,
-                           induced_power_normalize_proj=True, n_jobs=6):
+def calc_stc_per_condition(
+        subject, events=None, task='', stc_t_min=None, stc_t_max=None, inverse_method='dSPM', baseline=(None, 0),
+        apply_SSP_projection_vectors=True, add_eeg_ref=True, pick_ori=None, single_trial_stc=False,
+        calc_source_band_induced_power=False, save_stc=True, snr=3.0, overwrite_stc=False, stc_template='',
+        raw_fname='', epo_fname='', evo_fname='', inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True,
+        apply_on_raw=False, raw=None, epochs=None, modality='meg', calc_stc_for_all=False, calc_stcs_diff=True,
+        atlas='aparc.DKTatlas', bands=None, calc_inducde_power_per_label=True, induced_power_normalize_proj=True,
+        downsample_r=1, n_jobs=6):
     # todo: If the evoked is the raw (no events), we need to seperate it into N events with different ids, to avoid memory error
     # Other options is to use calc_labels_avg_for_rest
     epo_fname = get_epo_fname(epo_fname)
@@ -2687,6 +2687,8 @@ def calc_stc_per_condition(subject, events=None, task='', stc_t_min=None, stc_t_
                         stcs[cond_name].data * 10**factor, vertices=stcs[cond_name].vertices,
                         tmin=stcs[cond_name].tmin, tstep=stcs[cond_name].tstep, subject=stcs[cond_name].subject,
                         verbose=stcs[cond_name].verbose)
+            if downsample_r > 1:
+                stcs[cond_name].resample(stcs[cond_name].sfreq / downsample_r)
             if save_stc and (not op.isfile(stc_fname) or overwrite_stc) and \
                     not isinstance(stcs[cond_name], types.GeneratorType):
                 # MMVT reads stcs only from the 'meg' fol, need to change that
@@ -2749,18 +2751,22 @@ def calc_stc_zvals(subject, stc_name, baseline_stc_name, modality='meg', use_abs
                     return False
     return calc_stc_zvals(
         subject, stc_template['stc'].format(hemi='rh'), stc_template['baseline'].format(hemi='rh'),
-        stc_zvals_fname, use_abs, from_index, to_index, overwrite)
+        stc_zvals_fname, use_abs, from_index, to_index, False, overwrite)
 
 
-def calc_stc_zvals(subject, stc_rh_fname, baseline_rh_fname, stc_zvals_fname, use_abs=False, from_index=None, to_index=None,
-                   overwrite=False):
+def calc_stc_zvals(subject, stc_rh_fname, baseline_rh_fnames, stc_zvals_fname, use_abs=False, from_index=None, to_index=None,
+                   no_negatives=False, overwrite=False):
     if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}')) and not overwrite:
         return True
     stc = mne.read_source_estimate(stc_rh_fname)
-    baseline_stc = mne.read_source_estimate(baseline_rh_fname)
+    if not isinstance(baseline_rh_fnames, list):
+        baseline_rh_fnames = [baseline_rh_fnames]
+    baseline_data = np.array([mne.read_source_estimate(baseline_fname).data for baseline_fname in baseline_rh_fnames])
+    N, V, T = baseline_data.shape
+    baseline_data = np.reshape(baseline_data, (V, N * T))
     from_index = 0 if from_index is None else from_index
-    to_index = baseline_stc.data.shape[1] if to_index is None else to_index
-    baseline_data = baseline_stc.data[:, from_index:to_index]
+    to_index = baseline_data.shape[1] if to_index is None else to_index
+    baseline_data = baseline_data[:, from_index:to_index]
     baseline_std = np.std(baseline_data * pow(10, -15), axis=1, keepdims=True) * pow(10, 15)
     baseline_mean = np.mean(baseline_data * pow(10, -15), axis=1, keepdims=True) * pow(10, 15)
     if any(np.isinf(baseline_std)):
@@ -2772,6 +2778,8 @@ def calc_stc_zvals(subject, stc_rh_fname, baseline_rh_fname, stc_zvals_fname, us
     zvals = (stc.data - baseline_mean) / baseline_std
     if use_abs:
         zvals = np.abs(zvals)
+    if no_negatives:
+        zvals[np.where(zvals < 0)] = 0
     stc_zvals = mne.SourceEstimate(zvals, stc.vertices, stc.tmin, stc.tstep, subject=subject)
     print('stc_zvals: max: {}, min: {}'.format(np.max(stc_zvals.data), np.min(stc_zvals.data)))
     print('Saving zvals stc to {}'.format(stc_zvals_fname))
@@ -2793,7 +2801,8 @@ def modality_fol(modality):
     return 'eeg' if modality == 'eeg' else 'meg'
 
 
-def plot_max_stc(subject, stc_name, modality='meg', use_abs=True, do_plot=True, return_stc=False):
+def plot_max_stc(subject, stc_name, modality='meg', use_abs=True, do_plot=True, return_stc=False,
+                 t_min=-2, t_max=5):
     def onclick(event):
         print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
               ('double' if event.dblclick else 'single', event.button,
@@ -2813,20 +2822,27 @@ def plot_max_stc(subject, stc_name, modality='meg', use_abs=True, do_plot=True, 
         stc_fname = stc_name
     else:
         stc_fname = op.join(MMVT_DIR, subject, modality, '{}-lh.stc'.format(stc_name))
+    stc_name = utils.namebase(stc_fname).replace('-lh', '').replace('-rh', '')
     if not op.isfile(stc_fname):
         raise Exception("Can't find the stc file! ({}-lh.stc)".format(stc_name))
     print('Reading {}'.format(stc_fname))
     stc = mne.read_source_estimate(stc_fname, subject)
-    data = np.max(np.abs(stc.data) if use_abs else stc.data, axis=0)
-    # if evokes_fname != '' and op.isfile(evokes_fname):
-
-    fig, ax = plt.subplots()
-    fig.canvas.mpl_connect('button_press_event', onclick)
+    both_hemi_data_max = np.max(np.abs(stc.data) if use_abs else stc.data, axis=0)
+    f, axs = plt.subplots(2, sharex=True, sharey=True)
+    t_axis = np.linspace(t_min, t_max, len(both_hemi_data_max))
+    for hemi, ax in zip(utils.HEMIS, axs):
+        hemi_data = stc.rh_data if hemi == 'rh' else stc.lh_data
+        hemi_data_max = np.max(np.abs(hemi_data) if use_abs else hemi_data, axis=0).squeeze()
+        max_ind = np.argmax(hemi_data_max)
+        print('{} max {} at {}'.format(hemi, hemi_data_max[max_ind], t_axis[max_ind]))
+        # if evokes_fname != '' and op.isfile(evokes_fname):
+        # fig.canvas.mpl_connect('button_press_event', onclick)
+        if do_plot:
+            ax.plot(t_axis, hemi_data_max)
+            ax.set_title('{} {}'.format(stc_name, hemi))
     if do_plot:
-        plt.plot(data.T)
-        plt.title(utils.namebase(stc_name))
         plt.show()
-    return data if return_stc else True
+    return both_hemi_data_max if return_stc else True
 
 
 def plot_evoked(subject, evoked_fname, evoked_key=None, pick_meg=True, pick_eeg=True, pick_eog=False, ssp_proj=False,
@@ -4920,7 +4936,8 @@ def calc_stc_per_condition_wrapper(subject, conditions, inverse_method, args, fl
             args.calc_source_band_induced_power, args.save_stc, args.snr, args.overwrite_stc, args.stc_template,
             args.raw_fname, args.epo_fname, args.evo_fname, args.inv_fname, args.fwd_usingMEG, args.fwd_usingEEG,
             args.apply_on_raw, raw, epochs, args.modality, args.calc_stc_for_all, args.calc_stc_diff,
-            args.atlas, args.bands, args.calc_inducde_power_per_label, args.induced_power_normalize_proj, args.n_jobs)
+            args.atlas, args.bands, args.calc_inducde_power_per_label, args.induced_power_normalize_proj,
+            args.downsample_r, args.n_jobs)
     return flags, stcs_conds, stcs_num
 
 
@@ -5370,6 +5387,7 @@ def calc_labels_power_bands_diff(subject, task1, task2, precentiles=(1, 99), fun
                  data_min=-data_diff_minmax, data_max=data_diff_minmax, cmap='BuPu-RdOrYl')
 
 
+@check_globals()
 def find_functional_rois_in_stc(
         subject, mri_subject, atlas, stc_name, threshold, threshold_is_precentile=True, time_index=None,
         label_name_template='', peak_mode='abs', extract_time_series_for_clusters=True, extract_mode='mean_flip',
@@ -6157,7 +6175,7 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if 'calc_stc_zvals' in args.function:
         flags['calc_stc_zvals'] = calc_stc_zvals(
             subject, args.stc_name, args.baseline_stc_name, args.modality, args.use_abs,
-            args.from_index, args.to_index, args.stc_zvals_name, args.overwrite_stc)
+            args.from_index, args.to_index, args.stc_zvals_name, False, args.overwrite_stc)
 
     if 'calc_power_spectrum' in args.function:
         flags['calc_power_spectrum'] = calc_power_spectrum(subject, conditions, args)
@@ -6469,6 +6487,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--save_stc', help='', required=False, default=1, type=au.is_true)
     parser.add_argument('--stc_t', help='', required=False, default=-1, type=int)
     parser.add_argument('--calc_stc_diff', help='', required=False, default=1, type=au.is_true)
+    parser.add_argument('--downsample_r', help='', required=False, default=1, type=int)
     parser.add_argument('--morph_to_subject', help='', required=False, default='')
     parser.add_argument('--single_trial_stc', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('--calc_source_band_induced_power', help='', required=False, default=0, type=au.is_true)

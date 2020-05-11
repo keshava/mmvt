@@ -59,38 +59,39 @@ def stc_exist(stc_name):
     return utils.both_hemi_files_exist('{}-{}.stc'.format(stc_name, '{hemi}'))
 
 
-def calc_stcs(subject, modality, run_num, clips_dict, inverse_method='MNE', overwrite_stc=False, n_jobs=4):
+def calc_stcs(subject, modality, clips_dict, inverse_method='MNE', downsample_r=2, overwrite=False, n_jobs=4):
     for clip_type, clips in clips_dict.items():
         new_fol = utils.make_dir(op.join(
             MMVT_DIR, subject, modality, '{}-{}-stcs'.format(clip_type, inverse_method)))
         pipeline.calc_amplitude(
-            subject, modality, run_num, clips, inverse_method, overwrite_stc, False, n_jobs)
+            subject, modality, clips, inverse_method, downsample_r, overwrite, False, n_jobs)
         for clip_fname in clips:
             template = '{}-epilepsy-{}-{}-{}-?h.stc'.format(
                 subject, inverse_method, modality, utils.namebase(clip_fname))
             stc_fnames = glob.glob(op.join(MMVT_DIR, subject, modality, template))
             if len(stc_fnames) != 2:
                 print('**** Error with {} ({} files) ****'.format(template, len(stc_fnames)))
-            utils.move_files(stc_fnames, new_fol)
+            utils.move_files(stc_fnames, new_fol, overwrite)
 
 
 def calc_zvals(subject, modality, ictal_clips, inverse_method, overwrite=False, n_jobs=4):
     from_index, to_index = None, None
     use_abs = False
-    baseline_stc_fname = op.join(
+    baseline_stc_fnames = glob.glob(op.join(
         MMVT_DIR, subject, meg.modality_fol(modality), 'baseline-{}-stcs'.format(inverse_method),
-        '{}-baseline-{}-{}'.format(subject, inverse_method, modality))
-    if not utils.both_hemi_files_exist('{}-{}.stc'.format(baseline_stc_fname, '{hemi}')):
-        print('Error finding {}!'.format(baseline_stc_fname))
+        '{}-epilepsy-{}-{}-*-rh.stc'.format(subject, inverse_method, modality)))
+    if len(baseline_stc_fnames) == 0:
+        print('No baseline!')
         return False
-    fol = utils.make_dir(op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'ictal-{}-zvals-stcs'.format(inverse_method)))
-    params = [(subject, clip_fname, baseline_stc_fname, inverse_method, fol, from_index, to_index, use_abs, overwrite)
+    fol = utils.make_dir(op.join(
+        MMVT_DIR, subject, meg.modality_fol(modality), 'ictal-{}-zvals-stcs'.format(inverse_method)))
+    params = [(subject, clip_fname, baseline_stc_fnames, inverse_method, fol, from_index, to_index, use_abs, overwrite)
               for clip_fname in ictal_clips]
     utils.run_parallel(_calc_zvals_parallel, params, n_jobs)
 
 
 def _calc_zvals_parallel(p):
-    subject, clip_fname, baseline_fname, inverse_method, fol, from_index, to_index, use_abs, overwrite = p
+    subject, clip_fname, baseline_fnames, inverse_method, fol, from_index, to_index, use_abs, overwrite = p
     stc_zvals_fname = op.join(fol, '{}-epilepsy-{}-{}-{}-amplitude-zvals'.format(
         subject, inverse_method, modality, utils.namebase(clip_fname)))
     if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}')) and not overwrite:
@@ -102,24 +103,27 @@ def _calc_zvals_parallel(p):
         print('Error finding {}!'.format(stc_fname))
         return False
     return meg.calc_stc_zvals(
-        subject, '{}-rh.stc'.format(stc_fname), '{}-rh.stc'.format(baseline_fname), stc_zvals_fname,
-        use_abs, from_index, to_index, overwrite)
+        subject, '{}-rh.stc'.format(stc_fname), baseline_fnames, stc_zvals_fname, # '{}-rh.stc'.format(baseline_fname)
+        use_abs, from_index, to_index, True, overwrite)
 
 
-def find_functional_rois(subject, ictal_clips, modality, seizure_times=(0, 0.1), atlas='laus125', min_cluster_size=10, inverse_method='MNE',
-                         overwrite=False, n_jobs=4):
+def find_functional_rois(subject, ictal_clips, modality, seizure_times=(0, 0.1), atlas='laus125',
+                         min_cluster_size=10, inverse_method='MNE', overwrite=False, n_jobs=4):
     fwd_usingMEG, fwd_usingEEG = meg.get_fwd_flags(modality)
     stcs_fol = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'ictal-{}-zvals-stcs'.format(inverse_method))
     # Make sure we have a morph map, and if not, create it here, and not in the parallel function
-    # mne.surface.read_morph_map(subject, subject, subjects_dir=SUBJECTS_DIR)
+    mne.surface.read_morph_map(subject, subject, subjects_dir=SUBJECTS_DIR)
     for clip_fname in ictal_clips:
         stc_name = op.join(stcs_fol, '{}-epilepsy-{}-{}-{}-amplitude-zvals'.format(
             subject, inverse_method, modality, utils.namebase(clip_fname)))
         if not stc_exist(stc_name):
             return False
+        stc = mne.read_source_estimate('{}-rh.stc'.format(stc_name))
+        stc.crop(stc.tmin, 0)
+        mean_baseline = np.max(stc.data, axis=0).squeeze().mean()
         meg.find_functional_rois_in_stc(
-            subject, subject, atlas, stc_name, 0, threshold_is_precentile=False, extract_time_series_for_clusters=False,
-            min_cluster_size=min_cluster_size, fwd_usingMEG=fwd_usingMEG,
+            subject, subject, atlas, stc_name, mean_baseline, threshold_is_precentile=False, extract_time_series_for_clusters=False,
+            min_cluster_size=min_cluster_size, min_cluster_max=mean_baseline, fwd_usingMEG=fwd_usingMEG,
             fwd_usingEEG=fwd_usingEEG, time_index=0, abs_max=False, modality=modality,
             crop_times=seizure_times, avg_stc=True, n_jobs=n_jobs)
 
@@ -182,17 +186,17 @@ def calc_rois_connectivity(subject, ictal_clips, modality, inverse_method, min_o
     #         windows_shift=windows_shift, n_jobs=n_jobs)
 
 
-
-def main(subject, modality, clips_dict, inverse_method='MNE', seizure_times=(0, .1), atlas='laus125',
+def main(subject, modality, clips_dict, inverse_method='MNE', downsample_r=2, seizure_times=(0, .1), atlas='laus125',
          min_cluster_size=10, overwrite=False, min_order=1, max_order=20,
         windows_length=100, windows_shift=10, n_jobs=4):
-    # calc_stcs(subject, modality, run_num, clips_dict, inverse_method, overwrite_stc, n_jobs)
+    calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=True, n_jobs=n_jobs)
     # average_baseline(subject, inverse_method, modality, overwrite)
-    # calc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite, n_jobs)
-    # find_functional_rois(subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
-    #                      inverse_method, overwrite, n_jobs)
-    calc_rois_connectivity(subject, clips_dict['ictal'], modality, inverse_method, min_order, max_order,
-                           windows_length, windows_shift, overwrite, n_jobs)
+    # calc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
+    # find_functional_rois(
+    #     subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
+    #     inverse_method, overwrite=True, n_jobs=n_jobs)
+    # calc_rois_connectivity(subject, clips_dict['ictal'], modality, inverse_method, min_order, max_order,
+    #                        windows_length, windows_shift, overwrite, n_jobs)
 
 
 if __name__ == '__main__':
@@ -208,5 +212,5 @@ if __name__ == '__main__':
         fif_files += files
         clips_dict[subfol] = files
 
-    main(subject, modality, clips_dict, inverse_method='MNE', seizure_times=(0, .1),
+    main(subject, modality, clips_dict, inverse_method='MNE', downsample_r=2, seizure_times=(0, .1),
          atlas='laus125', min_cluster_size=10, overwrite=False, n_jobs=n_jobs)

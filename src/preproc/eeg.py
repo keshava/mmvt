@@ -155,7 +155,7 @@ def main(tup, remote_subject_dir, args, flags):
     if 'calc_stc_zvals' in args.function:
         flags['calc_stc_zvals'] = meg.calc_stc_zvals(
             subject, args.stc_name, args.baseline_stc_name, 'eeg', args.use_abs, args.from_index,
-            args.to_index, args.stc_zvals_name, args.overwrite_stc)
+            args.to_index, args.stc_zvals_name, False, args.overwrite_stc)
 
     if utils.should_run(args, 'create_helmet_mesh'):
         flags['create_helmet_mesh'] = create_helmet_mesh(mri_subject, args.eeg_electrodes_excluded_from_mesh)

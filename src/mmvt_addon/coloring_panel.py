@@ -254,7 +254,8 @@ def plot_stc(stc, t=-1, threshold=None, data_max=None, data_min=None, cb_percent
         _addon().set_colorbar_prec(2)
         _addon().set_colorbar_title('MEG')
     if threshold > data_max:
-        print('threshold ({}) > data_max ({})!'.format(threshold, data_max))
+        real_max = stc_t_smooth.data.max()
+        print('threshold ({}) > colorbar data_max ({})! Real max is {:.2f}'.format(threshold, data_max, real_max))
         # threshold = bpy.context.scene.coloring_lower_threshold = 0
     colors_ratio = 256 / (data_max - data_min)
     # set_default_colormap(data_min, data_max)
@@ -1202,7 +1203,8 @@ def activity_map_obj_coloring(
         valid_verts = find_valid_verts(values, threshold, use_abs, bigger_or_equall)
     # print('activity_map_obj_coloring: Num of valid_verts above {}: {}'.format(threshold, len(valid_verts)))
     if len(valid_verts) == 0 and check_valid_verts:
-        print('No vertices values are above the threhold {} ({} to {})'.format(threshold, np.min(values), np.max(values)))
+        print('{}: No vertices values are above the threhold {} ({} to {})'.format(
+            cur_obj.name, threshold, np.min(values), np.max(values)))
         return
 
     # Remove coloring from unknown labels

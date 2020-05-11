@@ -64,9 +64,9 @@ def check_inv_fwd(subject, modality, run_num):
         modality, len(inv_eeg_channels), len(fwd_eeg_channels), len(inv_meg_channels), len(fwd_meg_channels)))
 
 
-def calc_amplitude(subject, modality, run_num, windows_fnames, inverse_method='dSPM', overwrite=False,
+def calc_amplitude(subject, modality, windows_fnames, inverse_method='dSPM', downsample_r=1, overwrite=False,
                    rename=True, n_jobs=4):
-    params = [(subject, window_fname, modality, run_num, windows_fnames, inverse_method, overwrite, rename)
+    params = [(subject, window_fname, modality, windows_fnames, inverse_method, downsample_r, overwrite, rename)
               for window_fname in windows_fnames]
     utils.run_parallel(_calc_amplitude_parallel, params, n_jobs)
 
@@ -75,25 +75,29 @@ def _calc_amplitude_parallel(p):
     # python3 -m src.preproc.meg -s nmr00857 -f calc_stc -i dSPM -t epilepsy
     #   --evo_fname /autofs/space/frieda_001/users/valia/mmvt_root/meg/00857_EPI/sz_evolution/43.9s.fif
     #   --overwrite_stc 1
-    subject, window_fname, modality, run_num, windows_fnames, inverse_method, overwrite, rename = p
+    subject, window_fname, modality, windows_fnames, inverse_method, downsample_r, overwrite, rename = p
     root_dir = op.join(EEG_DIR if modality == 'eeg' else MEG_DIR, subject)
     module = eeg if modality == 'eeg' else meg
-    args = module.read_cmd_args(dict(
-        subject=subject,
-        mri_subject=subject,
-        function='calc_stc',
-        task='epilepsy',
-        inverse_method=inverse_method,
-        inv_fname=op.join(root_dir, '{}-epilepsy{}-{}-inv.fif'.format(subject, run_num, modality)),
-        fwd_fname=op.join(root_dir, '{}-epilepsy{}-{}-fwd.fif'.format(subject, run_num, modality)),
-        fwd_usingEEG=modality in ['eeg', 'meeg'],
-        evo_fname=window_fname,
-        stc_template=op.join(MMVT_DIR, subject, modality, '{}-epilepsy-{}-{}-{}'.format(
-            subject, inverse_method, modality, utils.namebase(window_fname))),
-        overwrite_stc=overwrite,
-        n_jobs=1,
-    ))
-    module.call_main(args)
+    stc_name = op.join(MMVT_DIR, subject, modality, '{}-epilepsy-{}-{}-{}'.format(
+            subject, inverse_method, modality, utils.namebase(window_fname)))
+    if not utils.stc_exist(stc_name) or overwrite:
+        args = module.read_cmd_args(dict(
+            subject=subject,
+            mri_subject=subject,
+            function='calc_stc',
+            task='epilepsy',
+            inverse_method=inverse_method,
+            inv_fname=op.join(root_dir, '{}-epilepsy-{}-inv.fif'.format(subject, modality)),
+            fwd_fname=op.join(root_dir, '{}-epilepsy-{}-fwd.fif'.format(subject, modality)),
+            fwd_usingEEG=modality in ['eeg', 'meeg'],
+            evo_fname=window_fname,
+            stc_template=stc_name,
+            downsample_r=downsample_r,
+            overwrite_stc=overwrite,
+            n_jobs=1))
+        module.call_main(args)
+    else:
+        print('{}-?h.stc already exist'.format(utils.namebase(stc_name)))
     if rename:
         move_and_rename_amplitude_files(subject, modality, inverse_method)
 
