@@ -774,15 +774,23 @@ def load_clusters_file(clusters_name=''):
 
 
 def load_stc():
-    if MNE_EXIST:
-        stc_fname = op.join(mu.get_user_fol(), 'meg', '{}-lh.stc'.format(MEGPanel.clusters_labels.stc_name))
-        if op.isfile(stc_fname):
-            MEGPanel.stc = mne.read_source_estimate(stc_fname)
-            if mu.max_stc(MEGPanel.stc) < 1e-4:
-                MEGPanel.stc._data *= np.power(10, 9) # from Amp to nAmp
-            MEGPanel.max_stc = get_max_stc_t(MEGPanel.stc, MEGPanel.clusters_labels.time)
-        else:
-            print('load_stc: Can\'t find {}!'.format(stc_fname))
+    stc_fnames = glob.glob(op.join(
+        mu.get_user_fol(), '?eg', 'clusters', '{}-lh.stc'.format(MEGPanel.clusters_labels.stc_name)))
+    if len(stc_fnames) == 0:
+        print('load_stc: Cannot find {}!'.format(stc_fnames))
+    elif len(stc_fnames) > 1:
+        print('load_stc: Too many stcs!')
+        print(stc_fnames)
+    else:
+        MEGPanel.stc = mne.read_source_estimate(stc_fnames[0])
+        # labels = glob.glob(op.join(mu.get_user_fol(), 'meg', 'clusters', MEGPanel.clusters_labels.stc_name, '*.label'))
+        # MEGPanel.valid_vertices = []
+        # for label in labels:
+        #     l = mne.read_label(label)
+        #     MEGPanel.valid_vertices.extend(l.vertices.tolist())
+        if mu.max_stc(MEGPanel.stc) < 1e-4:
+            MEGPanel.stc._data *= np.power(10, 9) # from Amp to nAmp
+        MEGPanel.max_stc = get_max_stc_t(MEGPanel.stc, MEGPanel.clusters_labels.time)
 
 
 def load_contours():
@@ -878,14 +886,21 @@ def prev_cluster():
 
 
 def plot_meg_clusters():
+    mmvt = _addon()
     if MEGPanel.stc is not None:
-        if bpy.context.scene.coloring_lower_threshold > MEGPanel.max_stc:
-            bpy.context.scene.coloring_lower_threshold = 0
-        _addon().plot_stc(MEGPanel.stc, MEGPanel.clusters_labels.time,
-                 threshold=bpy.context.scene.coloring_lower_threshold, save_image=False, save_prev_colors=True)
-        if not _addon().colorbar_values_are_locked():
-            _addon().set_colorbar_title('MEG activity (nAmp)')
+        stc_min, stc_max = MEGPanel.stc.data[np.where(MEGPanel.stc.data > 0)].min(), MEGPanel.stc.data.max()
+        # if bpy.context.scene.coloring_lower_threshold > MEGPanel.max_stc:
+        bpy.context.scene.coloring_lower_threshold = stc_min
+        if not mmvt.colorbar.colorbar_values_are_locked():
+            mmvt.colorbar.set_colorbar_title('MEG activity (nAmp)')
+            mmvt.colorbar.set_colorbar_max_min(stc_max, stc_min)
+            mmvt.colorbar.set_colormap('YlOrRd')
+        mmvt.colorbar.lock_colorbar_values(True)
+        mmvt.coloring.plot_stc(
+            MEGPanel.stc, MEGPanel.clusters_labels.time, threshold=bpy.context.scene.coloring_lower_threshold,
+            save_image=False, save_prev_colors=True)
         bpy.context.scene.frame_current = MEGPanel.clusters_labels.time
+        mmvt.colorbar.lock_colorbar_values(False)
 
 
 def get_max_stc_t(stc, t):
@@ -1248,6 +1263,7 @@ class MEGPanel(bpy.types.Panel):
     eeg_sensors_conditions_items = []
     meg_sensors_conditions_items = []
     meg_labels_data_files_exist = False
+    # valid_vertices = []
 
     def draw(self, context):
         if MEGPanel.init:

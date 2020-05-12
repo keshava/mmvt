@@ -15,7 +15,7 @@ import nibabel as nib
 from collections import Counter, OrderedDict
 import inspect
 import copy
-import tqdm
+# import tqdm
 from mne.minimum_norm import (make_inverse_operator, apply_inverse,
                               write_inverse_operator, read_inverse_operator)
 from mne.minimum_norm.inverse import _prepare_forward
@@ -5409,18 +5409,6 @@ def find_functional_rois_in_stc(
     # todo: Should check for an overwrite flag. Not sure why, if the folder isn't being deleted, the code doesn't work
     # utils.delete_folder_files(clusters_root_fol)
     utils.make_dir(clusters_root_fol)
-    if '{subject}' in stc_name:
-        stc_name = stc_name.replace('{subject}', subject)
-    if utils.stc_exist(stc_name):
-        stc = mne.read_source_estimate('{}-rh.stc'.format(stc_name))
-        stc_name = utils.namebase(stc_name)
-    if stc is None:
-        stc_fname = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg', '{}-lh.stc'.format(stc_name))
-        if not op.isfile(stc_fname):
-            stc_fname = op.join(SUBJECT_MEG_FOLDER, '{}-lh.stc'.format(stc_name))
-        if not op.isfile(stc_fname):
-            raise Exception("Can't find the stc file! ({})".format(stc_name))
-        stc = mne.read_source_estimate(stc_fname)
     labels_fol = op.join(SUBJECTS_MRI_DIR, mri_subject, 'label')
     if find_clusters_overlapped_labeles:
         if not utils.check_if_atlas_exist(labels_fol, atlas):
@@ -5428,32 +5416,46 @@ def find_functional_rois_in_stc(
             anatomy.create_annotation(mri_subject, atlas, n_jobs=n_jobs)
         if not utils.check_if_atlas_exist(labels_fol, atlas):
             raise Exception("find_functional_rois_in_stc: Can't find the atlas {}!".format(atlas))
-    if crop_times is not None and len(crop_times) == 2:
-        stc.crop(crop_times[0], crop_times[1])
-    if avg_stc:
-        stc = stc.mean()
-    if time_index is None:
-        if label_name_template == '':
-            max_vert, time_index = stc.get_peak(
-                time_as_index=True, vert_as_index=True, mode=peak_mode)
-            print('peak time index: {}'.format(time_index))
-        else:
-            max_vert, time_index = find_pick_activity(
-                subject, stc, atlas, label_name_template, hemi='both', peak_mode=peak_mode)
-            print('peak time index: {}'.format(time_index))
-    if stc_t_smooth is None:
+
+    if stc_t_smooth is not None:
+        verts = check_stc_with_ply(stc_t_smooth, subject=subject)
+    else:
+        if '{subject}' in stc_name:
+            stc_name = stc_name.replace('{subject}', subject)
+        if utils.stc_exist(stc_name):
+            stc = mne.read_source_estimate('{}-rh.stc'.format(stc_name))
+            stc_name = utils.namebase(stc_name)
+        if stc is None:
+            stc_fname = op.join(MMVT_DIR, subject, 'eeg' if modality == 'eeg' else 'meg', '{}-lh.stc'.format(stc_name))
+            if not op.isfile(stc_fname):
+                stc_fname = op.join(SUBJECT_MEG_FOLDER, '{}-lh.stc'.format(stc_name))
+            if not op.isfile(stc_fname):
+                raise Exception("Can't find the stc file! ({})".format(stc_name))
+            stc = mne.read_source_estimate(stc_fname)
+        if crop_times is not None and len(crop_times) == 2:
+            stc.crop(crop_times[0], crop_times[1])
+        if avg_stc:
+            stc = stc.mean()
+        if time_index is None:
+            if label_name_template == '':
+                max_vert, time_index = stc.get_peak(
+                    time_as_index=True, vert_as_index=True, mode=peak_mode)
+                print('peak time index: {}'.format(time_index))
+            else:
+                max_vert, time_index = find_pick_activity(
+                    subject, stc, atlas, label_name_template, hemi='both', peak_mode=peak_mode)
+                print('peak time index: {}'.format(time_index))
         stc_t = create_stc_t(stc, time_index, subject)
-        _threshold = np.percentile(stc_t.data, threshold) if threshold_is_precentile else threshold
-        if np.max(stc_t.data) < _threshold:
-            print('stc_t max < {}, continue'.format(_threshold))
-            return True, {hemi: None for hemi in utils.HEMIS}
-        verts = utils.get_pial_vertices(subject, MMVT_DIR)
+        # _threshold = np.percentile(stc_t.data, threshold) if threshold_is_precentile else threshold
+        # if np.max(stc_t.data) < _threshold:
+        #     print('{}: stc_t max ({}) < threshold ({})!'.format(stc_name, np.max(stc_t.data),_threshold))
+        #     return True, {hemi: None for hemi in utils.HEMIS}
         if len(verts['rh']) == len(stc.rh_vertno) and len(verts['lh']) == len(stc.lh_vertno):
             stc_t_smooth = stc_t
         else:
             stc_t_smooth = calc_stc_for_all_vertices(stc_t, subject, subject, n_jobs)
-    if verts is None:
-        verts = check_stc_with_ply(stc_t_smooth, subject=subject)
+        if verts is None:
+            verts = check_stc_with_ply(stc_t_smooth, subject=subject)
     if connectivity is None:
         connectivity = anat.load_connectivity(subject)
     # if verts_dict is None:
@@ -5471,10 +5473,13 @@ def find_functional_rois_in_stc(
     # data_minmax = utils.get_max_abs(utils.min_stc(stc), utils.max_stc(stc))
     # factor = -int(utils.ceil_floor(np.log10(data_minmax)))
     min_cluster_max = max(threshold, min_cluster_max)
+    if np.max(stc_t_smooth.data) < threshold:
+        print('{}: stc_t max ({}) < threshold ({})!'.format(stc_name, np.max(stc_t_smooth.data), threshold))
+        return True, {hemi: None for hemi in utils.HEMIS}
     clusters_labels = utils.Bag(
         dict(stc_name=stc_name, threshold=threshold, time=time_index, label_name_template=label_name_template, values=[],
              min_cluster_max=min_cluster_max, min_cluster_size=min_cluster_size, clusters_label=clusters_label))
-    contours = {}
+    contours, output_stc_data = {}, {}
     for hemi in utils.HEMIS:
         stc_data = (stc_t_smooth.rh_data if hemi == 'rh' else stc_t_smooth.lh_data).squeeze()
         if np.max(stc_data) < 1e-4:
@@ -5484,18 +5489,21 @@ def find_functional_rois_in_stc(
         if len(clusters) == 0:
             print('No clusters where found for {}-{}!'.format(stc_name, hemi))
             continue
+        print('{} cluster were found for {}'.format(len(clusters), hemi))
         labels_hemi = None if labels is None else labels[hemi]
         if find_clusters_overlapped_labeles:
-            clusters_labels_hemi = lu.find_clusters_overlapped_labeles(
+            clusters_labels_hemi, output_stc_data[hemi] = lu.find_clusters_overlapped_labeles(
                 subject, clusters, stc_data, atlas, hemi, verts[hemi], labels_hemi, min_cluster_max, min_cluster_size,
                 clusters_label, abs_max, n_jobs)
         else:
             clusters_labels_hemi = []
+            output_stc_data[hemi] = np.ones((stc_data.shape[0], 1)) * -1
             for cluster_ind, cluster in enumerate(clusters):
                 x = stc_data[cluster]
                 cluster_max = np.min(x) if abs(np.min(x)) > abs(np.max(x)) else np.max(x)
                 if abs(cluster_max) < min_cluster_max or len(cluster) < min_cluster_size:
                     continue
+                output_stc_data[hemi][cluster, 0] = x
                 max_vert_ind = np.argmin(x) if abs(np.min(x)) > abs(np.max(x)) else np.argmax(x)
                 max_vert = cluster[max_vert_ind]
                 clusters_labels_hemi.append(dict(vertices=cluster, intersects=[], name='{}{}'.format(hemi, cluster_ind),
@@ -5513,6 +5521,9 @@ def find_functional_rois_in_stc(
                     subject, new_atlas_name, hemi, clusters_cortical_labels, clusters_fol, mri_subject,
                     verts, verts_neighbors_dict)
             clusters_labels.values.extend(clusters_labels_hemi)
+    output_stc_data = np.concatenate([output_stc_data['lh'], output_stc_data['rh']])
+    output_stc = mne.SourceEstimate(output_stc_data, stc_t_smooth.vertices, 0, 0, subject=subject)
+    output_stc.save(op.join(clusters_root_fol, stc_name))
     if save_results:
         if clusters_output_name == '':
             clusters_output_name = 'clusters_labels_{}.pkl'.format(stc_name, atlas)
@@ -5524,6 +5535,31 @@ def find_functional_rois_in_stc(
         clusters_labels = dict(**clusters_labels)
         utils.save(clusters_labels, clusters_output_fname)
     return True, contours
+
+
+def accumulate_stc(subject, stc_org, t_from, t_to, threshold, reverse=True, n_jobs=4):
+    data, valid_verts = {}, defaultdict(list)
+    time_axis = np.arange(t_from, t_to + 1)
+    stc = mne.SourceEstimate(
+        stc_org.data[:, t_from:t_to + 1], stc_org.vertices, 0, stc_org.tstep, subject=subject)
+    stc = calc_stc_for_all_vertices(stc, subject, subject, n_jobs)
+    t0 = time_axis[0]
+    time_axis = time_axis - time_axis[0]
+    data['rh'] = np.ones((stc.rh_data.shape[0], 1)) * -1
+    data['lh'] = np.ones((stc.lh_data.shape[0], 1)) * -1
+    for_time = time_axis[::-1] if reverse else time_axis
+    now = time.time()
+    for k, t in enumerate(for_time):
+        utils.time_to_go(now, k, len(for_time), 100)
+        for hemi in utils.HEMIS:
+            hemi_data = stc.rh_data[:, t] if hemi == 'rh' else stc.lh_data[:, t]
+            verts = np.where(hemi_data >= threshold)[0]
+            if len(verts) > 0:
+                data[hemi][verts, 0] = hemi_data[verts]
+    data = np.concatenate([data['lh'], data['rh']])
+    stc = mne.SourceEstimate(data, stc.vertices, 0, 0, subject=subject)
+    return stc
+
 
 
 def find_pick_activity(subject, stc, atlas, label_name_template='', hemi='both', peak_mode='abs'):
