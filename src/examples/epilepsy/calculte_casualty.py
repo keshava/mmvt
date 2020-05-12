@@ -6,6 +6,7 @@ from src.examples.epilepsy import utils as epi_utils
 from src.preproc import meg, eeg, connectivity
 from src.preproc import anatomy as anat
 import glob
+import traceback
 import mne
 import numpy as np
 
@@ -86,13 +87,13 @@ def calc_zvals(subject, modality, ictal_clips, inverse_method, overwrite=False, 
         return False
     fol = utils.make_dir(op.join(
         MMVT_DIR, subject, meg.modality_fol(modality), 'ictal-{}-zvals-stcs'.format(inverse_method)))
-    params = [(subject, clip_fname, baseline_stc_fnames, inverse_method, fol, from_index, to_index, use_abs, overwrite)
-              for clip_fname in ictal_clips]
+    params = [(subject, clip_fname, baseline_stc_fnames, modality, inverse_method, fol, from_index, to_index, use_abs,
+               overwrite) for clip_fname in ictal_clips]
     utils.run_parallel(_calc_zvals_parallel, params, n_jobs)
 
 
 def _calc_zvals_parallel(p):
-    subject, clip_fname, baseline_fnames, inverse_method, fol, from_index, to_index, use_abs, overwrite = p
+    subject, clip_fname, baseline_fnames, modality, inverse_method, fol, from_index, to_index, use_abs, overwrite = p
     stc_zvals_fname = op.join(fol, '{}-epilepsy-{}-{}-{}-amplitude-zvals'.format(
         subject, inverse_method, modality, utils.namebase(clip_fname)))
     if utils.both_hemi_files_exist('{}-{}.stc'.format(stc_zvals_fname, '{hemi}')) and not overwrite:
@@ -123,7 +124,8 @@ def find_functional_rois(subject, ictal_clips, modality, seizure_times, atlas, m
     if op.isfile(ictlas_fname):
         ictals = utils.load(ictlas_fname)
     else:
-        params = [(clip_fname, inverse_method, modality, seizure_times, stcs_fol) for clip_fname in ictal_clips]
+        params = [(subject, clip_fname, inverse_method, modality, seizure_times, stcs_fol, n_jobs)
+                  for clip_fname in ictal_clips]
         ictals = utils.run_parallel(_calc_ictal_and_baseline_parallel, params, n_jobs)
         utils.save(ictals, ictlas_fname)
     for stc_name, ictal_stc, mean_baseline in ictals:
@@ -139,7 +141,7 @@ def find_functional_rois(subject, ictal_clips, modality, seizure_times, atlas, m
 
 
 def _calc_ictal_and_baseline_parallel(p):
-    clip_fname, inverse_method, modality, seizure_times, stcs_fol = p
+    subject, clip_fname, inverse_method, modality, seizure_times, stcs_fol, n_jobs = p
     stc_name = op.join(stcs_fol, '{}-epilepsy-{}-{}-{}-amplitude-zvals'.format(
         subject, inverse_method, modality, utils.namebase(clip_fname)))
     if not stc_exist(stc_name):
@@ -148,12 +150,12 @@ def _calc_ictal_and_baseline_parallel(p):
     # t_from, t_to = stc.time_as_index(seizure_times[0])[0], stc.time_as_index(seizure_times[1])[0]
     t_from, t_to = [stc.time_as_index(seizure_times[k])[0] for k in range(2)]
     # mean_baseline_quick = np.median(np.max(stc.data[:, :stc.time_as_index(0)[0]], axis=0).squeeze())
-    mean_baseline = calc_baseline_mean(subject, stc)
+    mean_baseline = calc_baseline_mean(subject, stc, n_jobs)
     ictal_stc = meg.accumulate_stc(subject, stc, t_from, t_to, mean_baseline, reverse=True, n_jobs=n_jobs)
     return stc_name, ictal_stc, mean_baseline
 
 
-def calc_baseline_mean(subject, stc):
+def calc_baseline_mean(subject, stc, n_jobs):
     baseline_stc = stc.copy()
     baseline_stc.crop(baseline_stc.tmin, 0)
     # baseline_stc_mean = baseline_stc.mean()
@@ -162,29 +164,57 @@ def calc_baseline_mean(subject, stc):
     return np.median(np.max(baseline_stc_smooth.data, axis=0).squeeze())
 
 
-def calc_rois_connectivity(subject, ictal_clips, modality, inverse_method, min_order=1, max_order=20,
-                           windows_length=100, windows_shift=10, overwrite=False, n_jobs=4):
-    fwd_usingMEG, fwd_usingEEG = meg.get_fwd_flags(modality)
-    bands = {'all': [None, None]}
-    clusters_fol = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'clusters')
+def calc_rois_connectivity(
+        subject, ictal_clips, modality, inverse_method, min_order=1, max_order=20, crop_times=(-0.5, 1),
+        onset_time=2, windows_length=100, windows_shift=10, overwrite=False, n_jobs=4):
+    check_connectivity_labels(ictal_clips, modality, inverse_method)
+    params = [(subject, clip_fname, modality, inverse_method, min_order, max_order, crop_times, onset_time,
+               windows_length, windows_shift, overwrite, n_jobs) for clip_fname in ictal_clips]
+    utils.run_parallel(calc_clip_rois_connectivity, params, 1)
+
+
+def check_connectivity_labels(ictal_clips, modality, inverse_method):
+    # Check if can calc the labels info (if not, we want to know now...)
     for clip_fname in ictal_clips:
+        print('Checking {} labels'.format(utils.namebase(clip_fname)))
         labels_fol = op.join(
-            clusters_fol, '{}-epilepsy-{}-{}-{}-amplitude-zvals'.format(
+            MMVT_DIR, subject, meg.modality_fol(modality), 'clusters', '{}-epilepsy-{}-{}-{}-amplitude-zvals'.format(
                 subject, inverse_method, modality, utils.namebase(clip_fname)))
         labels = lu.read_labels_files(subject, labels_fol, n_jobs=n_jobs)
-        # for connectivity we need shorter names
-        labels = epi_utils.shorten_labels_names(labels)
-        # Check if can calc the labels info (if not, we want to know now...)
+        if len(labels) == 0:
+            raise Exception('No labels!')
+        else:
+            print('{} labels'.format(len(labels)))
         connectivity.calc_lables_info(subject, labels=labels)
-        evoked = mne.read_evokeds(clip_fname)[0]
-        cond = atlas = utils.namebase(clip_fname)
+
+
+def calc_clip_rois_connectivity(p):
+    (subject, clip_fname, modality, inverse_method, min_order, max_order, crop_times, onset_time, windows_length,
+     windows_shift, overwrite, n_jobs) = p
+    clusters_fol = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'clusters')
+    fwd_usingMEG, fwd_usingEEG = meg.get_fwd_flags(modality)
+    bands = {'all': [None, None]}
+    crop_times = [t + onset_time for t in crop_times]
+    labels_fol = op.join(
+        clusters_fol, '{}-epilepsy-{}-{}-{}-amplitude-zvals'.format(
+            subject, inverse_method, modality, utils.namebase(clip_fname)))
+    labels = lu.read_labels_files(subject, labels_fol, n_jobs=n_jobs)
+    # for connectivity we need shorter names
+    labels = epi_utils.shorten_labels_names(labels)
+    evoked = mne.read_evokeds(clip_fname)[0]
+    cond = atlas = utils.namebase(clip_fname)
+    try:
         meg.calc_labels_connectivity(
             subject, atlas, {cond: 1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
             pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
-            con_method='gc', overwrite_connectivity=overwrite,
+            con_method='gc', overwrite_connectivity=overwrite, crops_times=crop_times,
             epochs=evoked, bands=bands, con_indentifer='func_rois', labels=labels,
-            min_order=min_order, max_order=max_order, downsample=1, windows_length=windows_length,
+            min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
             windows_shift=windows_shift, n_jobs=n_jobs)
+    except:
+        print('******************* {} *****************'.format(clip_fname))
+        print(traceback.format_exc())
+        raise Exception('Brrrrr')
 
     # windows_epochs_template = op.join(
     #     root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, '{condition}'))
@@ -221,18 +251,20 @@ def calc_rois_connectivity(subject, ictal_clips, modality, inverse_method, min_o
 
 
 def main(subject, clips_dict, modality, inverse_method, downsample_r, seizure_times, atlas,
-         min_cluster_size, min_order, max_order, windows_length, windows_shift, overwrite=False, n_jobs=4):
+         min_cluster_size, min_order, max_order, windows_length, windows_shift, con_crop_times, onset_time,
+         overwrite=False, n_jobs=4):
     # calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=True, n_jobs=n_jobs)
     # calc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
-    find_functional_rois(
-        subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
-        inverse_method, overwrite=True, n_jobs=n_jobs)
-    # calc_rois_connectivity(subject, clips_dict['ictal'], modality, inverse_method, min_order, max_order,
-    #                        windows_length, windows_shift, overwrite, n_jobs)
+    # find_functional_rois(
+    #     subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
+    #     inverse_method, overwrite=True, n_jobs=n_jobs)
+    calc_rois_connectivity(
+        subject, clips_dict['ictal'], modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
+        windows_length, windows_shift, overwrite, n_jobs)
 
 
 if __name__ == '__main__':
-    n_jobs = utils.get_n_jobs(-10)
+    n_jobs = utils.get_n_jobs(1)
     n_jobs = n_jobs if n_jobs > 1 else 1
     print('{} jobs'.format(n_jobs))
     fif_files, clips_dict = [], {}
@@ -245,4 +277,4 @@ if __name__ == '__main__':
 
     main(subject, clips_dict, modality='meg', inverse_method='MNE', downsample_r=2, seizure_times=(0, .1),
          atlas='laus125', min_cluster_size=30, min_order=1, max_order=20, windows_length=100, windows_shift=10,
-         overwrite=False, n_jobs=n_jobs)
+         con_crop_times=(-0.5, 1), onset_time=2, overwrite=False, n_jobs=n_jobs)

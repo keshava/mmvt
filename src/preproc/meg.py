@@ -1179,7 +1179,8 @@ def calc_labels_connectivity(
         add_eeg_ref=True, fwd_usingMEG=True, fwd_usingEEG=True, extract_modes=['mean_flip'], surf_name='pial',
         con_method='coh', con_mode='cwt_morlet', cwt_n_cycles=7, max_epochs_num=0, min_order=1, max_order=100,
         windows_length=0, windows_shift=0, overwrite_connectivity=False, raw=None, epochs=None, src=None, bands=None,
-        labels=None, cwt_frequencies=None, con_indentifer='', symetric_con=None, downsample=1, n_jobs=6):
+        labels=None, cwt_frequencies=None, con_indentifer='', symetric_con=None, downsample=1, crops_times=None,
+        n_jobs=6):
     modality = get_modality(fwd_usingMEG, fwd_usingEEG)
     if mri_subject == '':
         mri_subject = subject
@@ -1234,6 +1235,8 @@ def calc_labels_connectivity(
             epochs = mne.read_epochs(epo_cond_fname, apply_SSP_projection_vectors, add_eeg_ref)
         if type(epochs) is mne.Evoked or type(epochs) is mne.EvokedArray:
             epochs = evoked_to_epochs(epochs)
+        if crops_times is not None:
+            epochs = epochs.crop(crops_times[0], crops_times[1])
         sfreq = epochs.info['sfreq']
         try:
             mne.set_eeg_reference(epochs, ref_channels=None)
