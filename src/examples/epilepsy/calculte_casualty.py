@@ -210,11 +210,11 @@ def calc_clip_rois_connectivity(p):
             con_method='gc', overwrite_connectivity=overwrite, crops_times=crop_times,
             epochs=evoked, bands=bands, con_indentifer='func_rois', labels=labels,
             min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
-            windows_shift=windows_shift, n_jobs=n_jobs)
+            windows_shift=windows_shift, n_jobs=1)
     except:
         print('******************* {} *****************'.format(clip_fname))
         print(traceback.format_exc())
-        raise Exception('Brrrrr')
+        # raise Exception('Brrrrr')
 
     # windows_epochs_template = op.join(
     #     root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, '{condition}'))

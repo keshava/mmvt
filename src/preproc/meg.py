@@ -1508,7 +1508,7 @@ def granger_causality(epochs_ts, sfreq, max_order, min_order=1, fmin=None, fmax=
 def _granger_causality_parallel(p):
     import nitime.timeseries as ts
     import nitime.analysis as nta
-    import nitime.utils as tsu
+    # import nitime.utils as tsu
 
     epoch_ts, sfreq, min_order, max_order, fmin, fmax, ijs, windows_length, windows_shift = p
     C, T = epoch_ts.shape
