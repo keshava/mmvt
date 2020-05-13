@@ -1899,6 +1899,8 @@ def calc_min_max(x, x_min=None, x_max=None, norm_percs=None):
     if x is None:
         print('{} -> calc_min_max: x is none!'.format(caller_func()))
         return 0, 0
+    if isinstance(x, list):
+        x = np.array(x)
     x_no_nan = x[np.where(~np.isnan(x))]
     x_min = calc_min(x_no_nan, x_min, norm_percs)
     x_max = calc_max(x_no_nan, x_max, norm_percs)
