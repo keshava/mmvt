@@ -388,8 +388,8 @@ def calc_scan_rescan_mean_diffs(subjects, do_plot_hist, overwrite):
         for region_name, val in diffs.items():
             all_diffs[region_name].append(val)
     region_names = all_diffs.keys()
-    data_mean = np.array([np.array(all_diffs[region_name]).abs().mean() for region_name in region_names])
-    data_std = np.array([np.array(all_diffs[region_name]).abs().std() for region_name in region_names])
+    data_mean = np.array([np.abs(all_diffs[region_name]).mean() for region_name in region_names])
+    data_std = np.array([np.abs(all_diffs[region_name]).std() for region_name in region_names])
     labels_names = [get_aparc_label_name(region) for region in region_names]
 
     figure_output_fname = op.join(RESULTS_FOL, 'aparc_aseg_hists', 'labels_scan_rescan_diffs.jpg')
