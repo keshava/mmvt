@@ -25,11 +25,20 @@ def epilepsy_only_zvals_update(self, context):
     init(_mmvt())
 
 
+def calc_auto_threshold():
+    mmvt = _mmvt()
+    onset_index = bpy.context.scene.epilepsy_onset
+    print('Calc auto threshold where the onset is at {}'.format(onset_index))
+    stc_data_max = np.max(coloring_panel.stc.data, axis=0).squeeze()
+    mean_baseline = stc_data_max[:onset_index].mean()
+    mmvt.coloring.set_lower_threshold(mean_baseline)
+
+
 def plot_stc_graph():
     stc_fname = get_stc_fname()
-    evokes_fname = op.join(_mmvt().utils.get_user_fol(), 'evokes', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
-    _mmvt().coloring.plot_max_stc_graph(stc_fname=stc_fname, modality=bpy.context.scene.epilepsy_modalities,
-                                        use_abs=False)
+    # evokes_fname = op.join(_mmvt().utils.get_user_fol(), 'evokes', '{}.fif'.format(bpy.context.scene.epilepsy_windows))
+    _mmvt().coloring.plot_max_stc_graph(
+        stc_fname=stc_fname, modality=bpy.context.scene.epilepsy_modalities, use_abs=False)
 
 
 def get_colorbar_title():
@@ -153,11 +162,12 @@ def plot_stc_over_time():
     data_max, data_min = time[-1] + t0, time[0] + t0
     mmvt.colorbar.set_colorbar_max_min(data_max, data_min, force_update=True)
     mmvt.colorbar.set_colorbar_title('MEG')
+    mmvt.colorbar.set_colormap('YlOrRd')
 
     mmvt.coloring.clear_colors()
     mmvt.coloring.plot_stc(
         stc, 0, 0, data_max, data_min, use_abs=False, bigger_or_equal=True)
-    mmvt.coloring.set_lower_threshold(threshold) # Set threshold to its previous value
+    # mmvt.coloring.set_lower_threshold(threshold) # Set threshold to its previous value
     if bpy.context.scene.epilepsy_save_stc_over_time:
         stc_output_fname = '{}_{}_{}'.format(get_stc_fname()[:-len('-rh.stc')], data_min, data_max)
         print('Saving stc over time to: {}'.format(stc_output_fname))
@@ -193,12 +203,16 @@ def draw(self, context):
         layout.prop(context.scene, 'epilepsy_inverse_methods', '')
     layout.prop(context.scene, 'epilepsy_windows', 'Window')
     layout.prop(context.scene, 'epilepsy_only_zvals', 'Only z-vals')
+    layout.prop(context.scene, 'coloring_use_abs', 'Use abs')
     col = layout.box().column()
     row = col.row(align=True)
     row.operator(PlotMaxSTCGraph.bl_idname, text="Plot max graph ", icon='IPO_ELASTIC')
     row.operator(PlotEvoked.bl_idname, text="Plot evoked ", icon='IPO_ELASTIC')
     layout.operator(SelectSTC.bl_idname, text="Load File", icon='HAND')
     if not coloring_panel.stc is None:
+        row = layout.row(align=True)
+        row.operator(EpilepsyCalcAutoThreshold.bl_idname, text="AutoTheshold", icon='POTATO')
+        row.prop(context.scene, "epilepsy_onset", text="Onset")
         row = layout.row(align=True)
         row.operator(EpilepsyPlot.bl_idname, text="Plot {}".format(modality), icon='POTATO')
         row.operator(EpilepsyPeakPlot.bl_idname, text="{} peak".format(modality), icon='POTATO')
@@ -211,6 +225,7 @@ def draw(self, context):
         col.operator(EpilepsyPlotStcOverTime.bl_idname, text="Plot {} over time".format(modality), icon='FORCE_HARMONIC')
         col.prop(context.scene, "epilepsy_save_stc_over_time", text="Save stc over time")
     layout.operator(EpilepsySaveImage.bl_idname, text="Save image ", icon='ROTATE')
+    # layout.operator(coloring_panel.ClearColors.bl_idname, text="Clear", icon='PANEL_CLOSE')
 
 
 class SelectSTC(bpy.types.Operator):
@@ -234,6 +249,18 @@ class EpilepsyPlotStcOverTime(bpy.types.Operator):
     @staticmethod
     def invoke(self, context, event=None):
         plot_stc_over_time()
+        return {"FINISHED"}
+
+
+class EpilepsyCalcAutoThreshold(bpy.types.Operator):
+    bl_idname = "mmvt.epilepsy_calc_auth_threshold"
+    bl_label = "mmvt epilepsy_calc_auth_threshold"
+    bl_description = 'Calc Auto Threshold'
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        calc_auto_threshold()
         return {"FINISHED"}
 
 
@@ -299,6 +326,7 @@ class EpilepsySaveImage(bpy.types.Operator):
 
 bpy.types.Scene.epilepsy_only_zvals = bpy.props.BoolProperty(default=True, update=epilepsy_only_zvals_update)
 bpy.types.Scene.epilepsy_save_stc_over_time = bpy.props.BoolProperty(default=False)
+bpy.types.Scene.epilepsy_onset = bpy.props.IntProperty(default=2000)
 
 
 def init(mmvt):
@@ -306,8 +334,8 @@ def init(mmvt):
     register()
     bands_names = ['amplitude', 'delta', 'theta', 'alpha', 'beta', 'high_gamma', 'gamma']
     user_fol = mu.get_user_fol()
-    meg_fol = op.join(user_fol, 'meg', 'zvals' if bpy.context.scene.epilepsy_only_zvals else 'no-zvals')
-    eeg_fol = op.join(user_fol, 'eeg', 'zvals' if bpy.context.scene.epilepsy_only_zvals else 'no-zvals')
+    meg_fol = op.join(user_fol, 'meg', 'ictal-MNE-zvals-stcs' if bpy.context.scene.epilepsy_only_zvals else 'no-zvals')
+    eeg_fol = op.join(user_fol, 'eeg', 'ictal-MNE-zvals-stcs' if bpy.context.scene.epilepsy_only_zvals else 'no-zvals')
     suffix = 'zvals-lh' if bpy.context.scene.epilepsy_only_zvals else 'lh'
     stcs_files = glob.glob(op.join(meg_fol, '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix))) + \
                  glob.glob(op.join(eeg_fol, '{}-epilepsy-*-{}.stc'.format(mu.get_user(), suffix)))
@@ -375,6 +403,7 @@ def register():
         bpy.utils.register_class(PlotEvoked)
         bpy.utils.register_class(EpilepsyPlotStcOverTime)
         bpy.utils.register_class(EpilepsySaveImage)
+        bpy.utils.register_class(EpilepsyCalcAutoThreshold)
     except:
         pass
 
@@ -388,5 +417,6 @@ def unregister():
         bpy.utils.unregister_class(PlotEvoked)
         bpy.utils.unregister_class(EpilepsyPlotStcOverTime)
         bpy.utils.unregister_class(EpilepsySaveImage)
+        bpy.utils.unregister_class(EpilepsyCalcAutoThreshold)
     except:
         pass

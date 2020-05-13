@@ -513,13 +513,13 @@ def find_electrode_group_on_dural():
     if len(bpy.context.selected_objects) == 2:
         selected_elcs = [bpy.context.selected_objects[k].name for k in range(2)]
         _find_electrode_group_on_dural(selected_elcs)
-    elif len(bpy.context.selected_objects) == 0:
-        for pt1, pt2 in zip(['G38', 'G64', 'G19', 'G49', 'G37', 'G46', 'G7', 'G22'][::-1],
-                            ['G26', 'G52', 'G56', 'G41', 'G20', 'G47', 'G15', 'G48'][::-1]):
-            _find_electrode_group_on_dural((pt1, pt2))
-        for pt1, pt2 in zip(['G38', 'G25', 'G61', 'G36', 'G4', 'G39', 'G23', 'G26'],
-                            ['G22', 'G58', 'G35', 'G1', 'G63', 'G30', 'G13', 'G48']):
-            _find_electrode_group_on_dural((pt1, pt2))
+    # elif len(bpy.context.selected_objects) == 0:
+    #     for pt1, pt2 in zip(['G38', 'G64', 'G19', 'G49', 'G37', 'G46', 'G7', 'G22'][::-1],
+    #                         ['G26', 'G52', 'G56', 'G41', 'G20', 'G47', 'G15', 'G48'][::-1]):
+    #         _find_electrode_group_on_dural((pt1, pt2))
+    #     for pt1, pt2 in zip(['G38', 'G25', 'G61', 'G36', 'G4', 'G39', 'G23', 'G26'],
+    #                         ['G22', 'G58', 'G35', 'G1', 'G63', 'G30', 'G13', 'G48']):
+    #         _find_electrode_group_on_dural((pt1, pt2))
 
 
 def _find_electrode_group_on_dural(selected_elcs):
@@ -1521,6 +1521,7 @@ class DellPanel(bpy.types.Panel):
     ct_found = False
     ct = None
     brain = None
+    pos = []
     output_fol = ''
     names, colors, groups, dists, dists_to_cylinder = [], [], [], [], []
     noise = set()

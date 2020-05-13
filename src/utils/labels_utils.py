@@ -799,8 +799,14 @@ def read_labels(subject, subjects_dir, atlas, try_first_from_annotation=True, on
         return []
 
 
-def read_labels_parallel(subject, subjects_dir, atlas, hemi='', labels_fol='', n_jobs=1):
+def read_labels_files(subject, labels_fol, subjects_dir='', n_jobs=4):
+    return read_labels_parallel(subject, labels_fol=labels_fol, n_jobs=n_jobs)
+
+
+def read_labels_parallel(subject, subjects_dir='', atlas='', hemi='', labels_fol='', n_jobs=1):
     try:
+        if subjects_dir == '':
+            subjects_dir = SUBJECTS_DIR
         labels_fol = op.join(subjects_dir, subject, 'label', atlas) if labels_fol == '' else labels_fol
         if not op.isdir(labels_fol):
             labels_fol = op.join(MMVT_DIR, subject, 'labels', atlas)
@@ -1094,6 +1100,7 @@ def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts
     if len(labels) == 0:
         print('No labels!')
         return None
+    output_stc_data = np.ones((data.shape[0], 1)) * -1
     for cluster in clusters:
         x = data[cluster]
         if abs_max:
@@ -1106,6 +1113,7 @@ def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts
             max_vert_ind = np.argmax(x)
             if cluster_max < min_cluster_max or len(cluster) < min_cluster_size:
                 continue
+        output_stc_data[cluster, 0] = x
         max_vert = cluster[max_vert_ind]
         inter_labels, inter_labels_tups = [], []
         for label in labels:
@@ -1125,7 +1133,7 @@ def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts
                 coordinates=verts[cluster], max=cluster_max, hemi=hemi, size=len(cluster), max_vert=max_vert))
         # else:
         #     print('No intersected labels!')
-    return cluster_labels
+    return cluster_labels, output_stc_data
 
 
 if __name__ == '__main__':

@@ -78,6 +78,7 @@ calc_mean_stc_hemi = mu.calc_mean_stc_hemi
 apply_trans = mu.apply_trans
 remove_file = mu.remove_file
 move_file = mu.move_file
+move_files = mu.move_files
 get_distinct_colors = mu.get_distinct_colors
 is_float = mu.is_float
 get_fname_folder = mu.get_fname_folder
