@@ -249,7 +249,7 @@ def filter_connections(node_name, con_values, con_names, threshold, conn_type=''
     mask = [False] * len(con_names)
     for ind, con_name in enumerate(con_names):
         node_from, _, _, hemi_from, node_to, _, _, hemi_to = con_name.split('-')
-        mask[ind] = node_name in node_from and node_name in node_to
+        mask[ind] = node_name in node_from and node_name in node_to if node_name != '' else True
         if use_abs:
             mask[ind] = mask[ind] and np.abs(con_values[ind, :].max()) >= threshold
         else:
@@ -269,7 +269,7 @@ def filter_connections(node_name, con_values, con_names, threshold, conn_type=''
 def norm_values(baseline_x, cond_x, divide_by_baseline_std, threshold, reduce_to_3d=False):
     # cond_x = find_best_ord(cond_x)
     # baseline_x = find_best_ord(baseline_x)
-
+    # Nodes x Time x Orders
     baseline_mean = baseline_x.mean(axis=1, keepdims=True)
     baseline_std = cond_x.std(axis=1, keepdims=True) if divide_by_baseline_std else None
 
@@ -280,7 +280,7 @@ def norm_values(baseline_x, cond_x, divide_by_baseline_std, threshold, reduce_to
     else:
         cond_x = cond_x - baseline_mean
     if threshold > 0:
-        cond_x[mask_indices[0]] = np.zeros(cond_x.shape[1])
+        cond_x[mask_indices[0]] = np.zeros(cond_x[mask_indices[0]].shape)
     if reduce_to_3d and cond_x.ndim == 4:
         from src.preproc import connectivity
         cond_x = connectivity.find_best_ord(cond_x)

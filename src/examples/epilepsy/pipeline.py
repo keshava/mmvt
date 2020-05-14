@@ -787,30 +787,12 @@ def normalize_connectivity(subject, condition, modality, high_freq=120, con_meth
     for band_name in bands.keys():
         connectivity_template = connectivity.get_output_fname(
             subject, con_method, modality, extract_mode, '{}_{}_{}'.format(band_name, '{condition}', con_indentifer))
-        # template = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}_{}_{}.npz'.format(
-        #     modality, band_name, '{condition}', con_method))
         output_fname = '{}_zvals.npz'.format(
             connectivity_template.format(condition='{}_interictals'.format(condition))[:-4])
-        # if op.isfile(output_fname) and not overwrite:
-        #     print('{} already exist'.format(output_fname))
-        #     continue
         cond_fname = connectivity_template.format(condition='{}_interictals'.format(condition))
         if not op.isfile(cond_fname):
             print('{} is missing!'.format(cond_fname))
             continue
-        # baseline_stat_fname = connectivity_template.format(condition='{}_baseline_stat'.format(condition))
-        # if not op.isfile(baseline_stat_fname) or overwrite:
-        #     baseline_fname = connectivity_template.format(condition='{}_baseline'.format(condition))
-        #     if not op.isfile(baseline_fname):
-        #         print('{} is missing!'.format(baseline_fname))
-        #         continue
-        #     d_baseline = utils.Bag(np.load(baseline_fname))
-        #     baseline_mean = d_baseline.con_values.mean(axis=1, keepdims=True)
-        #     baseline_std = d_baseline.con_values.std(axis=1, keepdims=True) if divide_by_baseline_std else None
-        #     np.savez(baseline_stat_fname, mean=baseline_mean, std=baseline_std)
-        # else:
-        #     d_stat = np.load(baseline_stat_fname)
-        #     baseline_mean, baseline_std = d_stat['mean'], d_stat['std']
 
         baseline_fname = connectivity_template.format(condition='{}_baseline'.format(condition))
         if not op.isfile(baseline_fname):
@@ -964,10 +946,10 @@ def main(subject, run, modalities, bands, evokes_fol, raw_fname, empty_fname, ba
             low_freq, high_freq, con_method, con_mode, n_cycles=2, min_order=1, max_order=20,
             windows_length=100, windows_shift=10, calc_only_for_all_freqs=True, overwrite=True,
             overwrite_connectivity=False, n_jobs=n_jobs)
-        # normalize_connectivity(
-        #     subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
-        #     threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
-        # plots.plot_connectivity(subject, specific_window, modality, high_freq, con_method)
+        normalize_connectivity(
+            subject, specific_window, modality, high_freq, con_method, divide_by_baseline_std=False,
+            threshold=0.5, reduce_to_3d=True, overwrite=True, n_jobs=n_jobs)
+        plots.plot_connectivity(subject, specific_window, modality, high_freq, con_method)
 
         # 4) Induced power
         # calc_induced_power(subject, run_num, windows_with_baseline, modality, inverse_method, check_for_labels_files,

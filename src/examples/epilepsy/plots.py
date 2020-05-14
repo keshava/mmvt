@@ -120,20 +120,22 @@ def _plot_evokes_parallel(p):
 
 def plot_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
                       extract_mode='mean_flip', func_rois_atlas=True, node_name='occipital', # ''lateraloccipital'
-                      use_zvals=False):
-    bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
+                      use_zvals=False, cond_name='interictals', stc_subfolder='zvals', stc_name='',
+                      stc_downsample=2, bands=None):
+    if bands is None:
+        bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
     if func_rois_atlas:
         con_indentifer = 'func_rois'
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'connectivity'))
     for band_name in bands.keys():
-        d_cond, d_baseline, x_cond, x_baseline, names, stc_data = calc_cond_and_basline(
-            subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name)
+        d_cond, d_baseline, x_cond, x_baseline, names, stc_data, stc_times = calc_cond_and_basline(
+            subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name,
+            cond_name=cond_name, stc_subfolder=stc_subfolder, stc_name=stc_name, stc_downsample=stc_downsample)
         if d_cond is None:
             continue
         x_axis = np.arange(x_cond.shape[1]) * 10
-        plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names)
-
-        plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.5, node_name, stc_data)
+        # plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names)
+        plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.5, node_name, stc_data, stc_times)
         # norm1_zvals = (d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)) / \
         #               d_baseline['con_values'].std(1, keepdims=True)
         # norm2_zvals = (d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)) / \
@@ -229,36 +231,39 @@ def plot_norm_data(d_cond, d_baseline, x_axis, condition, threshold, node_name, 
     # ax.legend([l1[conn_conditions[k]][0] for k in range(4)] + l2, labs, loc=0)
     # ax.legend([l1[conn_conditions[0]]] + [l1[conn_conditions[1]]] + l2, labs, loc=0)
     ax.legend(lines, labels, loc=0)
-    if ax is None:
-        plt.show()
+    # if ax is None:
+    plt.show()
     # plt.savefig(op.join(figures_fol, '{} interictals-basline'.format(condition)), dpi=300)
     # plt.close()
 
 
-def get_cond_and_baseline_fnames(subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals):
+def get_cond_and_baseline_fnames(subject, con_method, modality, condition, extract_mode, band_name, con_indentifer,
+                                 use_zvals, cond_name='interictals'):
     from src.preproc import connectivity
     template = connectivity.get_output_fname(
         subject, con_method, modality, extract_mode, '{}_{}_{}'.format(band_name, '{}_{}'.format(
             condition, '{cond}'), con_indentifer))
-    input_fname = '{}{}.npz'.format(template.format(cond='interictals')[:-4], '_zvals' if use_zvals else '')
+    input_fname = '{}{}.npz'.format(template.format(cond=cond_name)[:-4], '_zvals' if use_zvals else '')
     baseline_fname = '{}{}.npz'.format(template.format(cond='baseline')[:-4], '_zvals' if use_zvals else '')
-    return input_fname, baseline_fname
+    return input_fname.replace('__', '_'), baseline_fname.replace('__', '_')
 
 
 def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals,
-                          node_name, use_abs=True, threshold=0.7, window_length=25, stc_downsample=2):
+                          node_name, use_abs=True, threshold=0.7, window_length=25, stc_downsample=2,
+                          cond_name='interictals', stc_subfolder='zvals', stc_name=''):
     import mne
     from src.preproc import connectivity
 
     input_fname, baseline_fname = get_cond_and_baseline_fnames(
-        subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals)
+        subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, cond_name)
     if not op.isfile(input_fname) or not op.isfile(baseline_fname):
         # print('Can\'t find {}'.format(input_fname))
         return None, None, None, None, None, None
 
-    stcs_fol = op.join(MMVT_DIR, subject, 'meg', 'zvals')
-    stc_fname = op.join(
-        stcs_fol, '{}-epilepsy-dSPM-meg-{}-average-amplitude-zvals-rh.stc'.format(subject, condition))
+    stcs_fol = op.join(MMVT_DIR, subject, 'meg', stc_subfolder)
+    if stc_name == '':
+        stc_name = '{}-epilepsy-dSPM-meg-{}-average-amplitude-zvals-rh.stc'.format(subject, condition)
+    stc_fname = op.join(stcs_fol, stc_name)
     if op.isfile(stc_fname):
         stc = mne.read_source_estimate(stc_fname)
         times = utils.downsample(stc.times, stc_downsample)# [window_length:]

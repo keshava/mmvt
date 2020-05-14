@@ -3,6 +3,7 @@ from src.utils import utils
 from src.utils import labels_utils as lu
 from src.examples.epilepsy import pipeline
 from src.examples.epilepsy import utils as epi_utils
+from src.examples.epilepsy import plots
 from src.preproc import meg, eeg, connectivity
 from src.preproc import anatomy as anat
 import glob
@@ -215,38 +216,41 @@ def calc_clip_rois_connectivity(p):
             min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
             windows_shift=windows_shift, n_jobs=n_jobs)
 
-    # windows_epochs_template = op.join(
-    #     root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, '{condition}'))
-    # windows_epochs = epi_utils.combine_windows_into_epochs(windows, windows_epochs_template.format(condition=condition))
-    # dt = windows_epochs.tmax - windows_epochs.tmin
-    # baseline_epochs_fname = windows_epochs_template.format(condition=utils.namebase(baseline_window))
-    # if not op.isfile(baseline_epochs_fname) or overwrite:
-    #     baseline_epoch = epi_utils.combine_windows_into_epochs([baseline_window])
-    #     baseline_epochs = []
-    #     for win_ind in range(len(windows_epochs)):
-    #         tmin = windows_epochs.tmin + win_ind * dt
-    #         tmax = tmin + dt
-    #         if tmax > baseline_epoch.tmax:
-    #             break
-    #         baseline_epoch_crop = baseline_epoch.copy().crop(tmin, tmax)
-    #         demi_epoch = utils.create_epoch(baseline_epoch_crop.get_data(), baseline_epoch_crop.info)
-    #         baseline_epochs.append(demi_epoch.copy())
-    #     baseline_epochs = mne.concatenate_epochs(baseline_epochs, True)
-    #     if baseline_epochs_fname != '':
-    #         print('Saving epochs to {}'.format(baseline_epochs_fname))
-    #         baseline_epochs.save(baseline_epochs_fname)
-    # else:
-    #     baseline_epochs = mne.read_epochs(baseline_epochs_fname)
-    #
-    # for epochs, cond in zip([windows_epochs, baseline_epochs],
-    #                         ['{}_interictals'.format(condition), '{}_baseline'.format(condition)]):
-    #     meg.calc_labels_connectivity(
-    #         subject, atlas, {cond:1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
-    #         pick_ori='normal', inv_fname=inv_fname, fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
-    #         con_method=con_method, con_mode=con_mode, cwt_n_cycles=n_cycles, overwrite_connectivity=overwrite_connectivity,
-    #         epochs=epochs, bands=bands, cwt_frequencies=freqs, con_indentifer=con_indentifer, labels=labels,
-    #         min_order=min_order, max_order=max_order, downsample=1, windows_length=windows_length,
-    #         windows_shift=windows_shift, n_jobs=n_jobs)
+
+def normalize_connectivity(subject, ictals_clips, modality, divide_by_baseline_std, threshold,
+                           reduce_to_3d, overwrite=False, n_jobs=6):
+    connectivity_template = connectivity.get_output_fname(subject, 'gc', modality, 'mean_flip', 'all_{}_func_rois')
+    for clip_fname in ictals_clips:
+        clip_name = utils.namebase(clip_fname)
+        output_fname = '{}_zvals.npz'.format(connectivity_template.format(clip_name)[:-4])
+        con_ictal_fname = connectivity_template.format(clip_name)
+        con_baseline_fname = connectivity_template.format('{}_baseline'.format(clip_name))
+        if not op.isfile(con_ictal_fname) or not op.isfile(con_baseline_fname):
+            for fname in [f for f in [con_ictal_fname, con_baseline_fname] if not op.isfile(f)]:
+                print('{} is missing!'.format(fname))
+            continue
+        print('normalize_connectivity: {}:'.format(clip_name))
+        d_ictal = utils.Bag(np.load(con_ictal_fname, allow_pickle=True))
+        d_baseline = utils.Bag(np.load(con_baseline_fname, allow_pickle=True))
+        d_ictal.con_values = epi_utils.norm_values(
+            d_baseline.con_values, d_ictal.con_values, divide_by_baseline_std, threshold, True)
+        if 'con_values2' in d_baseline:
+            d_ictal.con_values2 = epi_utils.norm_values(
+                d_baseline.con_values2, d_ictal.con_values2, divide_by_baseline_std, threshold, True)
+        if reduce_to_3d:
+            d_ictal.con_values = connectivity.find_best_ord(d_ictal.con_values, False)
+            d_ictal.con_values2 = connectivity.find_best_ord(d_ictal.con_values2, False)
+        print('Saving norm connectivity in {}'.format(output_fname))
+        np.savez(output_fname, **d_ictal)
+
+
+def plot_connectivity(subject, clips_dict, modality, inverse_method):
+    for clip_fname in clips_dict['ictal']:
+        plots.plot_connectivity(
+            subject, utils.namebase(clip_fname), modality, 120, 'gc', cond_name='', node_name='',
+            stc_subfolder='ictal-{}-zvals-stcs'.format(inverse_method), bands={'all':[1, 120]},
+            stc_downsample=1, stc_name='{}-epilepsy-{}-{}-{}-amplitude-zvals-rh.stc'.format(
+                subject, inverse_method, modality, utils.namebase(clip_fname)))
 
 
 def main(subject, clips_dict, modality, inverse_method, downsample_r, seizure_times, atlas,
@@ -260,6 +264,10 @@ def main(subject, clips_dict, modality, inverse_method, downsample_r, seizure_ti
     calc_rois_connectivity(
         subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
         windows_length, windows_shift, overwrite, n_jobs)
+    # normalize_connectivity(
+    #     subject, clips_dict['ictal'], modality, divide_by_baseline_std=False,
+    #     threshold=0.5, reduce_to_3d=True, overwrite=False, n_jobs=n_jobs)
+    # plot_connectivity(subject, clips_dict, modality, inverse_method)
 
 
 if __name__ == '__main__':
@@ -276,4 +284,4 @@ if __name__ == '__main__':
 
     main(subject, clips_dict, modality='meg', inverse_method='MNE', downsample_r=2, seizure_times=(0, .1),
          atlas='laus125', min_cluster_size=30, min_order=1, max_order=20, windows_length=100, windows_shift=10,
-         con_crop_times=(-0.5, 1), onset_time=2, overwrite=False, n_jobs=n_jobs)
+         con_crop_times=(-2, 5), onset_time=2, overwrite=False, n_jobs=n_jobs)
