@@ -282,6 +282,7 @@ def norm_values(baseline_x, cond_x, divide_by_baseline_std, threshold, reduce_to
     if threshold > 0:
         cond_x[mask_indices[0]] = np.zeros(cond_x.shape[1])
     if reduce_to_3d and cond_x.ndim == 4:
-        cond_x = find_best_ord(cond_x)
+        from src.preproc import connectivity
+        cond_x = connectivity.find_best_ord(cond_x)
     print('{:.4f} {:.4f}'.format(np.nanmin(cond_x), np.nanmax(cond_x)))
     return cond_x
