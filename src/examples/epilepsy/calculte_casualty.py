@@ -168,7 +168,8 @@ def calc_rois_connectivity(
         subject, clips, modality, inverse_method, min_order=1, max_order=20, crop_times=(-0.5, 1),
         onset_time=2, windows_length=100, windows_shift=10, overwrite=False, n_jobs=4):
     check_connectivity_labels(clips['ictal'], modality, inverse_method)
-    baseline_epochs = epi_utils.combine_windows_into_epochs([clips['baseline']])
+    baseline_epochs_fname = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'baseline-epo.fif')
+    baseline_epochs = epi_utils.combine_windows_into_epochs(clips['baseline'], baseline_epochs_fname)
     params = [(subject, clip_fname, modality, inverse_method, min_order, max_order, crop_times, onset_time,
                windows_length, windows_shift, overwrite, n_jobs) for clip_fname in clips['ictal']]
     utils.run_parallel(calc_clip_rois_connectivity, params, 1)
@@ -202,13 +203,18 @@ def calc_clip_rois_connectivity(p):
     labels = lu.read_labels_files(subject, labels_fol, n_jobs=n_jobs)
     # for connectivity we need shorter names
     labels = epi_utils.shorten_labels_names(labels)
-    evoked = mne.read_evokeds(clip_fname)[0]
+    if isinstance(clip_fname, mne.Epochs) or isinstance(clip_fname, mne.Evoked):
+        clip = clip_fname
+    elif isinstance(clip_fname, str) and op.isfile(clip_fname):
+        clip = mne.read_evokeds(clip_fname)[0]
+    else
+        raise Exception('Wonrg clip type!')
     cond = atlas = utils.namebase(clip_fname)
     meg.calc_labels_connectivity(
         subject, atlas, {cond: 1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
         pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
         con_method='gc', overwrite_connectivity=overwrite, crops_times=crop_times,
-        epochs=evoked, bands=bands, con_indentifer='func_rois', labels=labels,
+        epochs=clip, bands=bands, con_indentifer='func_rois', labels=labels,
         min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
         windows_shift=windows_shift, n_jobs=1)
 
