@@ -232,14 +232,16 @@ def normalize_connectivity(subject, ictals_clips, modality, divide_by_baseline_s
         print('normalize_connectivity: {}:'.format(clip_name))
         d_ictal = utils.Bag(np.load(con_ictal_fname, allow_pickle=True))
         d_baseline = utils.Bag(np.load(con_baseline_fname, allow_pickle=True))
+        if reduce_to_3d:
+            d_ictal.con_values = connectivity.find_best_ord(d_ictal.con_values, False)
+            d_ictal.con_values2 = connectivity.find_best_ord(d_ictal.con_values2, False)
+            d_baseline.con_values = connectivity.find_best_ord(d_baseline.con_values, False)
+            d_baseline.con_values2 = connectivity.find_best_ord(d_baseline.con_values2, False)
         d_ictal.con_values = epi_utils.norm_values(
             d_baseline.con_values, d_ictal.con_values, divide_by_baseline_std, threshold, True)
         if 'con_values2' in d_baseline:
             d_ictal.con_values2 = epi_utils.norm_values(
                 d_baseline.con_values2, d_ictal.con_values2, divide_by_baseline_std, threshold, True)
-        if reduce_to_3d:
-            d_ictal.con_values = connectivity.find_best_ord(d_ictal.con_values, False)
-            d_ictal.con_values2 = connectivity.find_best_ord(d_ictal.con_values2, False)
         print('Saving norm connectivity in {}'.format(output_fname))
         np.savez(output_fname, **d_ictal)
 
@@ -247,10 +249,11 @@ def normalize_connectivity(subject, ictals_clips, modality, divide_by_baseline_s
 def plot_connectivity(subject, clips_dict, modality, inverse_method):
     for clip_fname in clips_dict['ictal']:
         plots.plot_connectivity(
-            subject, utils.namebase(clip_fname), modality, 120, 'gc', cond_name='', node_name='',
+            subject, utils.namebase(clip_fname), modality, 120, 'gc', cond_name='', node_name='', # superiorfrontal
             stc_subfolder='ictal-{}-zvals-stcs'.format(inverse_method), bands={'all':[1, 120]},
             stc_downsample=1, stc_name='{}-epilepsy-{}-{}-{}-amplitude-zvals-rh.stc'.format(
-                subject, inverse_method, modality, utils.namebase(clip_fname)))
+                subject, inverse_method, modality, utils.namebase(clip_fname)),
+            con_threshold=0)
 
 
 def main(subject, clips_dict, modality, inverse_method, downsample_r, seizure_times, atlas,
@@ -261,13 +264,13 @@ def main(subject, clips_dict, modality, inverse_method, downsample_r, seizure_ti
     # find_functional_rois(
     #     subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
     #     inverse_method, overwrite=True, n_jobs=n_jobs)
-    calc_rois_connectivity(
-        subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
-        windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
+    # calc_rois_connectivity(
+    #     subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
+    #     windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
     # normalize_connectivity(
     #     subject, clips_dict['ictal'], modality, divide_by_baseline_std=False,
     #     threshold=0.5, reduce_to_3d=True, overwrite=False, n_jobs=n_jobs)
-    # plot_connectivity(subject, clips_dict, modality, inverse_method)
+    plot_connectivity(subject, clips_dict, modality, inverse_method)
 
 
 if __name__ == '__main__':
