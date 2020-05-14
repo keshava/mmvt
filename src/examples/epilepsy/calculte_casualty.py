@@ -172,6 +172,9 @@ def calc_rois_connectivity(
     baseline_epochs = epi_utils.combine_windows_into_epochs(clips['baseline'], baseline_epochs_fname)
     params = [(subject, clip_fname, modality, inverse_method, min_order, max_order, crop_times, onset_time,
                windows_length, windows_shift, overwrite, n_jobs) for clip_fname in clips['ictal']]
+    calc_clip_rois_connectivity(
+        (subject, baseline_epochs, modality, inverse_method, min_order, max_order, crop_times, onset_time,
+        windows_length, windows_shift, overwrite, n_jobs))
     utils.run_parallel(calc_clip_rois_connectivity, params, 1)
 
 
@@ -216,7 +219,7 @@ def calc_clip_rois_connectivity(p):
         con_method='gc', overwrite_connectivity=overwrite, crops_times=crop_times,
         epochs=clip, bands=bands, con_indentifer='func_rois', labels=labels,
         min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
-        windows_shift=windows_shift, n_jobs=1)
+        windows_shift=windows_shift, n_jobs=n_jobs)
 
     # windows_epochs_template = op.join(
     #     root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, '{condition}'))
