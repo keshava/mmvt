@@ -170,11 +170,8 @@ def calc_rois_connectivity(
     check_connectivity_labels(clips['ictal'], modality, inverse_method)
     baseline_epochs_fname = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'baseline-epo.fif')
     baseline_epochs = epi_utils.combine_windows_into_epochs(clips['baseline'], baseline_epochs_fname)
-    params = [(subject, clip_fname, modality, inverse_method, min_order, max_order, crop_times, onset_time,
-               windows_length, windows_shift, overwrite, n_jobs) for clip_fname in clips['ictal']]
-    calc_clip_rois_connectivity(
-        (subject, baseline_epochs, modality, inverse_method, min_order, max_order, crop_times, onset_time,
-        windows_length, windows_shift, overwrite, n_jobs))
+    params = [(subject, clip_fname, baseline_epochs, modality, inverse_method, min_order, max_order, crop_times,
+               onset_time, windows_length, windows_shift, overwrite, n_jobs) for clip_fname in clips['ictal']]
     utils.run_parallel(calc_clip_rois_connectivity, params, 1)
 
 
@@ -194,8 +191,8 @@ def check_connectivity_labels(ictal_clips, modality, inverse_method):
 
 
 def calc_clip_rois_connectivity(p):
-    (subject, clip_fname, modality, inverse_method, min_order, max_order, crop_times, onset_time, windows_length,
-     windows_shift, overwrite, n_jobs) = p
+    (subject, clip_fname, baseline_epochs, modality, inverse_method, min_order, max_order, crop_times, onset_time,
+     windows_length, windows_shift, overwrite, n_jobs) = p
     clusters_fol = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'clusters')
     fwd_usingMEG, fwd_usingEEG = meg.get_fwd_flags(modality)
     bands = {'all': [None, None]}
@@ -206,20 +203,17 @@ def calc_clip_rois_connectivity(p):
     labels = lu.read_labels_files(subject, labels_fol, n_jobs=n_jobs)
     # for connectivity we need shorter names
     labels = epi_utils.shorten_labels_names(labels)
-    if isinstance(clip_fname, mne.Epochs) or isinstance(clip_fname, mne.Evoked):
-        clip = clip_fname
-    elif isinstance(clip_fname, str) and op.isfile(clip_fname):
-        clip = mne.read_evokeds(clip_fname)[0]
-    else
-        raise Exception('Wonrg clip type!')
-    cond = atlas = utils.namebase(clip_fname)
-    meg.calc_labels_connectivity(
-        subject, atlas, {cond: 1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
-        pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
-        con_method='gc', overwrite_connectivity=overwrite, crops_times=crop_times,
-        epochs=clip, bands=bands, con_indentifer='func_rois', labels=labels,
-        min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
-        windows_shift=windows_shift, n_jobs=n_jobs)
+    ictal_evoked = mne.read_evokeds(clip_fname)[0]
+    atlas = utils.namebase(clip_fname)
+    for clip, cond in zip([ictal_evoked, baseline_epochs],
+                          [utils.namebase(clip_fname), '{}_baseline'.format(utils.namebase(clip_fname))]):
+        meg.calc_labels_connectivity(
+            subject, atlas, {cond: 1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
+            pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
+            con_method='gc', overwrite_connectivity=overwrite, crops_times=crop_times,
+            epochs=clip, bands=bands, con_indentifer='func_rois', labels=labels,
+            min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
+            windows_shift=windows_shift, n_jobs=n_jobs)
 
     # windows_epochs_template = op.join(
     #     root_dir, '{}-{}-{}-{}-{}-epo.fif'.format(subject, modality, atlas, inverse_method, '{condition}'))
@@ -269,7 +263,7 @@ def main(subject, clips_dict, modality, inverse_method, downsample_r, seizure_ti
 
 
 if __name__ == '__main__':
-    n_jobs = utils.get_n_jobs(1)
+    n_jobs = utils.get_n_jobs(10)
     n_jobs = n_jobs if n_jobs > 1 else 1
     print('{} jobs'.format(n_jobs))
     fif_files, clips_dict = [], {}
