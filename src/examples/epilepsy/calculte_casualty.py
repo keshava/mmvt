@@ -77,7 +77,7 @@ def calc_stcs(subject, modality, clips_dict, inverse_method='MNE', downsample_r=
             utils.move_files(stc_fnames, new_fol, overwrite)
 
 
-def calc_zvals(subject, modality, ictal_clips, inverse_method, overwrite=False, n_jobs=4):
+def calc_stc_zvals(subject, modality, ictal_clips, inverse_method, overwrite=False, n_jobs=4):
     from_index, to_index = None, None
     use_abs = False
     baseline_stc_fnames = glob.glob(op.join(
@@ -257,13 +257,13 @@ def main(subject, clips_dict, modality, inverse_method, downsample_r, seizure_ti
          min_cluster_size, min_order, max_order, windows_length, windows_shift, con_crop_times, onset_time,
          overwrite=False, n_jobs=4):
     # calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=True, n_jobs=n_jobs)
-    # calc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
+    # calc_stc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
     # find_functional_rois(
     #     subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
     #     inverse_method, overwrite=True, n_jobs=n_jobs)
     calc_rois_connectivity(
         subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
-        windows_length, windows_shift, overwrite, n_jobs)
+        windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
     # normalize_connectivity(
     #     subject, clips_dict['ictal'], modality, divide_by_baseline_std=False,
     #     threshold=0.5, reduce_to_3d=True, overwrite=False, n_jobs=n_jobs)
