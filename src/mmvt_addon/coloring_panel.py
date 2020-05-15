@@ -1455,6 +1455,8 @@ def color_manually(coloring_name=''):
         atlas = ''
     # atlas_labels_rh, atlas_labels_lh = {}, {}
     for line in lines: #mu.csv_file_reader(op.join(subject_fol, 'coloring', coloring_name)):
+        if line == '' or len(line) == 0:
+            continue
         if line[0].startswith('colors='):
             continue
         if len(line) == 0 or line[0][0] == '#':
@@ -1593,6 +1595,7 @@ def find_atlas_labels(obj_name, atlas, color_rgb, other_atals_labels, atlas_labe
             if '_'.join(re.split('\W+', label_obj_name)).lower() == '_'.join(re.split('\W+', atlas_label_name)).lower():
                 other_atals_labels[atlas].append((atlas_label_name, color_rgb))
                 object_added = True
+                break
     return other_atals_labels, object_added
 
 
