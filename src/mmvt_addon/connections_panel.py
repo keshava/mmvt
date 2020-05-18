@@ -1036,6 +1036,8 @@ def connections_draw(self, context):
     layout = self.layout
     # layout.prop(context.scene, "connections_origin", text="")
     layout.prop(context.scene, "connectivity_files", text="")
+    if ConnectionsPanel.d is None:
+        return
     layout.prop(context.scene, 'connections_threshold', text="Threshold")
     if 'con_values2' in ConnectionsPanel.d:
         layout.prop(context.scene, "connectivity_direction", text="")

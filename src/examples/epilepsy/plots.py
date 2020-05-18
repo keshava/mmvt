@@ -1,8 +1,11 @@
 import matplotlib
 matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 
 import os.path as op
 import numpy as np
+from itertools import product
+
 from src.preproc import eeg
 from src.preproc import meg
 from src.utils import utils
@@ -121,7 +124,7 @@ def _plot_evokes_parallel(p):
 def plot_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
                       extract_mode='mean_flip', func_rois_atlas=True, node_name='occipital', # ''lateraloccipital'
                       use_zvals=False, cond_name='interictals', stc_subfolder='zvals', stc_name='',
-                      stc_downsample=2, bands=None):
+                      stc_downsample=2, con_threshold=0.5, bands=None):
     if bands is None:
         bands = utils.calc_bands(1, high_freq, include_all_freqs=True)
     if func_rois_atlas:
@@ -131,16 +134,10 @@ def plot_connectivity(subject, condition, modality, high_freq=120, con_method='w
         d_cond, d_baseline, x_cond, x_baseline, names, stc_data, stc_times = calc_cond_and_basline(
             subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name,
             cond_name=cond_name, stc_subfolder=stc_subfolder, stc_name=stc_name, stc_downsample=stc_downsample)
-        if d_cond is None:
-            continue
-        x_axis = np.arange(x_cond.shape[1]) * 10
-        # plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names)
-        plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.5, node_name, stc_data, stc_times)
-        # norm1_zvals = (d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)) / \
-        #               d_baseline['con_values'].std(1, keepdims=True)
-        # norm2_zvals = (d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)) / \
-        #               d_baseline['con_values2'].std(1, keepdims=True)
-        # plot_norm_data(norm1_zvals, norm2_zvals, 2)
+        if x_cond is not None and x_baseline is not None:
+            plot_norm_data(
+                x_cond, x_baseline, names, condition, con_threshold, node_name, stc_data, stc_times,
+                figures_fol=figures_fol)
 
 
 def plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names):
@@ -164,58 +161,46 @@ def plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names):
         # plt.close()
 
 
-def plot_norm_data(d_cond, d_baseline, x_axis, condition, threshold, node_name, stc_data, stc_times, windows_len=100,
-                   windows_shift=10, ax=None):
-    import matplotlib.pyplot as plt
-    from src.preproc import connectivity
-    # from src.mmvt_addon import colors_utils as cu
-
-    norm1 = d_cond['con_values'] - d_baseline['con_values'].mean(1, keepdims=True)
-    norm2 = d_cond['con_values2'] - d_baseline['con_values2'].mean(1, keepdims=True)
-    norm1, best_ords1 = connectivity.find_best_ord(norm1, return_ords=True)
-    norm2, best_ords2 = connectivity.find_best_ord(norm2, return_ords=True)
+def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_name, stc_data, stc_times, windows_len=100,
+                   windows_shift=10, figures_fol='', ax=None):
+    # con_norm = x_cond - x_baseline
+    con_norm = x_cond - x_cond[:, :200].mean(axis=1, keepdims=True)
     norm = {}
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-
-    from itertools import product
     conn_conditions = list(product(['within', 'between'], utils.HEMIS))
-
-    # colors = cu.get_distinct_colors(4)
     colors = ['c', 'b', 'k', 'm']
     lines, labels = [], []
-    # x_axis = x_axis [:-10]
+    no_ord_con_names = [con_name.split(' ')[0] for con_name in con_names]
     for conn_type, color in zip(conn_conditions, colors):
-        mask1 = epi_utils.filter_connections(node_name, norm1, d_cond['con_names'], threshold, conn_type, use_abs=False)
-        mask2 = epi_utils.filter_connections(node_name, norm2, d_cond['con_names2'], threshold, conn_type, use_abs=False)
-        norm[conn_type] = np.concatenate((norm1[mask1], norm2[mask2]))#[:, :-10]
-        names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
-        if best_ords1 is not None and best_ords2 is not None:
-            best_ords = np.concatenate((best_ords1[mask1], best_ords2[mask2]))
-            names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
-        if len(names) == 0 or max(norm[conn_type].max(0)) < 0:
+        mask = epi_utils.filter_connections(node_name, con_norm, no_ord_con_names, threshold, conn_type, use_abs=False)
+        if sum(mask) == 0:
             print('{} no connections {}'.format(condition, conn_type))
+            continue
         else:
-            windows_num = norm[conn_type].shape[1]
-            dt = (stc_times[-1] - stc_times[windows_len]) / windows_num
-            print('windows num: {} windows length: {:.2f}ms windows shift: {:2f}ms'.format(
-                windows_num, (stc_times[windows_len] - stc_times[0]) * 1000, dt * 1000))
-            time = np.arange(stc_times[windows_len], stc_times[-1], dt)
-            marker = '+' if conn_type[0] == 'within' else 'x'
-            l = ax.scatter(time, norm[conn_type].max(0), color=color)#, marker=marker)
-            lines.append(l)
-            conn_type = (conn_type[0], 'right') if conn_type[1] == 'rh' else (conn_type[0], 'left')
-            labels.append(' '.join(conn_type) if conn_type[0] == 'within' else '{} to {}'.format(*conn_type))
+            print('{}: {} connection for {} {}'.format(condition, sum(mask), conn_type[0], conn_type[1]))
+        names = np.array(con_names)[mask]
+        norm[conn_type] = con_norm[mask]
+        windows_num = norm[conn_type].shape[1]
+        dt = (stc_times[-1] - stc_times[windows_len]) / windows_num
+        # print('windows num: {} windows length: {:.2f}ms windows shift: {:2f}ms'.format(
+        #     windows_num, (stc_times[windows_len] - stc_times[0]) * 1000, dt * 1000))
+        time = np.arange(stc_times[windows_len], stc_times[-1], dt)[:-1]
+        marker = '+' if conn_type[0] == 'within' else 'x'
+        l = ax.scatter(time, norm[conn_type].max(0), color=color)#, marker=marker)
+        lines.append(l)
+        conn_type = (conn_type[0], 'right') if conn_type[1] == 'rh' else (conn_type[0], 'left')
+        labels.append(' '.join(conn_type) if conn_type[0] == 'within' else '{} to {}'.format(*conn_type))
 
     if stc_data is not None:
         ax2 = ax.twinx()
         l = ax2.plot(stc_times[windows_len:], stc_data[windows_len:].T, 'y--') # stc_data[:-100].T
         lines.append(l[0])
         labels.append('Source normalized activity')
-        ax2.set_ylim([0.5, 4.5])
+        # ax2.set_ylim([0.5, 4.5])
         # ax2.set_xlim([])
-        ax2.set_yticks(range(1, 5))
+        # ax2.set_yticks(range(1, 5))
         ax2.set_ylabel('Source z-values', fontsize=12)
     # ax.set_xticks(time)
     # xticklabels = ['{}-{}'.format(t, t + windows_shift) for t in time]
@@ -223,18 +208,23 @@ def plot_norm_data(d_cond, d_baseline, x_axis, condition, threshold, node_name, 
     # ax.set_xticklabels(xticklabels, rotation=30)
     ax.set_ylabel('Causality: Interictals\n minus Baseline', fontsize=12)
     # ax.set_yticks([0, 0.5])
-    ax.set_ylim([0, 0.7])
+    # ax.set_ylim([0, 0.7])
     # ax.axvline(x=x_axis[10], color='r', linestyle='--')
-    plt.title('{} interictals cluster'.format('Right' if condition == 'R' else 'Left'))
+    plt.title('{} ictal-baseline ({} connections)'.format(condition, x_cond.shape[0]))
 
     # labs = [*conn_conditions, 'Source normalized activity']
     # ax.legend([l1[conn_conditions[k]][0] for k in range(4)] + l2, labs, loc=0)
     # ax.legend([l1[conn_conditions[0]]] + [l1[conn_conditions[1]]] + l2, labs, loc=0)
-    ax.legend(lines, labels, loc=0)
+    ax.legend(lines, labels, loc='upper right')#loc=0)
+    plt.axvline(x=0, linestyle='--', color='k')
     # if ax is None:
-    plt.show()
-    # plt.savefig(op.join(figures_fol, '{} interictals-basline'.format(condition)), dpi=300)
-    # plt.close()
+    if figures_fol != '':
+        fig_fname = op.join(figures_fol, '{}-connectivity-ictal-baseline.jpg'.format(condition))
+        plt.savefig(fig_fname, dpi=300)
+        print('Figure was saved in {}'.format(fig_fname))
+        plt.close()
+    else:
+        plt.show()
 
 
 def get_cond_and_baseline_fnames(subject, con_method, modality, condition, extract_mode, band_name, con_indentifer,
@@ -258,7 +248,7 @@ def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode
         subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, cond_name)
     if not op.isfile(input_fname) or not op.isfile(baseline_fname):
         # print('Can\'t find {}'.format(input_fname))
-        return None, None, None, None, None, None
+        return None, None, None, None, None, None, None
 
     stcs_fol = op.join(MMVT_DIR, subject, 'meg', stc_subfolder)
     if stc_name == '':
@@ -275,15 +265,17 @@ def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode
     d_cond, d_baseline = np.load(input_fname), np.load(baseline_fname)
     con_values1, best_ords1 = connectivity.find_best_ord(d_cond['con_values'], return_ords=True)
     con_values2, best_ords2 = connectivity.find_best_ord(d_cond['con_values2'], return_ords=True)
-    baseline_values1 = epi_utils.set_new_ords(d_baseline['con_values'], best_ords1)
-    baseline_values2 = epi_utils.set_new_ords(d_baseline['con_values2'], best_ords2)
+    # baseline_values1 = epi_utils.set_new_ords(d_baseline['con_values'], best_ords1)
+    # baseline_values2 = epi_utils.set_new_ords(d_baseline['con_values2'], best_ords2)
+    baseline_values1 = connectivity.find_best_ord(d_baseline['con_values'], return_ords=False)
+    baseline_values2 = connectivity.find_best_ord(d_baseline['con_values2'], return_ords=False)
 
     mask1 = epi_utils.filter_connections(node_name, con_values1, d_cond['con_names'], threshold, '', use_abs)
     mask2 = epi_utils.filter_connections(node_name, con_values2, d_cond['con_names2'], threshold, '', use_abs)
     names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
     if len(names) == 0:
         print('{} no connections'.format(condition))
-        return None, None, None, None, None, None
+        return None, None, None, None, None, None, None
 
     x_cond = np.concatenate((con_values1[mask1], con_values2[mask2]))
     x_baseline = np.concatenate((baseline_values1[mask1], baseline_values2[mask2]))
@@ -319,8 +311,7 @@ def plot_both_conditions(subject, conditions, modality, high_freq=120, con_metho
             d_cond, d_baseline, x_cond, x_baseline, names, stc_data, stc_times = calc_cond_and_basline(
                 subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name,
                 use_abs=False, threshold=threshold, stc_downsample=1)
-            x_axis = np.arange(x_cond.shape[1]) * 10
-            plot_norm_data(d_cond, d_baseline, x_axis, condition, 0.1, node_name, stc_data, stc_times,
+            plot_norm_data(d_cond, d_baseline, condition, 0.1, node_name, stc_data, stc_times,
                            windows_len, windows_shift, ax)
         axs[1].set_xlabel('Time (ms)', fontsize=12)
         fig_fname = op.join(figures_fol, 'connectivity_both_conds_{}_{}.jpg'.format(con_method, band_name))
