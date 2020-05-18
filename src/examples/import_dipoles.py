@@ -27,21 +27,25 @@ def convert_dipoles_to_mri_space(subject, dipoles, overwrite=False):
     :param dipole:
     :return:
     '''
+    info_fname, info_exist = meg.get_info_fname('')
+    info = utils.load(info_fname)
     output_fname = op.join(utils.make_dir(op.join(MMVT_DIR, subject, 'meg')), 'dipoles.pkl')
     if op.isfile(output_fname) and not overwrite:
         return True
     # If the trans file doesn't exist, you should calculate it using mne-python / MNE-analyzer
     trans_file = meg.find_trans_file()
     trans = mne.transforms.read_trans(trans_file)
-    # meg_trans = mne.transforms.combine_transforms(dev_head_t, head_mri_t, 'meg', 'mri')
+    head_mri_t = mne.transforms._ensure_trans(trans, 'head', 'mri')
+    dev_head_t = info['dev_head_t']
+    meg_trans = mne.transforms.combine_transforms(dev_head_t, head_mri_t, 'meg', 'mri')
     mri_dipoles = defaultdict(list)
     for dipole_name, dipoles in dipoles.items():
         for dipole in dipoles:
             # begin end(ms)  X (mm)  Y (mm)  Z (mm)  Q(nAm) Qx(nAm) Qy(nAm) Qz(nAm)  g(%)
             begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipole
             mri_pos = mne.transforms.apply_trans(trans, [[x, y, z]])[0]
-            # Do something with the rest of the properties
-            mri_dipoles[dipole_name].append([begin_t, end_t, *mri_pos, q, qx, qy, qz, gf])
+            dir_xyz = mne.transforms.apply_trans(trans, [[qx, qy, qz]])[0]
+            mri_dipoles[dipole_name].append([begin_t, end_t, *mri_pos, q, *dir_xyz, gf])
     utils.save(mri_dipoles, output_fname)
     return op.isfile(output_fname)
 

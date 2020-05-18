@@ -779,6 +779,23 @@ def show_only_group_objects(objects, group_name='new_filter'):
     dopesheet.show_only_group_objects = True
 
 
+def draw_arrow(vert_ind, loc, dir):
+    from mathutils import Vector
+    loc = Vector(loc)
+    dir = Vector(dir)
+    R = (-dir).to_track_quat('Z', 'X').to_matrix().to_4x4()
+    mt = bpy.data.objects.new('arrow_{}'.format(vert_ind), None)
+    # mt.name = 'arrow_{}'.format(vert_ind)
+    R.translation = loc + dir
+    # mt.show_name = True
+    mt.matrix_world = R
+    mt.empty_draw_type = 'SINGLE_ARROW'
+    mt.empty_draw_size = dir.length
+    bpy.context.scene.objects.link(mt)
+    # mt.parent = bpy.data.objects[empty_name]
+    return mt
+
+
 def create_sphere(loc, rad, my_layers, name):
     bpy.ops.mesh.primitive_uv_sphere_add(
         ring_count=30, size=rad, view_align=False, enter_editmode=False, location=loc, layers=my_layers)
