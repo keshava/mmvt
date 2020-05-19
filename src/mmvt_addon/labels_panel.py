@@ -731,7 +731,7 @@ def init_labels_data_files():
     try:
         if len(labels_data_files) > 0:
             files_names = [mu.namebase(fname).replace('_', ' ') for fname in labels_data_files]
-            labels_items = [(c, c, '', ind) for ind, c in enumerate(files_names)]
+            labels_items = [(c, c, '', ind) for ind, c in enumerate(sorted(files_names))]
             bpy.types.Scene.labels_data_files = bpy.props.EnumProperty(
                 items=labels_items, update=labels_data_files_update,
                 description='Selects labels file from the subject’s labels folder:'
