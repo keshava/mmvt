@@ -85,7 +85,8 @@ def run_on_subjects(args, main_func, subjects_itr=None, subject_func=None):
                     ans = input('Do you wish to continue (y/n)? ')
                     if not au.is_true(ans):
                         continue
-            flags['prepare_subject_folder'] = True
+            # todo: why?
+            # flags['prepare_subject_folder'] = True
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 flags = main_func(tup, remote_subject_dir, args, flags)

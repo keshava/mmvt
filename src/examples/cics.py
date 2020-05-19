@@ -8,6 +8,7 @@ import nibabel as nib
 from collections import defaultdict
 
 from src.utils import utils
+from src.utils import args_utils as au
 from src.utils import freesurfer_utils as fu
 from src.utils import labels_utils as lu
 from src.preproc import fMRI
@@ -49,27 +50,56 @@ def get_subject_fs_folder(subject, scan_rescan, base_6_12='0'):
     return '{0}_{1}recon.long.{0}-base'.format(subject, scan_rescan_str)
 
 
-def register_cbf_to_t1(subject, site, scan_rescan, overwrite=False, print_only=False):
-    subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
+def register_cbf_to_t1(subject, subject_fol, scan_rescan, overwrite=False, print_only=False, check_if_should_run=False,
+                       verbose=True):
+
+    def input_files_exist():
+        return op.isfile(source_fname) and op.isfile(target_fname)
+
+    def output_exists():
+        if op.isfile(lta_fname) and op.isfile(output_fname):
+            try:
+                nib.load(output_fname)
+                nib.load(lta_fname)
+            except:
+                return False
+        return not overwrite
+
+    subject_fol = op.join(subject_fol, scan_rescan)
     output_fname = op.join(subject_fol, 'Control_to_T1.nii')
+    lta_fname = op.join(subject_fol, 'control_to_T1.lta')
     source_fname = op.join(subject_fol, 'Control.nii')
     target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
-    lta_fname = op.join(subject_fol, 'control_to_T1.lta')
+    if overwrite:
+        utils.delete_file(output_fname)
+        utils.delete_file(lta_fname)
+
+    if check_if_should_run:
+        if verbose and not input_files_exist():
+            print('register_cbf_to_t1: input files does not exist! ({})'.format(subject_fol))
+        if verbose and output_exists():
+            print('register_cbf_to_t1: output exist, continue ({})'.format(subject_fol))
+        return input_files_exist() and not output_exists()
+
     tmp_fol = utils.make_dir(op.join(subject_fol, 'bbregister'))
-    if not op.isfile(source_fname):
-        print('The source ({}) does not exist!'.format(source_fname))
+    if not input_files_exist():
+        print('The source ({}) does not exist'.format(source_fname))
+        print('And/Or the target ({}) does not exist!'.format(target_fname))
         return False
-    if not op.isfile(target_fname):
-        print('The target ({}) does not exist!'.format(target_fname))
-        return False
-    if not op.isfile(lta_fname) or not op.isfile(output_fname) or overwrite:
-        rs = utils.partial_run_script(locals(), print_only=print_only)
-        # bbregister --s {subject} --mov "{source_fname}" --lta "{lta_fname}" --t1 --o "{output_fname}"
-        rs(bbregister)
-    else:
-        print('Nothing to do, overwrite=False')
+    if output_exists():
+        return True
+    # Set the subject for the bbregister
+    subject = subject if scan_rescan == SCAN else '{}_rescan'.format(subject)
+    os.environ['SUBJECT'] = subject
+    rs = utils.partial_run_script(locals(), print_only=print_only)
+    # bbregister --s {subject} --mov "{source_fname}" --lta "{lta_fname}" --t1 --o "{output_fname}"
+    rs(bbregister)
+
     if not op.isfile(lta_fname):
         print('No registration file found! ({})'.format(lta_fname))
+        return False
+    else:
+        return True
 
 
 def check_cbf_to_t1_registeration(subject, site, scan_rescan, print_only=False):
@@ -207,27 +237,23 @@ def get_labels_data(subject, atlas):
     utils.prepare_subject_folder(necessary_files, subject, remote_subject_dir, SUBJECTS_DIR)
 
 
-def preproc_anat(subject):
-    utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
-    utils.make_dir(op.join(MMVT_DIR, '{}_rescan'.format(subject), 'fmri'))
-
-    args = anat.read_cmd_args(dict(
-        subject=subject, remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject)),
-        function='prepare_subject_folder',
-        exclude='create_new_subject_blend_file', ignore_missing=True))
-    anat.call_main(args)
-
-    # args = anat.read_cmd_args(dict(
-    #     subject=subject, remote_subject_dir=op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject)),
-    #     function='labeling', atlas='laus125', ignore_missing=True))
-    # anat.call_main(args)
-
-    args = anat.read_cmd_args(dict(
-        subject='{}_rescan'.format(subject),
-        remote_subject_dir=op.join(FS_ROOT, '{0}_B_recon.long.{0}-base'.format(subject)),
-        function='prepare_subject_folder',
-        exclude='create_new_subject_blend_file', ignore_missing=True))
-    anat.call_main(args)
+def preproc_anat(subjects, overwrite_files=False):
+    good_subjects = []
+    for subject in subjects:
+        # utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
+        # utils.make_dir(op.join(MMVT_DIR, '{}_rescan'.format(subject), 'fmri'))
+        scan_ret = utils.prepare_subject_folder(
+            anat.get_necessary_files(), subject,
+            op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject)), SUBJECTS_DIR,
+            overwrite_files=overwrite_files)[0]
+        rescan_ret = utils.prepare_subject_folder(
+            anat.get_necessary_files(), '{}_rescan'.format(subject),
+            op.join(FS_ROOT, '{0}_B_recon.long.{0}-base'.format(subject)), SUBJECTS_DIR,
+            overwrite_files=overwrite_files)[0]
+        if scan_ret and rescan_ret:
+            good_subjects.append(subject)
+    print('{}/{} good subjects'.format(len(good_subjects), len(subjects)))
+    return good_subjects
 
 
 @utils.tryit()
@@ -388,8 +414,8 @@ def calc_scan_rescan_mean_diffs(subjects, do_plot_hist, overwrite):
         for region_name, val in diffs.items():
             all_diffs[region_name].append(val)
     region_names = all_diffs.keys()
-    data_mean = np.array([np.array(all_diffs[region_name]).abs().mean() for region_name in region_names])
-    data_std = np.array([np.array(all_diffs[region_name]).abs().std() for region_name in region_names])
+    data_mean = np.array([np.abs(all_diffs[region_name]).mean() for region_name in region_names])
+    data_std = np.array([np.abs(all_diffs[region_name]).std() for region_name in region_names])
     labels_names = [get_aparc_label_name(region) for region in region_names]
 
     figure_output_fname = op.join(RESULTS_FOL, 'aparc_aseg_hists', 'labels_scan_rescan_diffs.jpg')
@@ -410,9 +436,8 @@ def calc_scan_rescan_mean_diffs(subjects, do_plot_hist, overwrite):
             op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data')), '{}.npz'.format(mmvt_file_name))
         if op.isfile(mmvt_output_fname) and not overwrite:
             continue
-        minmax = utils.calc_abs_minmax(data)
         np.savez(mmvt_output_fname, names=labels_names, atlas='aparc', data=data, title=mmvt_file_name,
-                 data_min=-minmax, data_max=minmax, cmap='BuPu-YlOrRd')
+                 data_min=0, data_max=data.max(), cmap='YlOrRd')
 
 
 def find_diff_clusters(subject, atlas='laus125', overwrite=True):
@@ -512,34 +537,29 @@ def plot_registration_cost_hist(subjects, site, overwrite=False):
             csv_writer.writerow(res)
 
 
-def calc_volume_fractions(subject, site, scan_rescan, use_reg=True, overwrite=False, print_only=False):
+def _calc_volume_fractions_parallel(params):
+    for p in params:
+        subject, site, subject_dir, scan_rescan = [p[key] for key in ['subject', 'site', 'subject_dir', 'scan_rescan']]
+        overwrite, print_only = [p.get(key, False) for key in ['overwrite', 'print_only']]
+        calc_volume_fractions(subject, site, subject_dir, scan_rescan,  overwrite, print_only)
+
+
+def calc_volume_fractions(subject, site, subject_dir, scan_rescan, overwrite=False, print_only=False):
     # 'mri_compute_volume_fractions --o "{output_fname}" --regheader {subject} "{target_fname}"'
     # mri_compute_volume_fractions_reg = 'mri_compute_volume_fractions --o "{output_fname}" --reg  "{reg_fname}"'
-    if use_reg:
-        reg_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'control_to_T1.lta')
-        output_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF')
-        rs = utils.partial_run_script(locals(), print_only=print_only)
-        output_full_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF.cortex.mgz')
-    else:
-        output_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'T1')
-        target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
-        rs = utils.partial_run_script(locals(), print_only=print_only)
-        output_full_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.cortex.mgz')
+    # if use_reg:
+    reg_fname = op.join(subject_dir, scan_rescan, 'control_to_T1.lta')
+    output_fname = op.join(subject_dir, scan_rescan, 'CBF')
+    rs = utils.partial_run_script(locals(), print_only=print_only)
+    output_full_fname = op.join(subject_dir, scan_rescan, 'CBF.cortex.mgz')
+    # else:
+    #     output_fname = op.join(subject_dir, scan_rescan, 'T1')
+    #     target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
+    #     rs = utils.partial_run_script(locals(), print_only=print_only)
+    #     output_full_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.cortex.mgz')
     if not op.isfile(output_full_fname) or overwrite:
-        rs(mri_compute_volume_fractions_reg if use_reg else mri_compute_volume_fractions)
+        rs(mri_compute_volume_fractions_reg)
 
-
-def calc_volume_fractions_all_subjects(subjects, site, overwrite, print_only):
-    indices = np.array_split(np.arange(len(subjects)), n_jobs)
-    chunks = [([subjects[ind] for ind in chunk_indices], site, overwrite, print_only)
-              for chunk_indices in indices]
-    utils.run_parallel(_calc_volume_fractions_parallel, chunks, n_jobs)
-
-
-def _calc_volume_fractions_parallel(p):
-    subjects, site, overwrite, print_only = p
-    for subject in subjects:
-        calc_volume_fractions(subject, site, scan_rescan, use_reg=True, overwrite=overwrite, print_only=print_only)
 
 
 def plot_subjects_cbf_histograms(subjects, site, bandwidth=0.2, overwrite=False, per_subject=False):
@@ -635,7 +655,7 @@ def get_aparc_label_name(region_name):
 def get_subjects(site):
     # subjects = set([fol.split('_')[0].replace('-base', '') for fol in utils.get_subfolders(FS_ROOT, 'name')])
     # return sorted(list(subjects - set(['scripts', 'fsaverage'])))
-    subjects = set([fol.split('_')[0] for fol in utils.get_subfolders(op.join(HOME_FOL, site), 'name')])
+    subjects = [fol.split('_')[0] for fol in utils.get_subfolders(op.join(HOME_FOL, site), 'name')]
     return subjects
 
 
@@ -660,41 +680,88 @@ def read_hippocampus_volumes(overwrite=False):
         plt.show()
 
 
+def vars_names_to_dict(params, args):
+    return {key: args[key] for key in params}
+
+
+def run_function_in_parallel(func, all_params, n_jobs, split_jobs=True):
+    # Filter our items that should not run (all input files should exist, and all output files shoud not)
+    params = [p for p in all_params if all(_run_func_in_parallel((func, [p], True, 0)))]
+    print('*** Run {}/{} records, {} jobs ***'.format(len(params), len(all_params), n_jobs))
+    ret = input('ok? (y/n)')
+    if not au.is_true(ret):
+        return
+    if split_jobs:
+        chunks_indices = np.array_split(np.arange(len(params)), n_jobs)
+        chunk_params = [(func, [params[ind] for ind in chunk_indices], False, thread_ind)
+                        for thread_ind, chunk_indices in enumerate(chunks_indices)]
+    else:
+        chunk_params = [(func, [p], False, thread_ind) for thread_ind, p in enumerate(params)]
+    utils.run_parallel(_run_func_in_parallel, chunk_params, n_jobs)
+
+
+def _run_func_in_parallel(parallel_params):
+    func, params, check_is_should_run, thread_ind = parallel_params
+    flags = []
+    now = time.time()
+    for run_num, p in enumerate(params):
+        if not check_is_should_run:
+            utils.time_to_go(now, run_num, len(params), 1, thread_ind)
+        subject, site, subject_dir, scan_rescan = [p[key] for key in ['subject', 'site', 'subject_dir', 'scan_rescan']]
+        overwrite, print_only = [p.get(key, False) for key in ['overwrite', 'print_only']]
+        flag = False
+        if func.__name__ == 'register_cbf_to_t1':
+            flag = register_cbf_to_t1(subject, subject_dir, scan_rescan,  overwrite, print_only, check_is_should_run)
+        flags.append(flag)
+    return flags
+
+
 if __name__ == '__main__':
     subject = os.environ['SUBJECT'] = '277S0203'
     os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
-    site = '277-NDC'
+    sites = ['131-NeuroBeh_ACH', '277-NDC', '800-Hoglund', '829-EmoryUniversity', '960-VitalImaging']
+    months = [''] #, '_6', '_12']
     atlas = 'aparc' # 'aparc.DKTatlas'
     low_threshold, high_threshold = 0, 100
     cortex_frac_threshold = 0.9
-    overwrite = False
+    overwrite = True
     print_only = False
     do_plot = False
-    subjects = get_subjects(site)
-    n_jobs = utils.get_n_jobs(-5)
-    # subjects = [subject]
+    n_jobs = max(utils.get_n_jobs(30), 4)
+    print('n_jobs: {}'.format(n_jobs))
 
     # read_hippocampus_volumes()
     # calc_volume_fractions_all_subjects(subjects, site, overwrite, print_only)
 
-    now = time.time()
-    for sub_ind, subject in enumerate(subjects):
-        utils.time_to_go(now, sub_ind, len(subjects), 1)
-        # preproc_anat(subject)
-        # get_labels_data(subject, atlas)
-        for scan_rescan in SCAN_RESCAN:
-            # calc_volume_fractions(subject, site, scan_rescan)
-            # register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-            # project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-            # register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-            # calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, cortex_frac_threshold,
-            #                     overwrite=True, do_plot=False)
-            # calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold, high_threshold, overwrite, do_plot)
-            # morph_to_fsaverage(subject, scan_rescan, overwrite=overwrite, print_only=print_only)
-            pass
-        # calc_scan_rescan_diff(subject, overwrite=True)
-        # find_diff_clusters(subject, atlas='laus125', overwrite=True)
-    calc_scan_rescan_mean_diffs(subjects, do_plot_hist=True, overwrite=True)
+    params = []
+    for site in sites:
+        subjects = get_subjects(site)
+        good_subjects = preproc_anat(subjects, overwrite_files=False)
+        for sub_ind, subject in enumerate(good_subjects):
+            # utils.time_to_go(now, sub_ind, len(subjects), 1)
+            # get_labels_data(subject, atlas)
+            subjects_0_6_12_dirs = [
+                op.join(HOME_FOL, site, '{}{}'.format(subject, month)) for month in months
+                if op.isdir(op.join(HOME_FOL, site, '{}{}'.format(subject, month)))]
+            for subject_dir in subjects_0_6_12_dirs:
+                for scan_rescan in [RESCAN]:# SCAN_RESCAN:
+                    params.append(vars_names_to_dict((
+                        'subject', 'site', 'subject_dir', 'scan_rescan', 'overwrite', 'print_only'), locals()))
+                    # calc_volume_fractions(subject, site, subject_dir, scan_rescan, overwrite=False)
+                    # register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+                    # project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+                    # register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
+                    # calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, cortex_frac_threshold,
+                    #                     overwrite=True, do_plot=False)
+                    # calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold, high_threshold, overwrite, do_plot)
+                    # morph_to_fsaverage(subject, scan_rescan, overwrite=overwrite, print_only=print_only)
+                    pass
+                # calc_scan_rescan_diff(subject, overwrite=True)
+                # find_diff_clusters(subject, atlas='laus125', overwrite=True)
+    run_function_in_parallel(register_cbf_to_t1, params, n_jobs, split_jobs=True)
+
+
+    # calc_scan_rescan_mean_diffs(subjects, do_plot_hist=True, overwrite=True)
     # plot_subjects_cbf_histograms(subjects, site, overwrite=True)
     # plot_registration_cost_hist(subjects, site)
     # check_cbf_to_t1_registeration('277S0229', site, 'scan', print_only)

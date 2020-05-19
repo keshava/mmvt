@@ -727,9 +727,9 @@ def time_to_go(now, run, runs_num, runs_num_to_print=10, thread=-1, do_write_to_
         time_took = time.time() - now
         more_time = time_took / run * (runs_num - run)
         if thread > 0:
-            str = '{}: {}/{}, {:.2f}s, {:.2f}s to go!'.format(thread, run, runs_num, time_took, more_time)
+            str = '***** {}: {}/{}, {:.2f}s, {:.2f}s to go!'.format(thread, run, runs_num, time_took, more_time)
         else:
-            str = '{}/{}, {:.2f}s, {:.2f}s to go!'.format(run, runs_num, time_took, more_time)
+            str = '***** {}/{}, {:.2f}s, {:.2f}s to go!'.format(run, runs_num, time_took, more_time)
         if do_write_to_stderr:
             write_to_stderr(str)
         else:
