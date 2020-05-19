@@ -537,29 +537,48 @@ def plot_registration_cost_hist(subjects, site, overwrite=False):
             csv_writer.writerow(res)
 
 
-def _calc_volume_fractions_parallel(params):
-    for p in params:
-        subject, site, subject_dir, scan_rescan = [p[key] for key in ['subject', 'site', 'subject_dir', 'scan_rescan']]
-        overwrite, print_only = [p.get(key, False) for key in ['overwrite', 'print_only']]
-        calc_volume_fractions(subject, site, subject_dir, scan_rescan,  overwrite, print_only)
+def calc_volume_fractions(subject, subject_fol, scan_rescan, overwrite=False, print_only=False,
+                          check_if_should_run=False, verbose=True):
 
+    def input_files_exist():
+        return op.isfile(reg_fname)
 
-def calc_volume_fractions(subject, site, subject_dir, scan_rescan, overwrite=False, print_only=False):
-    # 'mri_compute_volume_fractions --o "{output_fname}" --regheader {subject} "{target_fname}"'
-    # mri_compute_volume_fractions_reg = 'mri_compute_volume_fractions --o "{output_fname}" --reg  "{reg_fname}"'
-    # if use_reg:
-    reg_fname = op.join(subject_dir, scan_rescan, 'control_to_T1.lta')
-    output_fname = op.join(subject_dir, scan_rescan, 'CBF')
+    def output_exists():
+        if op.isfile(output_mgz_fname):
+            try:
+                nib.load(output_mgz_fname)
+            except:
+                return False
+        return not overwrite
+
+    reg_fname = op.join(subject_fol, scan_rescan, 'control_to_T1.lta')
+    output_fname = op.join(subject_fol, scan_rescan, 'CBF')
+    output_mgz_fname = op.join(subject_fol, scan_rescan, 'CBF.cortex.mgz')
+
+    if overwrite:
+        utils.delete_file(output_mgz_fname)
+
+    if check_if_should_run:
+        if verbose and not input_files_exist():
+            print('calc_volume_fractions: input files does not exist! ({})'.format(subject_fol))
+        if verbose and output_exists():
+            print('calc_volume_fractions: output exist, continue ({})'.format(subject_fol))
+        return input_files_exist() and not output_exists()
+
+    if not input_files_exist():
+        print('The source ({}) does not exist'.format(reg_fname))
+        return False
+    if output_exists():
+        print('The target ({}) exists!'.format(output_mgz_fname))
+        return True
+
+    # Set the subject
+    subject = subject if scan_rescan == SCAN else '{}_rescan'.format(subject)
+    os.environ['SUBJECT'] = subject
     rs = utils.partial_run_script(locals(), print_only=print_only)
-    output_full_fname = op.join(subject_dir, scan_rescan, 'CBF.cortex.mgz')
-    # else:
-    #     output_fname = op.join(subject_dir, scan_rescan, 'T1')
-    #     target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
-    #     rs = utils.partial_run_script(locals(), print_only=print_only)
-    #     output_full_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.cortex.mgz')
-    if not op.isfile(output_full_fname) or overwrite:
-        rs(mri_compute_volume_fractions_reg)
-
+    # mri_compute_volume_fractions_reg = 'mri_compute_volume_fractions --o "{output_fname}" --reg  "{reg_fname}"'
+    rs(mri_compute_volume_fractions_reg)
+    return output_exists()
 
 
 def plot_subjects_cbf_histograms(subjects, site, bandwidth=0.2, overwrite=False, per_subject=False):
@@ -684,34 +703,38 @@ def vars_names_to_dict(params, args):
     return {key: args[key] for key in params}
 
 
-def run_function_in_parallel(func, all_params, n_jobs, split_jobs=True):
+def run_function_in_parallel(func, all_params, n_jobs, split_jobs=True, verbose=True):
     # Filter our items that should not run (all input files should exist, and all output files shoud not)
-    params = [p for p in all_params if all(_run_func_in_parallel((func, [p], True, 0)))]
+    params = [p for p in all_params if all(_run_func_in_parallel((func, [p], True, 0, verbose)))]
     print('*** Run {}/{} records, {} jobs ***'.format(len(params), len(all_params), n_jobs))
-    ret = input('ok? (y/n)')
+    ret = input('ok? (y/n) ')
     if not au.is_true(ret):
         return
     if split_jobs:
         chunks_indices = np.array_split(np.arange(len(params)), n_jobs)
-        chunk_params = [(func, [params[ind] for ind in chunk_indices], False, thread_ind)
+        chunk_params = [(func, [params[ind] for ind in chunk_indices], False, thread_ind, verbose)
                         for thread_ind, chunk_indices in enumerate(chunks_indices)]
     else:
-        chunk_params = [(func, [p], False, thread_ind) for thread_ind, p in enumerate(params)]
+        chunk_params = [(func, [p], False, thread_ind, verbose) for thread_ind, p in enumerate(params)]
     utils.run_parallel(_run_func_in_parallel, chunk_params, n_jobs)
 
 
 def _run_func_in_parallel(parallel_params):
-    func, params, check_is_should_run, thread_ind = parallel_params
+    func, params, check_if_should_run, thread_ind, verbose = parallel_params
     flags = []
     now = time.time()
     for run_num, p in enumerate(params):
-        if not check_is_should_run:
+        if not check_if_should_run:
             utils.time_to_go(now, run_num, len(params), 1, thread_ind)
         subject, site, subject_dir, scan_rescan = [p[key] for key in ['subject', 'site', 'subject_dir', 'scan_rescan']]
         overwrite, print_only = [p.get(key, False) for key in ['overwrite', 'print_only']]
         flag = False
         if func.__name__ == 'register_cbf_to_t1':
-            flag = register_cbf_to_t1(subject, subject_dir, scan_rescan,  overwrite, print_only, check_is_should_run)
+            flag = register_cbf_to_t1(
+                subject, subject_dir, scan_rescan,  overwrite, print_only, check_if_should_run, verbose)
+        elif func.__name__ == 'calc_volume_fractions':
+            flag = calc_volume_fractions(
+                subject, subject_dir, scan_rescan, overwrite, print_only, check_if_should_run, verbose)
         flags.append(flag)
     return flags
 
@@ -744,7 +767,7 @@ if __name__ == '__main__':
                 op.join(HOME_FOL, site, '{}{}'.format(subject, month)) for month in months
                 if op.isdir(op.join(HOME_FOL, site, '{}{}'.format(subject, month)))]
             for subject_dir in subjects_0_6_12_dirs:
-                for scan_rescan in [RESCAN]:# SCAN_RESCAN:
+                for scan_rescan in [SCAN]: #SCAN_RESCAN:
                     params.append(vars_names_to_dict((
                         'subject', 'site', 'subject_dir', 'scan_rescan', 'overwrite', 'print_only'), locals()))
                     # calc_volume_fractions(subject, site, subject_dir, scan_rescan, overwrite=False)
@@ -758,7 +781,7 @@ if __name__ == '__main__':
                     pass
                 # calc_scan_rescan_diff(subject, overwrite=True)
                 # find_diff_clusters(subject, atlas='laus125', overwrite=True)
-    run_function_in_parallel(register_cbf_to_t1, params, n_jobs, split_jobs=True)
+    run_function_in_parallel(register_cbf_to_t1, params, n_jobs)
 
 
     # calc_scan_rescan_mean_diffs(subjects, do_plot_hist=True, overwrite=True)
