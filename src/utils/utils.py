@@ -90,10 +90,10 @@ get_label_for_full_fname = mu.get_label_for_full_fname
 to_str = mu.to_str
 argmax2d = mu.argmax2d
 file_modification_time = mu.file_modification_time
-
 atlas_exist = mu.atlas_exist
 get_atlas_template = mu.get_atlas_template
 fix_atlas_name = mu.fix_atlas_name
+caller_func=mu.caller_func
 
 from src.mmvt_addon.scripts import scripts_utils as su
 get_link_dir = su.get_link_dir
