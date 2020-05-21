@@ -1136,16 +1136,7 @@ def find_clusters_overlapped_labeles(subject, clusters, data, atlas, hemi, verts
     return cluster_labels, output_stc_data
 
 
-if __name__ == '__main__':
-    pass
-    # subject = 'DC'
-    # atlas = 'laus250'
-    # # label_name = 'bankssts_1-lh'
-    # n_jobs = 6
-    # # check_labels(subject, SUBJECTS_DIR, atlas, label_name)
-    # save_labels_from_vertices_lookup(
-    #     subject, atlas, SUBJECTS_DIR, surf_type='pial',
-    #     read_labels_from_fol=op.join(SUBJECTS_DIR, subject, 'label', '{}_before_solve_collision'.format(atlas)))
-    # pass
-
-
+# if __name__ == '__main__':
+#     morph_annot(subject, template_brain, atlas, overwrite_subject_vertices_labels_lookup=False,
+#                 overwrite_labels=False, overwrite_annot=False, n_jobs=4)
+#

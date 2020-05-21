@@ -1320,18 +1320,25 @@ def vertex_object_coloring(cur_obj, mesh, coloring_layer, valid_verts, vert_valu
 
 def verts_lookup_loop_coloring(valid_verts, lookup, vcol_layer, colors_func, cur_obj_name='', save_prev_colors=False):
     bpy.context.window.cursor_set("WAIT")
-    try:
-        for vert in tqdm(valid_verts):
-            x = lookup[vert]
-            for loop_ind in x[x > -1]:
+    # try:
+    #     for vert in tqdm(valid_verts):
+    #         x = lookup[vert]
+    #         for loop_ind in x[x > -1]:
+    #             d = vcol_layer.data[loop_ind]
+    #             d.color = colors_func(vert)
+    # except:
+    N = len(vcol_layer.data)
+    first = True
+    for vert in tqdm(valid_verts):
+        x = lookup[vert]
+        for loop_ind in x[x > -1]:
+            if loop_ind < N:
                 d = vcol_layer.data[loop_ind]
                 d.color = colors_func(vert)
-    except:
-        for vert in valid_verts:
-            x = lookup[vert]
-            for loop_ind in x[x > -1]:
-                d = vcol_layer.data[loop_ind]
-                d.color = colors_func(vert)
+            else:
+                if first:
+                    print('Trying to access index {} while there are only {} items!'.format(loop_ind, N))
+                    first = False
     bpy.context.window.cursor_set("DEFAULT")
 
 

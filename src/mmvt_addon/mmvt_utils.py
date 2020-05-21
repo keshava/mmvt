@@ -948,6 +948,7 @@ def check_obj_type(obj_name):
     else:
         return None
     if obj is None or obj.parent is None:
+        print('Cound not find object {}!'.format(obj_name))
         return None
     if obj.parent.name == 'Cortex-lh':
         obj_type = OBJ_TYPE_CORTEX_LH
