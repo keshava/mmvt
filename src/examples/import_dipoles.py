@@ -18,12 +18,27 @@ def parse_dip_file(dip_fname):
     '''
     # Can take code from mne.dipole.read_dipole(dip_fname)
     # read_dipole does not take the dipoles' names
+    same_name_lines = []
+    results = defaultdict(list)
+    line_start = len("## Name \"")
+    with open(dip_fname , 'r') as target:
+        for line in target.readlines():
+            if( line.startswith('#')):
+                if same_name_lines:
+                    tmp_line = (line[line_start:])
+                    name =  (tmp_line.split("\"", maxsplit=1)[0])
+                    for item in same_name_lines:
+                        results[name].append([float(x) for x in item.split()])
+                    same_name_lines = []
+            else:
+                same_name_lines.append(line)
 
-    events = defaultdict(list)
-    # Should read the whole dip file in loop to find all the events
-    event = [162023.8, 162023.8, 30.7, 63.7, 69.6, 89.84, 69.58, -50.12, 26.78, 77.3]
-    events['run2_162'].append(event)
-    return events
+    return results
+    # events = defaultdict(list)
+    # # Should read the whole dip file in loop to find all the events
+    # event = [162023.8, 162023.8, 30.7, 63.7, 69.6, 89.84, 69.58, -50.12, 26.78, 77.3]
+    # events['run2_162'].append(event)
+    # return events
 
 
 def convert_dipoles_to_mri_space(subject, dipoles, overwrite=False):
