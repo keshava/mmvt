@@ -47,6 +47,42 @@ def get_tracula_pathways():
     return items
 
 
+def get_tracula_traks():
+    tracks = glob.glob(op.join(SUBJECT_DTI_FOL, '*_tracks.npy'))
+    items, ind = [], 0
+    for track_fname in tracks:
+        track_name = mu.namebase(track_fname)[:-len('_tracks')]
+        header_fname = op.join(SUBJECT_DTI_FOL, '{}_header.pkl'.format(track_name))
+        print(track_name, header_fname)
+        if op.isfile(header_fname):
+            items.append((track_name, track_name, '', ind))
+    items = sorted(items)
+    return items
+
+
+def plot_tracks():
+    tracks_name = bpy.context.scene.dti_tracks
+    tracks_fname = op.join(SUBJECT_DTI_FOL, '{}_tracks.npy'.format(tracks_name))
+    tracks_header = op.join(SUBJECT_DTI_FOL, '{}_header.pkl'.format(tracks_name))
+    world_matrix = mu.get_matrix_world()
+    tracks = np.load(tracks_fname) * 0.1
+    header = mu.load(tracks_header)
+
+    layers_dti = [False] * 20
+    dti_layer = DTIPanel.addon.CONNECTIONS_LAYER
+    layers_dti[dti_layer] = True
+    mu.create_empty_if_doesnt_exists(tracks_name, DTIPanel.addon.CONNECTIONS_LAYER, None, PARENT_OBJ)
+    parent_obj = bpy.data.objects[tracks_name]
+
+    # N = len(tracks)
+    # now = time.time()
+    # for ind, track in enumerate(tracks):
+    #     mu.time_to_go(now, ind, N, 100)
+    cur_obj = mu.create_spline(tracks, layers_dti, bevel_depth=0.01)
+    cur_obj.name = tracks_name
+    cur_obj.parent = parent_obj
+
+
 def get_group_name(pkl_fname):
     pathway = mu.namebase(pkl_fname)
     pathway = pathway[:-len(TRACULA_POSTFIX)]
@@ -71,6 +107,16 @@ def plot_pathway(self, context, layers_dti, pathway_name, pathway_type):
             cur_obj.parent = parent_obj
 
 
+class PlotTracks(bpy.types.Operator):
+    bl_idname = "mmvt.plot_tracks"
+    bl_label = "mmvt plt tracks"
+    bl_options = {"UNDO"}
+
+    @staticmethod
+    def invoke(self, context, event=None):
+        plot_tracks()
+
+
 class PlotPathway(bpy.types.Operator):
     bl_idname = "mmvt.plot_pathway"
     bl_label = "mmvt plt pathway"
@@ -92,14 +138,19 @@ class PlotPathway(bpy.types.Operator):
 
 def dti_draw(self, context):
     layout = self.layout
-    layout.prop(context.scene, "dti_type", text="")
-    layout.prop(context.scene, "dti_pathways", text="")
-    layout.operator(PlotPathway.bl_idname, text="plot pathway", icon='POTATO')
+    # layout.prop(context.scene, "dti_type", text="")
+    if len(DTIPanel.pathways) > 0:
+        layout.prop(context.scene, "dti_pathways", text="")
+        layout.operator(PlotPathway.bl_idname, text="plot pathway", icon='POTATO')
+    if len(DTIPanel.tracks) > 0:
+        layout.prop(context.scene, "dti_tracks", text="")
+        layout.operator(PlotTracks.bl_idname, text="plot tracks", icon='POTATO')
 
 
-bpy.types.Scene.dti_type = bpy.props.EnumProperty(items=[(TRACULA, TRACULA, "", 1)], description="DTI source",
-                                                  set=set_dti_pathways)
+# bpy.types.Scene.dti_type = bpy.props.EnumProperty(items=[(TRACULA, TRACULA, "", 1)], description="DTI source",
+#                                                   set=set_dti_pathways)
 bpy.types.Scene.dti_pathways = bpy.props.EnumProperty(items=get_tracula_pathways(), description="pathways")
+bpy.types.Scene.dti_tracks = bpy.props.EnumProperty(items=get_tracula_traks(), description="traks")
 
 
 class DTIPanel(bpy.types.Panel):
@@ -110,6 +161,8 @@ class DTIPanel(bpy.types.Panel):
     bl_label = "DTI"
     addon = None
     init = False
+    tracks = []
+    pathways = []
     # d = mu.Bag({})
 
     def draw(self, context):
@@ -118,11 +171,12 @@ class DTIPanel(bpy.types.Panel):
 
 def check_for_dti_files():
     # Check if the dti files exist
-    pathway_types = [TRACULA]
-    for pathway_type in pathway_types:
-        if pathway_type == TRACULA:
-            pathways = [get_group_name(pkl_fname) for pkl_fname in glob.glob(op.join(SUBJECT_DTI_FOL, TRACULA, '*.pkl'))]
-    return len(pathways) > 0
+    # pathway_types = [TRACULA]
+    # for pathway_type in pathway_types:
+    #     if pathway_type == TRACULA:
+    DTIPanel.pathways = [get_group_name(pkl_fname) for pkl_fname in glob.glob(op.join(SUBJECT_DTI_FOL, TRACULA, '*.pkl'))]
+    DTIPanel.tracks = glob.glob(op.join(SUBJECT_DTI_FOL, '*_tracks.npy'))
+    return len(DTIPanel.pathways) > 0 or len(DTIPanel.tracks) > 0
 
 
 def init(addon):
@@ -143,6 +197,7 @@ def register():
         unregister()
         bpy.utils.register_class(DTIPanel)
         bpy.utils.register_class(PlotPathway)
+        bpy.utils.register_class(PlotTracks)
         # print('DTI Panel was registered!')
     except:
         print("Can't register DTI Panel!")
@@ -152,6 +207,7 @@ def unregister():
     try:
         bpy.utils.unregister_class(DTIPanel)
         bpy.utils.unregister_class(PlotPathway)
+        bpy.utils.unregister_class(PlotTracks)
     except:
         pass
         # print("Can't unregister DTI Panel!")
