@@ -15,7 +15,7 @@ def run(mmvt):
     if not op.isfile(dipoles_fname):
         print('No dipoles file!')
         return
-    dipoles_dict = mu.load(dipoles_fname)
+    dipoles_dict = ScriptsPanel.dipoles_dict #mu.load(dipoles_fname)
     global_dipole_ind = 0
     world_matrix = mu.get_matrix_world()
     layers_array = [False] * 20
@@ -71,7 +71,7 @@ def init(mmvt):
     if not op.isfile(dipoles_fname):
         print('No dipoles file!')
         return
-    dipoles_dict = mu.load(dipoles_fname)
+    ScriptsPanel.dipoles_dict = dipoles_dict = mu.load(dipoles_fname)
     dipoles_items = sorted([(dipole_name, dipole_name, '', ind) for ind, dipole_name in enumerate(dipoles_dict.keys())])
     bpy.types.Scene.dipoles_names = bpy.props.EnumProperty(
         items=dipoles_items, description="Dipoles names")
