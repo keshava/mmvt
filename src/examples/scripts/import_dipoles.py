@@ -10,7 +10,7 @@ def _mmvt():
 
 def run(mmvt):
     mu = mmvt.utils
-    parent_obj = mu.create_empty_if_doesnt_exists('dipoles', mmvt.BRAIN_EMPTY_LAYER)
+    parent_obj = mu.create_empty_if_doesnt_exists('dipoles', mmvt.MEG_LAYER, None, 'Functional maps')
     dipoles_fname = op.join(mu.get_user_fol(), 'meg', 'dipoles.pkl')
     if not op.isfile(dipoles_fname):
         print('No dipoles file!')
@@ -19,7 +19,8 @@ def run(mmvt):
     global_dipole_ind = 0
     world_matrix = mu.get_matrix_world()
     layers_array = [False] * 20
-    layers_array[mmvt.ELECTRODES_LAYER] = True
+    layers_array[mmvt.MEG_LAYER] = True
+    show_as_arrows = False
     for dipole_name, dipoles in dipoles_dict.items():
         for dipole_ind, dipole in enumerate(dipoles):
             dipole_obj_name = 'dipole_{}_{}'.format(dipole_name, dipole_ind)
@@ -27,14 +28,16 @@ def run(mmvt):
             dipole_loc = Vector((x, y, z)) * world_matrix * 1000
             ori = Vector((qx, qy, qz)) / (1 / 1e9)
             dipole_dir = ori * world_matrix * 1000
-            dipole_obj = mu.draw_arrow(global_dipole_ind, dipole_loc, dipole_dir)
-            # mu.create_sphere(dipole_loc, 0.15, layers_array, dipole_obj_name)
-            # dipole_obj = bpy.data.objects[dipole_obj_name]
+            if show_as_arrows:
+                dipole_obj = mu.draw_arrow(global_dipole_ind, dipole_loc, dipole_dir)
+            else:
+                mu.create_sphere(dipole_loc, 0.15, layers_array, dipole_obj_name)
+                dipole_obj = bpy.data.objects[dipole_obj_name]
             dipole_obj.select = True
             dipole_obj.parent = parent_obj
             mu.create_and_set_material(dipole_obj)
             global_dipole_ind += 1
-
+    bpy.context.scene.layers[mmvt.MEG_LAYER] = True
 
 def delete_dipoles():
     mu = _mmvt().mmvt_utils
@@ -57,6 +60,9 @@ def draw(self, context):
     layout = self.layout
     layout.prop(context.scene, 'dipoles_names', text="")
     layout.operator(DeleteDipoles.bl_idname, text="Delete Dipoles", icon='FORCE_HARMONIC')
+
+
+bpy.types.Scene.dipoles_names = bpy.props.EnumProperty(items=[], description="Dipoles names")
 
 
 def init(mmvt):

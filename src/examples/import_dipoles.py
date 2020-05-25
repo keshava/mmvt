@@ -12,10 +12,11 @@ SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects')
 
 
 def plot_dipole(dip_fname, subject):
-    import mne
+    import matplotlib.pyplot as plt
     dips = mne.dipole.read_dipole(dip_fname)
     trans_file = meg.find_trans_file(subject=subject)
     dips[0].plot_locations(trans_file, subject, SUBJECTS_DIR, mode='orthoview')
+    plt.show()
 
 
 def parse_dip_file(dip_fname):
@@ -79,6 +80,6 @@ def convert_dipoles_to_mri_space(subject, dipoles, overwrite=False):
 if __name__ == '__main__':
     subject = 'nmr01391'
     dip_fname = op.join(MEG_DIR, subject, 'epi.dip')
-    plot_dipole(dip_fname, subject)
+    # plot_dipole(dip_fname, subject)
     dipoles = parse_dip_file(dip_fname)
     mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
