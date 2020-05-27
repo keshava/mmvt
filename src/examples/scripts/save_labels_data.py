@@ -10,4 +10,5 @@ def run(mmvt):
         mmvt.labels.select_labels_data(label_data_fname)
         mmvt.labels.plot_labels_data()
         mmvt.render.set_output_path(figures_fol)
+        mmvt.render.save_views_with_cb()
         mmvt.render.save_all_views()
