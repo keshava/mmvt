@@ -7,7 +7,7 @@ def run(mmvt):
     labels_data_files = mmvt.labels.get_labels_data_files()
     for label_data_fname in labels_data_files:
         label_data_name = mu.namebase(label_data_fname).replace('_', ' ')
-        figures_fol = mu.makedir(op.join(mu.get_user_fol(), 'figures', label_data_name))
+        figures_fol = mu.make_dir(op.join(mu.get_user_fol(), 'figures', label_data_name))
         mmvt.coloring.clear_colors()
         mmvt.labels.select_labels_data(label_data_fname)
         mmvt.labels.plot_labels_data()
