@@ -727,9 +727,9 @@ def time_to_go(now, run, runs_num, runs_num_to_print=10, thread=-1, do_write_to_
         time_took = time.time() - now
         more_time = time_took / run * (runs_num - run)
         if thread > 0:
-            str = '{}: {}/{}, {:.2f}s, {:.2f}s to go!'.format(thread, run, runs_num, time_took, more_time)
+            str = '***** {}: {}/{}, {:.2f}s, {:.2f}s to go!'.format(thread, run, runs_num, time_took, more_time)
         else:
-            str = '{}/{}, {:.2f}s, {:.2f}s to go!'.format(run, runs_num, time_took, more_time)
+            str = '***** {}/{}, {:.2f}s, {:.2f}s to go!'.format(run, runs_num, time_took, more_time)
         if do_write_to_stderr:
             write_to_stderr(str)
         else:
@@ -777,6 +777,23 @@ def show_only_group_objects(objects, group_name='new_filter'):
         selected_group.objects.link(obj)
     dopesheet.filter_group = selected_group
     dopesheet.show_only_group_objects = True
+
+
+def draw_arrow(vert_ind, loc, dir):
+    from mathutils import Vector
+    loc = Vector(loc)
+    dir = Vector(dir)
+    R = (-dir).to_track_quat('Z', 'X').to_matrix().to_4x4()
+    mt = bpy.data.objects.new('arrow_{}'.format(vert_ind), None)
+    # mt.name = 'arrow_{}'.format(vert_ind)
+    R.translation = loc + dir
+    # mt.show_name = True
+    mt.matrix_world = R
+    mt.empty_draw_type = 'SINGLE_ARROW'
+    mt.empty_draw_size = dir.length
+    bpy.context.scene.objects.link(mt)
+    # mt.parent = bpy.data.objects[empty_name]
+    return mt
 
 
 def create_sphere(loc, rad, my_layers, name):
@@ -931,6 +948,7 @@ def check_obj_type(obj_name):
     else:
         return None
     if obj is None or obj.parent is None:
+        print('Cound not find object {}!'.format(obj_name))
         return None
     if obj.parent.name == 'Cortex-lh':
         obj_type = OBJ_TYPE_CORTEX_LH

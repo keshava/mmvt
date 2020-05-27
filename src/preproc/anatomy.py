@@ -1676,8 +1676,19 @@ def mne_coregistration(subject):
     mne.gui.coregistration(subject=subject, subjects_dir=SUBJECTS_DIR)
 
 
+def get_necessary_files():
+    return {
+        'mri': ['aseg.mgz', 'norm.mgz', 'ribbon.mgz', 'T1.mgz', 'orig.mgz', 'brain.mgz', 'brainmask.mgz',
+                'aparc+aseg.mgz'],
+        'surf': ['rh.pial', 'lh.pial', 'rh.inflated', 'lh.inflated', 'rh.white', 'lh.white', 'lh.curv', 'rh.curv',
+                 'rh.sphere.reg', 'lh.sphere.reg', 'rh.sphere', 'lh.sphere', 'rh.smoothwm','lh.smoothwm',
+                 'lh.sphere.reg', 'rh.sphere.reg', 'lh.thickness', 'rh.thickness'],
+        'mri:transforms' :['talairach.xfm', 'talairach.m3z'],
+        'label': ['lh.cortex.label', 'rh.cortex.label']}
+
+
 def call_main(args):
-    pu.run_on_subjects(args, main)
+    return pu.run_on_subjects(args, main)
 
 
 def main(subject, remote_subject_dir, org_args, flags):
@@ -1880,16 +1891,7 @@ def read_cmd_args(argv=None):
     args = utils.Bag(au.parse_parser(parser, argv))
     dkt_real_name = utils.fix_atlas_name(args.subject[0], 'dkt', SUBJECTS_DIR)
     existing_freesurfer_annotations = [dkt_real_name, 'aparc', 'aparc.a2009s']
-    args.necessary_files = {
-        'mri': ['aseg.mgz', 'norm.mgz', 'ribbon.mgz', 'T1.mgz', 'orig.mgz', 'brain.mgz', 'brainmask.mgz',
-                'aparc+aseg.mgz'],
-        'surf': ['rh.pial', 'lh.pial', 'rh.inflated', 'lh.inflated', 'rh.white', 'lh.white', 'lh.curv', 'rh.curv',
-                 'rh.sphere.reg', 'lh.sphere.reg', 'rh.sphere', 'lh.sphere', 'rh.smoothwm','lh.smoothwm',
-                 'lh.sphere.reg', 'rh.sphere.reg', 'lh.thickness', 'rh.thickness'],
-        'mri:transforms' :['talairach.xfm', 'talairach.m3z'],
-        'label': ['lh.cortex.label', 'rh.cortex.label']}
-        # 'label': ['rh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations] +
-        #          ['lh.{}.annot'.format(annot_name) for annot_name in existing_freesurfer_annotations]}
+    args.necessary_files = get_necessary_files()
     if args.overwrite:
         args.overwrite_annotation = True
         args.overwrite_morphing_labels = True
