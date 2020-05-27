@@ -164,7 +164,15 @@ def plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names):
 def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_name, stc_data, stc_times, windows_len=100,
                    windows_shift=10, figures_fol='', ax=None):
     # con_norm = x_cond - x_baseline
-    con_norm = x_cond - x_cond[:, :200].mean(axis=1, keepdims=True)
+    # con_norm = x_cond - x_cond[:, :200].mean(axis=1, keepdims=True)
+    # baseline_std = np.std(x_baseline, axis=1, keepdims=True)
+    # baseline_mean = np.mean(x_baseline, axis=1, keepdims=True)
+    baseline_mean = np.max(x_cond[:, :200], axis=1, keepdims=True)
+    baseline_std = np.std(x_cond[:, :200], axis=1, keepdims=True)
+
+    con_norm = (x_cond - baseline_mean) / baseline_std
+    fig_fname = op.join(figures_fol, 'ictal-baseline', '{}-connectivity-ictal-baseline.jpg'.format(condition))
+
     norm = {}
     if ax is None:
         fig = plt.figure()
@@ -195,7 +203,7 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_nam
 
     if stc_data is not None:
         ax2 = ax.twinx()
-        l = ax2.plot(stc_times[windows_len:], stc_data[windows_len:].T, 'y--') # stc_data[:-100].T
+        l = ax2.plot(stc_times[windows_len:], stc_data[windows_len:].T, 'y--', alpha=0.2) # stc_data[:-100].T
         lines.append(l[0])
         labels.append('Source normalized activity')
         # ax2.set_ylim([0.5, 4.5])
@@ -208,7 +216,7 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_nam
     # ax.set_xticklabels(xticklabels, rotation=30)
     ax.set_ylabel('Causality: Interictals\n minus Baseline', fontsize=12)
     # ax.set_yticks([0, 0.5])
-    # ax.set_ylim([0, 0.7])
+    ax.set_ylim(bottom=0)#, 0.7])
     # ax.axvline(x=x_axis[10], color='r', linestyle='--')
     plt.title('{} ictal-baseline ({} connections)'.format(condition, x_cond.shape[0]))
 
@@ -219,7 +227,6 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_nam
     plt.axvline(x=0, linestyle='--', color='k')
     # if ax is None:
     if figures_fol != '':
-        fig_fname = op.join(figures_fol, '{}-connectivity-ictal-baseline.jpg'.format(condition))
         plt.savefig(fig_fname, dpi=300)
         print('Figure was saved in {}'.format(fig_fname))
         plt.close()
