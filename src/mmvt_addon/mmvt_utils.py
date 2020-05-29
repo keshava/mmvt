@@ -801,6 +801,7 @@ def create_sphere(loc, rad, my_layers, name):
         ring_count=30, size=rad, view_align=False, enter_editmode=False, location=loc, layers=my_layers)
     bpy.ops.object.shade_smooth()
     bpy.context.active_object.name = name
+    return bpy.context.active_object
 
 
 def create_ico_sphere(location, layers, name, size=.3, subdivisions=2, rotation=(0.0, 0.0, 0.0)):

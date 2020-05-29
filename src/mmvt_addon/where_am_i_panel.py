@@ -135,6 +135,14 @@ def get_labels_contours():
     return WhereAmIPanel.labels_contours
 
 
+def set_cursor_location(xyz, update_slices=True):
+    bpy.context.scene.cursor_location[0] = xyz[0]
+    bpy.context.scene.cursor_location[1] = xyz[1]
+    bpy.context.scene.cursor_location[2] = xyz[2]
+    if update_slices:
+        create_slices()
+
+
 def tkras_coo_update(self, context):
     if not WhereAmIPanel.call_update:
         return
