@@ -422,6 +422,14 @@ def set_labels_plotted(val):
     LabelsPanel.labels_plotted = val
 
 
+def get_labels_data_files():
+    return LabelsPanel.labels_data_files
+
+
+def select_labels_data(labels_data_fname):
+    bpy.context.scene.labels_data_files = mu.namebase(labels_data_fname).replace('_', ' ')
+
+
 def both_dkt():
     return bpy.context.scene.atlas.startswith('aparc.DKTatlas') and \
            LabelsPanel.labels_data_atlas.startswith('aparc.DKTatlas')
