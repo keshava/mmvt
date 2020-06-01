@@ -26,16 +26,15 @@ def run(mmvt):
             dipole_obj_name = 'dipole_{}_{}'.format(dipole_name, dipole_ind)
             begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipole
             dipole_loc = Vector((x, y, z)) * world_matrix * 1000
-            ori = Vector((qx, qy, qz)) / (1 / 1e9)
-            dipole_dir = ori * world_matrix * 1000
-            if show_as_arrows:
-                dipole_obj = mu.draw_arrow(global_dipole_ind, dipole_loc, dipole_dir)
-            else:
-                mu.create_sphere(dipole_loc, 0.15, layers_array, dipole_obj_name)
-                dipole_obj = bpy.data.objects[dipole_obj_name]
-            dipole_obj.select = True
-            dipole_obj.parent = parent_obj
-            mu.create_and_set_material(dipole_obj)
+            # ori = Vector((qx, qy, qz)) * 1e-6
+            dipole_dir = Vector((qx, qy, qz)) * world_matrix * 30
+            dipole_arrow_obj = mu.draw_arrow(global_dipole_ind, dipole_loc, dipole_dir)
+            dipole_sphere_obj = mu.create_sphere(dipole_loc, 0.15, layers_array, dipole_obj_name)
+            for dipole_obj in [dipole_arrow_obj, dipole_sphere_obj]:
+                dipole_obj.select = True
+                dipole_obj.parent = parent_obj
+                mu.create_and_set_material(dipole_obj)
+            mmvt.where_am_i.set_cursor_location(dipole_loc)
             global_dipole_ind += 1
     bpy.context.scene.layers[mmvt.MEG_LAYER] = True
 

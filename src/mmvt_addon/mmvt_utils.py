@@ -547,9 +547,10 @@ def delete_object(obj_name):
     result = bpy.ops.object.delete()
     if result == {'FINISHED'}:
         print("Successfully deleted {}".format(obj_name))
+        return True
     else:
         print("Could not delete {}".format(obj_name))
-
+        return False
 
 @functools.lru_cache(maxsize=None)
 def get_atlas():
