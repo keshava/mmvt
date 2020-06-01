@@ -167,8 +167,13 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_nam
     # con_norm = x_cond - x_cond[:, :200].mean(axis=1, keepdims=True)
     # baseline_std = np.std(x_baseline, axis=1, keepdims=True)
     # baseline_mean = np.mean(x_baseline, axis=1, keepdims=True)
-    baseline_mean = np.max(x_cond[:, :200], axis=1, keepdims=True)
-    baseline_std = np.std(x_cond[:, :200], axis=1, keepdims=True)
+    windows_num = x_cond.shape[1]
+    dt = (stc_times[-1] - stc_times[windows_len]) / windows_num
+    time = np.arange(stc_times[windows_len], stc_times[-1], dt)[:-1]
+    t0, t1 = np.where(time > -0.1)[0][0], np.where(time > 1)[0][0]
+
+    baseline_mean = np.max(x_cond[:, :t0], axis=1, keepdims=True)
+    baseline_std = np.std(x_cond[:, :t0], axis=1, keepdims=True)
 
     con_norm = (x_cond - baseline_mean) / baseline_std
     fig_fname = op.join(figures_fol, 'ictal-baseline', '{}-connectivity-ictal-baseline.jpg'.format(condition))
@@ -181,6 +186,8 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_nam
     colors = ['c', 'b', 'k', 'm']
     lines, labels = [], []
     no_ord_con_names = [con_name.split(' ')[0] for con_name in con_names]
+
+    connections = []
     for conn_type, color in zip(conn_conditions, colors):
         mask = epi_utils.filter_connections(node_name, con_norm, no_ord_con_names, threshold, conn_type, use_abs=False)
         if sum(mask) == 0:
@@ -190,17 +197,27 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_nam
             print('{}: {} connection for {} {}'.format(condition, sum(mask), conn_type[0], conn_type[1]))
         names = np.array(con_names)[mask]
         norm[conn_type] = con_norm[mask]
-        windows_num = norm[conn_type].shape[1]
-        dt = (stc_times[-1] - stc_times[windows_len]) / windows_num
         # print('windows num: {} windows length: {:.2f}ms windows shift: {:2f}ms'.format(
         #     windows_num, (stc_times[windows_len] - stc_times[0]) * 1000, dt * 1000))
-        time = np.arange(stc_times[windows_len], stc_times[-1], dt)[:-1]
         marker = '+' if conn_type[0] == 'within' else 'x'
-        l = ax.scatter(time, norm[conn_type].max(0), color=color)#, marker=marker)
-        lines.append(l)
+        label_title = ' '.join(conn_type) if conn_type[0] == 'within' else '{} to {}'.format(*conn_type)
+        first = True
+        for k in range(norm[conn_type].shape[0]):
+            first_sec_max = norm[conn_type][k][t0:t1].max()
+            if norm[conn_type][k][t0:t1].max() > 2:
+                # if conn_type[0] == 'between':
+                first_sec_max_t = norm[conn_type][k][t0:t1].argmax()
+                connections.append((time[first_sec_max_t + t0], label_title, first_sec_max, names[k]))
+                l = ax.scatter(time, norm[conn_type][k], color=color)#, marker=marker) # .max(0)
+                if first:
+                    lines.append(l)
+                    first = False
         conn_type = (conn_type[0], 'right') if conn_type[1] == 'rh' else (conn_type[0], 'left')
-        labels.append(' '.join(conn_type) if conn_type[0] == 'within' else '{} to {}'.format(*conn_type))
+        labels.append(label_title)
 
+    connections = sorted(connections)
+    for con in connections:
+        print(con)
     if stc_data is not None:
         ax2 = ax.twinx()
         l = ax2.plot(stc_times[windows_len:], stc_data[windows_len:].T, 'y--', alpha=0.2) # stc_data[:-100].T

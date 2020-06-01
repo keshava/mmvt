@@ -39,9 +39,35 @@ def run(mmvt):
             global_dipole_ind += 1
     bpy.context.scene.layers[mmvt.MEG_LAYER] = True
 
+
 def delete_dipoles():
     mu = _mmvt().mmvt_utils
     mu.delete_hierarchy('dipoles')
+
+
+def calc_dipoles_rois():
+    mu = _mmvt().utils
+    mmvt_code_fol = mu.get_mmvt_code_root()
+    ela_code_fol = op.join(mu.get_parent_fol(mmvt_code_fol), 'electrodes_rois')
+    if not op.isdir(ela_code_fol) or not op.isfile(op.join(ela_code_fol, 'find_rois', 'find_rois.py')):
+        print("Can't find ELA folder!")
+        print('git pull https://github.com/pelednoam/electrodes_rois.git')
+        return
+
+    import importlib
+    import sys
+    if ela_code_fol not in sys.path:
+        sys.path.append(ela_code_fol)
+    from find_rois import find_rois
+    importlib.reload(find_rois)
+
+    labels = find_rois.read_labels_vertices(
+        subjects_dir, subject, atlas, read_labels_from_annotation=True,
+        overwrite_labels_pkl=True, n_jobs=n_jobs)
+    dipoles_rois = find_rois.identify_roi_from_atlas(
+        atlas, labels, diploles_names, dipoles_pos, approx=3, elc_length=3,
+        subjects_dir=subjects_dir, subject=subject, n_jobs=n_jobs)
+    mu.save(dipoles_rois, results_output_fname)
 
 
 class DeleteDipoles(bpy.types.Operator):
