@@ -311,7 +311,7 @@ def create_and_set_material(obj):
 #             bpy.data.objects[obj_name].active_material = bpy.data.materials['selected_label_Mat']
 
 
-def cylinder_between(p1, p2, r, layers_array):
+def cylinder_between(p1, p2, r, layers_array, name='', color=(1, 0, 0, 1)):
     # From http://blender.stackexchange.com/questions/5898/how-can-i-create-a-cylinder-linking-two-points-with-python
     x1, y1, z1 = p1
     x2, y2, z2 = p2
@@ -327,6 +327,11 @@ def cylinder_between(p1, p2, r, layers_array):
     bpy.context.object.rotation_euler[1] = theta
     bpy.context.object.rotation_euler[2] = phi
     bpy.ops.object.move_to_layer(layers=layers_array)
+    if name != '':
+        bpy.context.object.name = name
+        create_material('{}_mat'.format(name), color, 1)
+
+    return(bpy.context.object)
 
 
 def create_bezier_curve(obj1, obj2, layers_array, bevel_depth=0.1, resolution_u=1):

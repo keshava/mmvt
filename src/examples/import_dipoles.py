@@ -85,7 +85,7 @@ def convert_dipoles_to_mri_space(subject, dipoles, overwrite=False):
 
 if __name__ == '__main__':
     subject = 'nmr01391'
-    dip_fname = op.join(MEG_DIR, subject, 'epi2.dip')
-    plot_dipole(dip_fname, subject)
-    # dipoles = parse_dip_file(dip_fname)
-    # mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
+    dip_fname = op.join(MEG_DIR, subject, 'epi.dip')
+    #plot_dipole(dip_fname, subject)
+    dipoles = parse_dip_file(dip_fname)
+    mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
