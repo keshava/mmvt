@@ -348,6 +348,8 @@ def can_color_obj(obj):
 
 def object_coloring(obj, rgb):
     # print('ploting {} with {}'.format(obj.name, rgb))
+    if isinstance(obj, str):
+        obj = bpy.data.objects.get(obj, None)
     if not obj:
         print('object_coloring: obj is None!')
         return False

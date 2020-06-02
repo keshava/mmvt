@@ -705,6 +705,13 @@ def create_lead(ind1, ind2, radius=0.05, inds_are_points=False):
     bpy.data.objects[lead_name].select = False
 
 
+def plot_groups():
+    for group in DellPanel.groups:
+        color = next(DellPanel.colors)
+        for elc_ind in group:
+            _addon().object_coloring(bpy.data.objects[DellPanel.names[elc_ind]], tuple(color))
+
+
 def clear_groups():
     for p in DellPanel.noise:
         if bpy.data.objects.get(DellPanel.names[p], None) is not None:
@@ -986,6 +993,7 @@ def dell_draw(self, context):
         # layout.operator(SaveCTNeighborhood.bl_idname, text="Save CT neighborhood", icon='EDIT')
         layout.label(text='#Groups found: {}'.format(len(DellPanel.groups)))
         if len(DellPanel.groups) > 0:
+            layout.operator(PlotGroupsColors.bl_idname, text="Plot groups", icon='BRUSH_DATA')
             box = layout.box()
             col = box.column()
             for g in DellPanel.groups:
@@ -1464,6 +1472,16 @@ class CalcThresholdPercentile(bpy.types.Operator):
         return {'PASS_THROUGH'}
 
 
+class PlotGroupsColors(bpy.types.Operator):
+    bl_idname = "mmvt.plot_groups"
+    bl_label = "plot_groups"
+    bl_options = {"UNDO"}
+
+    def invoke(self, context, event=None):
+        plot_groups()
+        return {'PASS_THROUGH'}
+
+
 class ClearGroups(bpy.types.Operator):
     bl_idname = "mmvt.clear_groups"
     bl_label = "clear_groups"
@@ -1676,6 +1694,7 @@ def register():
         bpy.utils.register_class(ModalDellTimerOperator)
         bpy.utils.register_class(DellGroupItem)
         bpy.utils.register_class(DellRunElectrodesPreproc)
+        bpy.utils.register_class(PlotGroupsColors)
     except:
         print("Can't register Dell Panel!")
 
@@ -1718,6 +1737,7 @@ def unregister():
         bpy.utils.unregister_class(DellGroupItem)
         bpy.utils.unregister_class(ProjectElectrodesOnLeads)
         bpy.utils.unregister_class(DellRunElectrodesPreproc)
+        bpy.utils.unregister_class(PlotGroupsColors)
     except:
         pass
 

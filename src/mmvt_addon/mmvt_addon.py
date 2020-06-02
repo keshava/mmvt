@@ -540,6 +540,10 @@ set_param = scripts_panel.set_param
 get_param = scripts_panel.get_param
 
 
+def get_object(object_name):
+    return bpy.data.objects.get(object_name, None)
+
+
 def get_max_time_steps(default_val=2500):
     # Check if there is animation data in MEG
     # try:

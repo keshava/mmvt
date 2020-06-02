@@ -41,12 +41,15 @@ def slices_modality_update(self, context):
 def slices_update(self, context):
     if not SlicerPanel.init:
         return
-    clim = (bpy.context.scene.slices_x_min, bpy.context.scene.slices_x_max)
-    if _addon().get_slicer_state(bpy.context.scene.slices_modality) is not None:
-        _addon().create_slices(
-            modality=bpy.context.scene.slices_modality, zoom_around_voxel=bpy.context.scene.slices_zoom_around_voxel,
-            zoom_voxels_num=bpy.context.scene.slices_zoom_voxels_num, smooth=bpy.context.scene.slices_zoom_interpolate,
-            clim=clim, plot_cross=bpy.context.scene.slices_plot_cross, mark_voxel=bpy.context.scene.slices_mark_voxel)
+    try:
+        clim = (bpy.context.scene.slices_x_min, bpy.context.scene.slices_x_max)
+        if _addon().get_slicer_state(bpy.context.scene.slices_modality) is not None:
+            _addon().create_slices(
+                modality=bpy.context.scene.slices_modality, zoom_around_voxel=bpy.context.scene.slices_zoom_around_voxel,
+                zoom_voxels_num=bpy.context.scene.slices_zoom_voxels_num, smooth=bpy.context.scene.slices_zoom_interpolate,
+                clim=clim, plot_cross=bpy.context.scene.slices_plot_cross, mark_voxel=bpy.context.scene.slices_mark_voxel)
+    except:
+        mu.print_last_error_line()
 
 
 def set_slices_plot_cross(val):
