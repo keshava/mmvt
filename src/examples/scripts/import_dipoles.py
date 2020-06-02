@@ -8,12 +8,21 @@ def _mmvt():
     return ScriptsPanel.addon
 
 
-def dipoles_names_update(self, context):
-    selected_cluster_name = bpy.context.scene.dipoles_names
-
-
 def run(mmvt):
-    mu = mmvt.utils
+    pass
+
+
+def dipoles_names_update(self, context):
+    mmvt, mu = _mmvt(), _mmvt().utils
+    selected_cluster_name = bpy.context.scene.dipoles_names
+    dipoles = ScriptsPanel.dipoles_dict[selected_cluster_name]
+    begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipoles[0]
+    dipole_loc = Vector((x, y, z)) * mu.get_matrix_world() * 1e3
+    mmvt.where_am_i.set_cursor_location(dipole_loc)
+
+
+def load_dipoles():
+    mmvt, mu = _mmvt(), _mmvt().utils
     parent_obj = mu.create_empty_if_doesnt_exists('dipoles', mmvt.MEG_LAYER, None, 'Functional maps')
     dipoles_fname = op.join(mu.get_user_fol(), 'meg', 'dipoles.pkl')
     if not op.isfile(dipoles_fname):
@@ -29,12 +38,12 @@ def run(mmvt):
         for dipole_ind, dipole in enumerate(dipoles):
             dipole_obj_name = 'dipole_{}_{}'.format(dipole_name, dipole_ind)
             begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipole
-            dipole_loc = Vector((x, y, z)) * world_matrix * 1000
-            print(dipole_loc)
+            dipole_loc = Vector((x, y, z)) * world_matrix * 1e3
+            # print(dipole_loc)
             ori = Vector((qx, qy, qz))
             dipole_dir = ori * world_matrix * 15
-            print(dipole_dir)
-            print(dipole_loc + dipole_dir)
+            # print(dipole_dir)
+            # print(dipole_loc + dipole_dir)
             # dipole_obj = draw_arrow(global_dipole_ind, dipole_loc, dipole_dir)
             mu.create_sphere(dipole_loc, 0.15, layers_array, dipole_obj_name)
             dipole_obj = bpy.data.objects[dipole_obj_name]
@@ -44,7 +53,6 @@ def run(mmvt):
                 obj.select = True
                 obj.parent = parent_obj
             mu.create_and_set_material(dipole_obj)
-            mmvt.where_am_i.set_cursor_location(dipole_loc + dipole_dir)
     bpy.context.scene.layers[mmvt.MEG_LAYER] = True
 
 
@@ -53,29 +61,16 @@ def delete_dipoles():
     mu.delete_hierarchy('dipoles')
 
 
-def calc_dipoles_rois():
-    mu = _mmvt().utils
-    mmvt_code_fol = mu.get_mmvt_code_root()
-    ela_code_fol = op.join(mu.get_parent_fol(mmvt_code_fol), 'electrodes_rois')
-    if not op.isdir(ela_code_fol) or not op.isfile(op.join(ela_code_fol, 'find_rois', 'find_rois.py')):
-        print("Can't find ELA folder!")
-        print('git pull https://github.com/pelednoam/electrodes_rois.git')
-        return
+class LoadDipoles(bpy.types.Operator):
+    bl_idname = "mmvt.load_delete"
+    bl_label = "mmvt load dipoles"
+    bl_description = 'Load the dipoles'
+    bl_options = {"UNDO"}
 
-    import importlib
-    import sys
-    if ela_code_fol not in sys.path:
-        sys.path.append(ela_code_fol)
-    from find_rois import find_rois
-    importlib.reload(find_rois)
-
-    labels = find_rois.read_labels_vertices(
-        subjects_dir, subject, atlas, read_labels_from_annotation=True,
-        overwrite_labels_pkl=True, n_jobs=n_jobs)
-    dipoles_rois = find_rois.identify_roi_from_atlas(
-        atlas, labels, diploles_names, dipoles_pos, approx=3, elc_length=3,
-        subjects_dir=subjects_dir, subject=subject, n_jobs=n_jobs)
-    mu.save(dipoles_rois, results_output_fname)
+    @staticmethod
+    def invoke(self, context, event=None):
+        load_dipoles()
+        return {"FINISHED"}
 
 
 class DeleteDipoles(bpy.types.Operator):
@@ -92,10 +87,23 @@ class DeleteDipoles(bpy.types.Operator):
 
 def draw(self, context):
     layout = self.layout
+    mu = _mmvt().utils
 
-    layout.prop(context.scene, 'dipoles_show_as_arrow', text="Plot as arrow")
+    # layout.prop(context.scene, 'dipoles_show_as_arrow', text="Plot as arrow")
+    layout.operator(LoadDipoles.bl_idname, text="Import Dipoles", icon='EDITMODE_HLT')
     layout.prop(context.scene, 'dipoles_names', text="")
-    layout.operator(DeleteDipoles.bl_idname, text="Delete Dipoles", icon='FORCE_HARMONIC')
+
+    if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois:
+        layout.label(text='Dipole\'s ROIs:')
+        box = layout.box()
+        col = box.column()
+        rois = ScriptsPanel.dipoles_rois[bpy.context.scene.dipoles_names]
+        for subcortical_name, subcortical_prob in zip(rois['subcortical_rois'], rois['subcortical_probs']):
+            mu.add_box_line(col, subcortical_name, '{:.3f}'.format(subcortical_prob), 0.8)
+        for cortical_name, cortical_prob in zip(rois['cortical_rois'], rois['cortical_probs']):
+            if cortical_prob >= 0.001:
+                mu.add_box_line(col, cortical_name, '{:.3f}'.format(cortical_prob), 0.8)
+    layout.operator(DeleteDipoles.bl_idname, text="Delete Dipoles", icon='PANEL_CLOSE')
 
 
 bpy.types.Scene.dipoles_names = bpy.props.EnumProperty(items=[], description="Dipoles names")
@@ -111,13 +119,18 @@ def init(mmvt):
     ScriptsPanel.dipoles_dict = dipoles_dict = mu.load(dipoles_fname)
     dipoles_items = sorted([(dipole_name, dipole_name, '', ind) for ind, dipole_name in enumerate(dipoles_dict.keys())])
     bpy.types.Scene.dipoles_names = bpy.props.EnumProperty(
-        items=dipoles_items, description="Dipoles names", update=dipole_names_update)
+        items=dipoles_items, description="Dipoles names", update=dipoles_names_update)
+    dipoles_rois_fname = op.join(mu.get_user_fol(), 'meg', 'dipoles_rois.pkl')
+    if op.isfile(dipoles_rois_fname):
+        ScriptsPanel.dipoles_rois = mu.load(dipoles_rois_fname)
+    else:
+        ScriptsPanel.dipoles_rois = None
     register()
-
 
 
 def register():
     try:
+        bpy.utils.register_class(LoadDipoles)
         bpy.utils.register_class(DeleteDipoles)
     except:
         pass
@@ -125,6 +138,7 @@ def register():
 
 def unregister():
     try:
+        bpy.utils.unregister_class(LoadDipoles)
         bpy.utils.unregister_class(DeleteDipoles)
     except:
         pass

@@ -1,6 +1,7 @@
 import os.path as op
 from collections import defaultdict
 from src.utils import utils
+from src.utils import labels_utils as lu
 from src.preproc import meg
 import mne
 import numpy as np
@@ -83,9 +84,67 @@ def convert_dipoles_to_mri_space(subject, dipoles, overwrite=False):
     return op.isfile(output_fname)
 
 
+def calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=4):
+    links_dir = utils.get_links_dir()
+    subjects_dir = utils.get_link_dir(links_dir, 'subjects')
+    mmvt_dir = utils.get_link_dir(links_dir, 'mmvt')
+    diploes_rois_output_fname = op.join(mmvt_dir, subject, 'meg', 'dipoles_rois.pkl')
+    if op.isfile(diploes_rois_output_fname) and not overwrite:
+        diploes_rois = utils.load(diploes_rois_output_fname)
+        return True
+
+    diploes_input_fname = op.join(mmvt_dir, subject, 'meg', 'dipoles.pkl')
+    if not op.isfile(diploes_input_fname):
+        print('No dipoles file!')
+        return False
+
+    labels = lu.read_labels(subject, subjects_dir, atlas, n_jobs=n_jobs)
+    labels = list([{'name': label.name, 'hemi': label.hemi, 'vertices': label.vertices}
+                   for label in labels])
+    if len(labels) == 0:
+        print('Can\'t find the labels for atlas {}!'.format(atlas))
+        return False
+
+    # find the find_rois package
+    mmvt_code_fol = utils.get_mmvt_code_root()
+    ela_code_fol = op.join(utils.get_parent_fol(mmvt_code_fol), 'electrodes_rois')
+    if not op.isdir(ela_code_fol) or not op.isfile(op.join(ela_code_fol, 'find_rois', 'find_rois.py')):
+        print("Can't find ELA folder!")
+        print('git pull https://github.com/pelednoam/electrodes_rois.git')
+        return False
+
+    # load the find_rois package
+    try:
+        import sys
+        if ela_code_fol not in sys.path:
+            sys.path.append(ela_code_fol)
+        from find_rois import find_rois
+    except:
+        print('Can\'t load find_rois package!')
+        utils.print_last_error_line()
+        return False
+
+    dipoles_dict = utils.load(diploes_input_fname)
+    diploles_names, dipoles_pos = [], []
+    for cluster_name, dipoles in dipoles_dict.items():
+        for begin_t, _, x, y, z, _, _, _, _, _ in dipoles:
+            dipole_name = '{}_{}'.format(cluster_name, begin_t) if len(dipoles) > 1 else cluster_name
+            diploles_names.append(dipole_name.replace(' ', ''))
+            dipoles_pos.append([k * 1e3 for k in [x, y, z]])
+    dipoles_rois = find_rois.identify_roi_from_atlas(
+        atlas, labels, diploles_names, dipoles_pos, approx=3, elc_length=0,
+        subjects_dir=subjects_dir, subject=subject, n_jobs=n_jobs)
+    # Convert the list to a dict
+    dipoles_rois_dict = {dipoles_rois['name']: dipoles_rois for dipoles_rois in dipoles_rois}
+    utils.save(dipoles_rois_dict, diploes_rois_output_fname)
+
+
 if __name__ == '__main__':
     subject = 'nmr01391'
     dip_fname = op.join(MEG_DIR, subject, 'epi.dip')
+    n_jobs = utils.get_n_jobs(-10)
+    n_jobs = n_jobs if n_jobs > 0 else 1
     #plot_dipole(dip_fname, subject)
-    dipoles = parse_dip_file(dip_fname)
-    mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
+    # dipoles = parse_dip_file(dip_fname)
+    # mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
+    calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=n_jobs)
