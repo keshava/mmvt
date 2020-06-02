@@ -134,6 +134,7 @@ def get_exisiting_file(dirs):
         return ex_files[0]
 
 
+@tryit()
 def delete_folder_files(fol, delete_folder=False):
     if op.isdir(fol):
         shutil.rmtree(fol)
@@ -141,6 +142,7 @@ def delete_folder_files(fol, delete_folder=False):
         os.makedirs(fol)
 
 
+@tryit
 def delete_file(fname):
     if op.isfile(fname):
         os.remove(fname)
@@ -935,7 +937,8 @@ def build_remote_subject_dir(remote_subject_dir_template, subject):
 
 def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_subjects_dir,
         sftp=False, sftp_username='', sftp_domain='', sftp_password='',
-        overwrite_files=False, print_traceback=True, sftp_port=22, local_subject_dir='', print_missing_files=True):
+        overwrite_files=False, print_traceback=True, sftp_port=22, local_subject_dir='', print_missing_files=True,
+        create_links=False):
     if local_subject_dir == '':
         local_subject_dir = op.join(local_subjects_dir, subject)
     mmvt_dir = get_link_dir(get_links_dir(), 'mmvt')
@@ -995,7 +998,10 @@ def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_s
                                 if not op.isfile(local_fname):
                                     print('coping {} to {}'.format(remote_fname, local_fname))
                                     make_dir(get_parent_fol(local_fname))
-                                    copy_file(remote_fname, local_fname)
+                                    if create_links:
+                                        make_link(remote_fname, local_fname)
+                                    else:
+                                        copy_file(remote_fname, local_fname)
                                 if op.isfile(local_fname) and op.getsize(remote_fname) != op.getsize(remote_fname):
                                     os.remove(local_fname)
                                     print('Local file and remote file have different sizes!')
@@ -2446,3 +2452,7 @@ def kde(x, x_grid, bandwidth=0.2, **kwargs):
     from scipy.stats import gaussian_kde
     kde = gaussian_kde(x, bw_method=bandwidth / x.std(ddof=1), **kwargs)
     return kde.evaluate(x_grid)
+
+
+def combine_chunks(chunks):
+    return list(itertools.chain.from_iterable(chunks))
