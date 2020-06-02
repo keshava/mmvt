@@ -15,8 +15,14 @@ def plot_dipole(dip_fname, subject):
     import matplotlib.pyplot as plt
     dips = mne.dipole.read_dipole(dip_fname)
     trans_file = meg.find_trans_file(subject=subject)
-    dips[0].plot_locations(trans_file, subject, SUBJECTS_DIR, mode='orthoview')
-    plt.show()
+    mode = 'orthoview'
+    if mode == 'arrow':
+        dips.plot_locations(trans_file, subject, SUBJECTS_DIR, mode='arrow')
+        from mayavi import mlab
+        mlab.show()
+    else:
+        dips[0].plot_locations(trans_file, subject, SUBJECTS_DIR, mode='orthoview')
+        plt.show()
 
 
 def parse_dip_file(dip_fname):
@@ -69,7 +75,7 @@ def convert_dipoles_to_mri_space(subject, dipoles, overwrite=False):
             # begin end(ms)  X (mm)  Y (mm)  Z (mm)  Q(nAm) Qx(nAm) Qy(nAm) Qz(nAm)  g(%)
             begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipole
             mri_pos = mne.transforms.apply_trans(head_mri_trans, [np.array([x, y, z]) * 1e-3])[0]
-            dir_xyz = mne.transforms.apply_trans(head_mri_trans, [np.array([qx, qy, qz]) * 1e-3])[0]
+            dir_xyz = mne.transforms.apply_trans(head_mri_trans, [np.array([qx, qy, qz]) / q])[0]
             print('{}: loc:{} dir:{}'.format(dipole_name, mri_pos, dir_xyz))
             mri_dipoles[dipole_name].append([begin_t, end_t, *mri_pos, q, *dir_xyz, gf])
     print('Saving dipoles in {}'.format(output_fname))
@@ -80,6 +86,6 @@ def convert_dipoles_to_mri_space(subject, dipoles, overwrite=False):
 if __name__ == '__main__':
     subject = 'nmr01391'
     dip_fname = op.join(MEG_DIR, subject, 'epi.dip')
-    # plot_dipole(dip_fname, subject)
+    #plot_dipole(dip_fname, subject)
     dipoles = parse_dip_file(dip_fname)
     mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)

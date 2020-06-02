@@ -102,6 +102,7 @@ def load_fmri_vol_data(mmvt):
     return fmri_vol
 
 
+@mu.tryit()
 def create_slices(mmvt, xyz, state=None, modalities='mri', modality_data=None, colormap=None, plot_cross=True,
                   zoom_around_voxel=False, zoom_voxels_num=30, smooth=False, clim=None, mark_voxel=True):
     self = mu.Bag({})
@@ -446,6 +447,7 @@ def plot_slices(mmvt, xyz, state, modality='mri', interactive=True, pixels_aroun
 
 
 # https://stackoverflow.com/questions/37119071/scipy-rotate-and-zoom-an-image-without-changing-its-dimensions
+@mu.tryit()
 def clipped_zoom(img, x=-1, y=-1, pixels_zoom=30, smooth=False, **kwargs):
     from scipy.ndimage import zoom
 
