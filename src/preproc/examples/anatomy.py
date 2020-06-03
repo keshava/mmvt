@@ -196,6 +196,20 @@ def recon_all(args):
     pu.run_on_subjects(args, anat.main)
 
 
+def recon_all_clinical(args):
+    # python -m src.preproc.anatomy -s nmr01395 -f recon_all
+    # --nifti_fname "/autofs/space/nihilus_001/CICS/users/noam/dicoms/67026-20200601-140131-000591"
+    # --subjects_dir "/space/megraid/clinical/MEG-MRI/seder/freesurfer" --print_only 0
+    args = anat.read_cmd_args(dict(
+        subject=args.subject,
+        function='recon-all',
+        nifti_fname='/autofs/space/nihilus_001/CICS/users/noam/dicoms/67026-20200601-140131-000591',
+        subjects_dir='/space/megraid/clinical/MEG-MRI/seder/freesurfer',
+        ignore_missing=True,
+        n_jobs=4,
+    ))
+    pu.run_on_subjects(args, anat.main)
+
 # https://github.com/chriskiehl/Gooey
 # @Gooey
 def main():

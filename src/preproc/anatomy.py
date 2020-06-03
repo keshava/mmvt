@@ -1610,13 +1610,18 @@ def morph_labels_from_fsaverage(subject, atlas, fsaverage, overwrite_morphing, f
         fs_labels_fol=fs_labels_fol, n_jobs=n_jobs)
 
 
-def recon_all(subject, nifti_fname, convert_dicoms_to_nii=True, overwrite=False, overwrite_seghead=False,
+def recon_all(subject, nifti_fname, convert_dicoms_to_nii=True, overwrite=False, subjects_dir='',
               print_only=False, n_jobs=1):
     if '{subject}' in nifti_fname:
         nifti_fname = nifti_fname.format(subject=subject)
+    if subjects_dir == '':
+        subjects_dir = SUBJECTS_DIR
+    os.environ['SUBJECT'] = subject
+    os.environ['SUBJECTS_DIR'] = subjects_dir
     nifti_fnames = {}
     file_types = ['MEMPRAGE', 'T2', 'FLAIR']
     if op.isdir(nifti_fname):
+        # result of mne_organize_dicom - call it from the dest folder, and as in put give the dicoms folder
         memprage_dirs = glob.glob(op.join(nifti_fname, '*MEMPRAGE'))
         if len(memprage_dirs) > 0:
             for file_type in file_types:
@@ -1645,19 +1650,22 @@ def recon_all(subject, nifti_fname, convert_dicoms_to_nii=True, overwrite=False,
         if file_type in nifti_fnames:
             cmd += ' -{0} {1} -{0}pial'.format(file_type, nifti_fnames[file_type])
     cmd += ' -all {}'.format('-parallel' if n_jobs > 1 else '')
+    print('SUBJECTS_DIR: {}'.format(os.environ['SUBJECTS_DIR']))
     try:
-        if print_only:
+        if au.is_true(print_only):
             print(cmd)
         else:
-            subject_fol = op.join(SUBJECTS_DIR, subject)
+            subject_fol = op.join(subjects_dir, subject)
             if op.isdir(subject_fol) and not overwrite:
                 print('{} already exist! You can use the recon_all_overwrite to overwrite'.format(subject))
                 return True
             utils.delete_folder_files(subject_fol, True)
             utils.run_command_in_new_thread(cmd, False)
-        return create_outer_skin_surface(subject, overwrite_seghead)
+        # We cannot check the output, this is running on a new thread
+        return True # utils.check_if_all_necessary_files_exist(subject, get_necessary_files(), op.join(subjects_dir, subject)) #create_outer_skin_surface(subject, overwrite_seghead)
     except:
         print('recon-all failed!')
+        print(traceback.format_exc())
         return False
 
 
@@ -1822,7 +1830,7 @@ def main(subject, remote_subject_dir, org_args, flags):
 
     if 'recon_all' in args.function:
         flags['recon_all'] = recon_all(
-            subject, args.nifti_fname, args.convert_dicoms_to_nii, args.recon_all_overwrite, args.overwrite_seghead,
+            subject, args.nifti_fname, args.convert_dicoms_to_nii, args.recon_all_overwrite, args.subjects_dir,
             args.print_only, args.n_jobs)
 
     if 'mne_coregistration' in args.function:
@@ -1834,6 +1842,7 @@ def main(subject, remote_subject_dir, org_args, flags):
 def read_cmd_args(argv=None):
     import argparse
     parser = argparse.ArgumentParser(description='MMVT anatomy preprocessing')
+    parser.add_argument('--subjects_dir', help='subjects dir', required=False, default=SUBJECTS_DIR)
     parser.add_argument('--template_subject', help='template subject', required=False,
                         default='fsaverage6,fsaverage5,fsaverage,colin27', type=au.str_arr_type)
     parser.add_argument('--surf_name', help='surf_name', required=False, default='pial')
