@@ -1014,6 +1014,7 @@ def prepare_subject_folder(necessary_files, subject, remote_subject_dir, local_s
 
 def check_if_all_necessary_files_exist(subject, necessary_files, local_subject_dir, trace=True):
     all_files_exists = True
+    print('Checking if all the files exist in {}'.format(op.join(local_subject_dir, subject)))
     for fol, files in necessary_files.items():
         fol = fol.replace(':', op.sep)
         for file_name in files:
