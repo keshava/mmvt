@@ -1933,6 +1933,9 @@ def calc_min_max(x, x_min=None, x_max=None, norm_percs=None):
     if isinstance(x, list):
         x = np.array(x)
     x_no_nan = x[np.where(~np.isnan(x))]
+    if len(x_no_nan) == 0:
+        print('All nans!')
+        return np.nan, np.nan
     x_min = calc_min(x_no_nan, x_min, norm_percs)
     x_max = calc_max(x_no_nan, x_max, norm_percs)
     if x_min == 0 and x_max == 0 and norm_percs is not None:
