@@ -7,6 +7,10 @@ from tqdm import tqdm
 import nibabel as nib
 from collections import defaultdict
 
+import warnings
+# warnings.filterwarnings('error')
+
+
 from src.utils import utils
 from src.utils import args_utils as au
 from src.utils import freesurfer_utils as fu
@@ -14,10 +18,11 @@ from src.utils import labels_utils as lu
 from src.preproc import fMRI
 from src.preproc import anatomy as anat
 
-FS_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_recons'
+FS_ROOT = '/autofs/space/nihilus_001/CICS/recons'
+FS_BASE_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_recons'
 FS_BASE_6_ROOT = '/autofs/space/nihilus_001/CICS/Longitudinal_processing/baseline_6month_recons'
 HOME_FOL = '/autofs/space/nihilus_001/CICS/users/noam/CICS/'
-RESULTS_FOL = [d for d in ['/autofs/space/nihilus_001/CICS/users/noam/figures/', 'C:\\Users\\peled\\CICS']
+RESULTS_FOL = [d for d in ['/autofs/space/nihilus_001/CICS/users/noam/results/', 'C:\\Users\\peled\\CICS']
                if op.isdir(d)][0]
 SCAN, RESCAN = 'scan', 'rescan'
 SCAN_RESCAN = [SCAN, RESCAN]
@@ -42,12 +47,16 @@ mri_compute_volume_fractions_reg = 'mri_compute_volume_fractions --o "{output_fn
 save_registration_figure = 'freeview -v "{target_fname}":visible=0:name=orig.mgz {source_fname}:name=Control.nii:reg={lta_fname} --surface {white_lh_fname}:edgecolor=yellow --surface {white_rh_fname}:edgecolor=yellow --ss {output_fig_fname}'
 
 
-def get_subject_fs_folder(subject, scan_rescan, base_6_12='0'):
-    base_6_12_str = '' if base_6_12 == '0' else base_6_12
-    scan_rescan_str = base_6_12_str if scan_rescan == SCAN else '{}B'.format(base_6_12_str)
-    if scan_rescan_str != '':
-        scan_rescan_str += '_'
-    return '{0}_{1}recon.long.{0}-base'.format(subject, scan_rescan_str)
+def get_subject_fs_folder(subject, scan_rescan, month):
+    # base_6_12_str = '' if base_6_12 == '0' else base_6_12
+    # scan_rescan_str = base_6_12_str if scan_rescan == SCAN else '{}B'.format(base_6_12_str)
+    # if scan_rescan_str != '':
+    #     scan_rescan_str += '_'
+    # return '{0}_{1}recon.long.{0}-base'.format(subject, scan_rescan_str)
+    subject_fol = '{}_{}_recon'.format(
+        subject, month if month != '0' else '', 'B' if scan_rescan == RESCAN else '')
+    subject_fol = subject_fol.replace('__', '_')
+    return subject_fol
 
 
 
@@ -56,28 +65,43 @@ def input_files_exist(input_fnames):
 
 
 def output_exists(output_fnames, overwrite):
-    if all([op.isfile(fname) for fname in output_fnames]):
+    if all_files_exits(output_fnames):
         try:
             # Try to load the file to check if it's not currupted
             for output_fname in output_fnames:
-                nib.load(output_fname)
+                file_type = utils.file_type(output_fname)
+                if file_type == 'pkl':
+                    utils.load(output_fname)
+                elif file_type in ['mgz', 'nii', 'nii.gz', 'mgh']:
+                    nib.load(output_fname)
         except:
+            print('*** Cannot load the output files!')
+            print(output_fnames)
             return False
-    return not overwrite
+    return False if overwrite else all_files_exits(output_fnames)
 
 
 def check_if_should_run_function(input_fnames, output_fnames, subject_fol, overwrite, func_name, verbose=True):
-    if verbose and not input_files_exist(input_fnames):
+    do_input_files_exist = input_files_exist(input_fnames)
+    do_output_exists = output_exists(output_fnames, overwrite)
+    if verbose and not do_input_files_exist:
         print('{}: input files does not exist! ({})'.format(func_name, subject_fol))
-    if verbose and output_exists(output_fnames, overwrite):
+    if verbose and do_output_exists:
         print('{}: output exist, continue ({})'.format(func_name, subject_fol))
-    return input_files_exist(input_fnames) and not output_exists(output_fnames, overwrite)
+    return input_files_exist and not do_output_exists
 
 
-def set_subject(subject, scan_rescan):
-    subject = subject if scan_rescan == SCAN else '{}_rescan'.format(subject)
-    os.environ['SUBJECT'] = subject
-    return subject
+def set_subject(subject, scan_rescan, month):
+    # subject = subject if scan_rescan == SCAN else '{}_rescan'.format(subject)
+    full_subject_name = get_full_subject_name(subject, month, scan_rescan)
+    os.environ['SUBJECT'] = full_subject_name
+    return full_subject_name
+
+
+def get_full_subject_name(subject, month, scan_rescan=''):
+    return '{}{}{}'.format(
+        subject, '_rescan' if scan_rescan == RESCAN else '',
+        '_{}'.format(month) if month != '0' else '')
 
 
 def check_input_output(input_fnames, output_fnames, subject_fol, overwrite, func_name, verbose):
@@ -90,17 +114,23 @@ def check_input_output(input_fnames, output_fnames, subject_fol, overwrite, func
     return True, True
 
 
-def register_cbf_to_t1(subject, subject_fol, scan_rescan, overwrite=False, print_only=False, check_if_should_run=False,
+def all_files_exits(output_fnames):
+    if isinstance(output_fnames, dict):
+        output_fnames = list(output_fnames.values())
+    return all([op.isfile(fname) for fname in output_fnames])
+
+
+def register_cbf_to_t1(subject, subject_fol, scan_rescan, month, overwrite=False, print_only=False, check_if_should_run=False,
                        verbose=True):
     output_fname = op.join(subject_fol, 'Control_to_T1.nii')
     lta_fname = op.join(subject_fol, 'control_to_T1.lta')
     source_fname = op.join(subject_fol, 'Control.nii')
-    target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'T1.mgz')
+    target_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan, month), 'mri', 'T1.mgz')
     do_run, ret = cics_checks(
         [source_fname, target_fname], [output_fname, lta_fname], subject_fol, check_if_should_run, overwrite, verbose)
     if not do_run:
         return ret
-    set_subject(subject, scan_rescan)
+    set_subject(subject, scan_rescan, month)
     rs = utils.partial_run_script(locals(), print_only=print_only)
     # bbregister --s {subject} --mov "{source_fname}" --lta "{lta_fname}" --t1 --o "{output_fname}"
     rs(bbregister)
@@ -150,64 +180,64 @@ def cics_checks(input_fnames, output_fnames, subject_fol, check_if_should_run, o
 
 
 def register_aseg_to_cbf(
-        subject, subject_fol, scan_rescan, overwrite=False, print_only=True,
+        subject, subject_fol, scan_rescan, month, overwrite=False, print_only=True,
         check_if_should_run=False, verbose=True):
     lta_fname = op.join(subject_fol, 'control_to_T1.lta')
-    source_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan), 'mri', 'aparc+aseg.mgz')
+    source_fname = op.join(FS_ROOT, get_subject_fs_folder(subject, scan_rescan, month), 'mri', 'aparc+aseg.mgz')
     output_fname = op.join(subject_fol, 'aparc+aseg_cbf.mgz')
     do_run, ret = cics_checks(
         [lta_fname, source_fname], [output_fname], subject_fol, check_if_should_run, overwrite, verbose)
     if not do_run:
         return ret
-    subject = set_subject(subject, scan_rescan)
+    subject = set_subject(subject, scan_rescan, month)
     rs = utils.partial_run_script(locals(), print_only=print_only)
     # 'mri_convert -ait "{lta_fname}" "{source_fname}" "{output_fname}"'
     rs(register_using_inverse_lta)
     return op.isfile(output_fname)
 
 
-def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, cortex_frac_threshold=0.9,
-                        overwrite=False, do_plot=True):
-    subject_fol = op.join(HOME_FOL, site, subject, scan_rescan)
-    output_fol = utils.make_dir(op.join(op.join(RESULTS_FOL, 'aparc_aseg_hists', subject, scan_rescan)))
-    values_output_fname = op.join(op.join(
-        RESULTS_FOL, 'aparc_aseg_hists', subject, scan_rescan, 'aparc_aseg_hist.pkl'))
-    means_output_fname = op.join(op.join(
-        RESULTS_FOL, 'aparc_aseg_hists', subject, scan_rescan, 'aparc_values.pkl'))
-    if op.isfile(values_output_fname) and op.isfile(means_output_fname) and not overwrite and not do_plot:
-        return True
-    cics_cbf_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF.nii')
-    if not op.isfile(cics_cbf_fname):
-        print('calc_cbf_histograms: Cannot find {}!'.format(cics_cbf_fname))
-        return False
+def calc_regions_stats(
+        subject, subject_fol, scan_rescan, month, low_threshold, high_threshold, cortex_frac_threshold=0.9,
+        overwrite=False, do_plot=True, check_if_should_run=False, verbose=True):
+    # inputs
+    cics_cbf_fname = op.join(subject_fol, 'CBF.nii')
     aparc_aseg_fname = op.join(subject_fol, 'aparc+aseg_cbf.mgz')
-    if not op.isfile(aparc_aseg_fname):
-        print('calc_cbf_histograms: Cannot find {}!'.format(aparc_aseg_fname))
-        return False
-    cortex_frac_fname = op.join(HOME_FOL, site, subject, scan_rescan, 'CBF.cortex.mgz')
-    if not op.isfile(cortex_frac_fname):
-        print('No cortex frac!')
-        return False
+    cortex_frac_fname = op.join(subject_fol, 'CBF.cortex.mgz')
+    input_fnames = [cics_cbf_fname, aparc_aseg_fname, cortex_frac_fname]
+    # outputs
+    subject_full_name = get_full_subject_name(subject, month, scan_rescan)
+    figures_fol = utils.make_dir(op.join(RESULTS_FOL, subject, 'cbf_hists'))
+    output_fname = op.join(
+        RESULTS_FOL, subject, '{}_gw_frac_{}_regions_stats.pkl'.format(subject_full_name, cortex_frac_threshold))
+    do_run, ret = cics_checks(
+        input_fnames, [output_fname], subject_fol, check_if_should_run, overwrite, verbose)
+    if not do_run:
+        return ret
+
     cbf_data = nib.load(cics_cbf_fname).get_data()
     cortex_frac = nib.load(cortex_frac_fname).get_data()
     lut = utils.read_freesurfer_lookup_table(return_dict=True)
     aparc_aseg = nib.load(aparc_aseg_fname).get_data()
     unique_codes = list(range(1001, 1036)) + list(range(2001, 2036))
     if overwrite and do_plot:
-        utils.delete_folder_files(output_fol)
-    regions_values, regions_means = {}, {}
+        utils.delete_folder_files(figures_fol)
+    regions_values, regions_means, regions_fracs = {}, {}, {}
     output_str = ''
     for code in tqdm(unique_codes):
         region_name = lut.get(code, None)
         if region_name is None:
             # print('{} not in lut!'.format(code))
             continue
-        fig_fname = op.join(output_fol, '{}.jpg'.format(region_name))
+        fig_fname = op.join(figures_fol, '{}.jpg'.format(region_name))
         if op.isfile(fig_fname) and not overwrite:
             continue
         region_values = cbf_data[np.where(aparc_aseg == code)]
+        if len(region_values) == 0:
+            output_str += 'no voxels for code {}'.format(code)
+            continue
         cortex_frac_values = cortex_frac[np.where(aparc_aseg == code)]
         cortex_indices = np.where(cortex_frac_values > cortex_frac_threshold)
+        regions_fracs[region_name] = len(cortex_indices[0]) / len(region_values)
         if len(cortex_indices[0]) == 0:
             output_str += '{} has no voxels with cortex_frac > {}!\n'.format(region_name, cortex_frac_threshold)
             continue
@@ -216,23 +246,15 @@ def calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, cor
         in_bounderies_indices = np.where((low_threshold < region_values) & (region_values < high_threshold))
         region_values = region_values[in_bounderies_indices]
         regions_values[region_name] = region_values.copy()
-        regions_means[region_name] = np.mean(regions_values[region_name])
-        # if len(outliers) > 0:
-        #     output_str += '{} has {} out of {} values < {}\n'.format(
-        #         region_name, len(outliers), len(region_values), low_threshold)
-        # outliers = np.where(region_values > high_threshold)[0]
-        # if len(outliers) > 0:
-        #     output_str += '{} has {} out of {} values > {}\n'.format(
-        #         region_name, len(outliers), len(region_values), high_threshold)
-        # region_values[region_values < low_threshold] = low_threshold
-        # region_values[region_values > high_threshold] = high_threshold
+        regions_means[region_name] = np.median(regions_values[region_name])
         if do_plot:
             plt.hist(region_values, bins=40)
             plt.savefig(fig_fname)
             plt.close()
-    print(output_str)
-    utils.save(regions_values, values_output_fname)
-    utils.save(regions_means, means_output_fname)
+    if verbose:
+        print(output_str)
+    utils.save((regions_values, regions_means, regions_fracs), output_fname)
+    return op.isfile(output_fname)
 
 
 def _plot_cbf_histograms_parallel(p):
@@ -261,23 +283,39 @@ def get_labels_data(subject, atlas):
     utils.prepare_subject_folder(necessary_files, subject, remote_subject_dir, SUBJECTS_DIR)
 
 
-def preproc_anat(subjects, overwrite_files=False):
+def preproc_anat(subject, month, scan_rescan, overwrite_files=False):
     good_subjects = []
-    for subject in subjects:
-        # utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
-        # utils.make_dir(op.join(MMVT_DIR, '{}_rescan'.format(subject), 'fmri'))
-        scan_ret = utils.prepare_subject_folder(
-            anat.get_necessary_files(), subject,
-            op.join(FS_ROOT, '{0}_recon.long.{0}-base'.format(subject)), SUBJECTS_DIR,
-            overwrite_files=overwrite_files)[0]
-        rescan_ret = utils.prepare_subject_folder(
-            anat.get_necessary_files(), '{}_rescan'.format(subject),
-            op.join(FS_ROOT, '{0}_B_recon.long.{0}-base'.format(subject)), SUBJECTS_DIR,
-            overwrite_files=overwrite_files)[0]
-        if scan_ret and rescan_ret:
-            good_subjects.append(subject)
-    print('{}/{} good subjects'.format(len(good_subjects), len(subjects)))
-    return good_subjects
+    # for subject in subjects:
+    subject_name = '{}{}{}'.format(
+        subject, '_rescan' if scan_rescan == RESCAN else '',
+        '_{}'.format(month) if month != '0' else '')
+    subject_fol = '{}_{}_recon'.format(
+        subject, month if month != '0' else '', 'B' if scan_rescan == RESCAN else '')
+    subject_fol = subject_fol.replace('__', '_')
+    # fs_dir = op.join(FS_BASE_6_ROOT, '{0}_{1}{}recon.long.{0}-base'.format(
+    #     subject, '{}_'.format(month) if month != '0' else ''))
+    # fs_rescan_dir = op.join(FS_BASE_6_ROOT, '{0}_{1}B_recon.long.{0}-base'.format(
+    #     subject, month if month != '0' else ''))
+    fs_dir = op.join(FS_ROOT, subject_fol)
+    # if not op.isdir(fs_dir):
+    #     print('{} does not exist!'.format(fs_dir))
+    #     continue
+    # if not op.isdir(fs_rescan_dir):
+    #     print('{} does not exist!'.format(fs_rescan_dir))
+    #     continue
+    # # utils.make_dir(op.join(MMVT_DIR, subject, 'fmri'))
+    # utils.make_dir(op.join(MMVT_DIR, '{}_rescan'.format(subject), 'fmri'))
+    scan_ret = utils.prepare_subject_folder(
+        anat.get_necessary_files(), subject_name, fs_dir, SUBJECTS_DIR,
+        overwrite_files=overwrite_files, create_links=True)[0]
+    return scan_ret
+    # rescan_ret = utils.prepare_subject_folder(
+    #     anat.get_necessary_files(), rescan_subject_name, fs_rescan_dir, SUBJECTS_DIR,
+    #     overwrite_files=overwrite_files)[0]
+    # if scan_ret: # and rescan_ret:
+    #     good_subjects.append(subject)
+    # print('{}/{} good subjects'.format(len(good_subjects), len(subjects)))
+    # return good_subjects
 
 
 @utils.tryit()
@@ -384,31 +422,50 @@ def calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold=40, high
     utils.save(labels_data, output_fname)
 
 
-def calc_scan_rescan_diff(subject, do_plot_hist=True, overwrite=False):
-    means_input_fnames = [op.join(op.join(
-        RESULTS_FOL, 'aparc_aseg_hists', subject, scan_rescan, 'aparc_values.pkl')) for scan_rescan in SCAN_RESCAN]
-    if not all([op.isfile(fname) for fname in means_input_fnames]):
-        print('calc_scan_rescan_diff: {} no all files exist!'.format(subject))
-        return
-    means_diff_fname = op.join(
-        RESULTS_FOL, 'aparc_aseg_hists', subject, 'aparc_values_diffs.pkl')
-    mmvt_file_name = '{}_ASL_scan_rescan_diffs'.format(subject)
-    mmvt_output_fname = op.join(utils.make_dir(
-        op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data')),
-        '{}.npz'.format(mmvt_file_name))
-    if op.isfile(mmvt_output_fname) and op.isfile(means_diff_fname) and not overwrite:
-        print('calc_scan_rescan_diff: files exist for {}'.format(subject))
-        return True
-    scan_means, rescan_means = [utils.load(fname) for fname in means_input_fnames]
-    region_names = scan_means.keys()
-    diffs = {region: scan_means.get(region, 0) - rescan_means.get(region, 0) for region in region_names}
-    utils.save(diffs, means_diff_fname)
-    data = np.array([diffs[region_name] for region_name in region_names])
-    labels_names = [get_aparc_label_name(region) for region in region_names]
-    minmax = utils.calc_abs_minmax(data)
+def calc_scan_rescan_diff(
+        subject, month, cortex_frac_threshold, do_plot=True, overwrite=False, check_if_should_run=False,
+        verbose=True):
+    input_fnames = [op.join(
+        RESULTS_FOL, subject, '{}_gw_frac_{}_regions_stats.pkl'.format(
+            get_full_subject_name(subject, month, scan_rescan), cortex_frac_threshold))
+        for scan_rescan in SCAN_RESCAN]
+    means_diff_output_fname = op.join(
+        RESULTS_FOL, subject, '{}_gw_frac_{}_scan_rescan_diffs.pkl'.format(
+            get_full_subject_name(subject, month), cortex_frac_threshold))
+    mmvt_root_fol = utils.make_dir(op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data', 'subjects'))
+    mmvt_diff_output_fname = op.join(mmvt_root_fol, '{}_gw_frac_{}_scan_rescan_diffs.npz'.format(
+        get_full_subject_name(subject, month), cortex_frac_threshold))
+    mmvt_rel_diff_output_fname = op.join(mmvt_root_fol, '{}_gw_frac_{}_scan_rescan_rel_diffs.npz'.format(
+        get_full_subject_name(subject, month), cortex_frac_threshold))
+    output_fnames = [means_diff_output_fname, mmvt_diff_output_fname, mmvt_rel_diff_output_fname]
+    figure_output_fname = op.join(RESULTS_FOL, subject, 'month_{}_regions_scan_rescan_diffs.jpg'.format(month))
+    do_run, ret = cics_checks(
+        input_fnames, output_fnames, get_full_subject_name(subject, month), check_if_should_run, overwrite, verbose)
+    if not do_run:
+        return ret
 
-    figure_output_fname = op.join(RESULTS_FOL, 'aparc_aseg_hists', subject, 'labels_scan_rescan_diffs.jpg')
-    if do_plot_hist and (not op.isfile(figure_output_fname) or overwrite):
+    __, scan_means, _ = utils.load(input_fnames[0])
+    __, rescan_means, _ = utils.load(input_fnames[1])
+    region_names = scan_means.keys()
+    diffs = {region: (scan_means[region] - rescan_means[region]
+        if region in scan_means and region in rescan_means else 0) for region in region_names}
+    if all([np.isnan(x) for x in diffs.values()]):
+        return False
+    rel_diffs = {region: ((scan_means[region] - rescan_means[region]) /
+                          ((scan_means[region] + rescan_means[region]) / 2)
+        if region in scan_means and region in rescan_means else 0) for region in region_names}
+    regions_diffs = np.array([diffs[region_name] for region_name in region_names])
+    rel_regions_diffs = np.array([rel_diffs[region_name] for region_name in region_names])
+    labels_names = [get_aparc_label_name(region) for region in region_names]
+    for data, output_fname in zip([regions_diffs, rel_regions_diffs],
+                                  [mmvt_diff_output_fname, mmvt_rel_diff_output_fname]):
+        title = utils.namebase(output_fname).replace('_', ' ')
+        minmax = utils.calc_abs_minmax(data)
+        np.savez(output_fname, names=labels_names, atlas='aparc',
+                 data=data, title=title, data_min=-minmax, data_max=minmax, cmap='BuPu-YlOrRd')
+    utils.save((diffs, rel_diffs), means_diff_output_fname)
+
+    if do_plot and (not op.isfile(figure_output_fname) or overwrite):
         fig = plt.figure()
         # ax = fig.add_subplot(111)
         x = range(len(labels_names))
@@ -420,48 +477,75 @@ def calc_scan_rescan_diff(subject, do_plot_hist=True, overwrite=False):
         plt.savefig(figure_output_fname)
         plt.close()
 
-    np.savez(mmvt_output_fname, names=labels_names, atlas='aparc',
-             data=data, title=mmvt_file_name, data_min=-minmax, data_max=minmax, cmap='BuPu-YlOrRd')
-    # fMRI.calc_files_diff(
-    #     subject, 'fmri_CBF_scan_{hemi},fmri_CBF_rescan_{hemi}', 'CBF_scan_rescan', 'zvals', overwrite)
+    return all_files_exits(output_fnames)
 
 
-def calc_scan_rescan_mean_diffs(subjects, do_plot_hist, overwrite):
-    all_diffs = defaultdict(list)
+def calc_scan_rescan_mean_diffs(
+        subjects, site, months, cortex_frac_threshold, do_plot_hist, overwrite,
+        check_if_should_run=False, verbose=False):
+    # input
+    input_fnames, input_files_num = {}, 0
+    all_diffs, all_rel_diffs = defaultdict(list), defaultdict(list)
     for subject in subjects:
-        means_diff_fname = op.join(
-            RESULTS_FOL, 'aparc_aseg_hists', subject, 'aparc_values_diffs.pkl')
-        if not op.isfile(means_diff_fname):
-            print('No diffs file for {}!'.format(subject))
-            continue
-        diffs = utils.load(means_diff_fname)
-        for region_name, val in diffs.items():
-            all_diffs[region_name].append(val)
+        for month in months:
+            input_fname = op.join(
+                RESULTS_FOL, subject, '{}_gw_frac_{}_scan_rescan_diffs.pkl'.format(
+                    get_full_subject_name(subject, month), cortex_frac_threshold))
+            if op.isfile(input_fname):
+                try:
+                    diffs, rel_diffs = utils.load(input_fname)
+                    for region_name in diffs.keys():
+                        all_diffs[region_name].append(diffs[region_name])
+                        all_rel_diffs[region_name].append(rel_diffs[region_name])
+                    input_fnames[subject] = input_fname
+                except:
+                    print('Error loading {} {} input file'.format(site, subject))
+    print('{}-{}: {}/{} input files exist'.format(site, month, len(input_fnames), len(subjects)))
+    if len(input_fnames) == 0:
+        return False
+
+    # output
+    output_fnames = {}
+    output_fol = utils.make_dir(op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data'))
+    opers = ['mean', 'abs_med', 'std', 'rel-med', 'abs-rel-med']
+    for oper in opers:
+        output_fnames[oper] = op.join(
+            output_fol, '{}_ASL_scan_rescan_diffs_{}_{}.npz'.format(site, oper, cortex_frac_threshold))
+
+    cics_checks([], output_fnames, subject, check_if_should_run, overwrite, verbose)
+    if check_if_should_run:
+        return True
+
     region_names = all_diffs.keys()
-    data_mean = np.array([np.abs(all_diffs[region_name]).mean() for region_name in region_names])
+    results_num = sum(~np.isnan(x) for x in all_diffs[list(all_diffs.keys())[0]])
+    data_med = np.array([np.nanmedian(all_diffs[region_name]) for region_name in region_names])
+    data_abs_med = np.array([np.abs(np.nanmedian(all_diffs[region_name])) for region_name in region_names])
+    data_rel_med = np.array([np.nanmedian(all_rel_diffs[region_name]) for region_name in region_names])
+    data_abs_rel_med = np.array([np.abs(np.nanmedian(all_rel_diffs[region_name])) for region_name in region_names])
     data_std = np.array([np.abs(all_diffs[region_name]).std() for region_name in region_names])
     labels_names = [get_aparc_label_name(region) for region in region_names]
+    for data, oper in zip([data_med, data_abs_med, data_std, data_rel_med, data_abs_rel_med], opers):
+        is_abs = oper in ['abs_med', 'abs-rel-med']
+        minmax = utils.calc_abs_minmax(data)
+        data_min = 0 if is_abs else -minmax
+        print('Saving {}'.format(output_fnames[oper]))
+        np.savez(output_fnames[oper], names=labels_names, atlas='aparc', data=data,
+                 data_min=data_min, data_max=minmax, results_num=results_num,
+                 cmap='YlOrRd' if is_abs else 'BuPu-RdOrYl', title='ASL_scan_rescan_diffs_{}'.format(oper))
 
-    figure_output_fname = op.join(RESULTS_FOL, 'aparc_aseg_hists', 'labels_scan_rescan_diffs.jpg')
-    if do_plot_hist and (not op.isfile(figure_output_fname) or overwrite):
-        fig, ax = plt.subplots()
-        x_pos = range(len(labels_names))
-        ax.bar(x_pos, data_mean, align='center', alpha=0.5, ecolor='black', capsize=10) # yerr=data_std / len(labels_names)
-        plt.title('scan-rescan ASL mean diffs')
-        plt.ylabel('ASL diff')
-        plt.tight_layout()
-        print('Saving bar plot in {}'.format(figure_output_fname))
-        plt.savefig(figure_output_fname)
-        plt.close()
+        figure_output_fname = op.join(RESULTS_FOL, 'scan_rescan_stats', 'regions_scan_rescan_diffs_{}.jpg'.format(oper))
+        if do_plot_hist and (not op.isfile(figure_output_fname) or overwrite):
+            fig, ax = plt.subplots()
+            x_pos = range(len(labels_names))
+            ax.bar(x_pos, data, align='center', alpha=0.5, ecolor='black', capsize=10) # yerr=data_std / len(labels_names)
+            plt.title('scan-rescan ASL {} diffs'.format(oper))
+            plt.ylabel('ASL {} diff'.format(oper))
+            plt.tight_layout()
+            print('Saving bar plot in {}'.format(figure_output_fname))
+            plt.savefig(figure_output_fname)
+            plt.close()
 
-    for data, oper in zip([data_mean, data_std], ['mean', 'std']):
-        mmvt_file_name = 'ASL_scan_rescan_diffs_{}'.format(oper)
-        mmvt_output_fname = op.join(utils.make_dir(
-            op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data')), '{}.npz'.format(mmvt_file_name))
-        if op.isfile(mmvt_output_fname) and not overwrite:
-            continue
-        np.savez(mmvt_output_fname, names=labels_names, atlas='aparc', data=data, title=mmvt_file_name,
-                 data_min=0, data_max=data.max(), cmap='YlOrRd')
+    return all_files_exits(output_fnames)
 
 
 def find_diff_clusters(subject, atlas='laus125', overwrite=True):
@@ -562,98 +646,125 @@ def plot_registration_cost_hist(subjects, site, overwrite=False):
 
 
 def calc_volume_fractions(
-        subject, subject_fol, scan_rescan, overwrite=False, print_only=False, check_if_should_run=False, verbose=True):
+        subject, subject_fol, scan_rescan, month, overwrite=False, print_only=False, check_if_should_run=False, verbose=True):
     reg_fname = op.join(subject_fol, 'control_to_T1.lta')
     output_fname = op.join(subject_fol, 'CBF')
     output_mgz_fname = op.join(subject_fol, 'CBF.cortex.mgz')
     do_run, ret = cics_checks(
-        [reg_fname], [output_fname], subject_fol, check_if_should_run, overwrite, verbose)
+        [reg_fname], [output_mgz_fname], subject_fol, check_if_should_run, overwrite, verbose)
     if not do_run:
         return ret
-    set_subject(subject, scan_rescan)
+    set_subject(subject, scan_rescan, month)
     rs = utils.partial_run_script(locals(), print_only=print_only)
     # mri_compute_volume_fractions_reg = 'mri_compute_volume_fractions --o "{output_fname}" --reg  "{reg_fname}"'
     rs(mri_compute_volume_fractions_reg)
-    return output_exists()
+    return all_files_exits([output_mgz_fname])
 
 
-def plot_subjects_cbf_histograms(subjects, site, bandwidth=0.2, overwrite=False, per_subject=False):
-    from collections import defaultdict
-
-    output_fol = utils.make_dir(op.join(RESULTS_FOL, site, 'hists', 'cbf_aparc_hists{}'.format(
+def plot_subjects_cbf_histograms(
+        subjects, site, bandwidth=0.2, overwrite=False, per_subject=False, do_plot=True,
+        check_if_should_run=False, verbose=False):
+    # input
+    input_fnames, input_files_num = {}, 0
+    for subject in subjects:
+        for scan_rescan in [SCAN, RESCAN]:
+            input_files_num += 1
+            input_fname = op.join(RESULTS_FOL, 'aparc_aseg_hists', subject, scan_rescan, 'aparc_results.pkl')
+            if op.isfile(input_fname):
+                input_fnames[(subject, scan_rescan)] = input_fname
+    print('{}: {}/{} input files exist'.format(site, len(input_fnames), input_files_num))
+    if len(input_fnames) == 0:
+        return False
+    # output
+    plots_output_fol = utils.make_dir(op.join(RESULTS_FOL, site, 'hists', 'cbf_aparc_hists{}'.format(
         '_per_subject' if per_subject else '')))
-    output_fname = op.join(RESULTS_FOL, site, 'cbf_aparc_hists.pkl')
+    stat_output_fol = utils.make_dir(op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data'))
+    cbf_aparc_hists_output_fname = op.join(RESULTS_FOL, site, 'cbf_aparc_hists.pkl')
+    stat_output_fnames = [
+        op.join(stat_output_fol, '{}_{}.npz'.format(site, file_name)) for file_name in
+        ['CBF_mean', 'CBF_hist_var', 'CBF_outliers', 'CBF_shapiro', 'CBF_cortical_frac_mean']]
+    output_fnames = [cbf_aparc_hists_output_fname, *stat_output_fnames]
+    cics_checks([], output_fnames, subject, check_if_should_run, overwrite, verbose)
+    if check_if_should_run:
+        return True
+
     x_grid = np.linspace(-50, 150, 200)
-    stats = defaultdict(dict)
-    all_regions_values = defaultdict(list)
+    all_regions_values, all_regions_fracs = defaultdict(list), defaultdict(list)
     output_str = ''
-    if not op.isfile(output_fname) or overwrite:
+    if not op.isfile(cbf_aparc_hists_output_fname) or overwrite:
         kdes, all_kdes = defaultdict(list), {}
         for subject in tqdm(subjects):
             for scan_rescan in [SCAN, RESCAN]:
-                input_fname = op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg_hist.pkl')
+                input_fname = input_fnames.get((subject, scan_rescan), '')
                 if not op.isfile(input_fname):
                     output_str += 'No hist file for {} {}\n'.format(subject, scan_rescan)
                     continue
-                regions_values = utils.load(input_fname)
-                for region, values in regions_values.items():
-                    all_regions_values[region].extend(values)
+                regions_values, regions_means, regions_fracs = utils.load(input_fname)
+                # regions_values =
+                for region in regions_values.keys():
+                    all_regions_values[region].extend(regions_values[region])
+                    all_regions_fracs[region].append(regions_fracs[region])
                     if per_subject:
-                        if len(values) > 1:
-                            kde = utils.kde(values, x_grid, bandwidth=bandwidth)
+                        if len(regions_values[region]) > 1:
+                            kde = utils.kde(regions_values[region], x_grid, bandwidth=bandwidth)
                             kdes[region].append(kde)
                         else:
                             output_str += '{} {} has no values!\n'.format(subject, region)
-        for region in regions_values.keys():
-            kdes[region] = np.array(kdes[region])
+        for region in tqdm(regions_values.keys()):
+            if per_subject:
+                kdes[region] = np.array(kdes[region])
             all_regions_values[region] = np.array(all_regions_values[region])
-            all_kdes[region] = utils.kde(all_regions_values[region], x_grid, bandwidth=bandwidth).squeeze()
-
-            # w = np.mean(x, axis=0)
-            # stats[region]['mean'] = region_mean = np.average(x_grid, weights=w)
-            # stats[region]['var'] = np.average((region_mean - x_grid) ** 2, weights=w)
-        utils.save((kdes, all_kdes, all_regions_values), output_fname)
+            all_regions_fracs[region] = np.array(all_regions_fracs[region])
+            if len(all_regions_values[region]) > 1:
+                all_kdes[region] = utils.kde(all_regions_values[region], x_grid, bandwidth=bandwidth).squeeze()
+            else:
+                output_str += '{}: {} has no values!\n'.format(site, region)
+        utils.save((kdes, all_kdes, all_regions_values, all_regions_fracs), cbf_aparc_hists_output_fname)
     else:
-        kdes, all_kdes, all_regions_values = utils.load(output_fname)
+        kdes, all_kdes, all_regions_values, all_regions_fracs = utils.load(cbf_aparc_hists_output_fname)
+    if verbose:
+        print(output_str)
 
-    print(output_str)
-    if per_subject:
-        for region_name, region_kdes in tqdm(kdes.items()):
-            figure_fname = op.join(output_fol, '{}.jpg'.format(region_name))
-            if op.isfile(figure_fname) and not overwrite:
-                continue
-            plt.figure()
-            for region_kde in region_kdes:
+    if do_plot:
+        if per_subject:
+            for region_name, region_kdes in tqdm(kdes.items()):
+                figure_fname = op.join(plots_output_fol, '{}.jpg'.format(region_name))
+                if op.isfile(figure_fname) and not overwrite:
+                    continue
+                plt.figure()
+                for region_kde in region_kdes:
+                    plt.plot(x_grid, region_kde)
+                plt.savefig(figure_fname)
+                plt.close()
+        else:
+            for region_name, region_kde in tqdm(all_kdes.items()):
+                figure_fname = op.join(plots_output_fol, '{}.jpg'.format(region_name))
+                if op.isfile(figure_fname) and not overwrite:
+                    continue
+                plt.figure()
                 plt.plot(x_grid, region_kde)
-            plt.savefig(figure_fname)
-            plt.close()
-    else:
-        for region_name, region_kde in tqdm(all_kdes.items()):
-            figure_fname = op.join(output_fol, '{}.jpg'.format(region_name))
-            if op.isfile(figure_fname) and not overwrite:
-                continue
-            plt.figure()
-            plt.plot(x_grid, region_kde)
-            plt.savefig(figure_fname)
-            plt.close()
-
-    print('Figures were saved in {}'.format(output_fol))
+                plt.savefig(figure_fname)
+                plt.close()
+        print('Figures were saved in {}'.format(plots_output_fol))
 
     from scipy.stats import shapiro
-    fol = utils.make_dir(op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data'))
-    data_var, outliers, region_names, shapiro_p_vals = [], [], [], []
-    for region, region_values in all_regions_values.items():
+    data_mean, data_var, outliers, region_names, shapiro_p_vals, cotical_fracs = [], [], [], [], [], []
+    for region in all_regions_values.keys():
+        if len(all_regions_values[region]) < 5:
+            print('{}: only {} values for {}!!'.format(site, len(all_regions_values[region]), region))
+            continue
+        region_values = np.array(all_regions_values[region])
         region_names.append(get_aparc_label_name(region))
+        data_mean.append(region_values.mean())
         data_var.append(region_values.var())
         outliers.append((len(np.where(region_values > high_threshold)[0]) * 100) / len(region_values))
         shapiro_p_vals.append(shapiro(region_values)[1])
-    for data, file_name in zip(
-            [data_var, outliers, shapiro_p_vals],
-            ['CBF_hist_var', 'CBF_hist_outliers', 'CBF_hist_shapiro']):
-        np.savez(op.join(fol, '{}.npz'.format(file_name)), names=region_names, atlas='aparc',
-                 data=data, title=file_name.replace('_', ' '), data_min=np.min(data), data_max=np.max(data),
-                 cmap='YlOrRd')
-
+        cotical_fracs.append(np.array(all_regions_fracs[region]).mean())
+    for data, output_fname in zip([data_mean, data_var, outliers, shapiro_p_vals, cotical_fracs], stat_output_fnames):
+        np.savez(output_fname, names=region_names, atlas='aparc',
+                 data=data, title=utils.namebase(output_fname).replace('_', ' '),
+                 data_min=np.min(data), data_max=np.max(data), cmap='YlOrRd')
+    return all([op.isfile(fname) for fname in output_fnames])
     '''
     if shapiro_p > alpha:
         print('Sample looks Gaussian (fail to reject H0)')
@@ -699,20 +810,31 @@ def vars_names_to_dict(params, args):
     return {key: args[key] for key in params}
 
 
-def run_function_in_parallel(func, all_params, n_jobs, split_jobs=True, verbose=True):
+def run_functions_in_parallel(funcs, all_params, n_jobs, ask_to_continue=True, split_jobs=True, verbose=True):
+    for func in funcs:
+        run_function_in_parallel(func, all_params, n_jobs, ask_to_continue, split_jobs, verbose)
+
+
+def run_function_in_parallel(func, all_params, n_jobs, ask_to_continue=True, split_jobs=True, verbose=True,
+                             overwrite=False):
+    for params in all_params:
+        params['overwrite'] = overwrite
     # Filter our items that should not run (all input files should exist, and all output files shoud not)
     params = [p for p in all_params if all(_run_func_in_parallel((func, [p], True, 0, verbose)))]
     print('*** Run {}/{} records, {} jobs ***'.format(len(params), len(all_params), n_jobs))
-    ret = input('ok? (y/n) ')
-    if not au.is_true(ret):
-        return
+    if ask_to_continue:
+        ret = input('ok? (y/n) ')
+        if not au.is_true(ret):
+            return
     if split_jobs:
         chunks_indices = np.array_split(np.arange(len(params)), n_jobs)
         chunk_params = [(func, [params[ind] for ind in chunk_indices], False, thread_ind, verbose)
                         for thread_ind, chunk_indices in enumerate(chunks_indices)]
     else:
         chunk_params = [(func, [p], False, thread_ind, verbose) for thread_ind, p in enumerate(params)]
-    utils.run_parallel(_run_func_in_parallel, chunk_params, n_jobs)
+    results = utils.run_parallel(_run_func_in_parallel, chunk_params, n_jobs)
+    results = utils.combine_chunks(results)
+    print('{}/{} good results'.format(sum(results), len(params)))
 
 
 def _run_func_in_parallel(parallel_params):
@@ -722,70 +844,155 @@ def _run_func_in_parallel(parallel_params):
     for run_num, p in enumerate(params):
         if not check_if_should_run:
             utils.time_to_go(now, run_num, len(params), 1, thread_ind)
-        subject, site, subject_dir, scan_rescan = [p[key] for key in ['subject', 'site', 'subject_dir', 'scan_rescan']]
-        overwrite, print_only = [p.get(key, False) for key in ['overwrite', 'print_only']]
+        # Check if the params are per subject
         flag = False
-        if func.__name__ == 'register_cbf_to_t1':
-            flag = register_cbf_to_t1(
-                subject, subject_dir, scan_rescan,  overwrite, print_only, check_if_should_run, verbose)
-        elif func.__name__ == 'calc_volume_fractions':
-            flag = calc_volume_fractions(
-                subject, subject_dir, scan_rescan, overwrite, print_only, check_if_should_run, verbose)
-        elif func.__name__ == 'register_aseg_to_cbf':
-            flag = register_aseg_to_cbf(
-                subject, subject_dir, scan_rescan, overwrite, print_only, check_if_should_run, verbose)
+        if 'subject' in p:
+            subject, site, month, cortex_frac_threshold = [
+                p[key] for key in ['subject', 'site', 'month', 'cortex_frac_threshold']]
+            scan_rescan = p.get('scan_rescan', SCAN)
+            subject_dir = p.get('subject_dir', '')
+            low_threshold, high_threshold = [p.get(key, 0) for key in ['low_threshold', 'high_threshold']]
+            overwrite, print_only, do_plot = [p.get(key, False) for key in ['overwrite', 'print_only', 'do_plot']]
+            if func.__name__ == 'register_cbf_to_t1':
+                flag = register_cbf_to_t1(
+                    subject, subject_dir, scan_rescan,  month, overwrite, print_only, check_if_should_run, verbose)
+            elif func.__name__ == 'calc_volume_fractions':
+                flag = calc_volume_fractions(
+                    subject, subject_dir, scan_rescan, month, overwrite, print_only, check_if_should_run, verbose)
+            elif func.__name__ == 'register_aseg_to_cbf':
+                flag = register_aseg_to_cbf(
+                    subject, subject_dir, scan_rescan, month, overwrite, print_only, check_if_should_run, verbose)
+            elif func.__name__ == 'calc_regions_stats':
+                flag = calc_regions_stats(
+                    subject, subject_dir, scan_rescan, month, low_threshold, high_threshold, cortex_frac_threshold,
+                    overwrite, do_plot, check_if_should_run, verbose)
+            elif func.__name__ == 'calc_scan_rescan_diff':
+                flag = calc_scan_rescan_diff(
+                    subject, month, cortex_frac_threshold, do_plot, overwrite, check_if_should_run, verbose)
+        # Check of the parameters are per site
+        elif 'subjects' in p and 'site' in p:
+            subjects, site, month, months, cortex_frac_threshold = [p[key] for key in [
+                'subjects', 'site', 'month', 'months', 'cortex_frac_threshold']]
+            overwrite, print_only, do_plot, per_subject = [p.get(key, False) for key in [
+                'overwrite', 'print_only', 'do_plot', 'per_subject']]
+            if func.__name__ == 'plot_subjects_cbf_histograms':
+                bandwidth = p.get('bandwidth', 0.2)
+                flag = plot_subjects_cbf_histograms(
+                    subjects, site, bandwidth, overwrite, per_subject, do_plot, check_if_should_run, verbose)
+            if func.__name__ == 'calc_scan_rescan_mean_diffs':
+                flag = calc_scan_rescan_mean_diffs(
+                    subjects, site, months, cortex_frac_threshold, do_plot, overwrite, check_if_should_run, verbose)
         flags.append(flag)
     return flags
 
 
+def get_subject_months_dirs(subject, site, months):
+    return [op.join(HOME_FOL, site, '{}{}'.format(subject, month)) for month in months
+            if op.isdir(op.join(HOME_FOL, site, '{}{}'.format(subject, month)))]
+
+
+def get_subject_dir(subject, site, month, scan_rescan):
+    return op.join(HOME_FOL, site, '{}{}'.format(subject, '_{}'.format(month) if month != '0' else ''),
+                   scan_rescan)
+
+
+def calc_different_cortec_frac_thresholds(
+        sites, months, cortex_frac_thresholds, n_jobs, low_threshold=0, high_threshold=100, overwrite=False):
+    # for cortex_frac_threshold in cortex_frac_thresholds:
+    for cortex_frac_threshold in [0.9]:
+        params, scan_rescan_params, site_params = get_params(
+            sites, months, cortex_frac_threshold, low_threshold, high_threshold, overwrite, n_jobs=n_jobs)
+        # run_functions_in_parallel(
+        #     [calc_regions_stats, calc_scan_rescan_diff], params, n_jobs, ask_to_continue=False, verbose=False)
+        run_function_in_parallel(
+            calc_scan_rescan_mean_diffs, site_params, n_jobs, overwrite=True, ask_to_continue=False, verbose=False,
+            split_jobs=False)
+
+
+    for site in sites:
+        input_fol = op.join(MMVT_DIR, 'fsaverage', 'labels', 'labels_data')
+        opers = ['rel-med', 'abs-rel-med']
+        for oper in opers:
+            vals, results_nums = [], []
+            for cortex_frac_threshold in cortex_frac_thresholds:
+                input_fname = op.join(
+                    input_fol, '{}_ASL_scan_rescan_diffs_{}_{}.npz'.format(site, oper, cortex_frac_threshold))
+                d = np.load(input_fname)
+                vals.append(float(np.nanmedian(d['data'])) * 100)
+                results_nums.append(int(d['results_num']))
+            title = '{}: ASL scan rescan diffs {}'.format(site, oper)
+            sub_fol = 'abs_scan_rescan_diffs' if 'abs' in oper else 'scan_rescan_diffs'
+            figures_fol = utils.make_dir(op.join(RESULTS_FOL, 'all_sites_results', sub_fol))
+            figure_fname = op.join(figures_fol, '{}_{}_scan_rescans_diffs.jpg'.format(site, oper))
+            fig = plt.figure()
+            ax1 = fig.add_subplot(111)
+            ax1.scatter(cortex_frac_thresholds, vals)
+            if 'abs' in oper:
+                ax1.set_ylim(bottom=0)
+            ax1.set_ylabel('rel scan-rescan diff (%)')
+            # ax2 = ax1.twinx()
+            # ax2.scatter(cortex_frac_thresholds, results_nums, marker='+', c='yellow')
+            # # ax2.set_ylim(bottom=min(results_nums) - 1)
+            # ax2.set_ylabel('#results')
+            plt.title(title)
+            print('Saving {}'.format(figure_fname))
+            plt.savefig(figure_fname)
+            plt.close()
+
+
+def get_params(sites, months, cortex_frac_threshold=0.9, low_threshold=0, high_threshold=100,
+               overwrite=False, print_only=False, do_plot=False, run_preproc_anat=False, n_jobs=4):
+    params, scan_rescan_params, site_params = [], [], []
+    for site in sites:
+        for month in months:
+            subjects = get_subjects(site)
+            site_params.append(vars_names_to_dict((
+                'subjects', 'site', 'month', 'months', 'cortex_frac_threshold', 'overwrite', 'do_plot'), locals()))
+            for sub_ind, subject in enumerate(subjects):
+                scan_rescan_params.append(vars_names_to_dict((
+                    'subject', 'site', 'month', 'cortex_frac_threshold', 'overwrite', 'do_plot'), locals()))
+                for scan_rescan in SCAN_RESCAN:
+                    if run_preproc_anat:
+                        ret = preproc_anat(subject, month, scan_rescan, overwrite_files=False)
+                        if not ret:
+                            continue
+                    subject_dir = get_subject_dir(subject, site, month, scan_rescan)
+                    params.append(vars_names_to_dict((
+                        'subject', 'site', 'subject_dir', 'scan_rescan', 'month', 'low_threshold', 'high_threshold',
+                        'cortex_frac_threshold', 'overwrite', 'print_only', 'do_plot'), locals()))
+    return params, scan_rescan_params, site_params
+
+
+def main(sites, months, n_jobs=4):
+    params, scan_rescan_params, site_params = get_params(
+        sites, months, cortex_frac_threshold=0.9, low_threshold=0, high_threshold=100,
+        overwrite=False, print_only=False, do_plot=False, run_preproc_anat=False, n_jobs=n_jobs)
+    funcs = [register_cbf_to_t1, calc_volume_fractions, register_aseg_to_cbf, calc_regions_stats]
+    run_functions_in_parallel(funcs, params, n_jobs, ask_to_continue=True, split_jobs=True, verbose=True)
+    run_function_in_parallel(calc_scan_rescan_diff, scan_rescan_params, n_jobs)
+    run_function_in_parallel(calc_scan_rescan_mean_diffs, site_params, n_jobs, split_jobs=False)
+
+
 if __name__ == '__main__':
-    subject = os.environ['SUBJECT'] = '277S0203'
     os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
     sites = ['131-NeuroBeh_ACH', '277-NDC', '800-Hoglund', '829-EmoryUniversity', '960-VitalImaging']
-    months = [''] #, '_6', '_12']
-    atlas = 'aparc' # 'aparc.DKTatlas'
-    low_threshold, high_threshold = 0, 100
-    cortex_frac_threshold = 0.9
-    overwrite = True
-    print_only = False
-    do_plot = False
-    n_jobs = max(utils.get_n_jobs(30), 4)
+    months = ['0', '6', '12']
+    cortex_frac_thresholds = np.linspace(0.5, 0.9, 17)
+    # atlas = 'aparc'
+    debug_mode = False
+    n_jobs = 1 if debug_mode else max(utils.get_n_jobs(10), 4)
     print('n_jobs: {}'.format(n_jobs))
+
+    # main(sites, months, n_jobs)
+    calc_different_cortec_frac_thresholds(sites, months, cortex_frac_thresholds, n_jobs)
 
     # read_hippocampus_volumes()
     # calc_volume_fractions_all_subjects(subjects, site, overwrite, print_only)
-
-    params = []
-    for site in sites:
-        subjects = get_subjects(site)
-        good_subjects = preproc_anat(subjects, overwrite_files=False)
-        for sub_ind, subject in enumerate(good_subjects):
-            # utils.time_to_go(now, sub_ind, len(subjects), 1)
-            # get_labels_data(subject, atlas)
-            subjects_0_6_12_dirs = [
-                op.join(HOME_FOL, site, '{}{}'.format(subject, month)) for month in months
-                if op.isdir(op.join(HOME_FOL, site, '{}{}'.format(subject, month)))]
-            for subject_month_dir in subjects_0_6_12_dirs:
-                for scan_rescan in SCAN_RESCAN:
-                    subject_dir = op.join(subject_month_dir, scan_rescan)
-                    params.append(vars_names_to_dict((
-                        'subject', 'site', 'subject_dir', 'scan_rescan', 'overwrite', 'print_only'), locals()))
-                    # register_cbf_to_t1(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-                    # calc_volume_fractions(subject, site, subject_dir, scan_rescan, overwrite=False)
-                    # project_cbf_on_cortex(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-                    # register_aseg_to_cbf(subject, site, scan_rescan, overwrite=overwrite, print_only=print_only)
-                    # calc_cbf_histograms(subject, scan_rescan, low_threshold, high_threshold, cortex_frac_threshold,
-                    #                     overwrite=True, do_plot=False)
-                    # calc_cortical_histograms(subject, scan_rescan, atlas, low_threshold, high_threshold, overwrite, do_plot)
-                    # morph_to_fsaverage(subject, scan_rescan, overwrite=overwrite, print_only=print_only)
-                    pass
-                # calc_scan_rescan_diff(subject, overwrite=True)
-                # find_diff_clusters(subject, atlas='laus125', overwrite=True)
-    run_function_in_parallel(register_aseg_to_cbf, params, n_jobs)
+    # plot_cortex_frac_vs_diff(sites)
 
 
-    # calc_scan_rescan_mean_diffs(subjects, do_plot_hist=True, overwrite=True)
-    # plot_subjects_cbf_histograms(subjects, site, overwrite=True)
-    # plot_registration_cost_hist(subjects, site)
-    # check_cbf_to_t1_registeration('277S0229', site, 'scan', print_only)
+
+
+
+
 

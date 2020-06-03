@@ -203,7 +203,10 @@ def arr_to_colors_two_colors_maps(x, x_min=None, x_max=None, cm_big='YlOrRd', cm
 
 def calc_abs_minmax(x, norm_percs=None):
     x_min, x_max = calc_min_max(x, norm_percs=norm_percs)
-    return max(map(abs, [x_min, x_max]))
+    if np.isnan(x_min) or np.isnan(x_max):
+        return np.nan
+    else:
+        return max(map(abs, [x_min, x_max]))
 
 
 def calc_signed_abs_minmax(x, norm_percs=None):
