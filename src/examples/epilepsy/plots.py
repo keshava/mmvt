@@ -178,6 +178,7 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, nodes_na
 
     con_norm = (x_cond - baseline_mean) / baseline_std
     fig_fname = op.join(figures_fol, 'ictal-baseline', '{}-connectivity-ictal-baseline.jpg'.format(condition))
+    connection_fname = utils.change_fname_extension(fig_fname, 'pkl')
 
     norm = {}
     if ax is None:
@@ -221,6 +222,7 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, nodes_na
     connections = sorted(connections)
     for con in connections:
         print(con)
+    utils.save(connections, connection_fname)
     if stc_data is not None:
         ax2 = ax.twinx()
         l = ax2.plot(stc_times[windows_len:], stc_data[windows_len:].T, 'y--', alpha=0.2) # stc_data[:-100].T
