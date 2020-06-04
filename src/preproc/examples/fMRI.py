@@ -151,9 +151,9 @@ def language(args):
     # convert the fMRI dicom files to nii
     for fmri_fol in fmri_fols:
         ses_num = utils.find_num_in_str(utils.namebase(fmri_fol))[0]
-        ses_files = glob.glob(op.join(fmri_fol, '**', '*.*'), recursive=True)
         output_fname = op.join(utils.make_dir(op.join(mri_subject_task_dir, ses_num)), 'f.nii.gz')
         if not op.isfile(output_fname):
+            ses_files = glob.glob(op.join(fmri_fol, '**', '*.*'), recursive=True)
             fu.mri_convert(ses_files[0], output_fname)
 
     # Convert and arrange the par file
@@ -177,6 +177,7 @@ def language(args):
         fsd=task,
         fwhm=fwhm,
         remote_fmri_dir=remote_mri_dir,
+        fmri_file_template=op.join(mri_subject_task_dir, '**', '*.nii.gz'),
         nconditions=4,
         ignore_missing=True,
         print_only=False,
