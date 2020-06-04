@@ -2353,7 +2353,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--template_brain', help='', required=False, default='')
     parser.add_argument('--target_subject', help='', required=False, default='')
     # parser.add_argument('--fsd', help='functional subdirectory', required=False, default='rest')
-    parser.add_argument('--fwhm', help='', required=False, default=6, type=float)
+    parser.add_argument('--fwhm', help='', required=False, default=6, type=int)
     parser.add_argument('--lfp', help='', required=False, default=0.08, type=float)
     parser.add_argument('--nskip', help='', required=False, default=4, type=int)
     parser.add_argument('--nconditions', help='', required=False, default=0, type=int)

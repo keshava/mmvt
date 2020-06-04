@@ -91,6 +91,7 @@ def calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=4):
     diploes_rois_output_fname = op.join(mmvt_dir, subject, 'meg', 'dipoles_rois.pkl')
     if op.isfile(diploes_rois_output_fname) and not overwrite:
         diploes_rois = utils.load(diploes_rois_output_fname)
+        coritcal_labels = set(utils.flat_list_of_lists([diploes_rois[k]['cortical_rois'] for k in diploes_rois.keys()]))
         return True
 
     diploes_input_fname = op.join(mmvt_dir, subject, 'meg', 'dipoles.pkl')
@@ -141,10 +142,10 @@ def calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=4):
 
 if __name__ == '__main__':
     subject = 'nmr01391'
-    dip_fname = op.join(MEG_DIR, subject, 'epi.dip')
+    dip_fname = op.join(MEG_DIR, subject, 'epi.dip') # _ictal
     n_jobs = utils.get_n_jobs(-10)
     n_jobs = n_jobs if n_jobs > 0 else 1
     #plot_dipole(dip_fname, subject)
-    # dipoles = parse_dip_file(dip_fname)
-    # mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
+    dipoles = parse_dip_file(dip_fname)
+    mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
     calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=n_jobs)

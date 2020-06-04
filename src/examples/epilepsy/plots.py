@@ -122,7 +122,7 @@ def _plot_evokes_parallel(p):
 
 
 def plot_connectivity(subject, condition, modality, high_freq=120, con_method='wpli2_debiased',
-                      extract_mode='mean_flip', func_rois_atlas=True, node_name='occipital', # ''lateraloccipital'
+                      extract_mode='mean_flip', func_rois_atlas=True, nodes_names=[], nodes_names_includes_hemi=False, # ''lateraloccipital'
                       use_zvals=False, cond_name='interictals', stc_subfolder='zvals', stc_name='',
                       stc_downsample=2, con_threshold=0.5, bands=None):
     if bands is None:
@@ -132,12 +132,13 @@ def plot_connectivity(subject, condition, modality, high_freq=120, con_method='w
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'connectivity'))
     for band_name in bands.keys():
         d_cond, d_baseline, x_cond, x_baseline, names, stc_data, stc_times = calc_cond_and_basline(
-            subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name,
-            cond_name=cond_name, stc_subfolder=stc_subfolder, stc_name=stc_name, stc_downsample=stc_downsample)
+            subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, nodes_names,
+            nodes_names_includes_hemi, cond_name=cond_name, stc_subfolder=stc_subfolder, stc_name=stc_name,
+            stc_downsample=stc_downsample)
         if x_cond is not None and x_baseline is not None:
             plot_norm_data(
-                x_cond, x_baseline, names, condition, con_threshold, node_name, stc_data, stc_times,
-                figures_fol=figures_fol)
+                x_cond, x_baseline, names, condition, con_threshold, nodes_names, stc_data, stc_times,
+                figures_fol=figures_fol, nodes_names_includes_hemi=nodes_names_includes_hemi)
 
 
 def plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names):
@@ -161,8 +162,8 @@ def plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names):
         # plt.close()
 
 
-def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_name, stc_data, stc_times, windows_len=100,
-                   windows_shift=10, figures_fol='', ax=None):
+def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, nodes_names, stc_data, stc_times, windows_len=100,
+                   windows_shift=10, figures_fol='', ax=None, nodes_names_includes_hemi=False):
     # con_norm = x_cond - x_baseline
     # con_norm = x_cond - x_cond[:, :200].mean(axis=1, keepdims=True)
     # baseline_std = np.std(x_baseline, axis=1, keepdims=True)
@@ -189,7 +190,9 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, node_nam
 
     connections = []
     for conn_type, color in zip(conn_conditions, colors):
-        mask = epi_utils.filter_connections(node_name, con_norm, no_ord_con_names, threshold, conn_type, use_abs=False)
+        mask = epi_utils.filter_connections(
+            con_norm, no_ord_con_names, threshold, nodes_names, conn_type, use_abs=False,
+            nodes_names_includes_hemi=nodes_names_includes_hemi)
         if sum(mask) == 0:
             print('{} no connections {}'.format(condition, conn_type))
             continue
@@ -263,7 +266,7 @@ def get_cond_and_baseline_fnames(subject, con_method, modality, condition, extra
 
 
 def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals,
-                          node_name, use_abs=True, threshold=0.7, window_length=25, stc_downsample=2,
+                          node_names, nodes_names_includes_hemi=False, use_abs=True, threshold=0.7, window_length=25, stc_downsample=2,
                           cond_name='interictals', stc_subfolder='zvals', stc_name=''):
     import mne
     from src.preproc import connectivity
@@ -294,8 +297,12 @@ def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode
     baseline_values1 = connectivity.find_best_ord(d_baseline['con_values'], return_ords=False)
     baseline_values2 = connectivity.find_best_ord(d_baseline['con_values2'], return_ords=False)
 
-    mask1 = epi_utils.filter_connections(node_name, con_values1, d_cond['con_names'], threshold, '', use_abs)
-    mask2 = epi_utils.filter_connections(node_name, con_values2, d_cond['con_names2'], threshold, '', use_abs)
+    mask1 = epi_utils.filter_connections(
+        con_values1, d_cond['con_names'], threshold, node_names,'', use_abs,
+        nodes_names_includes_hemi=nodes_names_includes_hemi)
+    mask2 = epi_utils.filter_connections(
+        con_values2, d_cond['con_names2'], threshold, node_names,'', use_abs,
+        nodes_names_includes_hemi=nodes_names_includes_hemi)
     names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
     if len(names) == 0:
         print('{} no connections'.format(condition))
@@ -333,8 +340,8 @@ def plot_both_conditions(subject, conditions, modality, high_freq=120, con_metho
         f, (axs) = plt.subplots(2, sharex=True, sharey=False)
         for ax, condition in zip(axs, conditions):
             d_cond, d_baseline, x_cond, x_baseline, names, stc_data, stc_times = calc_cond_and_basline(
-                subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, node_name,
-                use_abs=False, threshold=threshold, stc_downsample=1)
+                subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, nodes_names,
+                nodes_names_includes_hemi, use_abs=False, threshold=threshold, stc_downsample=1)
             plot_norm_data(d_cond, d_baseline, condition, 0.1, node_name, stc_data, stc_times,
                            windows_len, windows_shift, ax)
         axs[1].set_xlabel('Time (ms)', fontsize=12)
