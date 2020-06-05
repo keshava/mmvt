@@ -31,18 +31,18 @@ def dipoles_connectivity_update(self, context):
         return
     ScriptsPanel.dipole_connections = connections = mu.load(connectivity_fnames[0])
     ScriptsPanel.dipole_connections_item_names = [
-        '{}) {}'.format(ind + 1, info[1]) for ind, info in enumerate(connections)]
+        '{}) {:.4f}ms'.format(ind + 1, info[0]) for ind, info in enumerate(connections)]
     dipoles_connections_items = \
         sorted([(item, item , '', ind) for ind, item in enumerate(ScriptsPanel.dipole_connections_item_names)])
     bpy.types.Scene.dipole_connections = bpy.props.EnumProperty(
         items=dipoles_connections_items, description="Dipoles connections",
         update=dipole_connections_update)
-    bpy.context.scene.dipole_connections = '1) {}'.format(connections[0][1])
+    bpy.context.scene.dipole_connections = ScriptsPanel.dipole_connections_item_names[0]
 
 
 def dipole_connections_update(self, context):
     dipole_current_connection = bpy.context.scene.dipole_connections
-    dipole_current_connection_id = int(dipole_current_connection.split(')')[0]) - 1
+    dipole_current_connection_id = ScriptsPanel.dipole_connections_item_names.index(dipole_current_connection)# int(dipole_current_connection.split(')')[0]) - 1
     ScriptsPanel.dipole_connection = ScriptsPanel.dipole_connections[dipole_current_connection_id]
     if ScriptsPanel.labels_pos is not None:
         con = ScriptsPanel.dipole_connection[-1].split(' ')[0]
@@ -220,7 +220,7 @@ def draw(self, context):
             con_name = con[3].split(' ')[0]
             from_label, _, _, from_hemi, to_label, _, _ , to_hemi = con_name.split('-')
             col.label(text='onset: {:.4f}ms'.format(con[0]))
-            col.label(text='type: {}'.format(get_connection_type_name(con[1])))
+            col.label(text=get_connection_type_name(con[1]))
             col.label(text='from: {}-{}'.format(from_label, from_hemi))
             col.label(text='to: {}-{}'.format(to_label, to_hemi))
             col.label(text='strength: {:.2f}'.format(con[2]))
