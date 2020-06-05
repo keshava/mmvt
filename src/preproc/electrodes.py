@@ -1655,7 +1655,7 @@ def get_ras_file(subject, args):
 def run_ela(subject, atlas, bipolar, overwrite=False, elc_r=3, elc_len=4, electrodes_type=None, n_jobs=-1):
     mmvt_code_fol = utils.get_mmvt_code_root()
     ela_code_fol = op.join(utils.get_parent_fol(mmvt_code_fol), 'electrodes_rois')
-    if not op.isdir(ela_code_fol) or not op.isfile(op.join(ela_code_fol, 'find_rois', 'find_rois.py')):
+    if not op.isdir(ela_code_fol) or not op.isfile(op.join(ela_code_fol, 'find_rois', 'main.py')):
         print("Can't find ELA folder!")
         return
 
@@ -1673,13 +1673,13 @@ def run_ela(subject, atlas, bipolar, overwrite=False, elc_r=3, elc_len=4, electr
     import sys
     if ela_code_fol not in sys.path:
         sys.path.append(ela_code_fol)
-    from find_rois import find_rois
-    importlib.reload(find_rois)
+    from find_rois import main as find_rois_main
+    # importlib.reload(find_rois)
     cmd_args = ['-s', subject, '-a', atlas, '-b', str(bipolar), '--n_jobs', str(n_jobs)]
     if electrodes_type is not None:
         cmd_args.extend(['--electrodes_type', electrodes_type])
-    args = find_rois.get_args(cmd_args)
-    find_rois.run_for_all_subjects(args)
+    args = find_rois_main.get_args(cmd_args)
+    find_rois_main.run_for_all_subjects(args)
     if not op.isfile(output_fname):
         return False
     else:
