@@ -127,18 +127,27 @@ def get_connection_type_name(con_type):
 
 
 def next_dipole_connection():
-    index = ScriptsPanel.dipole_connections_item_names.index(bpy.context.scene.dipole_connections)
-    next_dipole_connection = ScriptsPanel.dipole_connections_item_names[index + 1] \
-        if index < len(ScriptsPanel.dipole_connections_item_names) - 1 \
-        else ScriptsPanel.dipole_connections_item_names[0]
-    bpy.context.scene.dipole_connections = next_dipole_connection
+    values = [k[0] for k in bpy.types.Scene.dipole_connections[1]['items']]
+    index = values.index(bpy.context.scene.dipole_connections)
+    bpy.context.scene.dipole_connections = values[index + 1] if index < len(values) - 1 else values[0]
 
 
 def prev_dipole_connection():
-    index = ScriptsPanel.dipole_connections_item_names.index(bpy.context.scene.dipole_connections)
-    prev_dipole_connection = ScriptsPanel.dipole_connections_item_names[index - 1] \
-        if index > 0 else ScriptsPanel.dipole_connections_item_names[-1]
-    bpy.context.scene.dipole_connections = prev_dipole_connection
+    values = [k[0] for k in bpy.types.Scene.dipole_connections[1]['items']]
+    index = values.index(bpy.context.scene.dipole_connections)
+    bpy.context.scene.dipole_connections = values[index - 1] if index > 0 else values[-1]
+
+
+def next_dipole():
+    values = [k[0] for k in bpy.types.Scene.dipoles_names[1]['items']]
+    index = values.index(bpy.context.scene.dipoles_names)
+    bpy.context.scene.dipoles_names = values[index + 1] if index < len(values) - 1 else values[0]
+
+
+def prev_dipole():
+    values = [k[0] for k in bpy.types.Scene.dipoles_names[1]['items']]
+    index = values.index(bpy.context.scene.dipoles_names)
+    bpy.context.scene.dipoles_names = values[index - 1] if index > 0 else values[-1]
 
 
 class LoadDipoles(bpy.types.Operator):
@@ -175,7 +184,6 @@ class NextDipoleConnection(bpy.types.Operator):
         return {'FINISHED'}
 
 
-
 class PrevDipoleConnection(bpy.types.Operator):
     bl_idname = 'mmvt.prev_dipole_connection'
     bl_label = 'prev dipole_connection'
@@ -186,24 +194,52 @@ class PrevDipoleConnection(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class NextDipole(bpy.types.Operator):
+    bl_idname = 'mmvt.next_dipole'
+    bl_label = 'next dipole'
+    bl_options = {'UNDO'}
+
+    def invoke(self, context, event=None):
+        next_dipole()
+        return {'FINISHED'}
+
+
+class PrevDipole(bpy.types.Operator):
+    bl_idname = 'mmvt.prev_dipole'
+    bl_label = 'prev dipole'
+    bl_options = {'UNDO'}
+
+    def invoke(self, context, event=None):
+        prev_dipole()
+        return {'FINISHED'}
+
+
 def draw(self, context):
     layout = self.layout
     mu = _mmvt().utils
 
     # layout.prop(context.scene, 'dipoles_show_as_arrow', text="Plot as arrow")
     layout.operator(LoadDipoles.bl_idname, text="Import Dipoles", icon='EDITMODE_HLT')
-    layout.prop(context.scene, 'dipoles_names', text="")
-
-    if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois:
+    row = layout.row(align=True)
+    row.operator(PrevDipole.bl_idname, text="", icon='PREV_KEYFRAME')
+    row.prop(context.scene, 'dipoles_names', text="")
+    row.operator(NextDipole.bl_idname, text="", icon='NEXT_KEYFRAME')
+    first_dipole = '{}_{}'.format(bpy.context.scene.dipoles_names, ScriptsPanel.dipoles_dict[
+        bpy.context.scene.dipoles_names][0][0])
+    if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois or \
+            first_dipole in ScriptsPanel.dipoles_rois:
         layout.label(text='Dipole\'s ROIs:')
         box = layout.box()
         col = box.column()
-        rois = ScriptsPanel.dipoles_rois[bpy.context.scene.dipoles_names]
+        if bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois:
+            rois = ScriptsPanel.dipoles_rois[bpy.context.scene.dipoles_names]
+        else:
+            rois = ScriptsPanel.dipoles_rois[first_dipole]
         for subcortical_name, subcortical_prob in zip(rois['subcortical_rois'], rois['subcortical_probs']):
             mu.add_box_line(col, subcortical_name, '{:.3f}'.format(subcortical_prob), 0.8)
         for cortical_name, cortical_prob in zip(rois['cortical_rois'], rois['cortical_probs']):
-            if cortical_prob >= 0.001:
-                mu.add_box_line(col, cortical_name, '{:.3f}'.format(cortical_prob), 0.8)
+            # if cortical_prob >= 0.001:
+            mu.add_box_line(col, cortical_name, '{:.3f}'.format(cortical_prob), 0.8)
 
     if len(ScriptsPanel.connections_files) > 0:
         layout.label(text='Dipole\'s connections:')
@@ -246,9 +282,11 @@ def init(mmvt):
         print('No dipoles file!')
         return
     ScriptsPanel.dipoles_dict = dipoles_dict = mu.load(dipoles_fname)
-    dipoles_items = sorted([(dipole_name, dipole_name, '', ind) for ind, dipole_name in enumerate(dipoles_dict.keys())])
+    dipoles_names = sorted(list(dipoles_dict.keys()))
+    dipoles_items = [(dipole_name, dipole_name, '', ind) for ind, dipole_name in enumerate(dipoles_names)]
     bpy.types.Scene.dipoles_names = bpy.props.EnumProperty(
         items=dipoles_items, description="Dipoles names", update=dipoles_names_update)
+    bpy.context.scene.dipoles_names = dipoles_names[0]
     dipoles_rois_fname = op.join(mu.get_user_fol(), 'meg', 'dipoles_rois.pkl')
     if op.isfile(dipoles_rois_fname):
         ScriptsPanel.dipoles_rois = mu.load(dipoles_rois_fname)
@@ -275,6 +313,8 @@ def register():
     try:
         bpy.utils.register_class(LoadDipoles)
         bpy.utils.register_class(DeleteDipoles)
+        bpy.utils.register_class(NextDipole)
+        bpy.utils.register_class(PrevDipole)
         bpy.utils.register_class(NextDipoleConnection)
         bpy.utils.register_class(PrevDipoleConnection)
     except:
@@ -285,6 +325,8 @@ def unregister():
     try:
         bpy.utils.unregister_class(LoadDipoles)
         bpy.utils.unregister_class(DeleteDipoles)
+        bpy.utils.unregister_class(NextDipole)
+        bpy.utils.unregister_class(PrevDipole)
         bpy.utils.unregister_class(NextDipoleConnection)
         bpy.utils.unregister_class(PrevDipoleConnection)
     except:
