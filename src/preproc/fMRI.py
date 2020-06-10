@@ -1360,20 +1360,27 @@ def find_volume_files_from_template(template_fname, pick_mgz_if_possible=True):
 
 
 def get_fmri_fname(subject, fmri_file_template, no_files_were_found_func=lambda:'', only_volumes=False,
-                   raise_exception=True):
+                   raise_exception=True, fmri_dir=''):
+    if fmri_dir == '':
+        fmri_dir = FMRI_DIR
     fmri_fname = ''
     if '{subject}' in fmri_file_template:
         fmri_file_template = fmri_file_template.replace('{subject}', subject)
     if utils.both_hemi_files_exist(fmri_file_template):
         return fmri_file_template
-    fmri_file_template = utils.namebase_with_ext(fmri_file_template)
-    full_fmri_file_template = op.join(FMRI_DIR, subject, fmri_file_template)
     if only_volumes:
-        files = find_volume_files_from_template(full_fmri_file_template)
+        files = find_volume_files_from_template(fmri_file_template)
     else:
-        files = find_hemi_files_from_template(full_fmri_file_template)
+        files = find_hemi_files_from_template(fmri_file_template)
     if len(files) == 0:
-        full_fmri_file_template = op.join(FMRI_DIR, subject, '**', fmri_file_template)
+        fmri_file_template = utils.namebase_with_ext(fmri_file_template)
+        full_fmri_file_template = op.join(fmri_dir, subject, fmri_file_template)
+        if only_volumes:
+            files = find_volume_files_from_template(full_fmri_file_template)
+        else:
+            files = find_hemi_files_from_template(full_fmri_file_template)
+    if len(files) == 0:
+        full_fmri_file_template = op.join(fmri_dir, subject, '**', fmri_file_template)
         if only_volumes:
             files = find_volume_files_from_template(full_fmri_file_template)
         else:
@@ -1614,7 +1621,7 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
     if utils.namebase(fmri_dir) == subject:
         fmri_dir = utils.get_parent_fol(fmri_dir)
 
-    os.environ['SUBJECTS_DIR'] = SUBJECTS_DIR
+    os.environ['SUBJECTS_DIR'] = fmri_dir
     os.environ['SUBJECT'] = subject
     print('SUBJECT: {}, SUBJECTS_DIR: {}'.format(subject, fmri_dir))
     subject_name_fname = op.join(op.join(fmri_dir, subject, 'subjectname'))
@@ -1622,23 +1629,27 @@ def clean_4d_data(subject, atlas, fmri_file_template, trg_subject='fsaverage5', 
         with open(subject_name_fname, 'w') as f:
             f.write(subject)
 
-    if fmri_file_template == '':
-        fmri_file_template = '*'
-    fmri_fname = get_fmri_fname(
-        subject, fmri_file_template, no_files_were_found, only_volumes=True, raise_exception=False)
-    if fmri_fname == '':
-        return False
-    output_files_exist = copy_output_files()
-    if output_files_exist:
-        return True
-
-    create_folders_tree(fmri_fname)
     fmri_files_template = op.join(fmri_dir, subject, fsd, '0??', 'f.nii.gz')
     fmri_files = glob.glob(fmri_files_template)
     if len(fmri_files) == 0:
-        print('No fMRI files were found! ({})'.format(fmri_files_template))
-        print('Maybe you should set the -remote_fmri_dir flag')
-        return False
+        if fmri_file_template == '':
+            fmri_file_template = '*'
+        fmri_fname = get_fmri_fname(
+            subject, fmri_file_template, no_files_were_found, fmri_dir=fmri_dir, only_volumes=True,
+            raise_exception=False)
+        if fmri_fname == '' or fmri_fname is None:
+            return False
+        output_files_exist = copy_output_files()
+        if output_files_exist:
+            return True
+
+        create_folders_tree(fmri_fname)
+        fmri_files_template = op.join(fmri_dir, subject, fsd, '0??', 'f.nii.gz')
+        fmri_files = glob.glob(fmri_files_template)
+        if len(fmri_files) == 0:
+            print('No fMRI files were found! ({})'.format(fmri_files_template))
+            print('Maybe you should set the -remote_fmri_dir flag')
+            return False
     rs = utils.partial_run_script(locals(), cwd=fmri_dir, print_only=print_only)
     run('preproc-sess -surface {trg_subject} lhrh -s {subject} -fwhm {fwhm} -fsd {fsd} -mni305 -per-run -stc siemens',
         '0??', 'fmcpr.siemens.sm{}.mni305.2mm.nii.gz'.format(fwhm))
@@ -2342,7 +2353,7 @@ def read_cmd_args(argv=None):
     parser.add_argument('--template_brain', help='', required=False, default='')
     parser.add_argument('--target_subject', help='', required=False, default='')
     # parser.add_argument('--fsd', help='functional subdirectory', required=False, default='rest')
-    parser.add_argument('--fwhm', help='', required=False, default=6, type=float)
+    parser.add_argument('--fwhm', help='', required=False, default=6, type=int)
     parser.add_argument('--lfp', help='', required=False, default=0.08, type=float)
     parser.add_argument('--nskip', help='', required=False, default=4, type=int)
     parser.add_argument('--nconditions', help='', required=False, default=0, type=int)

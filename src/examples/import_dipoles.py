@@ -91,6 +91,12 @@ def calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=4):
     diploes_rois_output_fname = op.join(mmvt_dir, subject, 'meg', 'dipoles_rois.pkl')
     if op.isfile(diploes_rois_output_fname) and not overwrite:
         diploes_rois = utils.load(diploes_rois_output_fname)
+        for dip in diploes_rois.keys():
+            diploes_rois[dip]['cortical_probs'] *= 1/sum(diploes_rois[dip]['cortical_probs'])
+            diploes_rois[dip]['subcortical_probs'] = []
+            diploes_rois[dip]['subcortical_rois'] = []
+        # coritcal_labels = set(utils.flat_list_of_lists([diploes_rois[k]['cortical_rois'] for k in diploes_rois.keys()]))
+        utils.save(diploes_rois, diploes_rois_output_fname)
         return True
 
     diploes_input_fname = op.join(mmvt_dir, subject, 'meg', 'dipoles.pkl')
@@ -108,7 +114,7 @@ def calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=4):
     # find the find_rois package
     mmvt_code_fol = utils.get_mmvt_code_root()
     ela_code_fol = op.join(utils.get_parent_fol(mmvt_code_fol), 'electrodes_rois')
-    if not op.isdir(ela_code_fol) or not op.isfile(op.join(ela_code_fol, 'find_rois', 'find_rois.py')):
+    if not op.isdir(ela_code_fol) or not op.isfile(op.join(ela_code_fol, 'find_rois', 'main.py')):
         print("Can't find ELA folder!")
         print('git pull https://github.com/pelednoam/electrodes_rois.git')
         return False
@@ -118,7 +124,7 @@ def calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=4):
         import sys
         if ela_code_fol not in sys.path:
             sys.path.append(ela_code_fol)
-        from find_rois import find_rois
+        from find_rois import main as ela
     except:
         print('Can\'t load find_rois package!')
         utils.print_last_error_line()
@@ -131,8 +137,8 @@ def calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=4):
             dipole_name = '{}_{}'.format(cluster_name, begin_t) if len(dipoles) > 1 else cluster_name
             diploles_names.append(dipole_name.replace(' ', ''))
             dipoles_pos.append([k * 1e3 for k in [x, y, z]])
-    dipoles_rois = find_rois.identify_roi_from_atlas(
-        atlas, labels, diploles_names, dipoles_pos, approx=3, elc_length=0,
+    dipoles_rois = ela.identify_roi_from_atlas(
+        atlas, labels, diploles_names, dipoles_pos, approx=3, elc_length=0, hit_only_cortex=True,
         subjects_dir=subjects_dir, subject=subject, n_jobs=n_jobs)
     # Convert the list to a dict
     dipoles_rois_dict = {dipoles_rois['name']: dipoles_rois for dipoles_rois in dipoles_rois}
@@ -141,9 +147,10 @@ def calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=4):
 
 if __name__ == '__main__':
     subject = 'nmr01391'
-    dip_fname = op.join(MEG_DIR, subject, 'epi.dip')
+    dip_fname = op.join(MEG_DIR, subject, 'run3_Ictal.dip') # _ictal
     n_jobs = utils.get_n_jobs(-10)
-    n_jobs = n_jobs if n_jobs > 0 else 1
+    n_jobs = n_jobs if n_jobs > 0 else 4
+    print('jobs: {}'.format(n_jobs))
     #plot_dipole(dip_fname, subject)
     # dipoles = parse_dip_file(dip_fname)
     # mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)

@@ -245,11 +245,22 @@ def set_new_ords(cond_x, new_ords):
     return new_con_x
 
 
-def filter_connections(node_name, con_values, con_names, threshold, conn_type='', use_abs=True):
+def filter_connections(con_values, con_names, threshold, node_names=[], conn_type='', use_abs=True,
+                       nodes_names_includes_hemi=False):
     mask = [False] * len(con_names)
     for ind, con_name in enumerate(con_names):
         node_from, _, _, hemi_from, node_to, _, _, hemi_to = con_name.split('-')
-        mask[ind] = node_name in node_from and node_name in node_to if node_name != '' else True
+        if len(node_names) == 0:
+            mask[ind] = True
+        else:
+            if nodes_names_includes_hemi:
+                for node_name in node_names:
+                    label_name, hemi = node_name.split('-')
+                    if (label_name in node_from and hemi == hemi_from) or (label_name in node_to and hemi == hemi_to):
+                        mask[ind] = True
+                        break
+            else:
+                mask[ind] = any([node_name in node_from and node_name in node_to for node_name in node_names])
         if not mask[ind]:
             continue
         if use_abs:
@@ -266,7 +277,7 @@ def filter_connections(node_name, con_values, con_names, threshold, conn_type=''
             con_to_hemi = conn_type[1]
             con_from_hemi = 'rh' if con_to_hemi == 'lh' else 'lh'
             mask[ind] = hemi_from == con_from_hemi and hemi_to == con_to_hemi
-
+    print('filter_connections: {}/{}'.format(sum(mask), len(mask)))
     return mask
 
 

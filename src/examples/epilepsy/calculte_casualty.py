@@ -247,11 +247,19 @@ def normalize_connectivity(subject, ictals_clips, modality, divide_by_baseline_s
 
 
 def plot_connectivity(subject, clips_dict, modality, inverse_method):
+    diploes_rois_output_fname = op.join(MMVT_DIR, subject, 'meg', 'dipoles_rois.pkl')
+    if op.isfile(diploes_rois_output_fname):
+        diploes_rois = utils.load(diploes_rois_output_fname)
+        nodes_names = list(set(utils.flat_list_of_lists([
+            diploes_rois[k]['cortical_rois'] for k in diploes_rois.keys()])))
+        nodes_names = list(set(['{}-{}'.format(label.split('_')[0], label[-2:]) for label in nodes_names]))
+    else:
+        nodes_names = []
     for clip_fname in clips_dict['ictal']:
         plots.plot_connectivity(
-            subject, utils.namebase(clip_fname), modality, 120, 'gc', cond_name='', node_name='', # superiorfrontal
-            stc_subfolder='ictal-{}-zvals-stcs'.format(inverse_method), bands={'all':[1, 120]},
-            stc_downsample=1, stc_name='{}-epilepsy-{}-{}-{}-amplitude-zvals-rh.stc'.format(
+            subject, utils.namebase(clip_fname), modality, 120, 'gc', cond_name='', nodes_names=nodes_names,
+            nodes_names_includes_hemi=True, stc_subfolder='ictal-{}-zvals-stcs'.format(inverse_method),
+            bands={'all':[1, 120]}, stc_downsample=1, stc_name='{}-epilepsy-{}-{}-{}-amplitude-zvals-rh.stc'.format(
                 subject, inverse_method, modality, utils.namebase(clip_fname)),
             con_threshold=0)
 

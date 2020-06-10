@@ -1020,7 +1020,7 @@ def init_leads_list(leads=None):
         print('init_leads_list: {}'.format(ElecsPanel.leads))
     else:
         ElecsPanel.leads = leads
-    leads_items = [(lead, lead, '', ind) for ind, lead in enumerate(ElecsPanel.leads)]
+    leads_items = sorted([(lead, lead, '', ind) for ind, lead in enumerate(ElecsPanel.leads)])
     bpy.types.Scene.leads = bpy.props.EnumProperty(
         items=leads_items, update=leads_update, description='Selects leads name.\n\nCurrent lead')
     if len(ElecsPanel.leads) > 0:

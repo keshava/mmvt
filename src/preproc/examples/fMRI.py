@@ -96,15 +96,16 @@ def memory(args):
 
 @utils.check_for_freesurfer
 def language(args):
-    # -f language -s nmr01361 --clinical_dir clin_4090354
-    # -s nmr01353 -f clean_4d_data --fsd sycabs --remote_fmri_dir "/space/megraid/clinical/MEG-MRI/seder/freesurfer" --nconditions 4
+        # -f language -s nmr01361 --clinical_dir clin_4090354
+    # -s nmr01353 -f clean_4d_data --fsd sycabs --nconditions 4
     if args.clinical_dir == '':
         print('You should set the clinical_dir first. Example: clin_4090354')
         return
+    # args.remote_fmri_dir = '/space/megraid/clinical/MEG-MRI/seder/freesurfer'
     clinical_root_dir = op.join(args.remote_fmri_dir, args.clinical_dir)
     if not op.isdir(clinical_root_dir):
         print('{} does not exist!'.format(clinical_root_dir))
-
+        return
     task = 'sycabs'
     fwhm = 6
     subject = args.subject[0]
@@ -112,7 +113,7 @@ def language(args):
     subject_mri_dir = op.join(remote_mri_dir, subject)
     mri_subject_task_dir = utils.make_dir(op.join(subject_mri_dir, task))
     clinical_dirs = glob.glob(op.join(clinical_root_dir, '*'))
-    clinical_dirs = [d for d in clinical_dirs if utils.namebase(d) != 'mne_dcm']
+    # clinical_dirs = [d for d in clinical_dirs if utils.namebase(d) != 'mne_dcm']
     remote_fmri_dir = utils.select_one_file(clinical_dirs)
     fmri_fols = sorted(glob.glob(op.join(remote_fmri_dir, '*_SyCAbs')))
     par_fol = utils.make_dir(op.join(remote_mri_dir, subject, 'par'))
@@ -150,9 +151,9 @@ def language(args):
     # convert the fMRI dicom files to nii
     for fmri_fol in fmri_fols:
         ses_num = utils.find_num_in_str(utils.namebase(fmri_fol))[0]
-        ses_files = glob.glob(op.join(fmri_fol, '**', '*.*'), recursive=True)
         output_fname = op.join(utils.make_dir(op.join(mri_subject_task_dir, ses_num)), 'f.nii.gz')
         if not op.isfile(output_fname):
+            ses_files = glob.glob(op.join(fmri_fol, '**', '*.*'), recursive=True)
             fu.mri_convert(ses_files[0], output_fname)
 
     # Convert and arrange the par file
@@ -176,6 +177,7 @@ def language(args):
         fsd=task,
         fwhm=fwhm,
         remote_fmri_dir=remote_mri_dir,
+        fmri_file_template=op.join(mri_subject_task_dir, '**', '*.nii.gz'),
         nconditions=4,
         ignore_missing=True,
         print_only=False,
