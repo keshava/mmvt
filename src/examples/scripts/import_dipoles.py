@@ -39,6 +39,14 @@ def dipoles_sub_group_update(self, context):
     mmvt.where_am_i.set_cursor_location(dipole_loc)
 
 
+def dipoles_color_update(self, context):
+    mmvt, mu = _mmvt(), _mmvt().utils
+    for dipole_name, dipoles in ScriptsPanel.dipoles_dict.items():
+        for dipole in dipoles:
+            dipole_obj_name = 'dipole_{}_{}_direction'.format(dipole_name, dipole[0])
+            mmvt.coloring.object_coloring(dipole_obj_name, bpy.context.scene.dipoles_color)
+
+
 def dipoles_connectivity_update(self, context):
     mmvt, mu = _mmvt(), _mmvt().utils
     connectivity_name = bpy.context.scene.dipoles_connectivity
@@ -106,9 +114,9 @@ def load_dipoles():
     show_as_arrows = True
     color = (1, 0, 0, 1)
     for dipole_name, dipoles in dipoles_dict.items():
-        for dipole_ind, dipole in enumerate(dipoles):
-            dipole_obj_name = 'dipole_{}_{}'.format(dipole_name, dipole_ind)
+        for dipole in dipoles:
             begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipole
+            dipole_obj_name = 'dipole_{}_{}'.format(dipole_name, begin_t)
             dipole_loc = Vector((x, y, z)) * world_matrix * 1e3
             # print(dipole_loc)
             ori = Vector((qx, qy, qz))
@@ -243,6 +251,7 @@ def draw(self, context):
     row.operator(NextDipole.bl_idname, text="", icon='NEXT_KEYFRAME')
     first_dipole = '{}_{}'.format(bpy.context.scene.dipoles_names, ScriptsPanel.dipoles_dict[
         bpy.context.scene.dipoles_names][0][0])
+    layout.prop(context.scene, 'dipoles_color', text="")
     if (len(ScriptsPanel.dipoles_dict[bpy.context.scene.dipoles_names]) > 1):
         layout.prop(context.scene, 'dipoles_sub_group', text="")
     if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois: #or \
@@ -288,7 +297,9 @@ bpy.types.Scene.dipoles_connectivity = bpy.props.EnumProperty(items=[], descript
 bpy.types.Scene.dipole_connections = bpy.props.EnumProperty(items=[], description="Dipole connections")
 bpy.types.Scene.dipoles_show_as_arrow = bpy.props.BoolProperty()
 bpy.types.Scene.dipoles_sub_group = bpy.props.EnumProperty(items=[], description="Dipoles sub group")
-
+bpy.types.Scene.dipoles_color = bpy.props.FloatVectorProperty(
+    name="object_color", subtype='COLOR', default=(0, 0.5, 0), min=0.0, max=1.0,
+    description='Selects the color to color the dipoles', update=dipoles_color_update)
 
 def init(mmvt):
     mu = mmvt.mmvt_utils
