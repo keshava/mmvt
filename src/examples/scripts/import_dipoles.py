@@ -17,8 +17,25 @@ def dipoles_names_update(self, context):
     mmvt, mu = _mmvt(), _mmvt().utils
     selected_cluster_name = bpy.context.scene.dipoles_names
     dipoles = ScriptsPanel.dipoles_dict[selected_cluster_name]
-    begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipoles[0]
-    dipole_loc = Vector((x, y, z)) * mu.get_matrix_world() * 1e3
+    # begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipoles[0]
+
+    dipoles_list_of_tuples = sorted([(str(item[0]), str(item[0]), '', ind) for ind, item in enumerate(dipoles)])
+    bpy.types.Scene.dipoles_sub_group = bpy.props.EnumProperty(
+        items=dipoles_list_of_tuples, description="Dipoles sub group",
+        update=dipoles_sub_group_update)
+    bpy.context.scene.dipoles_sub_group = dipoles_list_of_tuples[0][0]
+
+
+def dipoles_sub_group_update(self, context):
+    mmvt, mu = _mmvt(), _mmvt().utils
+    selected_cluster_name = bpy.context.scene.dipoles_names
+    selected_dipole_name = bpy.context.scene.dipoles_sub_group
+    dipole = ScriptsPanel.dipoles_dict[selected_cluster_name][0]
+    for dip in ScriptsPanel.dipoles_dict[selected_cluster_name]:
+        if float(selected_dipole_name) == dip[0]:
+            dipole = dip
+            break
+    dipole_loc = Vector((dipole[2], dipole[3], dipole[4])) * mu.get_matrix_world() * 1e3
     mmvt.where_am_i.set_cursor_location(dipole_loc)
 
 
@@ -226,8 +243,10 @@ def draw(self, context):
     row.operator(NextDipole.bl_idname, text="", icon='NEXT_KEYFRAME')
     first_dipole = '{}_{}'.format(bpy.context.scene.dipoles_names, ScriptsPanel.dipoles_dict[
         bpy.context.scene.dipoles_names][0][0])
-    if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois or \
-            first_dipole in ScriptsPanel.dipoles_rois:
+    if (len(ScriptsPanel.dipoles_dict[bpy.context.scene.dipoles_names]) > 1):
+        layout.prop(context.scene, 'dipoles_sub_group', text="")
+    if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois: #or \
+            #first_dipole in ScriptsPanel.dipoles_rois:
         layout.label(text='Dipole\'s ROIs:')
         box = layout.box()
         col = box.column()
@@ -268,6 +287,7 @@ bpy.types.Scene.dipoles_names = bpy.props.EnumProperty(items=[], description="Di
 bpy.types.Scene.dipoles_connectivity = bpy.props.EnumProperty(items=[], description="Dipoles connectivity")
 bpy.types.Scene.dipole_connections = bpy.props.EnumProperty(items=[], description="Dipole connections")
 bpy.types.Scene.dipoles_show_as_arrow = bpy.props.BoolProperty()
+bpy.types.Scene.dipoles_sub_group = bpy.props.EnumProperty(items=[], description="Dipoles sub group")
 
 
 def init(mmvt):
@@ -287,6 +307,7 @@ def init(mmvt):
     bpy.types.Scene.dipoles_names = bpy.props.EnumProperty(
         items=dipoles_items, description="Dipoles names", update=dipoles_names_update)
     bpy.context.scene.dipoles_names = dipoles_names[0]
+
     dipoles_rois_fname = op.join(mu.get_user_fol(), 'meg', 'dipoles_rois.pkl')
     if op.isfile(dipoles_rois_fname):
         ScriptsPanel.dipoles_rois = mu.load(dipoles_rois_fname)
