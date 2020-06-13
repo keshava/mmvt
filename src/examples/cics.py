@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import nibabel as nib
 from collections import defaultdict
+from itertools import cycle
 
 import warnings
 # warnings.filterwarnings('error')
@@ -165,13 +166,14 @@ def save_registration_results():
     output_fig_fname = op.join(subject_fol, 'control_to_T1.jpg')
 
 
-def cics_checks(input_fnames, output_fnames, subject_fol, check_if_should_run, overwrite, verbose):
+def cics_checks(input_fnames, output_fnames, subject_fol, check_if_should_run, overwrite, verbose,
+                delete_output_files=False):
     func_name = utils.caller_func()
     if check_if_should_run:
         ret = check_if_should_run_function(
             input_fnames, output_fnames, subject_fol, overwrite, func_name, verbose)
         return False, ret
-    if overwrite:
+    if overwrite and delete_output_files:
         for output_fname in output_fnames:
             utils.delete_file(output_fname)
     do_run, ret = check_input_output(
@@ -207,10 +209,13 @@ def calc_regions_stats(
     # outputs
     subject_full_name = get_full_subject_name(subject, month, scan_rescan)
     figures_fol = utils.make_dir(op.join(RESULTS_FOL, subject, 'cbf_hists'))
-    output_fname = op.join(
+    stats_output_fname = op.join(
         RESULTS_FOL, subject, '{}_gw_frac_{}_regions_stats.pkl'.format(subject_full_name, cortex_frac_threshold))
+    all_values_fname = op.join(
+        RESULTS_FOL, subject, '{}_gw_frac_{}_regions_values.npy'.format(subject_full_name, cortex_frac_threshold))
+    output_fnames = [stats_output_fname, all_values_fname]
     do_run, ret = cics_checks(
-        input_fnames, [output_fname], subject_fol, check_if_should_run, overwrite, verbose)
+        input_fnames, output_fnames, subject_fol, check_if_should_run, overwrite, verbose)
     if not do_run:
         return ret
 
@@ -222,6 +227,7 @@ def calc_regions_stats(
     if overwrite and do_plot:
         utils.delete_folder_files(figures_fol)
     regions_values, regions_means, regions_fracs = {}, {}, {}
+    all_values = []
     output_str = ''
     for code in tqdm(unique_codes):
         region_name = lut.get(code, None)
@@ -245,6 +251,7 @@ def calc_regions_stats(
         # regions_values[region_name] = region_values.copy()
         in_bounderies_indices = np.where((low_threshold < region_values) & (region_values < high_threshold))
         region_values = region_values[in_bounderies_indices]
+        all_values.extend(region_values.tolist())
         regions_values[region_name] = region_values.copy()
         regions_means[region_name] = np.median(regions_values[region_name])
         if do_plot:
@@ -253,22 +260,69 @@ def calc_regions_stats(
             plt.close()
     if verbose:
         print(output_str)
-    utils.save((regions_values, regions_means, regions_fracs), output_fname)
-    return op.isfile(output_fname)
+    np.save(all_values_fname, np.array(all_values))
+    utils.save((regions_values, regions_means, regions_fracs), stats_output_fname)
+    return all_files_exits(output_fnames)
 
 
-def _plot_cbf_histograms_parallel(p):
-    subject, scan_rescan = p
-    input_fname = op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg_hist.pkl')
-    output_fol = utils.make_dir(op.join(RESULTS_FOL, 'aparc_aseg_hists', subject, scan_rescan))
-    if not op.isfile(input_fname):
-        return False
-    regions_values = utils.load(input_fname)
-    for region_name, region_values in regions_values.values():
-        fig_fname = op.join(output_fol, '{}.jpg'.format(region_name))
-        plt.hist(region_values, bins=40)
-        plt.savefig(fig_fname)
-        plt.close()
+def plot_global_data(sites, months, cortex_frac_threshold=0.5, overwrite=False):
+    global_mean_fname = op.join(RESULTS_FOL, 'global_means_{}.pkl'.format(cortex_frac_threshold))
+    if op.isfile(global_mean_fname) and not overwrite:
+        data, site_subjects = utils.load(global_mean_fname)
+    else:
+        data, site_subjects = calc_global_means(sites, months, cortex_frac_threshold)
+        utils.save((data, site_subjects), global_mean_fname)
+    colors = cycle(utils.get_distinct_colors(len(sites)))
+    f, axs = plt.subplots(len(months), sharey=True)
+    for site, color in zip(sites, colors):
+        subjects = site_subjects[site]
+        subjects_ages = get_subjects_ages(subjects)
+        for month, ax in zip(months, axs):
+            ax.scatter(subjects_ages, data[site][month][SCAN], c=color, marker='+')
+            ax.scatter(subjects_ages, data[site][month][RESCAN], c=color, marker='x')
+            ax.set_title(month)
+    plt.show()
+    print('asdf')
+
+
+def calc_global_means(sites, months, cortex_frac_threshold=0.5):
+    global_mean_dict, site_subjects = {}, {}
+    for site in sites:
+        global_mean_dict[site] = defaultdict(dict)
+        site_subjects[site] = get_subjects(site)
+        for subject in site_subjects[site]:
+            for month in months:
+                for scan_rescan in SCAN_RESCAN:
+                    if scan_rescan not in global_mean_dict[site][month]:
+                        # print(site, month, scan_rescan)
+                        global_mean_dict[site][month][scan_rescan] = []
+                    subject_full_name = get_full_subject_name(subject, month, scan_rescan)
+                    all_values_fname = op.join(
+                        RESULTS_FOL, subject, '{}_gw_frac_{}_regions_values.npy'.format(
+                            subject_full_name, cortex_frac_threshold))
+                    if op.isfile(all_values_fname):
+                        global_mean_dict[site][month][scan_rescan].append(np.load(all_values_fname).mean())
+                    else:
+                        global_mean_dict[site][month][scan_rescan].append(None)
+    return global_mean_dict, site_subjects
+
+
+def get_subjects_ages(subjects):
+    return np.random.uniform(5, 10, [len(subjects)])
+
+
+# def _plot_cbf_histograms_parallel(p):
+#     subject, scan_rescan = p
+#     input_fname = op.join(MMVT_DIR, subject, 'ASL', scan_rescan, 'aparc_aseg_hist.pkl')
+#     output_fol = utils.make_dir(op.join(RESULTS_FOL, 'aparc_aseg_hists', subject, scan_rescan))
+#     if not op.isfile(input_fname):
+#         return False
+#     regions_values = utils.load(input_fname)
+#     for region_name, region_values in regions_values.values():
+#         fig_fname = op.join(output_fol, '{}.jpg'.format(region_name))
+#         plt.hist(region_values, bins=40)
+#         plt.savefig(fig_fname)
+#         plt.close()
 
 
 # def print_freeview_cmd(subject, subject_fol):
@@ -810,9 +864,10 @@ def vars_names_to_dict(params, args):
     return {key: args[key] for key in params}
 
 
-def run_functions_in_parallel(funcs, all_params, n_jobs, ask_to_continue=True, split_jobs=True, verbose=True):
+def run_functions_in_parallel(funcs, all_params, n_jobs, ask_to_continue=True, split_jobs=True, verbose=True,
+                              overwrite=False):
     for func in funcs:
-        run_function_in_parallel(func, all_params, n_jobs, ask_to_continue, split_jobs, verbose)
+        run_function_in_parallel(func, all_params, n_jobs, ask_to_continue, split_jobs, verbose, overwrite)
 
 
 def run_function_in_parallel(func, all_params, n_jobs, ask_to_continue=True, split_jobs=True, verbose=True,
@@ -983,8 +1038,16 @@ if __name__ == '__main__':
     n_jobs = 1 if debug_mode else max(utils.get_n_jobs(10), 4)
     print('n_jobs: {}'.format(n_jobs))
 
-    # main(sites, months, n_jobs)
-    calc_different_cortec_frac_thresholds(sites, months, cortex_frac_thresholds, n_jobs)
+    # main(sites, months, cortex_frac_threshold=0.9, overwrite=True, n_jobs=n_jobs)
+    # calc_different_cortec_frac_thresholds(sites, months, cortex_frac_thresholds, n_jobs)
+
+
+    # params, scan_rescan_params, site_params = get_params(
+    #     sites, months, cortex_frac_threshold=0.5, low_threshold=0, high_threshold=100,
+    #     print_only=False, do_plot=False, run_preproc_anat=False, n_jobs=n_jobs)
+    # run_functions_in_parallel([calc_regions_stats], params, n_jobs, overwrite=True)
+
+    plot_global_data(sites, months, cortex_frac_threshold=0.5, overwrite=True)
 
     # read_hippocampus_volumes()
     # calc_volume_fractions_all_subjects(subjects, site, overwrite, print_only)
