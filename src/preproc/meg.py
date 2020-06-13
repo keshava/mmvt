@@ -1514,6 +1514,8 @@ def _granger_causality_parallel(p):
 
     epoch_ts, sfreq, min_order, max_order, fmin, fmax, ijs, windows_length, windows_shift = p
     C, T = epoch_ts.shape
+    const_c = np.where(np.sum(np.diff(epoch_ts, axis=1), axis=1) == 0)[0]
+    ijs = [ij for ij in ijs if len(set(ij) & set(const_c)) == 0]
     # epoch_ts = tsu.percent_change(epoch_ts)
     windows = connectivity.calc_windows(T, windows_length, windows_shift)
     res = np.zeros((C, C, len(windows), max_order))

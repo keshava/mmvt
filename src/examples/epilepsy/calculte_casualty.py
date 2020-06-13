@@ -31,17 +31,17 @@ def find_remote_subject_dir(subject):
 
 
 def init_nmr01391():
-    subject = 'nmr01391'
-    remote_subject_dir = find_remote_subject_dir(subject)
+    mri_subject, meg_subject = 'nmr01391', 'nmr01391'
+    remote_subject_dir = find_remote_subject_dir(mri_subject)
     meg_fol = '/autofs/space/frieda_001/users/valia/mmvt_root/meg/1391'
     if not op.isdir(meg_fol):
-        meg_fol = op.join(MEG_DIR, subject)
+        meg_fol = op.join(MEG_DIR, meg_subject)
     bad_channels = ['MEG{}'.format(c) for c in [
         '0113', '1532', '1623', '2042', '1912', '2032', '2522', '0642', '0121', '1421', '1221', '1023',
         '0741', '1022', '1242']]
     raw_fname = op.join(meg_fol, 'raw', '6859241_03_raw_ssst.fif')
     empty_room_fname = op.join(meg_fol, 'raw', '6859241_emptyroom_raw.fif')
-    return subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname
+    return mri_subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname
 
 
 # def average_baseline(subject, inverse_method, modality, overwrite=True):
@@ -122,7 +122,7 @@ def find_functional_rois(subject, ictal_clips, modality, seizure_times, atlas, m
     connectivity = anat.load_connectivity(subject)
     if overwrite:
         utils.delete_folder_files(op.join(MMVT_DIR, subject, modality_fol, 'clusters'))
-    if op.isfile(ictlas_fname):
+    if op.isfile(ictlas_fname) and not overwrite:
         ictals = utils.load(ictlas_fname)
     else:
         params = [(subject, clip_fname, inverse_method, modality, seizure_times, stcs_fol, n_jobs)
@@ -168,15 +168,16 @@ def calc_baseline_mean(subject, stc, n_jobs):
 def calc_rois_connectivity(
         subject, clips, modality, inverse_method, min_order=1, max_order=20, crop_times=(-0.5, 1),
         onset_time=2, windows_length=100, windows_shift=10, overwrite=False, n_jobs=4):
-    check_connectivity_labels(clips['ictal'], modality, inverse_method)
+    check_connectivity_labels(clips['ictal'], modality, inverse_method, n_jobs=n_jobs)
     baseline_epochs_fname = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'baseline-epo.fif')
     baseline_epochs = epi_utils.combine_windows_into_epochs(clips['baseline'], baseline_epochs_fname)
     params = [(subject, clip_fname, baseline_epochs, modality, inverse_method, min_order, max_order, crop_times,
-               onset_time, windows_length, windows_shift, overwrite, n_jobs) for clip_fname in clips['ictal']]
-    utils.run_parallel(calc_clip_rois_connectivity, params, 1)
+               onset_time, windows_length, windows_shift, overwrite, 1 if n_jobs > 1 else n_jobs)
+              for clip_fname in clips['ictal']]
+    utils.run_parallel(calc_clip_rois_connectivity, params, n_jobs)
 
 
-def check_connectivity_labels(ictal_clips, modality, inverse_method):
+def check_connectivity_labels(ictal_clips, modality, inverse_method, n_jobs=1):
     # Check if can calc the labels info (if not, we want to know now...)
     for clip_fname in ictal_clips:
         print('Checking {} labels'.format(utils.namebase(clip_fname)))
@@ -250,12 +251,18 @@ def plot_connectivity(subject, clips_dict, modality, inverse_method):
     diploes_rois_output_fname = op.join(MMVT_DIR, subject, 'meg', 'dipoles_rois.pkl')
     if op.isfile(diploes_rois_output_fname):
         diploes_rois = utils.load(diploes_rois_output_fname)
-        nodes_names = list(set(utils.flat_list_of_lists([
-            diploes_rois[k]['cortical_rois'] for k in diploes_rois.keys()])))
-        nodes_names = list(set(['{}-{}'.format(label.split('_')[0], label[-2:]) for label in nodes_names]))
     else:
-        nodes_names = []
+        diploes_rois= None
+    nodes_names = []
     for clip_fname in clips_dict['ictal']:
+        if diploes_rois is not None:
+            diploes = [k for k in diploes_rois.keys() if k.startswith(utils.namebase(clip_fname))]
+            if len(diploes) == 0 and op.isfile(diploes_rois_output_fname):
+                print('No dipoles found for {}'.format(utils.namebase(clip_fname)))
+                continue
+            dipole = sorted(diploes)[0]
+            nodes_names = diploes_rois[dipole]['cortical_rois']
+            nodes_names = list(set(['{}-{}'.format(label.split('_')[0], label[-2:]) for label in nodes_names]))
         plots.plot_connectivity(
             subject, utils.namebase(clip_fname), modality, 120, 'gc', cond_name='', nodes_names=nodes_names,
             nodes_names_includes_hemi=True, stc_subfolder='ictal-{}-zvals-stcs'.format(inverse_method),
@@ -264,25 +271,48 @@ def plot_connectivity(subject, clips_dict, modality, inverse_method):
             con_threshold=0)
 
 
+def delete_morphing_maps(subject):
+    # If there is a problem with smoothing the surfaces, you should delete the morphing maps first
+    for morph_fname in glob.glob(op.join(SUBJECTS_DIR, 'morph-maps', '*{}*-morph.fif'.format(subject))):
+        print('Deleting {}'.format(utils.namebase(morph_fname)))
+        utils.delete_file(morph_fname)
+
+
+def pre_processing(subject, atlas, n_jobs):
+    # 0.1) If there is a problem with smoothing the surfaces, you should delete the morphing maps first
+    # delete_morphing_maps(subject)
+    # 0.2) Finds the trans file
+    trans_file = meg.find_trans_file(subject=subject)
+    # 0.3) Make sure we have a morph map, and if not, create it here, and not in the parallel function
+    mne.surface.read_morph_map(subject, subject, subjects_dir=SUBJECTS_DIR)
+    # 0.4) Make sure the label exist, if not, create them
+    anat.create_annotation(subject, atlas, n_jobs=n_jobs)
+    labels = lu.read_labels(subject, SUBJECTS_DIR, atlas, n_jobs=n_jobs)
+    if len(labels) == 0:
+        raise Exception('No {} labels!'.format(atlas))
+
+
 def main(subject, clips_dict, modality, inverse_method, downsample_r, seizure_times, atlas,
          min_cluster_size, min_order, max_order, windows_length, windows_shift, con_crop_times, onset_time,
          overwrite=False, n_jobs=4):
+    # pre_processing(subject, atlas, n_jobs)
     # calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=True, n_jobs=n_jobs)
     # calc_stc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
     # find_functional_rois(
     #     subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
     #     inverse_method, overwrite=True, n_jobs=n_jobs)
-    # calc_rois_connectivity(
-    #     subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
-    #     windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
+    calc_rois_connectivity(
+        subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
+        windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
     # normalize_connectivity(
     #     subject, clips_dict['ictal'], modality, divide_by_baseline_std=False,
     #     threshold=0.5, reduce_to_3d=True, overwrite=False, n_jobs=n_jobs)
-    plot_connectivity(subject, clips_dict, modality, inverse_method)
+    # plot_connectivity(subject, clips_dict, modality, inverse_method)
+    pass
 
 
 if __name__ == '__main__':
-    n_jobs = utils.get_n_jobs(10)
+    n_jobs = utils.get_n_jobs(40)
     n_jobs = n_jobs if n_jobs > 1 else 1
     print('{} jobs'.format(n_jobs))
     fif_files, clips_dict = [], {}
@@ -293,6 +323,6 @@ if __name__ == '__main__':
         fif_files += files
         clips_dict[subfol] = files
 
-    main(subject, clips_dict, modality='meg', inverse_method='MNE', downsample_r=2, seizure_times=(0, .1),
+    main(subject, clips_dict, modality='meg', inverse_method='MNE', downsample_r=2, seizure_times=(-0.2, .1),
          atlas='laus125', min_cluster_size=30, min_order=1, max_order=20, windows_length=100, windows_shift=10,
          con_crop_times=(-2, 5), onset_time=2, overwrite=False, n_jobs=n_jobs)

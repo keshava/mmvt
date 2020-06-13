@@ -142,7 +142,7 @@ def delete_folder_files(fol, delete_folder=False):
         os.makedirs(fol)
 
 
-@tryit
+# @tryit
 def delete_file(fname):
     if op.isfile(fname):
         os.remove(fname)

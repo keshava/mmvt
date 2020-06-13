@@ -241,7 +241,7 @@ def draw(self, context):
             # if cortical_prob >= 0.001:
             mu.add_box_line(col, cortical_name, '{:.3f}'.format(cortical_prob), 0.8)
 
-    if len(ScriptsPanel.connections_files) > 0:
+    if False: #len(ScriptsPanel.connections_files) > 0:
         layout.label(text='Dipole\'s connections:')
         layout.prop(context.scene, 'dipoles_connectivity', text="")
 
@@ -301,7 +301,7 @@ def init(mmvt):
     ScriptsPanel.connections_files = glob.glob(op.join(mu.get_user_fol(), 'connectivity', 'dipoles', '*.pkl'))
     if len(ScriptsPanel.connections_files) > 0:
         dipoles_connections_names = [mu.namebase(f).split('-')[0] for f in ScriptsPanel.connections_files]
-        dipoles_connections_items = [(n, n , '', ind) for ind, n in enumerate(dipoles_connections_names)]
+        dipoles_connections_items = sorted([(n, n , '', ind) for ind, n in enumerate(dipoles_connections_names)])
         bpy.types.Scene.dipoles_connectivity = bpy.props.EnumProperty(
             items=dipoles_connections_items, description="Dipoles connections",
             update=dipoles_connectivity_update)
