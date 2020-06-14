@@ -322,8 +322,8 @@ def main(subject, run_num, clips_dict, raw_fname, empty_fname, bad_channels, mod
 
 
 if __name__ == '__main__':
-    n_jobs = utils.get_n_jobs(40)
-    n_jobs = n_jobs if n_jobs > 1 else 1
+    n_jobs = utils.get_n_jobs(8)
+    n_jobs = n_jobs if n_jobs > 1 else 4
     print('{} jobs'.format(n_jobs))
     fif_files, clips_dict = [], {}
     run_num = 3
