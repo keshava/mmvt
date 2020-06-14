@@ -130,7 +130,9 @@ def find_functional_rois(subject, ictal_clips, modality, seizure_times, atlas, m
         ictals = utils.run_parallel(_calc_ictal_and_baseline_parallel, params, n_jobs)
         utils.save(ictals, ictlas_fname)
     for stc_name, ictal_stc, mean_baseline in ictals:
-        ictal_stc.save(op.join(modality_fol, utils.namebase(stc_name)))
+        stc_output_fname = op.join(modality_fol, utils.namebase(stc_name))
+        print('Saving accumulate stc: {}'.format(stc_output_fname))
+        ictal_stc.save(stc_output_fname)
         max_ictal = ictal_stc.data.max()
         if max_ictal < mean_baseline:
             print('max ictal ({}) < mean baseline ({})!'.format(max_ictal, mean_baseline))
