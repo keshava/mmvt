@@ -308,12 +308,12 @@ def main(subject, run_num, clips_dict, raw_fname, empty_fname, bad_channels, mod
     # calc_fwd_inv(subject, run_num, modality, raw_fname, empty_fname, bad_channels, overwrite, n_jobs)
     # calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=overwrite, n_jobs=n_jobs)
     # calc_stc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
-    find_functional_rois(
-        subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
-        inverse_method, overwrite=True, n_jobs=n_jobs)
-    # calc_rois_connectivity(
-    #     subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
-    #     windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
+    # find_functional_rois(
+    #     subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
+    #     inverse_method, overwrite=True, n_jobs=n_jobs)
+    calc_rois_connectivity(
+        subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
+        windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
     # normalize_connectivity(
     #     subject, clips_dict['ictal'], modality, divide_by_baseline_std=False,
     #     threshold=0.5, reduce_to_3d=True, overwrite=False, n_jobs=n_jobs)
