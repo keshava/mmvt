@@ -130,6 +130,7 @@ def find_functional_rois(subject, ictal_clips, modality, seizure_times, atlas, m
         ictals = utils.run_parallel(_calc_ictal_and_baseline_parallel, params, n_jobs)
         utils.save(ictals, ictlas_fname)
     for stc_name, ictal_stc, mean_baseline in ictals:
+        ictal_stc.save(op.join(modality_fol, utils.namebase(stc_name)))
         max_ictal = ictal_stc.data.max()
         if max_ictal < mean_baseline:
             print('max ictal ({}) < mean baseline ({})!'.format(max_ictal, mean_baseline))
@@ -292,18 +293,25 @@ def pre_processing(subject, atlas, n_jobs):
         raise Exception('No {} labels!'.format(atlas))
 
 
-def main(subject, clips_dict, modality, inverse_method, downsample_r, seizure_times, atlas,
-         min_cluster_size, min_order, max_order, windows_length, windows_shift, con_crop_times, onset_time,
-         overwrite=False, n_jobs=4):
+def calc_fwd_inv(subject, run_num, modality, raw_fname, empty_fname, bad_channels, overwrite=False, n_jobs=4):
+    pipeline.calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
+                 overwrite_inv=overwrite, overwrite_fwd=overwrite, n_jobs=n_jobs)
+    pipeline.check_inv_fwd(subject, modality, run_num)
+
+
+def main(subject, run_num, clips_dict, raw_fname, empty_fname, bad_channels, modality, inverse_method, downsample_r,
+         seizure_times, atlas, min_cluster_size, min_order, max_order, windows_length, windows_shift, con_crop_times,
+         onset_time, overwrite=False, n_jobs=4):
     # pre_processing(subject, atlas, n_jobs)
-    # calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=True, n_jobs=n_jobs)
+    # calc_fwd_inv(subject, run_num, modality, raw_fname, empty_fname, bad_channels, overwrite, n_jobs)
+    # calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=overwrite, n_jobs=n_jobs)
     # calc_stc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
-    # find_functional_rois(
-    #     subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
-    #     inverse_method, overwrite=True, n_jobs=n_jobs)
-    calc_rois_connectivity(
-        subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
-        windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
+    find_functional_rois(
+        subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
+        inverse_method, overwrite=True, n_jobs=n_jobs)
+    # calc_rois_connectivity(
+    #     subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
+    #     windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
     # normalize_connectivity(
     #     subject, clips_dict['ictal'], modality, divide_by_baseline_std=False,
     #     threshold=0.5, reduce_to_3d=True, overwrite=False, n_jobs=n_jobs)
@@ -316,13 +324,14 @@ if __name__ == '__main__':
     n_jobs = n_jobs if n_jobs > 1 else 1
     print('{} jobs'.format(n_jobs))
     fif_files, clips_dict = [], {}
+    run_num = 3
 
     subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01391()
     for subfol in ['baseline', 'ictal']:
-        files = glob.glob(op.join(meg_fol, subfol, '*.fif'))
+        files = glob.glob(op.join(meg_fol, subfol, 'run{}_*.fif'.format(run_num)))
         fif_files += files
         clips_dict[subfol] = files
 
-    main(subject, clips_dict, modality='meg', inverse_method='MNE', downsample_r=2, seizure_times=(-0.2, .1),
-         atlas='laus125', min_cluster_size=30, min_order=1, max_order=20, windows_length=100, windows_shift=10,
-         con_crop_times=(-2, 5), onset_time=2, overwrite=False, n_jobs=n_jobs)
+    main(subject, run_num, clips_dict, raw_fname, empty_room_fname, bad_channels, modality='meg',inverse_method='MNE',
+         downsample_r=2, seizure_times=(-0.2, .1), atlas='laus125', min_cluster_size=30, min_order=1, max_order=20,
+         windows_length=100, windows_shift=10, con_crop_times=(-2, 5), onset_time=2, overwrite=True, n_jobs=n_jobs)

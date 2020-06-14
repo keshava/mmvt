@@ -22,7 +22,7 @@ SUBJECTS_DIR = utils.get_link_dir(LINKS_DIR, 'subjects')
 
 
 def calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels, overwrite_inv=False,
-                 overwrite_fwd=False):
+                 overwrite_fwd=False, n_jobs=4):
     # python -m src.preproc.eeg -s nmr00857 -f calc_inverse_operator,make_forward_solution
     #     --overwrite_inv 0 --overwrite_fwd 0 -t epilepsy
     #     --raw_fname  /autofs/space/frieda_001/users/valia/epilepsy/5241495_00857/subj_5241495/190123/5241495_01_raw.fif
@@ -45,6 +45,7 @@ def calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channel
         bad_channels=bad_channels,
         raw_fname=raw_fname,
         empty_fname=empty_fname,
+        n_jobs=n_jobs
     ))
     module.call_main(args)
 

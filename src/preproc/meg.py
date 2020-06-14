@@ -1252,11 +1252,12 @@ def calc_labels_connectivity(
         stcs = mne.minimum_norm.apply_inverse_epochs(
             epochs, inverse_operator, lambda2, inverse_method, pick_ori=pick_ori, return_generator=False)
         con_indentifer = '' if con_indentifer == '' else '_{}'.format(con_indentifer)
+        con_fol = utils.make_dir(op.join(mmvt_dir, subject, 'connectivity'))
         for con_data, band_name in calc_stcs_spectral_connectivity(
                 stcs, labels, src, em, bands, con_method, con_mode, sfreq, cwt_frequencies, cwt_n_cycles,
                 connectivity_template,  min_order, max_order, downsample, windows_length, windows_shift, overwrite_connectivity,
                 n_jobs):
-            tmp_con_output_fname = op.join(mmvt_dir, subject, 'connectivity', '{}_{}_{}_{}.npy'.format(
+            tmp_con_output_fname = op.join(con_fol, '{}_{}_{}_{}.npy'.format(
                 con_method, band_name, cond_name, con_indentifer))
             print('Saving tmp connectivity file in {}'.format(tmp_con_output_fname))
             np.save(tmp_con_output_fname, con_data)
