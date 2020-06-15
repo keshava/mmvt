@@ -4,7 +4,7 @@ bl_info = {
     'version': (1, 2),
     'blender': (2, 7, 9),
     'location': 'Press [Space], search for "mmvt_addon"',
-    'wiki_url': 'https://github.com/pelednoam/mmvt/wiki',
+    'wiki_url': 'https://github.com/pelednoam/mmvt',
     'category': 'Development',
 }
 

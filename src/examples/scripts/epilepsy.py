@@ -65,7 +65,10 @@ def get_stc_fname():
     template = '{}-epilepsy-{}-{}-{}?{}-{}.stc'.format(
         mu.get_user(), bpy.context.scene.epilepsy_inverse_methods, bpy.context.scene.epilepsy_modalities,
         bpy.context.scene.epilepsy_windows, bpy.context.scene.epilepsy_bands, suffix)
-    files = glob.glob(op.join(modality_fol, '**', template), recursive=True)
+    if bpy.context.scene.epilepsy_only_zvals:
+        files = glob.glob(op.join(modality_fol, '*zvals*', template))
+    else:
+        files = glob.glob(op.join(modality_fol, '**', template), recursive=True)
     if len(files) == 0:
         print('Couldn\'t find the file! ({})'.format(template))
         return ''

@@ -173,10 +173,11 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, nodes_na
     time = np.arange(stc_times[windows_len], stc_times[-1], dt)[:-1]
     t0, t1 = np.where(time > -0.1)[0][0], np.where(time > 1)[0][0]
 
-    baseline_mean = np.max(x_cond[:, :t0], axis=1, keepdims=True)
-    baseline_std = np.std(x_cond[:, :t0], axis=1, keepdims=True)
+    # baseline_mean = np.max(x_cond[:, :t0], axis=1, keepdims=True)
+    # baseline_std = np.std(x_cond[:, :t0], axis=1, keepdims=True)
 
-    con_norm = (x_cond - baseline_mean) / baseline_std
+    # con_norm = (x_cond - baseline_mean)  / baseline_std
+    con_norm = x_cond - x_baseline
     fig_fname = op.join(figures_fol, 'ictal-baseline', '{}-connectivity-ictal-baseline.jpg'.format(condition))
     connection_fname = utils.change_fname_extension(fig_fname, 'pkl')
 
@@ -215,9 +216,9 @@ def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, nodes_na
                 l = ax.scatter(time, norm[conn_type][k], color=color)#, marker=marker) # .max(0)
                 if first:
                     lines.append(l)
+                    labels.append(label_title)
                     first = False
         conn_type = (conn_type[0], 'right') if conn_type[1] == 'rh' else (conn_type[0], 'left')
-        labels.append(label_title)
 
     connections = sorted(connections)
     for con in connections:
@@ -292,12 +293,16 @@ def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode
         stc_data, times = None, None
 
     d_cond, d_baseline = np.load(input_fname), np.load(baseline_fname)
-    con_values1, best_ords1 = connectivity.find_best_ord(d_cond['con_values'], return_ords=True)
-    con_values2, best_ords2 = connectivity.find_best_ord(d_cond['con_values2'], return_ords=True)
+
+
+    con_values1, con_values2 = fix_con_values(d_cond)
+    con_values1, best_ords1 = connectivity.find_best_ord(con_values1, return_ords=True)
+    con_values2, best_ords2 = connectivity.find_best_ord(con_values2, return_ords=True)
     # baseline_values1 = epi_utils.set_new_ords(d_baseline['con_values'], best_ords1)
     # baseline_values2 = epi_utils.set_new_ords(d_baseline['con_values2'], best_ords2)
-    baseline_values1 = connectivity.find_best_ord(d_baseline['con_values'], return_ords=False)
-    baseline_values2 = connectivity.find_best_ord(d_baseline['con_values2'], return_ords=False)
+    baseline_values1, baseline_values2 = fix_con_values(d_baseline)
+    baseline_values1 = connectivity.find_best_ord(baseline_values1, return_ords=False)
+    baseline_values2 = connectivity.find_best_ord(baseline_values2, return_ords=False)
 
     mask1 = epi_utils.filter_connections(
         con_values1, d_cond['con_names'], threshold, node_names,'', use_abs,
@@ -316,6 +321,17 @@ def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode
         best_ords = np.concatenate((best_ords1[mask1], best_ords2[mask2]))
         names = ['{} {}'.format(name, int(best_ord)) for name, best_ord in zip(names, best_ords)]
     return d_cond, d_baseline, x_cond, x_baseline, names, stc_data, times
+
+
+def fix_con_values(d):
+    if len(d['con_names']) == 1 and d['con_values'].ndim == 2:
+        con_values = d['con_values'][np.newaxis, ...]
+        con_values2 = d['con_values2'][np.newaxis, ...]
+    else:
+        con_values = d['con_values']
+        con_values2 = d['con_values2']
+    return con_values, con_values2
+
 
 
 def plot_both_conditions(subject, conditions, modality, high_freq=120, con_method='wpli2_debiased',

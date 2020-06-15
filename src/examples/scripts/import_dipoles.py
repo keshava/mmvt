@@ -17,9 +17,34 @@ def dipoles_names_update(self, context):
     mmvt, mu = _mmvt(), _mmvt().utils
     selected_cluster_name = bpy.context.scene.dipoles_names
     dipoles = ScriptsPanel.dipoles_dict[selected_cluster_name]
-    begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipoles[0]
-    dipole_loc = Vector((x, y, z)) * mu.get_matrix_world() * 1e3
+    # begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipoles[0]
+
+    dipoles_list_of_tuples = sorted([(str(item[0]), str(item[0]), '', ind) for ind, item in enumerate(dipoles)])
+    bpy.types.Scene.dipoles_sub_group = bpy.props.EnumProperty(
+        items=dipoles_list_of_tuples, description="Dipoles sub group",
+        update=dipoles_sub_group_update)
+    bpy.context.scene.dipoles_sub_group = dipoles_list_of_tuples[0][0]
+
+
+def dipoles_sub_group_update(self, context):
+    mmvt, mu = _mmvt(), _mmvt().utils
+    selected_cluster_name = bpy.context.scene.dipoles_names
+    selected_dipole_name = bpy.context.scene.dipoles_sub_group
+    dipole = ScriptsPanel.dipoles_dict[selected_cluster_name][0]
+    for dip in ScriptsPanel.dipoles_dict[selected_cluster_name]:
+        if float(selected_dipole_name) == dip[0]:
+            dipole = dip
+            break
+    dipole_loc = Vector((dipole[2], dipole[3], dipole[4])) * mu.get_matrix_world() * 1e3
     mmvt.where_am_i.set_cursor_location(dipole_loc)
+
+
+def dipoles_color_update(self, context):
+    mmvt, mu = _mmvt(), _mmvt().utils
+    for dipole_name, dipoles in ScriptsPanel.dipoles_dict.items():
+        for dipole in dipoles:
+            dipole_obj_name = 'dipole_{}_{}_direction'.format(dipole_name, dipole[0])
+            mmvt.coloring.object_coloring(dipole_obj_name, bpy.context.scene.dipoles_color)
 
 
 def dipoles_connectivity_update(self, context):
@@ -89,9 +114,9 @@ def load_dipoles():
     show_as_arrows = True
     color = (1, 0, 0, 1)
     for dipole_name, dipoles in dipoles_dict.items():
-        for dipole_ind, dipole in enumerate(dipoles):
-            dipole_obj_name = 'dipole_{}_{}'.format(dipole_name, dipole_ind)
+        for dipole in dipoles:
             begin_t, end_t, x, y, z, q, qx, qy, qz, gf = dipole
+            dipole_obj_name = 'dipole_{}_{}'.format(dipole_name, begin_t)
             dipole_loc = Vector((x, y, z)) * world_matrix * 1e3
             # print(dipole_loc)
             ori = Vector((qx, qy, qz))
@@ -226,8 +251,11 @@ def draw(self, context):
     row.operator(NextDipole.bl_idname, text="", icon='NEXT_KEYFRAME')
     first_dipole = '{}_{}'.format(bpy.context.scene.dipoles_names, ScriptsPanel.dipoles_dict[
         bpy.context.scene.dipoles_names][0][0])
-    if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois or \
-            first_dipole in ScriptsPanel.dipoles_rois:
+    layout.prop(context.scene, 'dipoles_color', text="")
+    if (len(ScriptsPanel.dipoles_dict[bpy.context.scene.dipoles_names]) > 1):
+        layout.prop(context.scene, 'dipoles_sub_group', text="")
+    if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois: #or \
+            #first_dipole in ScriptsPanel.dipoles_rois:
         layout.label(text='Dipole\'s ROIs:')
         box = layout.box()
         col = box.column()
@@ -241,7 +269,7 @@ def draw(self, context):
             # if cortical_prob >= 0.001:
             mu.add_box_line(col, cortical_name, '{:.3f}'.format(cortical_prob), 0.8)
 
-    if len(ScriptsPanel.connections_files) > 0:
+    if False: #len(ScriptsPanel.connections_files) > 0:
         layout.label(text='Dipole\'s connections:')
         layout.prop(context.scene, 'dipoles_connectivity', text="")
 
@@ -268,7 +296,10 @@ bpy.types.Scene.dipoles_names = bpy.props.EnumProperty(items=[], description="Di
 bpy.types.Scene.dipoles_connectivity = bpy.props.EnumProperty(items=[], description="Dipoles connectivity")
 bpy.types.Scene.dipole_connections = bpy.props.EnumProperty(items=[], description="Dipole connections")
 bpy.types.Scene.dipoles_show_as_arrow = bpy.props.BoolProperty()
-
+bpy.types.Scene.dipoles_sub_group = bpy.props.EnumProperty(items=[], description="Dipoles sub group")
+bpy.types.Scene.dipoles_color = bpy.props.FloatVectorProperty(
+    name="object_color", subtype='COLOR', default=(0, 0.5, 0), min=0.0, max=1.0,
+    description='Selects the color to color the dipoles', update=dipoles_color_update)
 
 def init(mmvt):
     mu = mmvt.mmvt_utils
@@ -287,6 +318,7 @@ def init(mmvt):
     bpy.types.Scene.dipoles_names = bpy.props.EnumProperty(
         items=dipoles_items, description="Dipoles names", update=dipoles_names_update)
     bpy.context.scene.dipoles_names = dipoles_names[0]
+
     dipoles_rois_fname = op.join(mu.get_user_fol(), 'meg', 'dipoles_rois.pkl')
     if op.isfile(dipoles_rois_fname):
         ScriptsPanel.dipoles_rois = mu.load(dipoles_rois_fname)
@@ -301,7 +333,7 @@ def init(mmvt):
     ScriptsPanel.connections_files = glob.glob(op.join(mu.get_user_fol(), 'connectivity', 'dipoles', '*.pkl'))
     if len(ScriptsPanel.connections_files) > 0:
         dipoles_connections_names = [mu.namebase(f).split('-')[0] for f in ScriptsPanel.connections_files]
-        dipoles_connections_items = [(n, n , '', ind) for ind, n in enumerate(dipoles_connections_names)]
+        dipoles_connections_items = sorted([(n, n , '', ind) for ind, n in enumerate(dipoles_connections_names)])
         bpy.types.Scene.dipoles_connectivity = bpy.props.EnumProperty(
             items=dipoles_connections_items, description="Dipoles connections",
             update=dipoles_connectivity_update)
