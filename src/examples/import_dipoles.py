@@ -152,6 +152,6 @@ if __name__ == '__main__':
     n_jobs = n_jobs if n_jobs > 0 else 4
     print('jobs: {}'.format(n_jobs))
     #plot_dipole(dip_fname, subject)
-    # dipoles = parse_dip_file(dip_fname)
-    # mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
+    dipoles = parse_dip_file(dip_fname)
+    mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
     calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=n_jobs)

@@ -1338,7 +1338,7 @@ def calc_stcs_spectral_connectivity(
             con, _, _, _, _ = spectral_connectivity(
                 label_ts, con_method, con_mode, sfreq, fmin, fmax, faverage=True, mt_adaptive=True,
                 cwt_frequencies=cwt_frequencies, cwt_n_cycles=cwt_n_cycles, n_jobs=n_jobs)
-        con = con.squeeze()
+            con = con.squeeze()
         yield con, band_name
 
 
@@ -2851,7 +2851,7 @@ def plot_max_stc(subject, stc_name, modality='meg', use_abs=True, do_plot=True, 
         hemi_data = stc.rh_data if hemi == 'rh' else stc.lh_data
         hemi_data_max = np.max(np.abs(hemi_data) if use_abs else hemi_data, axis=0).squeeze()
         max_ind = np.argmax(hemi_data_max)
-        print('{} max {} at {}'.format(hemi, hemi_data_max[max_ind], t_axis[max_ind]))
+        print('{} max at {}'.format(hemi, max_ind))
         # if evokes_fname != '' and op.isfile(evokes_fname):
         # fig.canvas.mpl_connect('button_press_event', onclick)
         if do_plot:
@@ -5505,10 +5505,15 @@ def find_functional_rois_in_stc(
         stc_data = (stc_t_smooth.rh_data if hemi == 'rh' else stc_t_smooth.lh_data).squeeze()
         if np.max(stc_data) < 1e-4:
             stc_data *= np.power(10, 9)
+        if np.max(stc_data) < min_cluster_max:
+            print('No vertices in {} > {}, continue'.format(hemi, min_cluster_max))
+            output_stc_data[hemi] = np.ones((stc_data.shape[0], 1)) * -1
+            continue
         print('Calculating clusters for threshold {}'.format(threshold))
         clusters, _ = mne_clusters._find_clusters(stc_data, threshold, connectivity=connectivity[hemi])
         if len(clusters) == 0:
             print('No clusters where found for {}-{}!'.format(stc_name, hemi))
+            output_stc_data[hemi] = np.ones((stc_data.shape[0], 1)) * -1
             continue
         print('{} cluster were found for {}'.format(len(clusters), hemi))
         labels_hemi = None if labels is None else labels[hemi]
@@ -5558,8 +5563,13 @@ def find_functional_rois_in_stc(
     return True, contours
 
 
-def accumulate_stc(subject, stc_org, t_from, t_to, threshold, reverse=True, n_jobs=4):
+def accumulate_stc(subject, stc_org, t_from, t_to, threshold, lookup_atlas, reverse=True, set_t_as_val=False, n_jobs=4):
     data, valid_verts = {}, defaultdict(list)
+    if op.isfile(lookup_atlas):
+        verts_labels_lookup = utils.load(lookup_atlas)
+    else:
+        verts_labels_lookup = utils.load(op.join(
+            MMVT_DIR, subject, '{}_vertices_labels_lookup.pkl'.format(lookup_atlas)))
     time_axis = np.arange(t_from, t_to + 1)
     stc = mne.SourceEstimate(
         stc_org.data[:, t_from:t_to + 1], stc_org.vertices, 0, stc_org.tstep, subject=subject)
@@ -5570,16 +5580,21 @@ def accumulate_stc(subject, stc_org, t_from, t_to, threshold, reverse=True, n_jo
     data['lh'] = np.ones((stc.lh_data.shape[0], 1)) * -1
     for_time = time_axis[::-1] if reverse else time_axis
     now = time.time()
+    labels_times = {}
     for k, t in enumerate(for_time):
         utils.time_to_go(now, k, len(for_time), 100)
         for hemi in utils.HEMIS:
             hemi_data = stc.rh_data[:, t] if hemi == 'rh' else stc.lh_data[:, t]
             verts = np.where(hemi_data >= threshold)[0]
             if len(verts) > 0:
-                data[hemi][verts, 0] = hemi_data[verts]
+                data[hemi][verts, 0] = t if set_t_as_val else hemi_data[verts]
+                labels = set([verts_labels_lookup[hemi].get(v, None) for v in verts])
+                for label in labels:
+                    if label is not None and label not in labels_times:
+                        labels_times[label] = stc_org.times[t0 + t]
     data = np.concatenate([data['lh'], data['rh']])
     stc = mne.SourceEstimate(data, stc.vertices, 0, 0, subject=subject)
-    return stc
+    return stc, labels_times
 
 
 

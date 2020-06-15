@@ -1160,6 +1160,7 @@ def find_valid_verts(values, threshold, use_abs, bigger_or_equall):
             valid_verts = np.where(values >= threshold)[0]
         else:
             valid_verts = np.where(values > threshold)[0]
+    print('{} valid verts'.format(len(valid_verts)))
     return valid_verts
 
 
