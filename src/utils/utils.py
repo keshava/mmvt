@@ -1740,6 +1740,9 @@ def show_image(image_fname):
 
 
 def get_n_jobs(n_jobs):
+    debug_mode = os.environ.get('PYTHONUNBUFFERED', 0) == '1'
+    if debug_mode:
+        return 1
     cpu_num = multiprocessing.cpu_count()
     n_jobs = int(n_jobs)
     if n_jobs > cpu_num:

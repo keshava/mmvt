@@ -2,6 +2,8 @@ import os.path as op
 import os
 import time
 import numpy as np
+# import matplotlib
+# matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import nibabel as nib
@@ -211,9 +213,11 @@ def calc_regions_stats(
     figures_fol = utils.make_dir(op.join(RESULTS_FOL, subject, 'cbf_hists'))
     stats_output_fname = op.join(
         RESULTS_FOL, subject, '{}_gw_frac_{}_regions_stats.pkl'.format(subject_full_name, cortex_frac_threshold))
+    subcortical_stats_output_fname = op.join(
+        RESULTS_FOL, subject, '{}_gw_frac_{}_subcortical_stats.pkl'.format(subject_full_name, cortex_frac_threshold))
     all_values_fname = op.join(
         RESULTS_FOL, subject, '{}_gw_frac_{}_regions_values.npy'.format(subject_full_name, cortex_frac_threshold))
-    output_fnames = [stats_output_fname, all_values_fname]
+    output_fnames = [stats_output_fname, subcortical_stats_output_fname, all_values_fname]
     do_run, ret = cics_checks(
         input_fnames, output_fnames, subject_fol, check_if_should_run, overwrite, verbose)
     if not do_run:
@@ -223,10 +227,10 @@ def calc_regions_stats(
     cortex_frac = nib.load(cortex_frac_fname).get_data()
     lut = utils.read_freesurfer_lookup_table(return_dict=True)
     aparc_aseg = nib.load(aparc_aseg_fname).get_data()
-    unique_codes = list(range(1001, 1036)) + list(range(2001, 2036))
+    unique_codes = list(range(0, 100)) + list(range(1001, 1036)) + list(range(2001, 2036))
     if overwrite and do_plot:
         utils.delete_folder_files(figures_fol)
-    regions_values, regions_means, regions_fracs = {}, {}, {}
+    regions_values, regions_means, subcortical_values, subcortical_means, regions_fracs = {}, {}, {}, {}, {}
     all_values = []
     output_str = ''
     for code in tqdm(unique_codes):
@@ -251,51 +255,89 @@ def calc_regions_stats(
         # regions_values[region_name] = region_values.copy()
         in_bounderies_indices = np.where((low_threshold < region_values) & (region_values < high_threshold))
         region_values = region_values[in_bounderies_indices]
-        all_values.extend(region_values.tolist())
-        regions_values[region_name] = region_values.copy()
-        regions_means[region_name] = np.median(regions_values[region_name])
-        if do_plot:
-            plt.hist(region_values, bins=40)
-            plt.savefig(fig_fname)
-            plt.close()
+        if code < 100:
+            subcortical_values[region_name] = region_values.copy()
+            subcortical_means[region_name] = np.median(subcortical_values[region_name])
+        if code >= 1000:
+            all_values.extend(region_values.tolist())
+            regions_values[region_name] = region_values.copy()
+            regions_means[region_name] = np.median(regions_values[region_name])
+            if do_plot:
+                plt.hist(region_values, bins=40)
+                plt.savefig(fig_fname)
+                plt.close()
     if verbose:
         print(output_str)
     np.save(all_values_fname, np.array(all_values))
     utils.save((regions_values, regions_means, regions_fracs), stats_output_fname)
+    utils.save((subcortical_values, subcortical_means, regions_fracs), subcortical_stats_output_fname)
     return all_files_exits(output_fnames)
 
 
-def plot_global_data(sites, months, cortex_frac_threshold=0.5, overwrite=False):
+def plot_global_data(sites, months, cortex_frac_threshold=0.5, use_subplot=False, overwrite=False):
     global_mean_fname = op.join(RESULTS_FOL, 'global_means_{}.pkl'.format(cortex_frac_threshold))
     if op.isfile(global_mean_fname) and not overwrite:
-        data, site_subjects = utils.load(global_mean_fname)
+        cortical_data, hippo_data, site_subjects = utils.load(global_mean_fname)
     else:
-        data, site_subjects = calc_global_means(sites, months, cortex_frac_threshold)
-        utils.save((data, site_subjects), global_mean_fname)
+        cortical_data, hippo_data, site_subjects = calc_global_means(sites, months, cortex_frac_threshold)
+        utils.save((cortical_data, hippo_data, site_subjects), global_mean_fname)
     colors = cycle(utils.get_distinct_colors(len(sites)))
-    f, axs = plt.subplots(len(months), sharey=True)
-    for site, color in zip(sites, colors):
-        subjects = site_subjects[site]
-        subjects_ages = get_subjects_ages(subjects)
-        for month, ax in zip(months, axs):
-            ax.scatter(subjects_ages, data[site][month][SCAN], c=color, marker='+')
-            ax.scatter(subjects_ages, data[site][month][RESCAN], c=color, marker='x')
-            ax.set_title(month)
-    plt.show()
-    print('asdf')
+    subjects_ages_dict = get_subjects_ages()
+    min_age = min(subjects_ages_dict.values())
+    max_age = max(subjects_ages_dict.values())
+    titles = {'0':'baseline', '6': '6 months', '12': '1 year'}
+    for data, ylabel in zip([cortical_data, hippo_data], ['ASL cortical mean', 'ASL Hippocampus mean']):
+        if use_subplot:
+            fig, axs = plt.subplots(len(months), sharex=True, sharey=True)#, figsize=(15, 8))
+        else:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            axs = [ax] * len(months)
+        for site, color in zip(sites, colors):
+            subjects = site_subjects[site]
+            for month, ax in zip(months, axs):
+                x = [subjects_ages_dict.get(s, -10) + int(month) / 12 for s in subjects]
+                ax.scatter(x, data[site][month][SCAN], c=color, marker='+', label='{} scan'.format(site))
+                ax.scatter(x, data[site][month][RESCAN], c=color, marker='x', label='{} rescan'.format(site))
+                ax.plot((x, x), (data[site][month][SCAN], data[site][month][RESCAN]), c='black')
+                if use_subplot:
+                    ax.set_title(titles[month])
+                ax.set_xlim((min_age - 5, max_age + 5))
+        all_handles, all_labels = plt.gca().get_legend_handles_labels()
+        labels, handles = [], []
+        for l, h in zip(all_labels, all_handles):
+            if l not in labels:
+                labels.append(l)
+                handles.append(h)
+        # fig.legend(handles, labels, loc='lower center', ncol=2, mode='expand')
+        # box = ax.get_position()
+        # ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+        axs[0].legend(handles, labels, loc='upper left', bbox_to_anchor=(1, 1))
+        axs[1].set_ylabel(ylabel)
+        axs[2].set_xlabel('Age')
+        plt.subplots_adjust(left=0.06, bottom=0.09, right=0.79, top=0.94, wspace=0, hspace=0.2)
+        # fig.subplots_adjust(right=0.7)
+        # fig.tight_layout()
+        figure_fname = op.join(RESULTS_FOL, '{}_vs_age_frac_{}.jpg'.format(
+            ylabel.replace(' ', '_'), cortex_frac_threshold))
+        print('Saving figure in {}'.format(figure_fname))
+        # plt.savefig(figure_fname, bbox_inches='tight', dpi=100)
+        plt.show()
 
 
 def calc_global_means(sites, months, cortex_frac_threshold=0.5):
-    global_mean_dict, site_subjects = {}, {}
+    global_mean_dict, hippocampus_values_dict, site_subjects = {}, {}, {}
     for site in sites:
         global_mean_dict[site] = defaultdict(dict)
+        hippocampus_values_dict[site] = defaultdict(dict)
         site_subjects[site] = get_subjects(site)
         for subject in site_subjects[site]:
             for month in months:
                 for scan_rescan in SCAN_RESCAN:
                     if scan_rescan not in global_mean_dict[site][month]:
-                        # print(site, month, scan_rescan)
                         global_mean_dict[site][month][scan_rescan] = []
+                    if scan_rescan not in hippocampus_values_dict[site][month]:
+                        hippocampus_values_dict[site][month][scan_rescan] = []
                     subject_full_name = get_full_subject_name(subject, month, scan_rescan)
                     all_values_fname = op.join(
                         RESULTS_FOL, subject, '{}_gw_frac_{}_regions_values.npy'.format(
@@ -304,11 +346,78 @@ def calc_global_means(sites, months, cortex_frac_threshold=0.5):
                         global_mean_dict[site][month][scan_rescan].append(np.load(all_values_fname).mean())
                     else:
                         global_mean_dict[site][month][scan_rescan].append(None)
-    return global_mean_dict, site_subjects
+                    subcortical_stats_input_fname = op.join(
+                        RESULTS_FOL, subject, '{}_gw_frac_{}_subcortical_stats.pkl'.format(
+                            subject_full_name, cortex_frac_threshold))
+                    if op.isfile(all_values_fname):
+                        subcortical_values, _, _ = utils.load(subcortical_stats_input_fname)
+                        hippocampus_values = subcortical_values.get('Left-Hippocampus', np.array([])).tolist() + \
+                                             subcortical_values.get('Right-Hippocampus', np.array([])).tolist()
+                        hippocampus_mean = np.mean(hippocampus_values) if len(hippocampus_values) > 0 else None
+                        # if hippocampus_mean is None:
+                        #     print('hippo is None!', site, subject,month, scan_rescan)
+                        hippocampus_values_dict[site][month][scan_rescan].append(hippocampus_mean)
+                    else:
+                        hippocampus_values_dict[site][month][scan_rescan].append(None)
+
+    return global_mean_dict, hippocampus_values_dict, site_subjects
 
 
-def get_subjects_ages(subjects):
-    return np.random.uniform(5, 10, [len(subjects)])
+def get_subjects_ages():
+    csv_fname = op.join(HOME_FOL, 'subjects_age.csv')
+    if not op.isfile(csv_fname):
+        raise Exception('Cannot find csv file for subjects age! ({})'.format(csv_fname))
+    return {name: int(age) for name, age in np.genfromtxt(csv_fname, delimiter=',', dtype=np.str, skip_header=1)}
+
+
+def calc_T1_CNR(subject, subject_fol, scan_rescan, month, print_only=False, overwrite=False, check_if_should_run=False, verbose=True):
+    # inputs
+    subject_fs_folder = get_subject_fs_folder(subject, scan_rescan, month)
+    cortex_label_template = op.join(FS_ROOT, subject_fs_folder, 'label', '{hemi}.cortex.label')
+    wg_pct_template = op.join(FS_ROOT, subject_fs_folder, 'surf',  '{hemi}.w-g.pct.mgh')
+    input_fnames = [cortex_label_template.format(hemi='rh'), cortex_label_template.format(hemi='lh'),
+                    wg_pct_template.format(hemi='rh'), wg_pct_template.format(hemi='lh')]
+    # outputs
+    sum_template = op.join(subject_fol, 'summary.{}.{}.dat'.format(subject, '{hemi}'))
+    output_fnames = [sum_template.format(hemi='rh'), sum_template.format(hemi='lh')]
+    do_run, ret = cics_checks(
+        input_fnames, output_fnames, subject_fol, check_if_should_run, overwrite, verbose)
+    if not do_run:
+        return ret
+
+    subject = set_subject(subject, scan_rescan, month)
+    for hemi in utils.HEMIS:
+        cortex_label_fname = cortex_label_template.format(hemi=hemi)
+        wg_pct_fname = wg_pct_template.format(hemi=hemi)
+        sum_fname = sum_template.format(hemi=hemi)
+        rs = utils.partial_run_script(locals(), print_only=print_only)
+        mri_segstats = 'mri_segstats --slabel {subject} {hemi} {cortex_label_fname} ' + \
+              '--i {wg_pct_fname} --id 1 --snr --sum {sum_fname}'
+        rs(mri_segstats)
+
+    return all_files_exits(output_fnames)
+
+
+def average_T1_CNR(subjects, site, months, do_plot_hist, overwrite,
+        check_if_should_run=False, verbose=False):
+    # input
+    input_fnames, input_files_num = {}, 0
+    all_diffs, all_rel_diffs = defaultdict(list), defaultdict(list)
+    for subject in subjects:
+        for month in months:
+            input_fname = op.join(subject_fol, 'summary.{}.{}.dat'.format(subject, '{hemi}'))
+            if op.isfile(input_fname):
+                try:
+                    diffs, rel_diffs = utils.load(input_fname)
+                    for region_name in diffs.keys():
+                        all_diffs[region_name].append(diffs[region_name])
+                        all_rel_diffs[region_name].append(rel_diffs[region_name])
+                    input_fnames[subject] = input_fname
+                except:
+                    print('Error loading {} {} input file'.format(site, subject))
+    print('{}-{}: {}/{} input files exist'.format(site, month, len(input_fnames), len(subjects)))
+    if len(input_fnames) == 0:
+        return False
 
 
 # def _plot_cbf_histograms_parallel(p):
@@ -908,6 +1017,8 @@ def _run_func_in_parallel(parallel_params):
             subject_dir = p.get('subject_dir', '')
             low_threshold, high_threshold = [p.get(key, 0) for key in ['low_threshold', 'high_threshold']]
             overwrite, print_only, do_plot = [p.get(key, False) for key in ['overwrite', 'print_only', 'do_plot']]
+            if not op.isdir(subject_dir):
+                utils.make_dir(subject_dir)
             if func.__name__ == 'register_cbf_to_t1':
                 flag = register_cbf_to_t1(
                     subject, subject_dir, scan_rescan,  month, overwrite, print_only, check_if_should_run, verbose)
@@ -924,6 +1035,10 @@ def _run_func_in_parallel(parallel_params):
             elif func.__name__ == 'calc_scan_rescan_diff':
                 flag = calc_scan_rescan_diff(
                     subject, month, cortex_frac_threshold, do_plot, overwrite, check_if_should_run, verbose)
+            elif func.__name__ == 'calc_T1_CNR':
+                flag = calc_T1_CNR(
+                    subject, subject_dir, scan_rescan, month, print_only, overwrite, check_if_should_run, verbose)
+
         # Check of the parameters are per site
         elif 'subjects' in p and 'site' in p:
             subjects, site, month, months, cortex_frac_threshold = [p[key] for key in [
@@ -1033,21 +1148,18 @@ if __name__ == '__main__':
     sites = ['131-NeuroBeh_ACH', '277-NDC', '800-Hoglund', '829-EmoryUniversity', '960-VitalImaging']
     months = ['0', '6', '12']
     cortex_frac_thresholds = np.linspace(0.5, 0.9, 17)
-    # atlas = 'aparc'
-    debug_mode = False
-    n_jobs = 1 if debug_mode else max(utils.get_n_jobs(10), 4)
+    n_jobs = utils.get_n_jobs(30)
     print('n_jobs: {}'.format(n_jobs))
 
     # main(sites, months, cortex_frac_threshold=0.9, overwrite=True, n_jobs=n_jobs)
     # calc_different_cortec_frac_thresholds(sites, months, cortex_frac_thresholds, n_jobs)
 
+    params, scan_rescan_params, site_params = get_params(
+        sites, months, cortex_frac_threshold=0.5, low_threshold=0, high_threshold=100,
+        print_only=False, do_plot=False, run_preproc_anat=False, n_jobs=n_jobs)
+    run_functions_in_parallel([calc_T1_CNR], params, n_jobs, overwrite=False)
 
-    # params, scan_rescan_params, site_params = get_params(
-    #     sites, months, cortex_frac_threshold=0.5, low_threshold=0, high_threshold=100,
-    #     print_only=False, do_plot=False, run_preproc_anat=False, n_jobs=n_jobs)
-    # run_functions_in_parallel([calc_regions_stats], params, n_jobs, overwrite=True)
-
-    plot_global_data(sites, months, cortex_frac_threshold=0.5, overwrite=True)
+    # plot_global_data(sites, months, cortex_frac_threshold=0.5, overwrite=True)
 
     # read_hippocampus_volumes()
     # calc_volume_fractions_all_subjects(subjects, site, overwrite, print_only)

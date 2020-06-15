@@ -2271,6 +2271,9 @@ def set_context_to_graph_editor(context=None):
 
 
 def get_n_jobs(n_jobs):
+    debug_mode = os.environ.get('PYTHONUNBUFFERED', 0) == '1'
+    if debug_mode:
+        return 1
     import multiprocessing
     cpu_num = multiprocessing.cpu_count()
     n_jobs = int(n_jobs)
