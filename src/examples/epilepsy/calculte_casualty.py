@@ -146,7 +146,7 @@ def find_functional_rois(subject, ictal_clips, modality, seizure_times, atlas, m
     connectivity = anat.load_connectivity(subject)
     if overwrite:
         utils.delete_folder_files(op.join(MMVT_DIR, subject, modality_fol, 'clusters'))
-    if op.isfile(ictlas_fname): # and not overwrite:
+    if False: #op.isfile(ictlas_fname): # and not overwrite:
         ictals = utils.load(ictlas_fname)
     else:
         ictals = calc_accumulate_stc(
@@ -191,7 +191,8 @@ def calc_baseline_mean(subject, stc, n_jobs):
     # baseline_stc_mean = baseline_stc.mean()
     # baseline_stc_t = meg.create_stc_t(baseline_stc, 0, subject)
     baseline_stc_smooth = meg.calc_stc_for_all_vertices(baseline_stc, subject, subject, n_jobs)
-    return np.median(np.max(baseline_stc_smooth.data, axis=0).squeeze())
+    return np.median(np.median(baseline_stc_smooth.data, axis=0).squeeze())
+    # return np.median(np.max(baseline_stc_smooth.data, axis=0).squeeze())
 
 
 def calc_func_rois_vertives_lookup(subject, ictal_clips, modality, inverse_method):
@@ -322,6 +323,8 @@ def delete_morphing_maps(subject):
 
 
 def pre_processing(subject, atlas, n_jobs):
+    # 0.0) calc fwd inv
+    # calc_fwd_inv(subject, run_num, modality, raw_fname, empty_fname, bad_channels, overwrite, n_jobs)
     # 0.1) If there is a problem with smoothing the surfaces, you should delete the morphing maps first
     # delete_morphing_maps(subject)
     # 0.2) Finds the trans file
@@ -345,13 +348,12 @@ def main(subject, run_num, clips_dict, raw_fname, empty_fname, bad_channels, mod
          seizure_times, atlas, min_cluster_size, min_order, max_order, windows_length, windows_shift, con_crop_times,
          onset_time, overwrite=False, n_jobs=4):
     # pre_processing(subject, atlas, n_jobs)
-    # calc_fwd_inv(subject, run_num, modality, raw_fname, empty_fname, bad_channels, overwrite, n_jobs)
     # calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=overwrite, n_jobs=n_jobs)
     # calc_stc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
-    # find_functional_rois(
-    #     subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
-    #     inverse_method, overwrite=True, n_jobs=n_jobs)
-    # calc_func_rois_vertives_lookup(subject, clips_dict['ictal'], modality, inverse_method)
+    find_functional_rois(
+        subject, clips_dict['ictal'], modality, seizure_times, atlas, min_cluster_size,
+        inverse_method, overwrite=True, n_jobs=n_jobs)
+    calc_func_rois_vertives_lookup(subject, clips_dict['ictal'], modality, inverse_method)
     calc_accumulate_stc_as_time(subject, clips_dict['ictal'], modality, (-0.05, 1), inverse_method, n_jobs)
     # calc_rois_connectivity(
     #     subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,

@@ -5565,11 +5565,14 @@ def find_functional_rois_in_stc(
 
 def accumulate_stc(subject, stc_org, t_from, t_to, threshold, lookup_atlas, reverse=True, set_t_as_val=False, n_jobs=4):
     data, valid_verts = {}, defaultdict(list)
+    verts_labels_lookup = None
     if op.isfile(lookup_atlas):
         verts_labels_lookup = utils.load(lookup_atlas)
     else:
-        verts_labels_lookup = utils.load(op.join(
-            MMVT_DIR, subject, '{}_vertices_labels_lookup.pkl'.format(lookup_atlas)))
+        lookup_fname = op.join(
+            MMVT_DIR, subject, '{}_vertices_labels_lookup.pkl'.format(lookup_atlas))
+        if op.isfile(lookup_fname):
+            verts_labels_lookup = utils.load()
     time_axis = np.arange(t_from, t_to + 1)
     stc = mne.SourceEstimate(
         stc_org.data[:, t_from:t_to + 1], stc_org.vertices, 0, stc_org.tstep, subject=subject)
@@ -5588,10 +5591,11 @@ def accumulate_stc(subject, stc_org, t_from, t_to, threshold, lookup_atlas, reve
             verts = np.where(hemi_data >= threshold)[0]
             if len(verts) > 0:
                 data[hemi][verts, 0] = t if set_t_as_val else hemi_data[verts]
-                labels = set([verts_labels_lookup[hemi].get(v, None) for v in verts])
-                for label in labels:
-                    if label is not None and label not in labels_times:
-                        labels_times[label] = stc_org.times[t0 + t]
+                if verts_labels_lookup is not None:
+                    labels = set([verts_labels_lookup[hemi].get(v, None) for v in verts])
+                    for label in labels:
+                        if label is not None and label not in labels_times:
+                            labels_times[label] = stc_org.times[t0 + t]
     data = np.concatenate([data['lh'], data['rh']])
     stc = mne.SourceEstimate(data, stc.vertices, 0, 0, subject=subject)
     return stc, labels_times
