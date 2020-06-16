@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import nibabel as nib
 from collections import defaultdict
-from itertools import cycle
+from itertools import cycle, product
 
 import warnings
 # warnings.filterwarnings('error')
@@ -398,27 +398,32 @@ def calc_T1_CNR(subject, subject_fol, scan_rescan, month, print_only=False, over
     return all_files_exits(output_fnames)
 
 
-def average_T1_CNR(subjects, site, months, do_plot_hist, overwrite,
-        check_if_should_run=False, verbose=False):
+def average_T1_CNR(subjects, site, month, do_plot_hist, overwrite, check_if_should_run=False, verbose=False):
     # input
-    input_fnames, input_files_num = {}, 0
-    all_diffs, all_rel_diffs = defaultdict(list), defaultdict(list)
-    for subject in subjects:
-        for month in months:
-            input_fname = op.join(subject_fol, 'summary.{}.{}.dat'.format(subject, '{hemi}'))
-            if op.isfile(input_fname):
-                try:
-                    diffs, rel_diffs = utils.load(input_fname)
-                    for region_name in diffs.keys():
-                        all_diffs[region_name].append(diffs[region_name])
-                        all_rel_diffs[region_name].append(rel_diffs[region_name])
-                    input_fnames[subject] = input_fname
-                except:
-                    print('Error loading {} {} input file'.format(site, subject))
-    print('{}-{}: {}/{} input files exist'.format(site, month, len(input_fnames), len(subjects)))
+    input_fnames, input_files_num = [], 0
+    for subject, scan_rescan in product(subjects, SCAN_RESCAN):
+        subject_fol = get_subject_dir(subject, site, month, scan_rescan)
+        input_template = op.join(subject_fol, 'summary.{}.{}.dat'.format(subject, '{hemi}'))
+        if utils.both_hemi_files_exist(input_template):
+            input_fnames.append(input_template)
+    print('{}-{}: {}/{} input files'.format(site, month, len(input_fnames), len(subjects) * 2))
     if len(input_fnames) == 0:
         return False
 
+    # output
+    output_fnames = {}
+    cics_checks([], output_fnames, subject, check_if_should_run, overwrite, verbose)
+    if check_if_should_run:
+        return True
+
+    all_snr = []
+    for input_template in input_fnames:
+        snrs = [np.genfromtxt(input_template.format(hemi=hemi))[-1] for hemi in utils.HEMIS]
+        all_snr.append(np.mean(snrs))
+    month_str = {'0': 'baseline', '6': '6 months', '12': '1 year'}
+    print('{} {}: {:.2f} mean snr ({:.2f} std) ({} subjects)'.format(
+        site, month_str[month], np.mean(all_snr), np.std(all_snr), len(all_snr)))
+    return True
 
 # def _plot_cbf_histograms_parallel(p):
 #     subject, scan_rescan = p
@@ -663,7 +668,7 @@ def calc_scan_rescan_mean_diffs(
                     input_fnames[subject] = input_fname
                 except:
                     print('Error loading {} {} input file'.format(site, subject))
-    print('{}-{}: {}/{} input files exist'.format(site, month, len(input_fnames), len(subjects)))
+        print('{}-{}: {}/{} input files exist'.format(site, month, len(input_fnames), len(subjects)))
     if len(input_fnames) == 0:
         return False
 
@@ -1052,6 +1057,8 @@ def _run_func_in_parallel(parallel_params):
             if func.__name__ == 'calc_scan_rescan_mean_diffs':
                 flag = calc_scan_rescan_mean_diffs(
                     subjects, site, months, cortex_frac_threshold, do_plot, overwrite, check_if_should_run, verbose)
+            if func.__name__ == 'average_T1_CNR':
+                flag = average_T1_CNR(subjects, site, month, do_plot, overwrite, check_if_should_run, verbose)
         flags.append(flag)
     return flags
 
@@ -1157,7 +1164,8 @@ if __name__ == '__main__':
     params, scan_rescan_params, site_params = get_params(
         sites, months, cortex_frac_threshold=0.5, low_threshold=0, high_threshold=100,
         print_only=False, do_plot=False, run_preproc_anat=False, n_jobs=n_jobs)
-    run_functions_in_parallel([calc_T1_CNR], params, n_jobs, overwrite=False)
+    # run_function_in_parallel(calc_T1_CNR, params, n_jobs, overwrite=False)
+    run_function_in_parallel(average_T1_CNR, site_params, n_jobs, overwrite=False)
 
     # plot_global_data(sites, months, cortex_frac_threshold=0.5, overwrite=True)
 
