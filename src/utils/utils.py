@@ -1129,6 +1129,15 @@ def run_parallel(func, params, njobs=1, print_time_to_go=True, runs_num_to_print
     return results
 
 
+def create_windows(big_window_len, windows_length, windows_shift):
+    import math
+    windows_num = math.floor((big_window_len - windows_length) / windows_shift + 1)
+    windows = np.zeros((windows_num, 2))
+    for win_ind in range(windows_num):
+        windows[win_ind] = [win_ind * windows_shift, win_ind * windows_shift + windows_length]
+    return windows
+
+
 def get_current_fol():
     return op.dirname(op.realpath(__file__))
 
@@ -2062,6 +2071,20 @@ def check_for_freesurfer(func):
                 retval = True
             else:
                 raise Exception('Source freesurfer and rerun')
+        else:
+            retval = func(*args, **kwargs)
+        return retval
+    return wrapper
+
+
+def check_for_mne(func):
+    def wrapper(*args, **kwargs):
+        if os.environ.get('MNE_ROOT', '') == '':
+            if is_windows():
+                print('{}: You need MNE (Linux/Mac) to run this function'.format(func.__name__))
+                retval = True
+            else:
+                raise Exception('Source MNE (mne_setup_nightly) and rerun')
         else:
             retval = func(*args, **kwargs)
         return retval

@@ -212,14 +212,32 @@ def recon_all_clinical(args):
 
 
 def pre_meg_coregistration(subject):
-    # python -m src.preproc.anatomy -s nmr01391_2 -f create_outer_skin_surface,check_bem
+    # python -m src.preproc.anatomy -s nmr01391 -f create_outer_skin_surface,check_bem
     # setenv SUBJECT subject
     # mne_setup_mri
     # cd raw_folder
-    # mne_analyze: 1) load pial 2) load dig points 3) coordinate alignment window, 4) viewer window
+    # mne_analyze: 1) load pial 2) load dig points 3) adjust -> coordinate alignment, 4) viewer window
     # 5) set fiducials, 6) Options -> Show digitizer data 7) Align using fiducials 8) ICP 10 steps
     # 9) If satisfied, press Save mri set in the Adjust coordinate alignment window.
     pass
+
+
+@utils.check_for_freesurfer
+@utils.check_for_mne
+def mne_organize_dicom(args):
+    # python -m src.preproc.examples.anatomy -s nmr01426 -f mne_organize_dicom --dicoms_fol "Prisma_fit-67026-20200618-141203-000586"
+    import os
+    for subject, dicoms_fol in zip(args.subject, args.dicoms_fol):
+        fs_dir = utils.make_dir(op.join(args.fs_root, subject))
+        print('FreeSurfer output fol: {}'.format(fs_dir))
+        dicoms_full_path = op.join(args.dicoms_root, dicoms_fol)
+        if not op.isdir(dicoms_full_path):
+            print('{} does not exist!'.format(dicoms_full_path))
+            continue
+        rs = utils.partial_run_script(locals(), print_only=args.print_only)
+        os.chdir(fs_dir)
+        rs('mne_organize_dicom {dicoms_full_path}')
+
 
 # https://github.com/chriskiehl/Gooey
 # @Gooey
@@ -232,6 +250,12 @@ def main():
     parser.add_argument('-d', '--sftp_domain', help='sftp domain', required=False, default='door.nmr.mgh.harvard.edu')
     parser.add_argument('--remote_subject_dir', help='remote_subjects_dir', required=False,
                         default='/space/thibault/1/users/npeled/subjects/{subject}')
+    parser.add_argument('--fs_root', help='freesurfer_root', required=False,
+                        default='/space/megraid/clinical/MEG-MRI/seder/freesurfer')
+    parser.add_argument('--dicoms_root', help='dicoms_root', required=False,
+                        default='/cluster/archive/331/siemens')
+    parser.add_argument('--dicoms_fol', help='dicoms_for', required=False, default='', type=au.str_arr_type)
+    parser.add_argument('--print_only', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('-f', '--function', help='function name', required=True)
     # choices=[f_name for f_name, f in globals().items() if isinstance(f, collections.Callable)
     #                                  if f_name not in ['Gooey', 'main']]
