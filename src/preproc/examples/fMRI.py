@@ -117,14 +117,25 @@ def language(args):
     par_fol = utils.make_dir(op.join(remote_mri_dir, subject, 'par'))
     par_files = glob.glob(op.join(par_fol, '*.par'))
     sessions = sorted([utils.find_num_in_str(utils.namebase(d))[0] for d in fmri_fols])
-
+    fmri_fols = [fol for fol, ses in zip(fmri_fols, sessions) if int(ses) not in args.skip]
+    sessions = [s for s in sessions if int(s) not in args.skip]
     # Warning: You first need to put the original ones in the following folder:
     if len(par_files) == 0:
         print('\n *** Please put the original par files in {} and rerun ***'.format(
             op.join(remote_mri_dir, subject, 'par')))
         return
 
+    fmri_sessions = [utils.namebase(d) for d in fmri_fols]
     par_files.sort(key=lambda x: int(utils.namebase(x).split('_')[-1]))
+    par_names = [utils.namebase(f) for f in par_files]
+    if len(fmri_fols) != len(par_files):
+        print('Inconsitansy with the number of the language fMRI sessions ({}) and par files ({})!'.format(
+            len(fmri_sessions), len(par_files)))
+        print('fMRI language seesions: {}'.format(fmri_sessions))
+        print('par files: {}'.format(par_names))
+        print('Use the skip flag to skip fMRI sessions (for eaxmple, --skip 5,6)')
+        return
+
     ret = input('''
         Patient: {}
         MRI folder: {}
@@ -132,8 +143,7 @@ def language(args):
         fMRI sessions: {}
         Session and pars: {}
         Do you want to continue (y/n)? '''.format(
-        subject, subject_mri_dir, remote_fmri_dir, [utils.namebase(d) for d in fmri_fols],
-        list(zip([utils.namebase(f) for f in par_files], sessions))))
+        subject, subject_mri_dir, remote_fmri_dir, fmri_sessions, list(zip(par_names, sessions))))
     if not au.is_true(ret):
         return
 
@@ -398,5 +408,6 @@ if __name__ == '__main__':
                         default='/space/megraid/clinical/MEG-MRI/seder/freesurfer')
     parser.add_argument('--clinical_dir', help='', required=False, default='')
     parser.add_argument('--cluster_threshold', required=False, default=2, type=float)
+    parser.add_argument('--skip', required=False, default='', type=au.int_arr_type)
     args = utils.Bag(au.parse_parser(parser))
     locals()[args.function](args)

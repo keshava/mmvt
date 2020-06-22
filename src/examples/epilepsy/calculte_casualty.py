@@ -300,7 +300,7 @@ def calc_rois_connectivity(
     conds.extend(['{}_baseline'.format(utils.namebase(clip_fname)) for clip_fname in clips['baseline']])
     if not use_functional_rois_atlas:
         labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
-        func_atlas = atlas
+        func_atlas = con_indentifer = atlas
     for clip_fname, cond in zip(clips['ictal'] + clips['baseline'], conds):
         if use_functional_rois_atlas:
             check_connectivity_labels(clips['ictal'], modality, inverse_method, n_jobs=n_jobs)
@@ -311,23 +311,25 @@ def calc_rois_connectivity(
             # for connectivity we need shorter names
             labels = epi_utils.shorten_labels_names(labels)
             func_atlas = utils.namebase(clip_fname)
+            con_indentifer = 'func_rois'
         params.append((
             subject, clip_fname, utils.namebase(clip_fname), func_atlas, labels, inverse_method, fwd_usingMEG,
-            fwd_usingEEG, crop_times, bands, min_order, max_order, windows_length, windows_shift, overwrite, 1))
+            fwd_usingEEG, crop_times, bands, min_order, max_order, windows_length, windows_shift, con_indentifer,
+            overwrite, 1))
 
     utils.run_parallel(_calc_clip_rois_connectivity_parallel, params, n_jobs)
 
 
 def _calc_clip_rois_connectivity_parallel(p):
     (subject, clip_fname, cond, atlas, labels, inverse_method, fwd_usingMEG,
-     fwd_usingEEG, crop_times, bands, min_order, max_order, windows_length, windows_shift, overwrite,
+     fwd_usingEEG, crop_times, bands, min_order, max_order, windows_length, windows_shift, con_indentifer, overwrite,
      n_jobs) = p
     clip = mne.read_evokeds(clip_fname)[0]
     meg.calc_labels_connectivity(
         subject, atlas, {cond: 1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
         pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
         con_method='gc', overwrite_connectivity=overwrite, crops_times=crop_times,
-        epochs=clip, bands=bands, con_indentifer='func_rois', labels=labels,
+        epochs=clip, bands=bands, con_indentifer=con_indentifer, labels=labels,
         min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
         windows_shift=windows_shift, n_jobs=n_jobs)
 

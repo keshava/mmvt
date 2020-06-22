@@ -278,7 +278,7 @@ def calc_cond_and_basline(subject, con_method, modality, condition, extract_mode
         subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, cond_name)
     if not op.isfile(input_fname) or not op.isfile(baseline_fname):
         # print('Can\'t find {}'.format(input_fname))
-        return None, None, None, None, None, None, None
+            return None, None, None, None, None, None, None
 
     stcs_fol = op.join(MMVT_DIR, subject, 'meg', stc_subfolder)
     if stc_name == '':
