@@ -145,13 +145,65 @@ def calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=4):
     utils.save(dipoles_rois_dict, diploes_rois_output_fname)
 
 
+def calc_distances_from_rois(subject, dist_threshold=0.05):
+    from scipy.spatial.distance import cdist
+    import nibabel as nib
+    dipoles_dict = utils.load(op.join(MMVT_DIR, subject, 'meg', 'dipoles.pkl'))
+    labels_times_fol = op.join(MMVT_DIR, subject, 'meg', 'time_accumulate')
+    labels = lu.read_labels(subject, SUBJECTS_DIR, 'laus125')
+    labels_center_of_mass = lu.calc_center_of_mass(labels)
+    labels_pos = np.array([labels_center_of_mass[l.name] for l in labels])
+    labels_dict = {l.name: labels_center_of_mass[l.name] for l in labels}
+    outer_skin_surf_fname = op.join(SUBJECTS_DIR, subject, 'surf', 'lh.seghead')
+    outer_skin_surf_verts, _ = nib.freesurfer.read_geometry(outer_skin_surf_fname)
+
+    for dipole_name, dipoles in dipoles_dict.items():
+        dipole_pos = np.array([dipoles[0][2], dipoles[0][3], dipoles[0][4]])
+        lables_times_fname = op.join(labels_times_fol, '{}_labels_times.txt'.format(dipole_name))
+        if not op.isfile(lables_times_fname):
+            print('Can\'t find {}!'.format(lables_times_fname))
+            continue
+        dists_from_outer_skin = np.min(cdist(outer_skin_surf_verts * 0.001, [dipole_pos]), 0)[0]
+        output_fname = op.join(labels_times_fol, '{}_labels_times_dists.txt'.format(dipole_name))
+        lines = utils.csv_file_reader(lables_times_fname, delimiter=':', skip_header=1)
+        output, dists = [], []
+        labels_dists = cdist(labels_pos, [dipole_pos])
+        dists_argmin = np.argmin(labels_dists, 0)[0]
+        dists_min = np.min(labels_dists, 0)[0]
+        closest_label = labels[dists_argmin].name
+        print('Parsing {} ({})'.format(dipole_name, closest_label))
+        for line in lines:
+            if len(line) == 0:
+                continue
+            elif len(line) != 2:
+                print('{}: Problem parsing "{}"'.format(lables_times_fname, line))
+                continue
+            label_name, label_time = line
+            label_pos = labels_dict.get(label_name, None)
+            if label_pos is not None:
+                dist_from_dipole = np.linalg.norm(dipole_pos - label_pos)
+                dists.append(dist_from_dipole)
+            else:
+                dist_from_dipole = -1
+                dists.append(np.nan)
+            output.append('{}: {} ({:.4f})'.format(label_name, label_time, dist_from_dipole))
+        for ind, dist in enumerate(dists):
+            if dist < dist_threshold:
+                output[ind] = '{} ***'.format(output[ind])
+        title = '{}: {} {:.4f} dist from outer skin: {:.4f} '.format(
+            dipole_name, closest_label, dists_min, dists_from_outer_skin)
+        utils.save_arr_to_file(output, output_fname, title)
+
+
 if __name__ == '__main__':
     subject = 'nmr01391'
     dip_fname = op.join(MEG_DIR, subject, 'run3_Ictal.dip') # _ictal
-    n_jobs = utils.get_n_jobs(-10)
+    # dip_fname = op.join(MEG_DIR, subject, 'EPI.dip')  # _ictal
+    n_jobs = utils.get_n_jobs(20)
     n_jobs = n_jobs if n_jobs > 0 else 4
     print('jobs: {}'.format(n_jobs))
     #plot_dipole(dip_fname, subject)
-    dipoles = parse_dip_file(dip_fname)
-    mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
-    calc_dipoles_rois(subject, atlas='laus125', overwrite=False, n_jobs=n_jobs)
+    # dipoles = parse_dip_file(dip_fname)
+    # mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
+    calc_distances_from_rois(subject)
+    # calc_dipoles_rois(subject, atlas='laus125', overwrite=True, n_jobs=n_jobs)

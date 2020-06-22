@@ -47,9 +47,10 @@ class SearchFilter(bpy.types.Operator):
             center = mathutils.Vector(center) * mu.get_matrix_world()
             # if bpy.context.scene.search_plot_contour:
             #     _addon().where_am_i.plot_closest_label_contour(selected_roi, hemi)
-        bpy.context.scene.cursor_location = tuple(center)
-        _addon().set_cursor_pos()
-        _addon().set_tkreg_ras(bpy.context.scene.cursor_location * 10, False)
+        # bpy.context.scene.cursor_location = tuple(center)
+        _addon().where_am_i.set_cursor_location(center)
+        # _addon().set_cursor_pos()
+        # _addon().set_tkreg_ras(bpy.context.scene.cursor_location * 10, False)
         if bpy.context.scene.slices_rotate_view_on_click:
             mu.rotate_view_to_vertice()
         # if any([mu.obj_is_cortex(o.name) for o in SearchPanel.marked_objects]):

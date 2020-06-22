@@ -28,7 +28,7 @@ from src.utils import labels_utils as lu
 from src.utils import args_utils as au
 from src.utils import freesurfer_utils as fu
 from src.preproc import anatomy as anat
-from src.preproc import connectivity
+from src.preproc import connectivity as connectivity_preproc
 
 SUBJECTS_MRI_DIR, MMVT_DIR, FREESURFER_HOME = pu.get_links()
 
@@ -1210,7 +1210,7 @@ def calc_labels_connectivity(
     first_time = True
 
     for cond_name, em in product(events_keys, extract_modes):
-        connectivity_template = connectivity.get_output_fname(
+        connectivity_template = connectivity_preproc.get_output_fname(
             subject, con_method, modality, em, '{}_{}_{}'.format('{band_name}', cond_name, con_indentifer))
         files_exist = all([op.isfile(connectivity_template.format(band_name=band)) for band in bands.keys()])
         if files_exist and not overwrite_connectivity:
@@ -1262,8 +1262,8 @@ def calc_labels_connectivity(
             print('Saving tmp connectivity file in {}'.format(tmp_con_output_fname))
             np.save(tmp_con_output_fname, con_data)
             output_fname = connectivity_template.format(band_name=band_name)
-            connectivity.save_connectivity(
-                subject, con_data, atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
+            connectivity_preproc.save_connectivity(
+                subject, con_data, atlas, con_method, connectivity_preproc.ROIS_TYPE, labels_names, [cond_name],
                 output_fname, norm_by_percentile=True, norm_percs=[1, 99], symetric_colors=True, labels=labels,
                 symetric_con=symetric_con)
             del con_data
@@ -1296,7 +1296,7 @@ def save_connectivity(subject, atlas, events, modality='meg', extract_modes=['me
         symetric_con = con_method not in ['gc']
     con_indentifer = '' if con_indentifer == '' else '_{}'.format(con_indentifer)
     for cond_name, em, band_name in product(events_keys, extract_modes, bands.keys()):
-        output_fname = connectivity.get_output_fname(
+        output_fname = connectivity_preproc.get_output_fname(
             subject, con_method, modality, em, '{}_{}{}'.format(band_name, cond_name, con_indentifer))
         if op.isfile(output_fname) and not overwrite:
             continue
@@ -1306,8 +1306,8 @@ def save_connectivity(subject, atlas, events, modality='meg', extract_modes=['me
             print('No tmp connectivity file for {} {} {} {}!'.format(con_method, band_name, cond_name, con_indentifer))
             continue
         con_data = np.load(tmp_con_input_fname)
-        connectivity.save_connectivity(
-            subject, con_data, atlas, con_method, connectivity.ROIS_TYPE, labels_names, [cond_name],
+        connectivity_preproc.save_connectivity(
+            subject, con_data, atlas, con_method, connectivity_preproc.ROIS_TYPE, labels_names, [cond_name],
             output_fname, norm_by_percentile=True, norm_percs=norm_percs, symetric_colors=True, labels=labels,
             symetric_con=symetric_con, reduce_to_3d=reduce_to_3d)
 
@@ -1419,15 +1419,15 @@ def calc_labels_connectivity_from_stc(subject, atlas, events, stc_name, meg_file
 
     first = True
     for band_ind, band_name in enumerate(bands.keys()):
-        mmvt_connectivity_output_fname = connectivity.get_output_fname(
+        mmvt_connectivity_output_fname = connectivity_preproc.get_output_fname(
             con_method, em, band_name)
         if op.isfile(mmvt_connectivity_output_fname):
            continue
         if first:
             d = utils.Bag(np.load(output_fname))
             first = False
-        connectivity.save_connectivity(
-            subject, d.con[:, :, band_ind, :], atlas, con_method, connectivity.ROIS_TYPE, d.names, events_keys,
+        connectivity_preproc.save_connectivity(
+            subject, d.con[:, :, band_ind, :], atlas, con_method, connectivity_preproc.ROIS_TYPE, d.names, events_keys,
             mmvt_connectivity_output_fname, norm_by_percentile=True, norm_percs=[1, 99],
             symetric_colors=True)
         ret = ret and op.isfile(mmvt_connectivity_output_fname)
@@ -1515,10 +1515,12 @@ def _granger_causality_parallel(p):
 
     epoch_ts, sfreq, min_order, max_order, fmin, fmax, ijs, windows_length, windows_shift = p
     C, T = epoch_ts.shape
+    T -= T % 100
     const_c = np.where(np.sum(np.diff(epoch_ts, axis=1), axis=1) == 0)[0]
-    ijs = [ij for ij in ijs if len(set(ij) & set(const_c)) == 0]
+    if len(const_c) > 0:
+        ijs = [ij for ij in ijs if len(set(ij) & set(const_c)) == 0]
     # epoch_ts = tsu.percent_change(epoch_ts)
-    windows = connectivity.calc_windows(T, windows_length, windows_shift)
+    windows = connectivity_preproc.calc_windows(T, windows_length, windows_shift)
     res = np.zeros((C, C, len(windows), max_order))
     now = time.time()
     for ord in range(min_order, max_order + 1):
@@ -5421,7 +5423,7 @@ def find_functional_rois_in_stc(
         inv_fname='', fwd_usingMEG=True, fwd_usingEEG=True, stc=None, stc_t_smooth=None, verts=None, connectivity=None,
         labels=None, verts_neighbors_dict=None, find_clusters_overlapped_labeles=True,
         save_func_labels=True, recreate_src_spacing='oct6', calc_cluster_contours=True, save_results=True,
-        clusters_output_name='', abs_max=True, modality='meg', crop_times=None, avg_stc=False, n_jobs=6):
+        clusters_output_name='', abs_max=True, modality='meg', crop_times=None, avg_stc=False, uuid='', n_jobs=6):
     import mne.stats.cluster_level as mne_clusters
 
     clusters_root_fol = op.join(MMVT_DIR, subject, modality, 'clusters')
@@ -5488,8 +5490,9 @@ def find_functional_rois_in_stc(
             if au.is_true(ret):
                 threshold *= np.power(10, 9)  # nAmp
     label_name_template_str = label_name_template.replace('*', '').replace('?', '')
-    clusters_name = '{}{}'.format(stc_name, '-{}'.format(
-        label_name_template_str) if label_name_template_str != '' else '')
+    clusters_name = '{}{}{}'.format(stc_name, '-{}'.format(
+        label_name_template_str) if label_name_template_str != '' else '', '-{}'.format(
+        uuid) if uuid != '' else '')
     clusters_fol = op.join(clusters_root_fol, clusters_name)
     # data_minmax = utils.get_max_abs(utils.min_stc(stc), utils.max_stc(stc))
     # factor = -int(utils.ceil_floor(np.log10(data_minmax)))
@@ -5584,17 +5587,19 @@ def accumulate_stc(subject, stc_org, t_from, t_to, threshold, lookup_atlas, reve
     for_time = time_axis[::-1] if reverse else time_axis
     now = time.time()
     labels_times = {}
+    count_threshold = 50
     for k, t in enumerate(for_time):
-        utils.time_to_go(now, k, len(for_time), 100)
+        # utils.time_to_go(now, k, len(for_time), 100)
         for hemi in utils.HEMIS:
             hemi_data = stc.rh_data[:, t] if hemi == 'rh' else stc.lh_data[:, t]
             verts = np.where(hemi_data >= threshold)[0]
             if len(verts) > 0:
+                # todo: take the max of data[hemi][verts, 0] and hemi_data[verts]
                 data[hemi][verts, 0] = t if set_t_as_val else hemi_data[verts]
                 if verts_labels_lookup is not None:
-                    labels = set([verts_labels_lookup[hemi].get(v, None) for v in verts])
-                    for label in labels:
-                        if label is not None and label not in labels_times:
+                    labels_count = Counter([verts_labels_lookup[hemi].get(v, None) for v in verts])
+                    for label, label_count in labels_count.items():
+                        if label is not None and label not in labels_times and label_count > count_threshold:
                             labels_times[label] = stc_org.times[t0 + t]
     data = np.concatenate([data['lh'], data['rh']])
     stc = mne.SourceEstimate(data, stc.vertices, 0, 0, subject=subject)

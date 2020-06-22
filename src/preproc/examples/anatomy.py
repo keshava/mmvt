@@ -1,6 +1,8 @@
 import os.path as op
 import argparse
 import shutil
+import os
+import glob
 
 from src.preproc import anatomy as anat
 from src.utils import utils
@@ -196,20 +198,6 @@ def recon_all(args):
     pu.run_on_subjects(args, anat.main)
 
 
-def recon_all_clinical(args):
-    # python -m src.preproc.anatomy -s nmr01395 -f recon_all
-    # --nifti_fname "/autofs/space/nihilus_001/CICS/users/noam/dicoms/67026-20200601-140131-000591"
-    # --subjects_dir "/space/megraid/clinical/MEG-MRI/seder/freesurfer" --print_only 0
-    args = anat.read_cmd_args(dict(
-        subject=args.subject,
-        function='recon-all',
-        nifti_fname='/autofs/space/nihilus_001/CICS/users/noam/dicoms/67026-20200601-140131-000591',
-        subjects_dir='/space/megraid/clinical/MEG-MRI/seder/freesurfer',
-        ignore_missing=True,
-        n_jobs=4,
-    ))
-    pu.run_on_subjects(args, anat.main)
-
 
 def pre_meg_coregistration(subject):
     # python -m src.preproc.anatomy -s nmr01391 -f create_outer_skin_surface,check_bem
@@ -224,10 +212,18 @@ def pre_meg_coregistration(subject):
 
 @utils.check_for_freesurfer
 @utils.check_for_mne
-def mne_organize_dicom(args):
-    # python -m src.preproc.examples.anatomy -s nmr01426 -f mne_organize_dicom --dicoms_fol "Prisma_fit-67026-20200618-141203-000586"
+def recon_all_clin(args):
+    # python -m src.preproc.examples.anatomy -s nmr01426 -f recon_all_clin --clin_fol clin_6966926 --dicoms_fol Prisma_fit-67026-20200618-141203-000586
     import os
-    for subject, dicoms_fol in zip(args.subject, args.dicoms_fol):
+    for subject, clin_fol, dicoms_fol in zip(args.subject, args.clin_fol, args.dicoms_fol):
+        clin_full_fol = utils.make_dir(op.join(args.clin_root, clin_fol, 'mne_dicom'))
+        memprage_fols = glob.glob(op.join(clin_full_fol, '*MEMPRAGE*'))
+        print('mne_organize_dicom output fol: {}'.format(clin_full_fol))
+        if len(memprage_fols) > 0 :
+            ret = au.is_true(input('It seems like you already have memprage folders, are you sure you want to rerun?'))
+            if not ret:
+                continue
+            utils.delete_folder_files(clin_full_fol)
         fs_dir = utils.make_dir(op.join(args.fs_root, subject))
         print('FreeSurfer output fol: {}'.format(fs_dir))
         dicoms_full_path = op.join(args.dicoms_root, dicoms_fol)
@@ -235,8 +231,31 @@ def mne_organize_dicom(args):
             print('{} does not exist!'.format(dicoms_full_path))
             continue
         rs = utils.partial_run_script(locals(), print_only=args.print_only)
-        os.chdir(fs_dir)
+        os.chdir(clin_full_fol)
         rs('mne_organize_dicom {dicoms_full_path}')
+        anat.recon_all(subject, clin_full_fol, overwrite=True, subjects_dir=args.fs_root,
+              print_only=False, n_jobs=args.n_jobs)
+        args = anat.read_cmd_args(dict(
+            subject=subject,
+            function='all,create_skull_surfaces',
+            remote_subject_dir = op.join(args.fs_root, subject),
+            n_jobs=args.n_jobs,
+        ))
+        pu.run_on_subjects(args, anat.main)
+
+
+@utils.check_for_freesurfer
+@utils.check_for_mne
+def anat_preproc_clin(args):
+    # python -m src.preproc.examples.anatomy -s nmr01426 -f anat_preproc_clin
+    for subject in args.subject:
+        args = anat.read_cmd_args(dict(
+            subject=subject,
+            function='all,create_outer_skin_surface,check_bem',
+            remote_subject_dir = op.join(args.fs_root, subject),
+            n_jobs=args.n_jobs,
+        ))
+        pu.run_on_subjects(args, anat.main)
 
 
 # https://github.com/chriskiehl/Gooey
@@ -254,9 +273,12 @@ def main():
                         default='/space/megraid/clinical/MEG-MRI/seder/freesurfer')
     parser.add_argument('--dicoms_root', help='dicoms_root', required=False,
                         default='/cluster/archive/331/siemens')
-    parser.add_argument('--dicoms_fol', help='dicoms_for', required=False, default='', type=au.str_arr_type)
+    parser.add_argument('--dicoms_fol', help='dicoms_fol', required=False, default='', type=au.str_arr_type)
+    parser.add_argument('--clin_fol', help='clin_fol', required=False, default='', type=au.str_arr_type)
+    parser.add_argument('--clin_root', help='clin_fol', required=False, default='/space/megraid/clinical/MEG-MRI/')
     parser.add_argument('--print_only', help='', required=False, default=0, type=au.is_true)
     parser.add_argument('-f', '--function', help='function name', required=True)
+    parser.add_argument('--n_jobs', help='jobs num', required=False, default=4, type=int)
     # choices=[f_name for f_name, f in globals().items() if isinstance(f, collections.Callable)
     #                                  if f_name not in ['Gooey', 'main']]
     args = utils.Bag(au.parse_parser(parser))

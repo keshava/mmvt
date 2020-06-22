@@ -96,12 +96,10 @@ def memory(args):
 
 @utils.check_for_freesurfer
 def language(args):
-        # -f language -s nmr01361 --clinical_dir clin_4090354
-    # -s nmr01353 -f clean_4d_data --fsd sycabs --nconditions 4
+    # python -m src.preproc.examples.fMRI -f language -s nmr01426 --clinical_dir clin_6966926
     if args.clinical_dir == '':
         print('You should set the clinical_dir first. Example: clin_4090354')
         return
-    # args.remote_fmri_dir = '/space/megraid/clinical/MEG-MRI/seder/freesurfer'
     clinical_root_dir = op.join(args.remote_fmri_dir, args.clinical_dir)
     if not op.isdir(clinical_root_dir):
         print('{} does not exist!'.format(clinical_root_dir))

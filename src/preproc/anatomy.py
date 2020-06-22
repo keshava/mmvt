@@ -1660,7 +1660,7 @@ def recon_all(subject, nifti_fname, convert_dicoms_to_nii=True, overwrite=False,
                 print('{} already exist! You can use the recon_all_overwrite to overwrite'.format(subject))
                 return True
             utils.delete_folder_files(subject_fol, True)
-            utils.run_command_in_new_thread(cmd, False)
+            utils.run_script(cmd, False)
         # We cannot check the output, this is running on a new thread
         return True # utils.check_if_all_necessary_files_exist(subject, get_necessary_files(), op.join(subjects_dir, subject)) #create_outer_skin_surface(subject, overwrite_seghead)
     except:

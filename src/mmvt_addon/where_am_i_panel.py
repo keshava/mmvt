@@ -382,6 +382,7 @@ def find_closest_obj(search_also_for_subcorticals=True):
 def find_closest_label(atlas=None, plot_contour=True):
     subjects_dir = mu.get_link_dir(mu.get_links_dir(), 'subjects')
     if bpy.context.scene.cursor_is_snapped:
+        print('Cursor is snapped!')
         vertex_ind, hemi = _addon().get_closest_vertex_and_mesh_to_cursor()
     else:
         closest_mesh_name, vertex_ind, _ = \

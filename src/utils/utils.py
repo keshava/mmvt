@@ -148,6 +148,19 @@ def delete_file(fname):
         os.remove(fname)
 
 
+def save_text_to_file(output_fname, output_str):
+    # print('Saving {}'.format(output_fname))
+    with open(output_fname, 'w') as output_file:
+        print(output_str, file=output_file)
+
+
+def save_arr_to_file(lines, output_fname, header=''):
+    if header != '':
+        lines = [header] + lines
+    output_str = '\n'.join(lines)
+    save_text_to_file(output_fname, output_str)
+
+
 def get_scalar_map(x_min, x_max, color_map='jet'):
     import matplotlib.pyplot as plt
     import matplotlib.colors

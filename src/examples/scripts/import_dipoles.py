@@ -252,10 +252,10 @@ def draw(self, context):
     first_dipole = '{}_{}'.format(bpy.context.scene.dipoles_names, ScriptsPanel.dipoles_dict[
         bpy.context.scene.dipoles_names][0][0])
     layout.prop(context.scene, 'dipoles_color', text="")
-    if (len(ScriptsPanel.dipoles_dict[bpy.context.scene.dipoles_names]) > 1):
+    if len(ScriptsPanel.dipoles_dict[bpy.context.scene.dipoles_names]) > 1:
         layout.prop(context.scene, 'dipoles_sub_group', text="")
-    if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois: #or \
-            #first_dipole in ScriptsPanel.dipoles_rois:
+    if ScriptsPanel.dipoles_rois is not None and bpy.context.scene.dipoles_names in ScriptsPanel.dipoles_rois or \
+            first_dipole in ScriptsPanel.dipoles_rois:
         layout.label(text='Dipole\'s ROIs:')
         box = layout.box()
         col = box.column()
