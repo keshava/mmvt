@@ -1515,7 +1515,7 @@ def _granger_causality_parallel(p):
 
     epoch_ts, sfreq, min_order, max_order, fmin, fmax, ijs, windows_length, windows_shift = p
     C, T = epoch_ts.shape
-    T -= T % 100
+    # T -= T % 100
     const_c = np.where(np.sum(np.diff(epoch_ts, axis=1), axis=1) == 0)[0]
     if len(const_c) > 0:
         ijs = [ij for ij in ijs if len(set(ij) & set(const_c)) == 0]

@@ -286,17 +286,50 @@ def _calc_func_rois_vertives_lookup_parallel(labels_fol):
 
 
 def calc_rois_connectivity(
-        subject, clips, modality, inverse_method, min_order=1, max_order=20, crop_times=(-0.5, 1),
+        subject, clips, modality, atlas, inverse_method, min_order=1, max_order=20, crop_times=(-0.5, 1),
         onset_time=2, windows_length=0.1, windows_shift=0.05, overwrite=False, n_jobs=4):
-    # check_connectivity_labels(clips['ictal'], modality, inverse_method, n_jobs=n_jobs)
     windows_length *= 1000
     windows_shift *= 1000
-    baseline_epochs_fname = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'baseline-epo.fif')
-    baseline_epochs = epi_utils.combine_windows_into_epochs(clips['baseline'], baseline_epochs_fname)
-    params = [(subject, clip_fname, baseline_epochs, modality, inverse_method, min_order, max_order, crop_times,
-               onset_time, windows_length, windows_shift, overwrite, 1 if n_jobs > 1 else n_jobs)
-              for clip_fname in clips['ictal']]
-    utils.run_parallel(calc_clip_rois_connectivity, params, n_jobs)
+    params = []
+    clusters_fol = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'clusters')
+    fwd_usingMEG, fwd_usingEEG = meg.get_fwd_flags(modality)
+    bands = {'all': [None, None]}
+    crop_times = [t + onset_time for t in crop_times]
+    use_functional_rois_atlas = False
+    conds = [utils.namebase(clip_fname) for clip_fname in clips['ictal']]
+    conds.extend(['{}_baseline'.format(utils.namebase(clip_fname)) for clip_fname in clips['baseline']])
+    if not use_functional_rois_atlas:
+        labels = lu.read_labels(subject, SUBJECTS_DIR, atlas)
+        func_atlas = atlas
+    for clip_fname, cond in zip(clips['ictal'] + clips['baseline'], conds):
+        if use_functional_rois_atlas:
+            check_connectivity_labels(clips['ictal'], modality, inverse_method, n_jobs=n_jobs)
+            labels_fol = op.join(
+                clusters_fol, '{}-epilepsy-{}-{}-{}-amplitude-zvals'.format(
+                    subject, inverse_method, modality, utils.namebase(clip_fname)))
+            labels = lu.read_labels_files(subject, labels_fol, n_jobs=n_jobs)
+            # for connectivity we need shorter names
+            labels = epi_utils.shorten_labels_names(labels)
+            func_atlas = utils.namebase(clip_fname)
+        params.append((
+            subject, clip_fname, utils.namebase(clip_fname), func_atlas, labels, inverse_method, fwd_usingMEG,
+            fwd_usingEEG, crop_times, bands, min_order, max_order, windows_length, windows_shift, overwrite, 1))
+
+    utils.run_parallel(_calc_clip_rois_connectivity_parallel, params, n_jobs)
+
+
+def _calc_clip_rois_connectivity_parallel(p):
+    (subject, clip_fname, cond, atlas, labels, inverse_method, fwd_usingMEG,
+     fwd_usingEEG, crop_times, bands, min_order, max_order, windows_length, windows_shift, overwrite,
+     n_jobs) = p
+    clip = mne.read_evokeds(clip_fname)[0]
+    meg.calc_labels_connectivity(
+        subject, atlas, {cond: 1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
+        pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
+        con_method='gc', overwrite_connectivity=overwrite, crops_times=crop_times,
+        epochs=clip, bands=bands, con_indentifer='func_rois', labels=labels,
+        min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
+        windows_shift=windows_shift, n_jobs=n_jobs)
 
 
 def check_connectivity_labels(ictal_clips, modality, inverse_method, n_jobs=1):
@@ -312,37 +345,6 @@ def check_connectivity_labels(ictal_clips, modality, inverse_method, n_jobs=1):
         else:
             print('{} labels'.format(len(labels)))
         connectivity.calc_lables_info(subject, labels=labels)
-
-
-def calc_clip_rois_connectivity(p):
-    (subject, clip_fname, baseline_epochs, modality, inverse_method, min_order, max_order, crop_times, onset_time,
-     windows_length, windows_shift, overwrite, n_jobs) = p
-    clusters_fol = op.join(MMVT_DIR, subject, meg.modality_fol(modality), 'clusters')
-    fwd_usingMEG, fwd_usingEEG = meg.get_fwd_flags(modality)
-    bands = {'all': [None, None]}
-    crop_times = [t + onset_time for t in crop_times]
-    labels_fol = op.join(
-        clusters_fol, '{}-epilepsy-{}-{}-{}-amplitude-zvals'.format(
-            subject, inverse_method, modality, utils.namebase(clip_fname)))
-    use_functional_rois_atlas = False
-    if use_functional_rois_atlas:
-        labels = lu.read_labels_files(subject, labels_fol, n_jobs=n_jobs)
-        # for connectivity we need shorter names
-        labels = epi_utils.shorten_labels_names(labels)
-        atlas = utils.namebase(clip_fname)
-    else:
-        labels = lu.read_labels(subject, SUBJECTS_DIR, 'laus125')
-        atlas = 'laus125'  # utils.namebase(clip_fname)
-    ictal_evoked = mne.read_evokeds(clip_fname)[0]
-    for clip, cond in zip([ictal_evoked, baseline_epochs],
-                          [utils.namebase(clip_fname), '{}_baseline'.format(utils.namebase(clip_fname))]):
-        meg.calc_labels_connectivity(
-            subject, atlas, {cond: 1}, subjects_dir=SUBJECTS_DIR, mmvt_dir=MMVT_DIR, inverse_method=inverse_method,
-            pick_ori='normal', fwd_usingMEG=fwd_usingMEG, fwd_usingEEG=fwd_usingEEG,
-            con_method='gc', overwrite_connectivity=overwrite, crops_times=crop_times,
-            epochs=clip, bands=bands, con_indentifer='func_rois', labels=labels,
-            min_order=min_order, max_order=max_order, downsample=2, windows_length=windows_length,
-            windows_shift=windows_shift, n_jobs=n_jobs)
 
 
 def normalize_connectivity(subject, ictals_clips, modality, divide_by_baseline_std, threshold,
@@ -442,7 +444,7 @@ def main(subject, run_num, clips_dict, raw_fname, empty_fname, bad_channels, mod
     #     subject, clips_dict['ictal'], modality, seizure_times, windows_length, windows_shift, mean_baseline,
     #     inverse_method, n_jobs)
     calc_rois_connectivity(
-        subject, clips_dict, modality, inverse_method, min_order, max_order, con_crop_times, onset_time,
+        subject, clips_dict, modality, atlas, inverse_method, min_order, max_order, con_crop_times, onset_time,
         windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
     # # normalize_connectivity(
     #     subject, clips_dict['ictal'], modality, divide_by_baseline_std=False,
