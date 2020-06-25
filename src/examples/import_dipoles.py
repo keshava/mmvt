@@ -196,14 +196,16 @@ def calc_distances_from_rois(subject, dist_threshold=0.05):
 
 
 if __name__ == '__main__':
-    subject = 'nmr01391'
-    dip_fname = op.join(MEG_DIR, subject, 'run3_Ictal.dip') # _ictal
+    subject = 'nmr01426'# 'nmr01391'
+    atlas = 'aparc.DKTatlas40' # 'laus125'
+    # dip_fname = op.join(MEG_DIR, subject, 'run3_Ictal.dip') # _ictal
+    dip_fname = '/autofs/space/frieda_003/users/valia/epilepsy_clin/6966926_1426/200618/1426_EPI_lang.dip'
     # dip_fname = op.join(MEG_DIR, subject, 'EPI.dip')  # _ictal
     n_jobs = utils.get_n_jobs(20)
     n_jobs = n_jobs if n_jobs > 0 else 4
     print('jobs: {}'.format(n_jobs))
     #plot_dipole(dip_fname, subject)
-    # dipoles = parse_dip_file(dip_fname)
-    # mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
-    calc_distances_from_rois(subject)
-    # calc_dipoles_rois(subject, atlas='laus125', overwrite=True, n_jobs=n_jobs)
+    dipoles = parse_dip_file(dip_fname)
+    mri_dipoles = convert_dipoles_to_mri_space(subject, dipoles, overwrite=True)
+    # calc_distances_from_rois(subject)
+    calc_dipoles_rois(subject, atlas=atlas, overwrite=True, n_jobs=n_jobs)

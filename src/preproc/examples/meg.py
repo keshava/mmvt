@@ -1,6 +1,7 @@
 import argparse
 import os.path as op
 import shutil
+import glob
 
 from src.preproc import meg as meg
 from src.utils import utils
@@ -346,6 +347,53 @@ def calc_msit_functional_rois(args):
     meg.call_main(_args)
 
 
+def pre_meg_coregistration(subject):
+    # setenv SUBJECT subject
+    # mne_setup_mri
+    # cd raw_folder
+    # mne_analyze: 1) load pial 2) load dig points 3) adjust -> coordinate alignment, 4) viewer window
+    # 5) set fiducials, 6) Options -> Show digitizer data 7) Align using fiducials 8) ICP 10 steps
+    # 9) If satisfied, press Save mri set in the Adjust coordinate alignment window.
+    pass
+
+
+def meg_clin(args):
+    # python -m src.preproc.examples.meg -s nmr01426 -f meg_clin
+    from src.examples.epilepsy import pipeline
+    from src.preproc import eeg
+    fs_root = '/space/megraid/clinical/MEG-MRI/seder/freesurfer'
+    meg_root = '/autofs/space/frieda_003/users/valia/epilepsy_clin'
+    overwrite = True
+    run_num = 1
+    modality = 'meg'
+    for subject in args.subject:
+        subject_meg_clin_fol = '6966926_1426'
+        subject_remote_dir = op.join(fs_root, subject)
+        raw_fname = op.join(meg_root, subject_meg_clin_fol, '200618/6966926_01_raw_ssst.fif')
+        bad_channels = ['MEG{}'.format(c.strip()) for c in
+            '1213, 1223, 0941, 1411, 1231, 0142, 0733, 0721'.split(',')]
+        bad_channels.extend(['EEG{}'.format(c.strip()) for c in
+            '029, 040, 050, 049, 041, 051, 065'.split(',')])
+        empty_fname = utils.select_one_file(glob.glob(op.join(meg_root, subject_meg_clin_fol, '**', '*empty*.fif')))
+        if not op.isfile(empty_fname):
+            raise Exception('No empty room!')
+        pipeline.calc_fwd_inv(subject, modality, run_num, raw_fname, empty_fname, bad_channels,
+                              overwrite_inv=overwrite, overwrite_fwd=overwrite, n_jobs=args.n_jobs)
+        pipeline.check_inv_fwd(subject, modality, run_num)
+        # -s nmr01426 -f read_sensors_layout --raw_template "/autofs/space/frieda_003/users/valia/epilepsy_clin/6966926_1426/200618/*raw*.fif"
+        args = eeg.read_cmd_args(dict(
+            subject=subject,
+            mri_subject=subject,
+            function='read_sensors_layout',
+            raw_fname=raw_fname,
+        ))
+        eeg.call_main(args)
+
+        clin_fif_fname =
+        pipeline.calc_amplitude(subject, modality, windows_fnames, inverse_method='dSPM', downsample_r=1, overwrite=False,
+                   rename=True, n_jobs=4)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MMVT')
     parser.add_argument('-s', '--subject', help='subject name', required=True, type=au.str_arr_type)
@@ -357,6 +405,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--function', help='function name', required=True)
     parser.add_argument('-r', '--real_function', help='function name', required=False, default='all')
     parser.add_argument('--overwrite', required=False, default=False, type=au.is_true)
+    parser.add_argument('--n_jobs', help='jobs num', required=False, default=4, type=int)
     args = utils.Bag(au.parse_parser(parser))
     if not args.mri_subject:
         args.mri_subject = args.subject

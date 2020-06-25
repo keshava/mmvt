@@ -349,13 +349,43 @@ def check_connectivity_labels(ictal_clips, modality, inverse_method, n_jobs=1):
         connectivity.calc_lables_info(subject, labels=labels)
 
 
-def normalize_connectivity(subject, ictals_clips, modality, divide_by_baseline_std, threshold,
+def calc_baseline_connectivity(ictals_clips, connectivity_template):
+    baseline_mat1, baseline_mat2 = None, None
+    for clip_fname in ictals_clips['baseline']:
+        clip_name = utils.namebase(clip_fname)
+        con_ictal_fname = connectivity_template.format(clip_name=clip_name)
+        d = np.load(con_ictal_fname) # C, W, O = d['con_values'].shape
+        con_values = connectivity.find_best_ord(d['con_values'], False)
+        con_values2 = connectivity.find_best_ord(d['con_values2'], False)
+        if baseline_mat1 is None:
+            baseline_mat1 = con_values.copy()
+            baseline_mat2 = con_values2.copy()
+        else:
+            baseline_mat1 = np.concatenate((baseline_mat1, con_values), axis=1)
+            baseline_mat2 = np.concatenate((baseline_mat2, con_values2), axis=1)
+    return baseline_mat1, baseline_mat2
+
+
+def normalize_connectivity(subject, ictals_clips, modality, atlas, divide_by_baseline_std, threshold,
                            reduce_to_3d, overwrite=False, n_jobs=6):
-    connectivity_template = connectivity.get_output_fname(subject, 'gc', modality, 'mean_flip', 'all_{}_func_rois')
+    baseline_con_fname = op.join(MMVT_DIR, subject, connectivity, '{}_baseline_gc.npy'.format(modality))
+    connectivity_template = op.join(MMVT_DIR, subject, 'connectivity', '{}_all_{}_{}_gc.npz'.format(
+        modality, '{clip_name}', atlas))
+    if not op.isfile(baseline_con_fname) or overwrite:
+        baseline_con_values1, baseline_con_values2 = calc_baseline_connectivity(ictals_clips, connectivity_template)
+        np.savez(baseline_con_fname, con_values=baseline_con_values1, con_values2=baseline_con_values2)
+    else:
+        d_baseline = np.load(baseline_con_fname)
+        baseline_con_values1, baseline_con_values2 = d_baseline['con_values'], d_baseline['con_values2']
+
+    # https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.stats.ttest_1samp.html
+    import scipy.stats
+    t, p = scipy.stats.ttest_1samp
+
     for clip_fname in ictals_clips:
         clip_name = utils.namebase(clip_fname)
         output_fname = '{}_zvals.npz'.format(connectivity_template.format(clip_name)[:-4])
-        con_ictal_fname = connectivity_template.format(clip_name)
+        con_ictal_fname = connectivity_template.format(clip_name=clip_name)
         con_baseline_fname = connectivity_template.format('{}_baseline'.format(clip_name))
         if not op.isfile(con_ictal_fname) or not op.isfile(con_baseline_fname):
             for fname in [f for f in [con_ictal_fname, con_baseline_fname] if not op.isfile(f)]:
@@ -445,12 +475,12 @@ def main(subject, run_num, clips_dict, raw_fname, empty_fname, bad_channels, mod
     # calc_accumulate_stc_as_time(
     #     subject, clips_dict['ictal'], modality, seizure_times, windows_length, windows_shift, mean_baseline,
     #     inverse_method, n_jobs)
-    calc_rois_connectivity(
-        subject, clips_dict, modality, atlas, inverse_method, min_order, max_order, con_crop_times, onset_time,
-        windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
-    # # normalize_connectivity(
-    #     subject, clips_dict['ictal'], modality, divide_by_baseline_std=False,
-    #     threshold=0.5, reduce_to_3d=True, overwrite=False, n_jobs=n_jobs)
+    # calc_rois_connectivity(
+    #     subject, clips_dict, modality, atlas, inverse_method, min_order, max_order, con_crop_times, onset_time,
+    #     windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
+    normalize_connectivity(
+        subject, clips_dict, modality, atlas, divide_by_baseline_std=False,
+        threshold=0.5, reduce_to_3d=True, overwrite=False, n_jobs=n_jobs)
     # plot_connectivity(subject, clips_dict, modality, inverse_method)
     pass
 

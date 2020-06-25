@@ -198,18 +198,6 @@ def recon_all(args):
     pu.run_on_subjects(args, anat.main)
 
 
-
-def pre_meg_coregistration(subject):
-    # python -m src.preproc.anatomy -s nmr01391 -f create_outer_skin_surface,check_bem
-    # setenv SUBJECT subject
-    # mne_setup_mri
-    # cd raw_folder
-    # mne_analyze: 1) load pial 2) load dig points 3) adjust -> coordinate alignment, 4) viewer window
-    # 5) set fiducials, 6) Options -> Show digitizer data 7) Align using fiducials 8) ICP 10 steps
-    # 9) If satisfied, press Save mri set in the Adjust coordinate alignment window.
-    pass
-
-
 @utils.check_for_freesurfer
 @utils.check_for_mne
 def recon_all_clin(args):

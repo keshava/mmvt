@@ -10,7 +10,6 @@ from itertools import product
 import traceback
 import mne
 import types
-import scipy.io as sio
 import nibabel as nib
 from collections import Counter, OrderedDict
 import inspect
@@ -4461,12 +4460,14 @@ def get_info_fname(subject, info_fname=''):
 
 
 def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, overwrite_sensors=False,
-                        raw_template='', trans_file='', info_fname='', info=None, read_info_file=True):
+                        raw_template='', trans_file='', info_fname='', info=None, read_info_file=True,
+                        raw_fname=''):
     from mne.io import _loc_to_coil_trans
     from mne.forward import _create_meg_coils
     from mne.viz._3d import _sensor_shape
     from mne.transforms import apply_trans
 
+    raw_fname = get_raw_fname(args.raw_fname)
     if pick_meg:
         all_exist = all([op.isfile(op.join(
             MMVT_DIR, mri_subject, 'meg', 'meg_{}_sensors_positions.npz'.format(sensor_type)))
@@ -4505,10 +4506,11 @@ def read_sensors_layout(mri_subject, args=None, pick_meg=True, pick_eeg=False, o
     if info is None:
         info_fname, info_exist = get_info_fname(info_fname)
         if not info_exist or not read_info_file:
-            raw_fname, raw_exist = locating_meg_file(RAW, raw_template)
-            if not raw_exist:
-                print('No raw or raw info file!')
-                return False
+            if not op.isfile(raw_fname):
+                raw_fname, raw_exist = locating_meg_file(RAW, raw_template)
+                if not raw_exist:
+                    print('No raw or raw info file!')
+                    return False
             raw = mne.io.read_raw_fif(raw_fname)
             info = raw.info
             utils.save(info, info_fname)
@@ -6023,6 +6025,7 @@ def sensors_time_average(subject, dt=10, overwrite=False):
 
 def load_fieldtrip_volumetric_data(subject, data_name, data_field_name,
                                    overwrite_nii_file=False, overwrite_surface=False, overwrite_stc=False):
+    import scipy.io as sio
     volumetric_meg_fname = op.join(MEG_DIR, subject, '{}.nii'.format(data_name))
     if not op.isfile(volumetric_meg_fname) or overwrite_nii_file:
         fname = op.join(MEG_DIR, subject, '{}.mat'.format(data_name))
@@ -6245,7 +6248,8 @@ def main(tup, remote_subject_dir, org_args, flags=None):
     if utils.should_run(args, 'read_sensors_layout'):
         flags['read_sensors_layout'] = read_sensors_layout(
             mri_subject, args, overwrite_sensors=args.overwrite_sensors, raw_template=args.raw_template,
-            trans_file=args.trans_fname, info_fname=args.info_fname, read_info_file=args.read_info_file)
+            trans_file=args.trans_fname, info_fname=args.info_fname, read_info_file=args.read_info_file,
+            raw_fname=args.raw_fname)
 
     # flags: calc_evoked
     flags, evoked, epochs = calc_evokes_wrapper(subject, conditions, args, flags, mri_subject=mri_subject)

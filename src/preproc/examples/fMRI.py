@@ -117,8 +117,9 @@ def language(args):
     par_fol = utils.make_dir(op.join(remote_mri_dir, subject, 'par'))
     par_files = glob.glob(op.join(par_fol, '*.par'))
     sessions = sorted([utils.find_num_in_str(utils.namebase(d))[0] for d in fmri_fols])
-    fmri_fols = [fol for fol, ses in zip(fmri_fols, sessions) if int(ses) not in args.skip]
-    sessions = [s for s in sessions if int(s) not in args.skip]
+    if args.skip != '':
+        fmri_fols = [fol for fol, ses in zip(fmri_fols, sessions) if int(ses) not in args.skip]
+        sessions = [s for s in sessions if int(s) not in args.skip]
     # Warning: You first need to put the original ones in the following folder:
     if len(par_files) == 0:
         print('\n *** Please put the original par files in {} and rerun ***'.format(
