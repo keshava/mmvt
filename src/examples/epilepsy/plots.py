@@ -6,6 +6,12 @@ import os.path as op
 import numpy as np
 from itertools import product
 
+try:
+    import mplcursors
+    MPLCURSORS_EXIST = True
+except:
+    MPLCURSORS_EXIST=False
+
 from src.preproc import eeg
 from src.preproc import meg
 from src.utils import utils
@@ -131,7 +137,7 @@ def plot_connectivity(subject, condition, modality, high_freq=120, con_method='w
         con_indentifer = 'func_rois'
     figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'epilepsy-figures', 'connectivity'))
     for band_name in bands.keys():
-        d_cond, d_baseline, x_cond, x_baseline, names, stc_data, stc_times = calc_cond_and_basline(
+        _, _, x_cond, x_baseline, names, stc_data, stc_times = calc_cond_and_basline(
             subject, con_method, modality, condition, extract_mode, band_name, con_indentifer, use_zvals, nodes_names,
             nodes_names_includes_hemi, cond_name=cond_name, stc_subfolder=stc_subfolder, stc_name=stc_name,
             stc_downsample=stc_downsample)
@@ -160,6 +166,66 @@ def plot_data(x_cond, x_baseline, x_axis, stc_data, condition, names):
         plt.show()
         # plt.savefig(op.join(figures_fol, '{}-{}'.format(condition, cond)), dpi=300)
         # plt.close()
+
+
+def plot_pvalues(clip_name, time_axis, sig_con1, sig_con2, names1, names2, include=None, figures_fol=''):
+
+    def update_annot(sel):
+        sel.annotation.set_text(annot_labels[sel.target.index])
+
+    conn_conditions = list(product(['within', 'between'], utils.HEMIS))
+    colors = ['c', 'b', 'k', 'm']
+    annot_labels = []
+    dir_name = {'rh':'right', 'lh':'left'}
+
+    plt.figure()
+    for t in range(len(sig_con1)):
+        con_names = np.concatenate((names1[t], names2[t]))
+        con_pvals = np.concatenate((sig_con1[t], sig_con2[t]))
+        no_ord_con_names = np.array([con_name.split(' ')[0] for con_name in con_names])
+
+        for conn_type, color in zip(conn_conditions, colors):
+            if conn_type[0] == 'within':
+                continue
+            mask = epi_utils.filter_connections_by_type(no_ord_con_names, conn_type, include=include)
+            # marker = '+' if conn_type[0] == 'within' else 'x'
+            marker = '<' if conn_type == ('between', 'lh') else '>'
+            delta = -0.005 if conn_type == ('between', 'lh') else 0.005
+            label_title = ' '.join(conn_type) if conn_type[0] == 'within' else '{} to {}'.format(
+                dir_name[utils.other_hemi(conn_type[1])], dir_name[conn_type[1]])
+            top_con = sorted([(
+                int(p * 100)/100., name) for p, name in zip(con_pvals[mask], no_ord_con_names[mask])])[::-1][:5]
+            plt.scatter(np.ones(sum(mask)) * (time_axis[t] + delta), con_pvals[mask], marker=marker, color=color,
+                label=label_title)
+            annot_labels.extend(no_ord_con_names[mask])
+            if time_axis[t] <= 0.1:
+                print('{:.2f}s {}'.format(time_axis[t], label_title))
+                print(['{}: {:.2f}'.format(name, tval) for tval, name in top_con])
+
+    all_handles, all_labels = plt.gca().get_legend_handles_labels()
+    labels, handles = [], []
+    for l, h in zip(all_labels, all_handles):
+        if l not in labels:
+            labels.append(l)
+            handles.append(h)
+
+    if MPLCURSORS_EXIST:
+        cursor = mplcursors.cursor(all_handles)# multiple=True) #hover=True)
+        cursor.connect("add", lambda sel: update_annot(sel))
+
+    # plt.legend(handles, labels, loc='upper right', fancybox=True, framealpha=0.5) #, bbox_to_anchor=(1, 1))
+    plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -0.05),
+          fancybox=True, shadow=True, ncol=2)
+    plt.subplots_adjust(left=0.1, bottom=0.13, right=0.97, top=0.93)
+    plt.title(clip_name.replace('_', ' '))
+    # plt.xlabel('Time (s)')
+    plt.ylabel('Granger Causality ictal-baseline ')
+    # if figures_fol == '':
+    plt.show()
+    # else:
+        # plt.savefig(op.join(figures_fol, '{}-gc.jpg'.format(clip_name)))
+        # plt.close()
+    print('sdf')
 
 
 def plot_norm_data(x_cond, x_baseline, con_names, condition, threshold, nodes_names, stc_data, stc_times, windows_len=100,

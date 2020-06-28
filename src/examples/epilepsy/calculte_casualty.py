@@ -354,6 +354,7 @@ def calc_baseline_connectivity(ictals_clips, connectivity_template):
     for clip_fname in ictals_clips['baseline']:
         clip_name = utils.namebase(clip_fname)
         con_ictal_fname = connectivity_template.format(clip_name=clip_name)
+        print('concatenate {}'.format(utils.namebase(clip_fname)))
         d = np.load(con_ictal_fname) # C, W, O = d['con_values'].shape
         con_values = connectivity.find_best_ord(d['con_values'], False)
         con_values2 = connectivity.find_best_ord(d['con_values2'], False)
@@ -367,45 +368,78 @@ def calc_baseline_connectivity(ictals_clips, connectivity_template):
 
 
 def normalize_connectivity(subject, ictals_clips, modality, atlas, divide_by_baseline_std, threshold,
-                           reduce_to_3d, overwrite=False, n_jobs=6):
-    baseline_con_fname = op.join(MMVT_DIR, subject, connectivity, '{}_baseline_gc.npy'.format(modality))
+                           reduce_to_3d, time_axis=None, overwrite=False, n_jobs=6):
+    # https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.stats.ttest_1samp.html
+    import scipy.stats # t, p = scipy.stats.ttest_1samp
+    import matplotlib.pyplot as plt
+    calc_method = 'baseline_correction'
+    top_k=5
+    include = None #('superiorfrontal', 'parstriangularis', 'rostralmiddlefrontal') #, 'insula')
+    baseline_con_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}_baseline_{}_gc.npz'.format(modality, atlas))
     connectivity_template = op.join(MMVT_DIR, subject, 'connectivity', '{}_all_{}_{}_gc.npz'.format(
         modality, '{clip_name}', atlas))
+    figures_fol = utils.make_dir(op.join(MMVT_DIR, subject, 'figures', 'gc'))
     if not op.isfile(baseline_con_fname) or overwrite:
         baseline_con_values1, baseline_con_values2 = calc_baseline_connectivity(ictals_clips, connectivity_template)
+        print('Saving baseline connectivity {}'.format(baseline_con_fname))
         np.savez(baseline_con_fname, con_values=baseline_con_values1, con_values2=baseline_con_values2)
     else:
+        print('Loading baseline connectivity {}'.format(baseline_con_fname))
         d_baseline = np.load(baseline_con_fname)
         baseline_con_values1, baseline_con_values2 = d_baseline['con_values'], d_baseline['con_values2']
 
-    # https://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.stats.ttest_1samp.html
-    import scipy.stats
-    t, p = scipy.stats.ttest_1samp
-
-    for clip_fname in ictals_clips:
+    for clip_fname in ictals_clips['ictal']:
         clip_name = utils.namebase(clip_fname)
-        output_fname = '{}_zvals.npz'.format(connectivity_template.format(clip_name)[:-4])
-        con_ictal_fname = connectivity_template.format(clip_name=clip_name)
-        con_baseline_fname = connectivity_template.format('{}_baseline'.format(clip_name))
-        if not op.isfile(con_ictal_fname) or not op.isfile(con_baseline_fname):
-            for fname in [f for f in [con_ictal_fname, con_baseline_fname] if not op.isfile(f)]:
-                print('{} is missing!'.format(fname))
-            continue
-        print('normalize_connectivity: {}:'.format(clip_name))
-        d_ictal = utils.Bag(np.load(con_ictal_fname, allow_pickle=True))
-        d_baseline = utils.Bag(np.load(con_baseline_fname, allow_pickle=True))
-        if reduce_to_3d:
-            d_ictal.con_values = connectivity.find_best_ord(d_ictal.con_values, False)
-            d_ictal.con_values2 = connectivity.find_best_ord(d_ictal.con_values2, False)
-            d_baseline.con_values = connectivity.find_best_ord(d_baseline.con_values, False)
-            d_baseline.con_values2 = connectivity.find_best_ord(d_baseline.con_values2, False)
-        d_ictal.con_values = epi_utils.norm_values(
-            d_baseline.con_values, d_ictal.con_values, divide_by_baseline_std, threshold, True)
-        if 'con_values2' in d_baseline:
-            d_ictal.con_values2 = epi_utils.norm_values(
-                d_baseline.con_values2, d_ictal.con_values2, divide_by_baseline_std, threshold, True)
-        print('Saving norm connectivity in {}'.format(output_fname))
-        np.savez(output_fname, **d_ictal)
+        print('\n\nAnalyzing {}'.format(clip_name))
+        output_fname = op.join(MMVT_DIR, subject, 'connectivity', '{}_{}_{}_sig_con.pkl'.format(
+            modality, clip_name, atlas))
+        if False: #op.isfile(output_fname) and not overwrite:
+            sig_con1, sig_con2, names1, names2 = utils.load(output_fname)
+        else:
+            con_ictal_fname = connectivity_template.format(clip_name=clip_name)
+            d_ictal = utils.Bag(np.load(con_ictal_fname, allow_pickle=True))
+            con_values1 = connectivity.find_best_ord(d_ictal.con_values, False)
+            con_values2 = connectivity.find_best_ord(d_ictal.con_values2, False)
+            # names = np.concatenate((d_cond['con_names'][mask1], d_cond['con_names2'][mask2]))
+            C, T = con_values1.shape
+            sig_con1, sig_con2, names1, names2 = [[]] * T, [[]] * T, [[]] * T, [[]] * T
+            for t in range(T):
+                inds = np.where(con_values1[:, t] < con_values2[:, t])
+                con_values1[inds, t] = 0
+                inds2 = np.where(con_values2[:, t] < con_values1[:, t])
+                con_values2[inds2, t] = 0
+
+                if calc_method == 'ttest_1samp':
+                    res1 = scipy.stats.ttest_1samp(baseline_con_values1, con_values1[:, t], axis=1)[0]
+                    res2 = scipy.stats.ttest_1samp(baseline_con_values2, con_values2[:, t], axis=1)[0]
+                elif calc_method == 'zvals':
+                    res1 = (con_values1[:, t] - baseline_con_values1.mean(1)) / baseline_con_values1.std(1)
+                    res2 = (con_values2[:, t] - baseline_con_values2.mean(1)) / baseline_con_values2.std(1)
+                elif calc_method == 'baseline_correction':
+                    res1 = (con_values1[:, t] - baseline_con_values1.mean(1))
+                    res2 = (con_values2[:, t] - baseline_con_values2.mean(1))
+                if include is None:
+                    mask1 = np.where(res1 > sorted(res1)[-top_k])[0]
+                    mask2 = np.where(res2 > sorted(res2)[-top_k])[0]
+                else:
+                    mask1 = np.where(res1 > 0)[0] # sorted(ttest_res1)[-top_k])[0]
+                    mask2 = np.where(res2 > 0)[0] #sorted(ttest_res2)[-top_k])[0]
+                sig_con1[t] = res1[mask1]
+                sig_con2[t] = res2[mask2]
+                names1[t] = d_ictal['con_names'][mask1]
+                names2[t] = d_ictal['con_names'][mask2]
+                # print('Time {}, x->y {} connections > {}, y->x {} connections > {}'.format(
+                #     t, len(sig_con1[t]), p_val_threshold, len(sig_con2[t]), p_val_threshold))
+            print('Saving results in {}'.format(output_fname))
+            utils.save((sig_con1, sig_con2, names1, names2), output_fname)
+        plots.plot_pvalues(clip_name, time_axis, sig_con1, sig_con2, names1, names2, include, figures_fol)
+        # d_ictal.con_values = epi_utils.norm_values(
+        #     d_baseline.con_values, d_ictal.con_values, divide_by_baseline_std, threshold, True)
+        # if 'con_values2' in d_baseline:
+        #     d_ictal.con_values2 = epi_utils.norm_values(
+        #         d_baseline.con_values2, d_ictal.con_values2, divide_by_baseline_std, threshold, True)
+        # print('Saving norm connectivity in {}'.format(output_fname))
+        # np.savez(output_fname, **d_ictal)
 
 
 def plot_connectivity(subject, clips_dict, modality, inverse_method):
@@ -464,6 +498,7 @@ def calc_fwd_inv(subject, run_num, modality, raw_fname, empty_fname, bad_channel
 def main(subject, run_num, clips_dict, raw_fname, empty_fname, bad_channels, modality, inverse_method, downsample_r,
          seizure_times, windows_length, windows_shift, mean_baseline, atlas, min_cluster_size, min_order, max_order,
          con_windows_length, con_windows_shift, con_crop_times, onset_time, overwrite=False, n_jobs=4):
+    con_windows = calc_windows(con_crop_times, windows_length, windows_shift)
     # pre_processing(subject, modality, atlas, empty_fname, overwrite, n_jobs)
     # calc_stcs(subject, modality, clips_dict, inverse_method, downsample_r, overwrite=overwrite, n_jobs=n_jobs)
     # calc_stc_zvals(subject, modality, clips_dict['ictal'], inverse_method, overwrite=True, n_jobs=n_jobs)
@@ -480,7 +515,7 @@ def main(subject, run_num, clips_dict, raw_fname, empty_fname, bad_channels, mod
     #     windows_length, windows_shift, overwrite=True, n_jobs=n_jobs)
     normalize_connectivity(
         subject, clips_dict, modality, atlas, divide_by_baseline_std=False,
-        threshold=0.5, reduce_to_3d=True, overwrite=False, n_jobs=n_jobs)
+        threshold=0.5, reduce_to_3d=True, time_axis=np.mean(con_windows, 1), overwrite=False, n_jobs=n_jobs)
     # plot_connectivity(subject, clips_dict, modality, inverse_method)
     pass
 
@@ -490,6 +525,7 @@ if __name__ == '__main__':
     n_jobs = n_jobs if n_jobs >= 1 else 4
     print('{} jobs'.format(n_jobs))
     fif_files, clips_dict = [], {}
+    atlas = 'aparc.DKTatlas' # 'laus125'
     run_num = 3
 
     subject, remote_subject_dir, meg_fol, bad_channels, raw_fname, empty_room_fname = init_nmr01391()
@@ -500,5 +536,5 @@ if __name__ == '__main__':
 
     main(subject, run_num, clips_dict, raw_fname, empty_room_fname, bad_channels, modality='meg',inverse_method='MNE',
          downsample_r=2, seizure_times=(-0.2, .5), windows_length=0.1, windows_shift=0.05, mean_baseline=10,
-         atlas='laus125', min_cluster_size=50, min_order=1, max_order=20, con_windows_length=100, con_windows_shift=10,
+         atlas=atlas, min_cluster_size=50, min_order=1, max_order=20, con_windows_length=100, con_windows_shift=10,
          con_crop_times=(-0.2, 0.5), onset_time=2, overwrite=True, n_jobs=n_jobs)
